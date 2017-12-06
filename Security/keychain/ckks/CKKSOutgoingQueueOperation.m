@@ -78,7 +78,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountQueue: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         ckks.lastOutgoingQueueOperation = self;
         if(self.cancelled) {
             ckksnotice("ckksoutgoing", ckks, "CKKSOutgoingQueueOperation cancelled, quitting");
@@ -280,9 +280,7 @@
                                     // The current key pointers have updated without our knowledge, so CloudKit failed this operation. Mark all records as 'needs reencryption' and kick that off.
                                     [strongSelf _onqueueModifyAllRecordsAsReencrypt: failedRecords.allKeys];
 
-                                    ckksnotice("ckksoutgoing", strongCKKS, "initiate key fetch and reencrypt");
-                                    // Nudge the key state machine, so that it runs off to fetch the new keys
-                                    [strongCKKS _onqueueKeyStateMachineRequestFetch];
+                                    // Note that _onqueueCKWriteFailed is responsible for kicking the key state machine, so we don't need to do it here.
                                     // This will wait for the key hierarchy to become 'ready'
                                     CKKSReencryptOutgoingItemsOperation* op = [[CKKSReencryptOutgoingItemsOperation alloc] initWithCKKSKeychainView:strongCKKS ckoperationGroup:strongSelf.ckoperationGroup];
                                     [strongCKKS scheduleOperation: op];
@@ -292,7 +290,7 @@
                                 } else {
                                     // CKErrorServerRecordChanged on an item update means that we've been overwritten.
                                     if([oqesModified containsObject:recordID]) {
-                                        [self _onqueueModifyRecordAsError:recordID recordError:recordError];
+                                        [strongSelf _onqueueModifyRecordAsError:recordID recordError:recordError];
                                     }
                                 }
                             } else if(recordError.code == CKErrorBatchRequestFailed) {
@@ -324,7 +322,7 @@
                                 // Some unknown error occurred on this record. If it's an OQE, move it to the error state.
                                 ckkserror("ckksoutgoing", strongCKKS, "Unknown error on row: %@ %@", recordID, recordError);
                                 if([oqesModified containsObject:recordID]) {
-                                    [self _onqueueModifyRecordAsError:recordID recordError:recordError];
+                                    [strongSelf _onqueueModifyRecordAsError:recordID recordError:recordError];
                                 }
                             }
                         }
@@ -414,7 +412,7 @@
 
             [strongSelf.operationQueue addOperation: modifyComplete];
             // Kick off another queue process. We expect it to exit instantly, but who knows!
-            [strongCKKS processOutgoingQueue:self.ckoperationGroup];
+            [strongCKKS processOutgoingQueue:strongSelf.ckoperationGroup];
         };
 
         ckksinfo("ckksoutgoing", ckks, "Current keys to update: %@", currentKeysToSave);
@@ -455,7 +453,7 @@
             if(!error) {
                 ckksnotice("ckksoutgoing", blockCKKS, "Record upload successful for %@", record.recordID.recordName);
             } else {
-                ckkserror("ckksoutgoing", blockCKKS, "error on row: %@ %@", record, error);
+                ckkserror("ckksoutgoing", blockCKKS, "error on row: %@ %@", error, record);
             }
         };
 

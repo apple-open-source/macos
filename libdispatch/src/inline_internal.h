@@ -176,8 +176,8 @@ DISPATCH_ALWAYS_INLINE
 static inline _os_object_t
 _os_object_retain_internal_n_inline(_os_object_t obj, int n)
 {
-	int ref_cnt = _os_object_refcnt_add(obj, n);
-	if (unlikely(ref_cnt <= 0)) {
+	int ref_cnt = _os_object_refcnt_add_orig(obj, n);
+	if (unlikely(ref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an object");
 	}
 	return obj;

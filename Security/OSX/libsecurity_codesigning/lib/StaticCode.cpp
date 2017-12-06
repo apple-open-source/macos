@@ -883,7 +883,7 @@ bool SecStaticCode::verifySignature()
     }
     
     // Did we implicitly trust the signer?
-    mTrustedSigningCertChain = (trustResult == kSecTrustResultUnspecified);
+    mTrustedSigningCertChain = (trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed);
 
     return false; // XXX: Not checking for expired certs
 #endif

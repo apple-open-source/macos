@@ -2176,7 +2176,7 @@ SOSCCCreateSOSEndpoint_server(CFErrorRef *error)
     return [account xpcControlEndpoint];
 }
 
-void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivKey, CFErrorRef error))
+void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivSigningKey, CFErrorRef error))
 {
     CFErrorRef error = NULL;
     do_with_account_if_after_first_unlock(&error, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
@@ -2185,6 +2185,38 @@ void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivKey, 
         CFErrorRef errorArg = err ? *err : NULL;
         action(signingKey, errorArg);
         CFReleaseNull(signingKey);
-        return error == NULL;
+        return true;
     });
+    CFReleaseNull(error);
 }
+
+void SOSCCPerformWithOctagonEncryptionKey(void (^action)(SecKeyRef octagonPrivEncryptionKey, CFErrorRef error))
+{
+    CFErrorRef error = NULL;
+    do_with_account_if_after_first_unlock(&error, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
+        SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
+        SecKeyRef signingKey = SOSFullPeerInfoCopyOctagonEncryptionKey(fpi, err);
+        CFErrorRef errorArg = err ? *err : NULL;
+        action(signingKey, errorArg);
+        CFReleaseNull(signingKey);
+        return true;
+    });
+    CFReleaseNull(error);
+}
+
+void SOSCCPerformWithTrustedPeers(void (^action)(CFSetRef sosPeerInfoRefs, CFErrorRef error))
+{
+    CFErrorRef cfAccountError = NULL;
+    do_with_account_if_after_first_unlock(&cfAccountError, ^bool(SOSAccountTransaction *txn, CFErrorRef *cferror) {
+        CFSetRef sosPeerSet = [txn.account.trust copyPeerSetMatching:^bool(SOSPeerInfoRef peer) {
+            return true;
+        }];
+
+        CFErrorRef errorArg = cferror ? *cferror : NULL;
+        action(sosPeerSet, errorArg);
+        CFReleaseNull(sosPeerSet);
+        return true;
+    });
+    CFReleaseNull(cfAccountError);
+}
+

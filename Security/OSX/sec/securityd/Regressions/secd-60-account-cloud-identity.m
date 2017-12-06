@@ -52,7 +52,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 213;
+static int kTestTestCount = 161;
 
 static bool purgeICloudIdentity(SOSAccount* account) {
     bool retval = false;

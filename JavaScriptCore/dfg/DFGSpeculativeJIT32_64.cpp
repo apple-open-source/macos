@@ -4992,6 +4992,13 @@ void SpeculativeJIT::compile(Node* node)
             JITCompiler::selectScratchGPR(GPRInfo::returnValueGPR, argumentsTagGPR, argumentsPayloadGPR);
         
         m_jit.add32(TrustedImm32(1), GPRInfo::returnValueGPR, argCountIncludingThisGPR);
+
+        speculationCheck(
+            VarargsOverflow, JSValueSource(), Edge(), m_jit.branch32(
+                MacroAssembler::Above,
+                GPRInfo::returnValueGPR,
+                argCountIncludingThisGPR));
+
         speculationCheck(
             VarargsOverflow, JSValueSource(), Edge(), m_jit.branch32(
                 MacroAssembler::Above,
@@ -5629,6 +5636,10 @@ void SpeculativeJIT::compile(Node* node)
 
     case Unreachable:
         unreachable(node);
+        break;
+
+    case CheckStructureOrEmpty:
+        DFG_CRASH(m_jit.graph(), node, "CheckStructureOrEmpty only used in 64-bit DFG");
         break;
 
     case LastNodeType:

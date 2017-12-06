@@ -63,6 +63,9 @@ extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
 - (CKKSResultOperation*)requestSuccessfulFetch:(CKKSFetchBecause*)why;
 - (CKKSResultOperation*)requestSuccessfulResyncFetch:(CKKSFetchBecause*)why;
 
+// We don't particularly care what this does, as long as it finishes
+- (void)holdFetchesUntil:(CKKSResultOperation*)holdOperation;
+
 -(void)cancel;
 @end
 

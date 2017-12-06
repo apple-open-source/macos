@@ -542,6 +542,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     [self setEphemeral:NO];
     
 	NSString * v = [dict objectForKey:@"Variant"];
+    NSString * moves = [dict objectForKey:@"Moves"];
+    if (!moves) {
+        [dict setValue:@"" forKey:@"Moves"];
+    }
 	
 	for (variant = kVarNormal; gVariantName[variant] && ![v isEqual:gVariantName[variant]]; )
 		variant = static_cast<MBCVariant>(variant+1);
@@ -589,6 +593,12 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 	NSPropertyListFormat	format;
 	NSDictionary *			gameData = 
 		[NSPropertyListSerialization propertyListWithData:docData options:0 format:&format error:outError];
+    if (gameData == nil) {
+        if (outError) {
+            *outError = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadCorruptFileError userInfo:nil];
+        }
+        return NO;
+    }
     if (NSString * matchID = [gameData objectForKey:@"MatchID"]) {
         
         MBCController *appDelegate = (MBCController *)[[NSApplication sharedApplication] delegate];
@@ -622,6 +632,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 	// have such a long name anyway?
 	//
 	char	   n[100];
+    if (fullName == nil) {
+        fullName = @"";
+    }
+    
 	strlcpy(n, [fullName UTF8String], 100);
 	
 	char * first 	= n+strspn(n, " \t"); 	// Beginning of first name

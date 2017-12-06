@@ -152,7 +152,14 @@ static const char * sPieceChar = " KQBNRP";
 		if (move[4])
 			fPromotion	= static_cast<MBCPiece>(strchr(piece, move[4])-piece);
 	}
-	
+    
+    //sanitize - fPiece needs to be a valid index in the character sequence pointed to by piece
+    //fFromSquare and fToSquare should stay within the board's confines (64 squares indexed 0-63)
+    
+    if (fPiece > (strlen(piece)-1) || fFromSquare >= kBoardSquares || fToSquare >= kBoardSquares) {
+        fCommand = kCmdNull;
+    }
+    
 	return self;
 }
 
@@ -941,7 +948,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 - (void) setFen:(NSString *)fen holding:(NSString *)holding 
 	moves:(NSString *)moves
 {
-	if (moves) {
+	if (moves && [moves length] > 0) {
 		//
 		// We prefer to restore the game by replaying the moves
 		//
@@ -951,13 +958,16 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 		while (NSString * move = [e nextObject]) 
 			if ([move length])
 				[self makeMove:[MBCMove moveFromEngineMove:move]];
-		if (![fen isEqual:[self fen]]) 
+		if (![fen isEqual:[self fen]])
 			NSLog(@"FEN Mismatch, Expected: <%@> Got <%@>\n",
 				  fen, [self fen]);
 	} else {
 		const char * s = [fen UTF8String];
-		MBCPiece *   b = fCurPos.fBoard+56;
+		MBCPiece *   firstSquareInRank = fCurPos.fBoard+kSquareA8;    //beginning with the last rank
+        MBCPiece *   b = firstSquareInRank;
 		MBCPiece	 p;
+        
+        bool isCorrupt = false;
 
 		memset(fCurPos.fBoard, 0, 64);
 		while (isspace(*s))
@@ -1010,9 +1020,14 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 			case '1':
 				p =  EMPTY;
 				b += s[-1]-'0';
-				if (!((b-fCurPos.fBoard) & 7))
-					b -= 16; // Start previous rank
+                if (b-firstSquareInRank > 8)
+                    isCorrupt = true;
+                else if (b-firstSquareInRank == 8)
+                    b = (firstSquareInRank -= 8);  //beginning of previous rank
 				break;
+            case '\0':
+                firstSquareInRank = fCurPos.fBoard-1;
+                break;
 			case '/':
 			default:
 				p = EMPTY;
@@ -1020,116 +1035,147 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 			}
 			if (p) {
 				*b++ = p;
-				if (!((b-fCurPos.fBoard) & 7))
-					b -= 16; // Start previous rank
+                if (b-firstSquareInRank > 8)
+                    isCorrupt = true;
+                else if (b-firstSquareInRank == 8)
+                    b = (firstSquareInRank -= 8);  //beginning of previous rank
 			}
-		} while (b >= fCurPos.fBoard);
+		} while (!isCorrupt && b >= fCurPos.fBoard);
 
-		while (isspace(*s))
-			++s;
+        do {
+            fMoveClock = 0;
+            
+            if (!*s || isCorrupt) break;
 
-		if (*s++ == 'b')	
-			[fMoves addObject:[MBCMove moveWithCommand:kCmdNull]];
-		
-		while (isspace(*s))
-			++s;
-		
-		while (!isspace(*s))
-			switch (*s++) {
-			case 'K':
-				fCurPos.fBoard[4] &= ~kPieceMoved;
-				fCurPos.fBoard[7] &= ~kPieceMoved;
-				break;
-			case 'Q':
-				fCurPos.fBoard[4] &= ~kPieceMoved;
-				fCurPos.fBoard[0] &= ~kPieceMoved;
-				break;
-			case 'k':
-				fCurPos.fBoard[60] &= ~kPieceMoved;
-				fCurPos.fBoard[63] &= ~kPieceMoved;
-				break;
-			case 'q':
-				fCurPos.fBoard[60] &= ~kPieceMoved;
-				fCurPos.fBoard[56] &= ~kPieceMoved;
-				break;
-			}
+            while (isspace(*s))
+                ++s;
 
-		while (isspace(*s))
-			++s;
+            if (*s == 'b') {
+                ++s;
+                [fMoves addObject:[MBCMove moveWithCommand:kCmdNull]];
+            }
 
-		if (*s == '-')
-			fCurPos.fBoard[Square(*s, s[1]-'0')] &= ~kPieceMoved;
-		s += 2;
+            while (isspace(*s))
+                ++s;
+            
+            while (*s && !isspace(*s))
+                switch (*s++) {
+                case 'K':
+                    fCurPos.fBoard[4] &= ~kPieceMoved;
+                    fCurPos.fBoard[7] &= ~kPieceMoved;
+                    break;
+                case 'Q':
+                    fCurPos.fBoard[4] &= ~kPieceMoved;
+                    fCurPos.fBoard[0] &= ~kPieceMoved;
+                    break;
+                case 'k':
+                    fCurPos.fBoard[60] &= ~kPieceMoved;
+                    fCurPos.fBoard[63] &= ~kPieceMoved;
+                    break;
+                case 'q':
+                    fCurPos.fBoard[60] &= ~kPieceMoved;
+                    fCurPos.fBoard[56] &= ~kPieceMoved;
+                    break;
+                }
 
-		while (isspace(*s))
-			++s;
+            while (isspace(*s))
+                ++s;
 
-		fMoveClock = 0;
-		while (isdigit(*s))
-			fMoveClock = 10*fMoveClock + *s++ - '0';
+            //check if "en passant" move
+            if (*s >= 'a' && *s <= 'h' && *(s+1) >= 1 && *(s+1) <= 8)
+                fCurPos.fBoard[Square(*s, s[1]-'0')] &= ~kPieceMoved;
 
-		memset(fCurPos.fInHand, 0, 16);
+            if (!*s || !*(s+1)) break;
+            
+            s += 2;
 
-		s = [holding UTF8String];
+            while (isspace(*s))
+                ++s;
 
-		s = strchr(s, '[');
-		if (!s)
-			return;
+            while (isdigit(*s))
+                fMoveClock = 10*fMoveClock + *s++ - '0';
 
-		do {
-			switch (*++s) {
-			case 'Q':
-				p	= White(QUEEN);
-				break;
-			case 'B':
-				p	= White(BISHOP);
-				break;
-			case 'N':
-				p	= White(KNIGHT);
-				break;
-			case 'R':
-				p 	= White(ROOK);
-				break;
-			case 'P':
-				p	= White(PAWN);
-				break;
-			default:
-				p	= 0;
-				break;
-			}
-			if (p)
-				++fCurPos.fInHand[p];
-		} while (p);
+            //parse "Holding" key
+            memset(fCurPos.fInHand, 0, 16);
 
-		s = strchr(s, '[');
-		if (!s)
-			return;
-		
-		do {
-			switch (*++s) {
-			case 'Q':
-				p	= Black(QUEEN);
-				break;
-			case 'B':
-				p	= Black(BISHOP);
-				break;
-			case 'N':
-				p	= Black(KNIGHT);
-				break;
-			case 'R':
-				p	= Black(ROOK);
-				break;
-			case 'P':
-				p	= Black(PAWN);
-				break;
-			default:
-				p 	= 0;
-				break;
-			}
-			if (p)
-				++fCurPos.fInHand[p];
-		} while (p);
-	}
+            s = [holding UTF8String];
+
+            s = strchr(s, '[');
+            if (!s)
+                break;  //expecting [...][...]
+
+            do {
+                switch (*++s) {
+                case 'Q':
+                    p    = White(QUEEN);
+                    break;
+                case 'B':
+                    p    = White(BISHOP);
+                    break;
+                case 'N':
+                    p    = White(KNIGHT);
+                    break;
+                case 'R':
+                    p     = White(ROOK);
+                    break;
+                case 'P':
+                    p    = White(PAWN);
+                    break;
+                default:
+                    p    = 0;
+                    break;
+                }
+                if (p)
+                    ++fCurPos.fInHand[p];
+            } while (p);
+
+            s = strchr(s, '[');
+            if (!s)
+                break;
+            
+            do {
+                switch (*++s) {
+                case 'Q':
+                    p    = Black(QUEEN);
+                    break;
+                case 'B':
+                    p    = Black(BISHOP);
+                    break;
+                case 'N':
+                    p    = Black(KNIGHT);
+                    break;
+                case 'R':
+                    p    = Black(ROOK);
+                    break;
+                case 'P':
+                    p    = Black(PAWN);
+                    break;
+                default:
+                    p     = 0;
+                    break;
+                }
+                if (p)
+                    ++fCurPos.fInHand[p];
+            } while (p);
+        } while (1);
+        
+        if (isCorrupt) {
+            //use a clean starting configuration to initialize the board
+            [self setFen:@"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" holding:holding moves:@""];
+            
+            /*****
+            //RADAR 34171287
+            //display an alert message to let the user know the game could not be loaded
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert addButtonWithTitle:@"OK"];
+            [alert setMessageText:NSLocalizedString(@"game_load_fail", @"Failed to load game")];
+            [alert setInformativeText:NSLocalizedString(@"game_load_fail_msg", @"The specified game file could not be loaded.")];
+            [alert setAlertStyle:NSAlertStyleWarning];
+            [alert runModal];
+            [alert release];
+             *****/
+        }
+    }
 	fPrvPos = fCurPos;
 }
 

@@ -124,7 +124,6 @@ struct DHCPv6Client {
     DHCPv6ClientState			cstate;
     DHCPv6SocketRef			sock;
     timer_callout_t *			timer;
-    DHCPv6ClientEventFuncRef		address_changed_func;
     uint32_t				transaction_id;
     int					try;
     CFAbsoluteTime			start_time;
@@ -142,14 +141,6 @@ STATIC DHCPv6ClientEventFunc	DHCPv6Client_Unbound;
 STATIC DHCPv6ClientEventFunc	DHCPv6Client_Solicit;
 STATIC DHCPv6ClientEventFunc	DHCPv6Client_Request;
 STATIC DHCPv6ClientEventFunc	DHCPv6Client_RenewRebind;
-
-INLINE void
-DHCPv6ClientSetAddressChangedFunc(DHCPv6ClientRef client,
-				  DHCPv6ClientEventFuncRef func)
-{
-    client->address_changed_func = func;
-    return;
-}
 
 INLINE interface_t *
 DHCPv6ClientGetInterface(DHCPv6ClientRef client)
@@ -617,7 +608,6 @@ DHCPv6ClientPostNotification(DHCPv6ClientRef client)
 STATIC void
 DHCPv6ClientCancelPendingEvents(DHCPv6ClientRef client)
 {
-    DHCPv6ClientSetAddressChangedFunc(client, NULL);
     DHCPv6SocketDisableReceive(client->sock);
     timer_cancel(client->timer);
     return;
@@ -985,6 +975,8 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	break;
     case IFEventID_data_e: {
 	DHCPv6SocketReceiveDataRef 	data;
+	int				option_len;
+	DHCPDUIDRef			server_id;
 
 	data = (DHCPv6SocketReceiveDataRef)event_data;
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
@@ -994,12 +986,20 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* not a match */
 	    break;
 	}
+	server_id = (DHCPDUIDRef)
+	    DHCPv6OptionListGetOptionDataAndLength(data->options,
+						   kDHCPv6OPTION_SERVERID,
+						   &option_len, NULL);
+	if (server_id == NULL
+	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    /* missing/invalid DUID */
+	    break;
+	}
 	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6ClientPostNotification(client);
 	DHCPv6ClientCancelPendingEvents(client);
-	/* XXX don't necessarily take the first response */
 	break;
     }
     default:
@@ -1136,20 +1136,20 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	    return;
 	}
 	time_since_start = current_time - client->lease.start;
-	if (time_since_start >= client->lease.valid_lifetime) {
+	if (((uint32_t)time_since_start) >= client->lease.valid_lifetime) {
 	    /* expired */
 	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
 	    return;
 	}
 	
-	if (time_since_start < client->lease.t2) {
+	if (((uint32_t)time_since_start) < client->lease.t2) {
 	    CFTimeInterval	time_until_t2;
 
 	    /* Renew (before T2) */
 	    wait_time = DHCPv6ClientNextRetransmit(client,
 						   DHCPv6_REN_TIMEOUT,
 						   DHCPv6_REN_MAX_RT);
-	    time_until_t2 = client->lease.t2 - time_since_start;
+	    time_until_t2 = client->lease.t2 - (uint32_t)time_since_start;
 	    if (wait_time > time_until_t2) {
 		wait_time = time_until_t2;
 	    }
@@ -1160,6 +1160,8 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* Rebind (T2 or later) */
 	    if (client->cstate != kDHCPv6ClientStateRebind) {
 		/* switch to Rebind */
+		client->transaction_id = get_new_transaction_id();
+		client->start_time = current_time;
 		DHCPv6ClientSetState(client, kDHCPv6ClientStateRebind);
 		DHCPv6ClientClearRetransmit(client);
 	    }
@@ -1167,7 +1169,7 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 						   DHCPv6_REB_TIMEOUT,
 						   DHCPv6_REB_MAX_RT);
 	    time_until_expiration 
-		= client->lease.valid_lifetime - time_since_start;
+		= client->lease.valid_lifetime - (uint32_t)time_since_start;
 	    if (wait_time > time_until_expiration) {
 		wait_time = time_until_expiration;
 	    }
@@ -1373,6 +1375,9 @@ DHCPv6ClientHandleAddressChanged(DHCPv6ClientRef client,
 	/* no addresses configured, nothing to do */
 	return;
     }
+    if (client->cstate != kDHCPv6ClientStateBound) {
+	return;
+    }
     for (i = 0, scan = addr_list_p->list; 
 	 i < addr_list_p->count; i++, scan++) {
 	if (IN6_ARE_ADDR_EQUAL(&client->our_ip, &scan->addr)) {
@@ -1393,7 +1398,7 @@ DHCPv6ClientHandleAddressChanged(DHCPv6ClientRef client,
 	    /* set a timer to start in Renew */
 	    if (client->lease.valid_lifetime != DHCP_INFINITE_LEASE) {
 		CFAbsoluteTime	current_time = timer_get_current_time();
-		uint32_t		t1 = client->lease.t1;
+		uint32_t	t1 = client->lease.t1;
 		CFTimeInterval	time_since_start = 0;
 		
 		if (current_time < client->lease.start) {
@@ -1402,8 +1407,8 @@ DHCPv6ClientHandleAddressChanged(DHCPv6ClientRef client,
 		    return;
 		}
 		time_since_start = current_time - client->lease.start;
-		if (time_since_start < t1) {
-		    t1 -= time_since_start;
+		if (((uint32_t)time_since_start) < t1) {
+		    t1 -= (uint32_t)time_since_start;
 		}
 		else {
 		    t1 = 10; /* wakeup in 10 seconds */
@@ -1434,7 +1439,6 @@ STATIC void
 DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id, 
 		   void * event_data)
 {
-    inet6_addrlist_t * 		addr_list_p;
     interface_t *		if_p = DHCPv6ClientGetInterface(client);
     char 			ntopbuf[INET6_ADDRSTRLEN];
 
@@ -1469,15 +1473,15 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 		return;
 	    }
 	    time_since_start = current_time - client->lease.start;
-	    if (time_since_start >= client->lease.valid_lifetime) {
+	    if (((uint32_t)time_since_start) >= client->lease.valid_lifetime) {
 		/* expired */
 		DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
 		return;
 	    }
 	    /* reduce the time left by the amount that's elapsed already */
-	    valid_lifetime -= time_since_start;
-	    if (time_since_start < preferred_lifetime) {
-		preferred_lifetime -= time_since_start;
+	    valid_lifetime -= (uint32_t)time_since_start;
+	    if (((uint32_t)time_since_start) < preferred_lifetime) {
+		preferred_lifetime -= (uint32_t)time_since_start;
 	    }
 	    else {
 		preferred_lifetime = 0; /* XXX really? */
@@ -1536,8 +1540,8 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	    if (client->lease.valid_lifetime != DHCP_INFINITE_LEASE) {
 		uint32_t	t1 = client->lease.t1;
 
-		if (time_since_start < t1) {
-		    t1 -= time_since_start;
+		if (((uint32_t)time_since_start) < t1) {
+		    t1 -= (uint32_t)time_since_start;
 		}
 		else {
 		    t1 = 10; /* wakeup in 10 seconds */
@@ -1549,8 +1553,6 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	    }
 	}
 	else {
-	    /* register to receive address changed notifications */
-	    DHCPv6ClientSetAddressChangedFunc(client, DHCPv6Client_Bound);
 	    client->our_ip = *our_ip;
 	    client->our_prefix_length = prefix_length;
 	    /* and see what addresses are there now */
@@ -1559,10 +1561,6 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	close(s);
 	break;
     }
-    case IFEventID_ipv6_address_changed_e:
-	addr_list_p = (inet6_addrlist_t *)event_data;
-	DHCPv6ClientHandleAddressChanged(client, addr_list_p);
-	break;
     default:
 	break;
     }
@@ -1597,6 +1595,7 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateRequest);
 	DHCPv6ClientClearRetransmit(client);
 	client->transaction_id = get_new_transaction_id();
+	client->start_time = timer_get_current_time();
 	DHCPv6SocketEnableReceive(client->sock, (DHCPv6SocketReceiveFuncPtr)
 				  DHCPv6Client_Request,
 				  client, (void *)IFEventID_data_e);
@@ -1721,7 +1720,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 		break;
 	    }
 	}
-	/* we've got a packet */
+	/* we received a response after waiting */
 	if (client->saved.pkt_len != 0) {
 	    DHCPv6Client_Request(client, IFEventID_start_e, NULL);
 	    return;
@@ -1753,7 +1752,6 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6SocketReceiveDataRef 	data;
 	DHCPv6OptionIA_NARef		ia_na;
 	DHCPv6OptionIAADDRRef		ia_addr;
-	bool				first_saved = false;
 	char 				ntopbuf[INET6_ADDRSTRLEN];
 	int				option_len;
 	uint8_t				pref;
@@ -1836,22 +1834,11 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 		   if_name(if_p), str);
 	    CFRelease(str);
 	}
-	first_saved = (client->saved.pkt_len == 0);
 	DHCPv6ClientSavePacket(client, data);
-	if (pref == kDHCPv6OptionPREFERENCEMaxValue) {
-	    /* if preference is max, jump right to Request */
+	if (client->try > 1 || pref == kDHCPv6OptionPREFERENCEMaxValue) {
+	    /* already waited, or preference is max, move to Request */
 	    DHCPv6Client_Request(client, IFEventID_start_e, NULL);
 	    break;
-	}
-	else if (first_saved) {
-#define DHCPv6_GATHER_TIMEOUT	1.0
-	    /* set a short timeout */
-	    my_log(LOG_INFO,
-		   "DHCPv6 %s: Gathering responses", if_name(if_p));
-	    timer_callout_set(client->timer,
-			      DHCPv6_GATHER_TIMEOUT,
-			      (timer_func_t *)DHCPv6Client_Solicit, 
-			      client, (void *)IFEventID_timeout_e, NULL);
 	}
 	break;
     }
@@ -2010,18 +1997,7 @@ PRIVATE_EXTERN void
 DHCPv6ClientAddressChanged(DHCPv6ClientRef client, 
 			   inet6_addrlist_t * addr_list_p)
 {
-    if (addr_list_p == NULL || addr_list_p->count == 0) {
-	/* no addresses configured, nothing to do */
-	return;
-    }
-    if (client->address_changed_func != NULL) {
-	(*client->address_changed_func)(client, 
-					IFEventID_ipv6_address_changed_e,
-					addr_list_p);
-    }
-    else {
-	/* XXX check for an on-going conflict */
-    }
+    DHCPv6ClientHandleAddressChanged(client, addr_list_p);
     return;
 }
 

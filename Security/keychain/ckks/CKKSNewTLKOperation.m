@@ -31,6 +31,8 @@
 
 #if OCTAGON
 
+#import "keychain/ckks/CKKSTLKShare.h"
+
 @interface CKKSNewTLKOperation ()
 @property NSBlockOperation* cloudkitModifyOperationFinished;
 @property CKOperationGroup* ckoperationGroup;
@@ -79,7 +81,7 @@
     }
 
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
-    [ckks dispatchSync: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksnotice("ckkstlk", ckks, "CKKSNewTLKOperation cancelled, quitting");
             return false;
@@ -191,7 +193,7 @@
         }
 
         // Save the proposed keys to the keychain. Note that we might reject this TLK later, but in that case, this TLK is just orphaned. No worries!
-        ckksinfo("ckkstlk", ckks, "Saving new keys %@ to database %@", recordsToSave, ckks.database);
+        ckksnotice("ckkstlk", ckks, "Saving new keys %@ to database %@", recordsToSave, ckks.database);
 
         [newTLK       saveKeyMaterialToKeychain: &error];
         [newClassAKey saveKeyMaterialToKeychain: &error];
@@ -201,6 +203,18 @@
             ckkserror("ckkstlk", ckks, "couldn't save new key material to keychain, aborting new TLK operation: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
             return false;
+        }
+
+        // Generate the TLK sharing records for all trusted peers
+        NSMutableSet<CKKSTLKShare*>* tlkShares = [NSMutableSet set];
+        if(SecCKKSShareTLKs()) {
+            for(id<CKKSPeer> trustedPeer in ckks.currentTrustedPeers) {
+                ckksnotice("ckkstlk", ckks, "Generating TLK(%@) share for %@", newTLK, trustedPeer);
+                CKKSTLKShare* share = [CKKSTLKShare share:newTLK as:ckks.currentSelfPeers.currentSelf to:trustedPeer epoch:-1 poisoned:0 error:&error];
+
+                [tlkShares addObject:share];
+                [recordsToSave addObject: [share CKRecordWithZoneID: ckks.zoneID]];
+            }
         }
 
         // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
@@ -244,7 +258,7 @@
                 return;
             }
 
-            [strongCKKS dispatchSync: ^bool{
+            [strongCKKS dispatchSyncWithAccountKeys: ^bool{
                 if(ckerror == nil) {
                     ckksnotice("ckkstlk", strongCKKS, "Completed TLK CloudKit operation");
 
@@ -269,6 +283,12 @@
                         } else if([currentClassCPointer matchesCKRecord: record]) {
                             currentClassCPointer.storedCKRecord = record;
                         }
+
+                        for(CKKSTLKShare* share in tlkShares) {
+                            if([share matchesCKRecord: record]) {
+                                share.storedCKRecord = record;
+                            }
+                        }
                     }
 
                     [newTLK       saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
@@ -280,6 +300,10 @@
                     [currentClassCPointer saveToDatabase: &localerror];
 
                     [wrappedOldTLK saveToDatabase: &localerror];
+
+                    for(CKKSTLKShare* share in tlkShares) {
+                        [share saveToDatabase:&localerror];
+                    }
 
                     // TLKs are already saved in the local keychain; fire off a backup
                     CKKSNearFutureScheduler* tlkNotifier = strongCKKS.savedTLKNotifier;

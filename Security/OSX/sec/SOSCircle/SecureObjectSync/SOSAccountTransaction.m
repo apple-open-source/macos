@@ -77,8 +77,10 @@
     self.initialKeyParameters = self.account.accountKeyDerivationParamters ? [NSData dataWithData:self.account.accountKeyDerivationParamters] : nil;
 
     SOSPeerInfoRef mpi = self.account.peerInfo;
-    self.initialViews = mpi ? (__bridge_transfer NSSet*) SOSPeerInfoCopyEnabledViews(mpi) : nil;
-
+    if (mpi) {
+        self.initialViews = CFBridgingRelease(SOSPeerInfoCopyEnabledViews(mpi));
+        [self.account ensureOctagonPeerKeys];
+    }
     self.peersToRequestSync = nil;
 
     CFStringSetPerformWithDescription((__bridge CFSetRef) self.initialViews, ^(CFStringRef description) {

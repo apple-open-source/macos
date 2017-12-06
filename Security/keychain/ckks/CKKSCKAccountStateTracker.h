@@ -61,9 +61,9 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
 @property SOSCCStatus currentCircleStatus;
 
 // Fetched and memoized from CloudKit; we can't afford deadlocks with their callbacks
-@property NSString*      ckdeviceID;
-@property NSError*       ckdeviceIDError;
-@property CKKSCondition* ckdeviceIDInitialized;
+@property (copy) NSString* ckdeviceID;
+@property NSError*         ckdeviceIDError;
+@property CKKSCondition*   ckdeviceIDInitialized;
 
 // Fetched and memoized from the Account when we're in-circle; our threading model is strange
 @property NSString*      accountCirclePeerID;

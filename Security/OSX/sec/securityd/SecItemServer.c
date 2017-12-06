@@ -430,7 +430,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 comma = true;
             }
 
-            CFStringAppendFormat(sql, NULL, CFSTR("INSERT INTO %@ (%@) SELECT %@ FROM %@;"), (*newClass)->name, columns, columns, renamedOldClass->name);
+            CFStringAppendFormat(sql, NULL, CFSTR("INSERT OR REPLACE INTO %@ (%@) SELECT %@ FROM %@;"), (*newClass)->name, columns, columns, renamedOldClass->name);
 
             CFReleaseNull(columns);
             require_quiet(ok &= SecDbExec(dbt, sql, error), out);

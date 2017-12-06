@@ -230,7 +230,7 @@ static void communicateWithTimeStampingServer(xpc_object_t event, const char *re
         } else if (tsaReply) {
             reply = xpc_create_reply_with_format(event, "{TimeStampReply: %value}", tsaReply);
         } else {
-            reply = xpc_create_reply_with_format(event, "No TimeStampReply or TimeStampError");
+            reply = xpc_create_reply_with_format(event, "{}");
         }
         xpc_connection_send_message(peer, reply);
         xpc_release(reply);

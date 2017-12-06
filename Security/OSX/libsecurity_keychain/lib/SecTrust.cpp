@@ -31,8 +31,6 @@
 #include "SecTrustSettingsPriv.h"
 #include "SecTrustStatusCodes.h"
 #include "SecCertificatePriv.h"
-#include "SecCertificateP.h"
-#include "SecCertificatePrivP.h"
 #include "SecPolicyPriv.h"
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/cfmunge.h>

@@ -20,6 +20,9 @@
 -(bool) ensureFullPeerAvailable:(CFDictionaryRef)gestalt deviceID:(CFStringRef)deviceID backupKey:(CFDataRef)backup err:(CFErrorRef *) error;
 -(bool) isMyPeerActive:(CFErrorRef*) error;
 -(void) purgeIdentity;
+
+- (void)ensureOctagonPeerKeys:(SOSKVSCircleStorageTransport*)circleTransport;
+
 @end
 
 

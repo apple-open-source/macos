@@ -46,5 +46,7 @@
 	<true/>
 	<key>com.apple.frontboard.launchapplications</key>
 	<true/>
+	<key>com.apple.private.usbdevice.setdescription</key>
+	<true/>
 </dict>
 </plist>

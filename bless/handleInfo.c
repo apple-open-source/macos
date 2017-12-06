@@ -126,6 +126,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	int             		mntsize;
 	struct statfs   		*mnts;
 	char            		realMountPoint[MAXPATHLEN];
+	char					prebootMountPoint[MAXPATHLEN];
 
     if(!actargs[kinfo].hasArg || actargs[kgetboot].present) {
         char currentDev[1024]; // may contain URLs like bsdp://foo
@@ -242,7 +243,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                 // Either there was no path in NVRAM or it didn't have the right form.
                                 // Let's try to get the path from the volume bless information.
                                 // Check if the preboot volume is mounted.
-                                char            prebootMountPoint[MAXPATHLEN];
                                 bool            mustUnmount = false;
                                 uint64_t        blessWords[2];
                                 
@@ -254,7 +254,8 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                     strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
                                 } else {
                                     // The preboot volume isn't mounted right now.  We'll have to mount it.
-                                    ret = MountPrebootVolume(context, currentDev + strlen("/dev/"), prebootMountPoint, sizeof prebootMountPoint);
+                                    ret = MountPrebootVolume(context, currentDev + strlen("/dev/"), prebootMountPoint,
+															 sizeof prebootMountPoint, true);
                                     if (ret) {
                                         blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume %s\n", currentDev);
                                         return 3;
@@ -463,7 +464,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 		prebootBSDs = CFDictionaryGetValue(dict, kBLAPFSPrebootVolumesKey);
 		if (prebootBSDs && CFGetTypeID(prebootBSDs) == CFArrayGetTypeID()) {
 			CFIndex count, i;
-			char            prebootMountPoint[MAXPATHLEN];
 			bool            mustUnmount = false;
 
 			count = CFArrayGetCount(prebootBSDs);
@@ -490,7 +490,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 					strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
 				} else {
 					// The preboot volume isn't mounted right now.  We'll have to mount it.
-					ret = MountPrebootVolume(context, prebootNode, prebootMountPoint, sizeof prebootMountPoint);
+					ret = MountPrebootVolume(context, prebootNode, prebootMountPoint, sizeof prebootMountPoint, true);
 					if (ret) {
 						blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume /dev/%s\n", prebootNode);
 						noAccessToPreboot = true;
@@ -610,7 +610,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 				if (dirint > 0 && CFStringGetLength(path) == 0) {
 					strlcpy(cpath, MISSINGMSG, sizeof cpath);
 				} else {
-					if (!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
+					if (!CFStringGetCString(path, cpath, sizeof cpath, kCFStringEncodingUTF8)) {
 						continue;
 					}
 				}
@@ -619,7 +619,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 								   "%12llu => %s%s\n", dirint,
 								   messages[1-j][dirint > 0], cpath);
 				
-				if (!explicitPreboot && j == 1) {
+				if (!explicitPreboot && CFStringGetLength(path) > 0 && j == 1) {
 					char cpath[MAXPATHLEN];
 					char *slash;
 					CFStringRef uuidStr;

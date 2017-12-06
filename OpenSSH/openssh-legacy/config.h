@@ -1604,7 +1604,7 @@
 #define SSH_TUN_COMPAT_AF 1
 
 /* Open tunnel devices the FreeBSD way */
-#define SSH_TUN_FREEBSD 1
+/* #undef SSH_TUN_FREEBSD */
 
 /* Open tunnel devices the Linux tun/tap way */
 /* #undef SSH_TUN_LINUX */

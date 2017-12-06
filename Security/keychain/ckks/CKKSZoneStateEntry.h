@@ -31,6 +31,7 @@
 #if OCTAGON
 
 #import <CloudKit/CloudKit.h>
+#import "keychain/ckks/CKKSFixups.h"
 
 /*
  * This class hold the state for a particular zone: has the zone been created, have we subscribed to it,
@@ -56,6 +57,8 @@
 @property NSData* encodedChangeToken;
 @property NSDate* lastFetchTime;
 
+@property CKKSFixup lastFixup;
+
 @property CKKSRateLimiter* rateLimiter;
 @property NSData* encodedRateLimiter;
 
@@ -64,7 +67,13 @@
 + (instancetype) fromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error;
 + (instancetype) tryFromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error;
 
-- (instancetype) initWithCKZone: (NSString*) ckzone zoneCreated: (bool) ckzonecreated zoneSubscribed: (bool) ckzonesubscribed changeToken: (NSData*) changetoken lastFetch: (NSDate*) lastFetch encodedRateLimiter: (NSData*) encodedRateLimiter;
+- (instancetype)initWithCKZone:(NSString*)ckzone
+                   zoneCreated:(bool)ckzonecreated
+                zoneSubscribed:(bool)ckzonesubscribed
+                   changeToken:(NSData*)changetoken
+                     lastFetch:(NSDate*)lastFetch
+                     lastFixup:(CKKSFixup)lastFixup
+            encodedRateLimiter:(NSData*)encodedRateLimiter;
 
 - (CKServerChangeToken*) getChangeToken;
 - (void) setChangeToken: (CKServerChangeToken*) token;

@@ -20,6 +20,7 @@
 		<string>Config returns the correct sizes for both 32 and 64-bit</string>
 		<string>make CPAN::HandleConfig more forgiving about directory permissions</string>
 		<string>added new /Library/Perl/Updates/%lt;version%gt; directory that comes before the system perl directories in the module search order; installprivlib and installarchlib now point to this Updates directory</string>
+		<string>regcomp.c: CVE-2017-12837 34337696</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Artistic</string>

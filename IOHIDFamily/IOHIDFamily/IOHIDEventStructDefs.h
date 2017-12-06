@@ -744,4 +744,16 @@ typedef struct {
     IOHIDBrightnessEventData base;
 } __IOHIDBrightnessEventData;
 
+typedef struct {
+    uint32_t size;
+    IOHIDEventType type;
+    uint32_t options;
+    uint8_t depth;
+    uint8_t reserved[3];
+} IOHIDCollectionEventData;
+
+typedef struct {
+    IOHIDCollectionEventData base;
+} __IOHIDCollectionEventData;
+
 #endif

@@ -85,6 +85,13 @@
  */
 #define kEAPClientPropProfileID 	CFSTR("ProfileID")	/* string */
 
+/*
+ * kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled
+ * - when true tells EAP client to use encrypted Identity for EAP-AKA/EAP-SIM protocols
+ */
+#define kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled \
+	CFSTR("EAPSIMAKAEncryptedIdentityEnabled")
+
 #if TARGET_OS_EMBEDDED
 /*
  * kEAPClientPropTLSSaveTrustExceptions

@@ -66,26 +66,19 @@ static void         filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kext
 static Boolean      hashIsInExceptionList(CFURLRef theKextURL, CFDictionaryRef theDict, CFDictionaryRef codesignAttributes);
 static uint64_t     getKextDevModeFlags(void);
 
-const static AuthOptions_t sDefaultAuthOptions = {
-    .allowNetwork = true,                   // do revocation checks
-    .isCacheLoad = false,                   // not a cache load
-    .performFilesystemValidation = true,    // validate file owner & permissions
-    .performSignatureValidation = true,     // enforce signature policy
-    .requireSecureLocation = true,          // require all kexts in a secure location
-    .respectSystemPolicy = true,            // consult system policy daemon
-};
-
 Boolean
 authenticateKext(OSKextRef theKext, void *context)
 {
     Boolean result = false;
     OSStatus sigResult = 0;
-    const AuthOptions_t *authOptions = NULL;
-
-    if (context) {
-        authOptions = (const AuthOptions_t*)context;
-    } else {
-        authOptions = &sDefaultAuthOptions;
+    const AuthOptions_t *authOptions = (const AuthOptions_t*)context;
+    if (authOptions == NULL) {
+        OSKextLogCFString(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogValidationFlag,
+                          CFSTR("Kext rejected due to invalid authentication params: %@"),
+                          theKext);
+        result = false;
+        goto finish;
     }
 
     if (OSKextIsInExcludeList(theKext, true)) {

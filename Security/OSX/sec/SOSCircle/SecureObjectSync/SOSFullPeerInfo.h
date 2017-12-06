@@ -39,13 +39,13 @@ enum {
     kSOSFullPeerVersion = 1,
 };
 
-SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef *error);
+SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonEncryptionKey, CFErrorRef *error);
 
 bool SOSFullPeerInfoUpdateToThisPeer(SOSFullPeerInfoRef peer, SOSPeerInfoRef pi, CFErrorRef *error);
 
 SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
                                                   CFDictionaryRef gestalt, CFDataRef backupKey, CFSetRef enabledViews,
-                                                  SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef *error);
+                                                  SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonEncryptionKey, CFErrorRef *error);
 
 SOSFullPeerInfoRef SOSFullPeerInfoCopyFullPeerInfo(SOSFullPeerInfoRef toCopy);
 
@@ -54,7 +54,12 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, 
 SOSPeerInfoRef SOSFullPeerInfoGetPeerInfo(SOSFullPeerInfoRef fullPeer);
 SecKeyRef      SOSFullPeerInfoCopyDeviceKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
 SecKeyRef SOSFullPeerInfoCopyPubKey(SOSFullPeerInfoRef fpi, CFErrorRef *error);
+
+/* octagon keys */
+SecKeyRef SOSFullPeerInfoCopyOctagonPublicSigningKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
+SecKeyRef SOSFullPeerInfoCopyOctagonPublicEncryptionKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
 SecKeyRef SOSFullPeerInfoCopyOctagonSigningKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
+SecKeyRef SOSFullPeerInfoCopyOctagonEncryptionKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
 
 bool SOSFullPeerInfoPurgePersistentKey(SOSFullPeerInfoRef peer, CFErrorRef* error);
 
@@ -107,6 +112,9 @@ bool SOSFullPeerInfoUpdateDeviceID(SOSFullPeerInfoRef peer, CFStringRef deviceID
 bool SOSFullPeerInfoUpdateTransportPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
 bool SOSFullPeerInfoUpdateTransportFragmentationPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
 bool SOSFullPeerInfoUpdateTransportAckModelPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
+
+bool SOSFullPeerInfoUpdateOctagonSigningKey(SOSFullPeerInfoRef peer, SecKeyRef octagonSigningKey, CFErrorRef* error);
+bool SOSFullPeerInfoUpdateOctagonEncryptionKey(SOSFullPeerInfoRef peer, SecKeyRef octagonEncryptionKey, CFErrorRef* error);
 
 SOSSecurityPropertyResultCode SOSFullPeerInfoUpdateSecurityProperty(SOSFullPeerInfoRef peer, SOSViewActionCode action, CFStringRef property, CFErrorRef* error);
 SOSSecurityPropertyResultCode SOSFullPeerInfoSecurityPropertyStatus(SOSFullPeerInfoRef peer, CFStringRef property, CFErrorRef *error);

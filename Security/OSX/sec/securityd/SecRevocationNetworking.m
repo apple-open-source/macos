@@ -390,7 +390,7 @@ static ValidUpdateRequest *request = nil;
         });
 
         NSURLSessionDataTask *dataTask = [self.backgroundSession dataTaskWithURL:validUrl];
-        dataTask.taskDescription = [NSString stringWithFormat:@"%ld",version];
+        dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
         [dataTask resume];
         secnotice("validupdate", "scheduled background data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
     });

@@ -53,6 +53,8 @@ static uint8_t descriptor[] = {
     [super setUp];
     self.rootQueue = IOHIDUnitTestCreateRootQueue(31, 2);
     
+    system("kextload /AppleInternal/CoreOS/tests/IOHIDFamily/IOHIDEventFastPathTestDriver.kext");
+    
     self.eventControllerQueue = dispatch_queue_create_with_target ("IOHIDEventSystemTestController", DISPATCH_QUEUE_SERIAL, self.rootQueue);
     HIDXCTAssertAndThrowTrue(self.eventControllerQueue != nil);
     
@@ -79,7 +81,7 @@ static uint8_t descriptor[] = {
     [super tearDown];
 }
 
-- (void)CONDTIONAL_TEST_CASE(FastPathInit) {
+- (void)MAC_OS_ONLY_TEST_CASE(testFastPathInit) {
     Boolean result;
     NSString *ioClassName;
     IOHIDEventSystemTestController * eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
@@ -98,7 +100,7 @@ static uint8_t descriptor[] = {
 
 }
 
-- (void)CONDTIONAL_TEST_CASE(FastPathProperty) {
+- (void)MAC_OS_ONLY_TEST_CASE(testFastPathProperty) {
     Boolean result;
     CFTypeRef value;
     NSString *ioClassName;
@@ -130,7 +132,7 @@ static uint8_t descriptor[] = {
     }
 }
 
-- (void)CONDTIONAL_TEST_CASE(FastPathEventCopy) {
+- (void)MAC_OS_ONLY_TEST_CASE(testFastPathEventCopy) {
     Boolean result;
     NSString *ioClassName;
     __block IOHIDEventRef event;
@@ -156,7 +158,7 @@ static uint8_t descriptor[] = {
         
         if (index > 1) {
             NSArray* children = (NSArray*)IOHIDEventGetChildren (event);
-            XCTAssertTrue (children != NULL && children.count == index);
+            XCTAssertTrue (children != NULL && children.count == index, "events:%@", children);
         }
         CFRelease (event);
         NSData * dataCopySpec = [NSData dataWithBytes: &index length:sizeof(index)];

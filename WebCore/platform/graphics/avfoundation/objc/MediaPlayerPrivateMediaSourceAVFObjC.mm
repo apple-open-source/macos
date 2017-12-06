@@ -591,9 +591,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsCo
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(GraphicsContext3D* context, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY)
 {
-    if (flipY || premultiplyAlpha)
-        return false;
-
     // We have been asked to paint into a WebGL canvas, so take that as a signal to create
     // a decompression session, even if that means the native video can't also be displayed
     // in page.
@@ -607,14 +604,6 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(Gra
     if (updateLastPixelBuffer()) {
         if (!m_lastPixelBuffer)
             return false;
-
-        if (!m_textureCache) {
-            m_textureCache = TextureCacheCV::create(*context);
-            if (!m_textureCache)
-                return false;
-        }
-
-        m_lastTexture = m_textureCache->textureFromImage(m_lastPixelBuffer.get(), outputTarget, level, internalFormat, format, type);
     }
 
     size_t width = CVPixelBufferGetWidth(m_lastPixelBuffer.get());
@@ -623,7 +612,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(Gra
     if (!m_videoTextureCopier)
         m_videoTextureCopier = std::make_unique<VideoTextureCopierCV>(*context);
 
-    return m_videoTextureCopier->copyVideoTextureToPlatformTexture(m_lastTexture.get(), width, height, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
+    return m_videoTextureCopier->copyImageToPlatformTexture(m_lastPixelBuffer.get(), width, height, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::hasAvailableVideoFrame() const
@@ -638,7 +627,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::supportsAcceleratedRendering() const
 
 void MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged()
 {
-    if (!m_hasBeenAskedToPaintGL && m_player->client().mediaPlayerRenderingCanBeAccelerated(m_player)) {
+    if (!m_hasBeenAskedToPaintGL) {
         destroyDecompressionSession();
         ensureLayer();
     } else {
@@ -679,24 +668,27 @@ size_t MediaPlayerPrivateMediaSourceAVFObjC::extraMemoryCost() const
     return 0;
 }
 
-unsigned long MediaPlayerPrivateMediaSourceAVFObjC::totalVideoFrames()
+std::optional<PlatformVideoPlaybackQualityMetrics> MediaPlayerPrivateMediaSourceAVFObjC::videoPlaybackQualityMetrics()
 {
-    return [[m_sampleBufferDisplayLayer videoPerformanceMetrics] totalNumberOfVideoFrames];
-}
+    if (m_decompressionSession) {
+        return PlatformVideoPlaybackQualityMetrics(
+            m_decompressionSession->totalVideoFrames(),
+            m_decompressionSession->droppedVideoFrames(),
+            m_decompressionSession->corruptedVideoFrames(),
+            m_decompressionSession->totalFrameDelay().toDouble()
+        );
+    }
 
-unsigned long MediaPlayerPrivateMediaSourceAVFObjC::droppedVideoFrames()
-{
-    return [[m_sampleBufferDisplayLayer videoPerformanceMetrics] numberOfDroppedVideoFrames];
-}
+    auto metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics];
+    if (!metrics)
+        return std::nullopt;
 
-unsigned long MediaPlayerPrivateMediaSourceAVFObjC::corruptedVideoFrames()
-{
-    return [[m_sampleBufferDisplayLayer videoPerformanceMetrics] numberOfCorruptedVideoFrames];
-}
-
-MediaTime MediaPlayerPrivateMediaSourceAVFObjC::totalFrameDelay()
-{
-    return MediaTime::createWithDouble([[m_sampleBufferDisplayLayer videoPerformanceMetrics] totalFrameDelay]);
+    return PlatformVideoPlaybackQualityMetrics(
+        [metrics totalNumberOfVideoFrames],
+        [metrics numberOfDroppedVideoFrames],
+        [metrics numberOfCorruptedVideoFrames],
+        [metrics totalFrameDelay]
+    );
 }
 
 #pragma mark -
@@ -746,7 +738,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession()
     if (m_decompressionSession)
         return;
 
-    m_decompressionSession = WebCoreDecompressionSession::create();
+    m_decompressionSession = WebCoreDecompressionSession::createOpenGL();
     m_decompressionSession->setTimebase([m_synchronizer timebase]);
 
     if (m_mediaSourcePrivate)

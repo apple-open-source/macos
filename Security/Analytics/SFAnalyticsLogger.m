@@ -28,6 +28,8 @@
 #import "CKKSViewManager.h"
 #import "debugging.h"
 #import <objc/runtime.h>
+#import <os/variant_private.h>
+#import <CoreFoundation/CFPriv.h>
 
 NSString* const SFAnalyticsLoggerTableSuccessCount = @"success_count";
 NSString* const SFAnalyticsLoggerColumnEventType = @"event_type";
@@ -47,8 +49,12 @@ NSString* const SFAnalyticsLoggerSplunkTopic = @"topic";
 NSString* const SFAnalyticsLoggerSplunkEventTime = @"eventTime";
 NSString* const SFAnalyticsLoggerSplunkPostTime = @"postTime";
 NSString* const SFAnalyticsLoggerSplunkEventType = @"eventType";
+NSString* const SFAnalyticsLoggerSplunkEventBuild = @"build";
+NSString* const SFAnalyticsLoggerSplunkEventProduct = @"product";
+
 NSString* const SFAnalyticsLoggerMetricsBase = @"metricsBase";
 NSString* const SFAnalyticsLoggerEventClassKey = @"eventClass";
+
 
 NSString* const SFAnalyticsUserDefaultsSuite = @"com.apple.security.analytics";
 
@@ -89,14 +95,15 @@ static NSString* const SFAnalyticsLoggerTableSchema = @"CREATE TABLE IF NOT EXIS
 #define SFANALYTICS_SPLUNK_DEV 0
 #define SFANALYTICS_MAX_EVENTS_TO_REPORT 999
 
-#if SFANALYTICS_SPLUNK_DEV
-#define SECONDS_BETWEEN_UPLOADS 10
-#else
-// three days = 60 seconds times 60 minutes * 72 hours
-#define SECONDS_BETWEEN_UPLOADS (60 * 60 * 72)
-#endif
-
 #define SECONDS_PER_DAY (60 * 60 * 24)
+
+#if SFANALYTICS_SPLUNK_DEV
+#define SECONDS_BETWEEN_UPLOADS_CUSTOMER 10
+#define SECONDS_BETWEEN_UPLOADS_INTERNAL 10
+#else
+#define SECONDS_BETWEEN_UPLOADS_CUSTOMER (3 * SECONDS_PER_DAY)
+#define SECONDS_BETWEEN_UPLOADS_INTERNAL (SECONDS_PER_DAY)
+#endif
 
 typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     SFAnalyticsEventClassSuccess,
@@ -121,6 +128,7 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
 - (NSInteger)softFailureCountForEventType:(NSString*)eventType;
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table;
 - (void)clearAllData;
+- (BOOL)tryToOpenDatabase;
 
 - (NSDictionary*)summaryCounts;
 
@@ -201,7 +209,12 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     if (self = [super init]) {
         _database = [SFAnalyticsLoggerSQLiteStore storeWithPath:self.class.databasePath schema:SFAnalyticsLoggerTableSchema];
         _queue = dispatch_queue_create("com.apple.security.analytics", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-        _secondsBetweenUploads = SECONDS_BETWEEN_UPLOADS;
+
+        if (os_variant_has_internal_diagnostics("Security")) {
+            _secondsBetweenUploads = SECONDS_BETWEEN_UPLOADS_INTERNAL;
+        } else {
+            _secondsBetweenUploads = SECONDS_BETWEEN_UPLOADS_CUSTOMER;
+        }
 
         NSDictionary* systemDefaultValues = [NSDictionary dictionaryWithContentsOfFile:[[NSBundle bundleWithPath:@"/System/Library/Frameworks/Security.framework"] pathForResource:@"SFAnalyticsLogging" ofType:@"plist"]];
         _splunkTopicName = systemDefaultValues[@"splunk_topic"];
@@ -256,12 +269,12 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
 
 - (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassSoftFailure attributes:attributes];
+    [self logEventNamed:eventName class:SFAnalyticsEventClassHardFailure attributes:attributes];
 }
 
 - (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassHardFailure attributes:attributes];
+    [self logEventNamed:eventName class:SFAnalyticsEventClassSoftFailure attributes:attributes];
 }
 
 - (void)noteEventNamed:(NSString*)eventName
@@ -401,8 +414,11 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
 
     __block NSError* error = nil;
-    NSURLSessionConfiguration *defaultConfiguration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    NSURLSession* storeBagSession = [NSURLSession sessionWithConfiguration:defaultConfiguration
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+
+    configuration.HTTPAdditionalHeaders = @{ @"User-Agent" : [NSString stringWithFormat:@"securityd/%s", SECURITY_BUILD_VERSION]};
+
+    NSURLSession* storeBagSession = [NSURLSession sessionWithConfiguration:configuration
                                                                   delegate:self
                                                              delegateQueue:nil];
 
@@ -475,7 +491,7 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
 - (BOOL)forceUploadWithError:(NSError**)error
 {
     __block BOOL result = NO;
-    NSData* json = [self getLoggingJSONWithError:error];
+    NSData* json = [self getLoggingJSON:false error: error];
     dispatch_sync(_queue, ^{
         if (json && [self _onQueuePostJSON:json error:error]) {
             secinfo("ckks", "uploading sync health data: %@", json);
@@ -500,8 +516,11 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
      * Create the NSURLSession
      *  We use the ephemeral session config because we don't need cookies or cache
      */
-    NSURLSessionConfiguration *defaultConfiguration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    NSURLSession* postSession = [NSURLSession sessionWithConfiguration:defaultConfiguration
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+
+    configuration.HTTPAdditionalHeaders = @{ @"User-Agent" : [NSString stringWithFormat:@"securityd/%s", SECURITY_BUILD_VERSION]};
+
+    NSURLSession* postSession = [NSURLSession sessionWithConfiguration:configuration
                                                               delegate:self
                                                          delegateQueue:nil];
 
@@ -605,7 +624,6 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
 - (NSString*)getSysdiagnoseDumpWithError:(NSError**)error
 {
     NSMutableString* sysdiagnose = [[NSMutableString alloc] init];
-
     NSDictionary* extraValues = self.extraValuesToUploadToServer;
     [extraValues enumerateKeysAndObjectsUsingBlock:^(NSString* key, id object, BOOL* stop) {
         [sysdiagnose appendFormat:@"Key: %@, Value: %@\n", key, object];
@@ -623,11 +641,39 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     return sysdiagnose;
 }
 
-- (NSData*)getLoggingJSONWithError:(NSError**)error
++ (void)addOSVersion:(NSMutableDictionary *)event
+{
+    static dispatch_once_t onceToken;
+    static NSString *build = NULL;
+    static NSString *product = NULL;
+    dispatch_once(&onceToken, ^{
+        NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
+        if (version == NULL)
+            return;
+        build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
+        product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+    });
+    if (build)
+        event[SFAnalyticsLoggerSplunkEventBuild] = build;
+    if (product)
+        event[SFAnalyticsLoggerSplunkEventProduct] = product;
+}
+
+- (NSData*)getLoggingJSON:(bool)pretty error:(NSError**)error
 {
     __block NSData* json = nil;
     NSDictionary* extraValues = self.extraValuesToUploadToServer;
     dispatch_sync(_queue, ^{
+        if (![self->_database tryToOpenDatabase]) {
+            // we should not even be here because uploadDate was nil. But since we are, let's get out of here.
+            // Returning nil here will abort the upload (but again, the uploadDate should've done that already)
+            secerror("can't get logging JSON because database is not openable");
+            if (error) {
+                *error = [NSError errorWithDomain:@"SFAnalyticsLogger" code:-1 userInfo:@{NSLocalizedDescriptionKey : @"could not open db to read and process metrics (device in class D?)"}];
+            }
+            return;
+        }
+
         NSArray* failureRecords = self->_database.failureRecords;
 
         NSDictionary* successCounts = self->_database.summaryCounts;
@@ -649,13 +695,19 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
         healthSummaryEvent[SFAnalyticsLoggerColumnSuccessCount] = @(totalSuccessCount);
         healthSummaryEvent[SFAnalyticsLoggerColumnHardFailureCount] = @(totalHardFailureCount);
         healthSummaryEvent[SFAnalyticsLoggerColumnSoftFailureCount] = @(totalSoftFailureCount);
+        [SFAnalyticsLogger addOSVersion:healthSummaryEvent];
 
         NSMutableArray* splunkRecords = failureRecords.mutableCopy;
         [splunkRecords addObject:healthSummaryEvent];
 
-        NSDictionary* jsonDict = @{SFAnalyticsLoggerSplunkPostTime : @([now timeIntervalSince1970] * 1000), @"events" : splunkRecords};
+        NSDictionary* jsonDict = @{
+            SFAnalyticsLoggerSplunkPostTime : @([now timeIntervalSince1970] * 1000),
+            @"events" : splunkRecords
+        };
 
-        json = [NSJSONSerialization dataWithJSONObject:jsonDict options:NSJSONWritingPrettyPrinted error:error];
+        json = [NSJSONSerialization dataWithJSONObject:jsonDict
+                                               options:(pretty ? NSJSONWritingPrettyPrinted : 0)
+                                                 error:error];
     });
 
     return json;
@@ -746,7 +798,11 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
             loggingStores[standardizedPath] = store;
         }
 
-        [store open];
+        NSError* error = nil;
+        if (![store openWithError:&error]) {
+            secerror("SFAnalyticsLogger: could not open db at init, will try again later. Error: %@", error);
+        }
+
     }
 
     return store;
@@ -757,120 +813,171 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     [self close];
 }
 
+- (BOOL)tryToOpenDatabase
+{
+    if (!self.isOpen) {
+        secwarning("SFAnalyticsLogger: db is closed, attempting to open");
+        NSError* error = nil;
+        if (![self openWithError:&error]) {
+            secerror("SFAnalyticsLogger: failed to open db with error %@", error);
+            return NO;
+        }
+    }
+    return YES;
+}
+
 - (NSInteger)successCountForEventType:(NSString*)eventType
 {
-    return [[[[self select:@[SFAnalyticsLoggerColumnSuccessCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnSuccessCount] integerValue];
+    if ([self tryToOpenDatabase]) {
+        return [[[[self select:@[SFAnalyticsLoggerColumnSuccessCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnSuccessCount] integerValue];
+    }
+    return 0;
 }
 
 - (void)incrementSuccessCountForEventType:(NSString*)eventType
 {
-    NSInteger successCount = [self successCountForEventType:eventType];
-    NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
-    NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
-    [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount + 1), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount)}];
+    if ([self tryToOpenDatabase]) {
+        NSInteger successCount = [self successCountForEventType:eventType];
+        NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
+        NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
+        [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount + 1), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount)}];
+    }
 }
 
 - (NSInteger)hardFailureCountForEventType:(NSString*)eventType
 {
-    return [[[[self select:@[SFAnalyticsLoggerColumnHardFailureCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnHardFailureCount] integerValue];
+    if ([self tryToOpenDatabase]) {
+        return [[[[self select:@[SFAnalyticsLoggerColumnHardFailureCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnHardFailureCount] integerValue];
+    }
+    return 0;
 }
 
 - (NSInteger)softFailureCountForEventType:(NSString*)eventType
 {
-    return [[[[self select:@[SFAnalyticsLoggerColumnSoftFailureCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnSoftFailureCount] integerValue];
+    if ([self tryToOpenDatabase]) {
+        return [[[[self select:@[SFAnalyticsLoggerColumnSoftFailureCount] from:SFAnalyticsLoggerTableSuccessCount where:@"event_type = ?" bindings:@[eventType]] firstObject] valueForKey:SFAnalyticsLoggerColumnSoftFailureCount] integerValue];
+    }
+    return 0;
 }
 
 - (void)incrementHardFailureCountForEventType:(NSString*)eventType
 {
-    NSInteger successCount = [self successCountForEventType:eventType];
-    NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
-    NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
-    [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount + 1), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount)}];
+    if ([self tryToOpenDatabase]) {
+        NSInteger successCount = [self successCountForEventType:eventType];
+        NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
+        NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
+        [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount + 1), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount)}];
+    }
 }
 
 - (void)incrementSoftFailureCountForEventType:(NSString*)eventType
 {
-    NSInteger successCount = [self successCountForEventType:eventType];
-    NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
-    NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
-    [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount + 1)}];
+    if ([self tryToOpenDatabase]) {
+        NSInteger successCount = [self successCountForEventType:eventType];
+        NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
+        NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
+        [self insertOrReplaceInto:SFAnalyticsLoggerTableSuccessCount values:@{SFAnalyticsLoggerColumnEventType : eventType, SFAnalyticsLoggerColumnSuccessCount : @(successCount), SFAnalyticsLoggerColumnHardFailureCount : @(hardFailureCount), SFAnalyticsLoggerColumnSoftFailureCount : @(softFailureCount + 1)}];
+    }
 }
 
 - (NSDictionary*)summaryCounts
 {
-    NSMutableDictionary* successCountsDict = [NSMutableDictionary dictionary];
-    NSArray* rows = [self selectAllFrom:SFAnalyticsLoggerTableSuccessCount where:nil bindings:nil];
-    for (NSDictionary* rowDict in rows) {
-        NSString* eventName = rowDict[SFAnalyticsLoggerColumnEventType];
-        if (!eventName) {
-            secinfo("SFAnalytics", "ignoring entry in success counts table without an event name");
-            continue;
+    if ([self tryToOpenDatabase]) {
+        NSMutableDictionary* successCountsDict = [NSMutableDictionary dictionary];
+        NSArray* rows = [self selectAllFrom:SFAnalyticsLoggerTableSuccessCount where:nil bindings:nil];
+        for (NSDictionary* rowDict in rows) {
+            NSString* eventName = rowDict[SFAnalyticsLoggerColumnEventType];
+            if (!eventName) {
+                secinfo("SFAnalytics", "ignoring entry in success counts table without an event name");
+                continue;
+            }
+
+            successCountsDict[eventName] = @{SFAnalyticsLoggerTableSuccessCount : rowDict[SFAnalyticsLoggerColumnSuccessCount], SFAnalyticsLoggerColumnHardFailureCount : rowDict[SFAnalyticsLoggerColumnHardFailureCount], SFAnalyticsLoggerColumnSoftFailureCount : rowDict[SFAnalyticsLoggerColumnSoftFailureCount]};
         }
-
-        successCountsDict[eventName] = @{SFAnalyticsLoggerTableSuccessCount : rowDict[SFAnalyticsLoggerColumnSuccessCount], SFAnalyticsLoggerColumnHardFailureCount : rowDict[SFAnalyticsLoggerColumnHardFailureCount], SFAnalyticsLoggerColumnSoftFailureCount : rowDict[SFAnalyticsLoggerColumnSoftFailureCount]};
+        return successCountsDict;
     }
-
-    return successCountsDict;
+    return [NSDictionary new];
 }
 
 - (NSArray*)failureRecords
 {
-    NSArray* recordBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableHardFailures];
-    if (recordBlobs.count < SFANALYTICS_MAX_EVENTS_TO_REPORT) {
-        NSArray* softFailureBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableSoftFailures];
-        if (softFailureBlobs.count > 0) {
-            NSInteger numSoftFailuresToReport = SFANALYTICS_MAX_EVENTS_TO_REPORT - recordBlobs.count;
-            recordBlobs = [recordBlobs arrayByAddingObjectsFromArray:[softFailureBlobs subarrayWithRange:NSMakeRange(softFailureBlobs.count - numSoftFailuresToReport, numSoftFailuresToReport)]];
+    if ([self tryToOpenDatabase]) {
+        NSArray* recordBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableHardFailures];
+        if (recordBlobs.count < SFANALYTICS_MAX_EVENTS_TO_REPORT) {
+            NSArray* softFailureBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableSoftFailures];
+            if (softFailureBlobs.count > 0) {
+                NSUInteger numSoftFailuresToReport = SFANALYTICS_MAX_EVENTS_TO_REPORT - recordBlobs.count;
+                if (numSoftFailuresToReport > softFailureBlobs.count)
+                    numSoftFailuresToReport = softFailureBlobs.count;
+
+                recordBlobs = [recordBlobs arrayByAddingObjectsFromArray:[softFailureBlobs subarrayWithRange:NSMakeRange(softFailureBlobs.count - numSoftFailuresToReport, numSoftFailuresToReport)]];
+            }
         }
-    }
 
-    NSMutableArray* failureRecords = [[NSMutableArray alloc] init];
-    for (NSDictionary* row in recordBlobs) {
-        NSDictionary* deserializedRecord = [NSPropertyListSerialization propertyListWithData:row[SFAnalyticsLoggerColumnData] options:0 format:nil error:nil];
-        [failureRecords addObject:deserializedRecord];
+        NSMutableArray* failureRecords = [[NSMutableArray alloc] init];
+        for (NSDictionary* row in recordBlobs) {
+            NSMutableDictionary* deserializedRecord = [NSPropertyListSerialization propertyListWithData:row[SFAnalyticsLoggerColumnData] options:NSPropertyListMutableContainers format:nil error:nil];
+            [SFAnalyticsLogger addOSVersion:deserializedRecord];
+            [failureRecords addObject:deserializedRecord];
+        }
+        return failureRecords;
     }
-
-    return failureRecords;
+    return [NSArray new];
 }
 
 - (NSArray*)allEvents
 {
-    NSArray* recordBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableAllEvents];
-    NSMutableArray* records = [[NSMutableArray alloc] init];
-    for (NSDictionary* row in recordBlobs) {
-        NSDictionary* deserializedRecord = [NSPropertyListSerialization propertyListWithData:row[SFAnalyticsLoggerColumnData] options:0 format:nil error:nil];
-        [records addObject:deserializedRecord];
+    if ([self tryToOpenDatabase]) {
+        NSArray* recordBlobs = [self select:@[SFAnalyticsLoggerColumnData] from:SFAnalyticsLoggerTableAllEvents];
+        NSMutableArray* records = [[NSMutableArray alloc] init];
+        for (NSDictionary* row in recordBlobs) {
+            NSDictionary* deserializedRecord = [NSPropertyListSerialization propertyListWithData:row[SFAnalyticsLoggerColumnData] options:0 format:nil error:nil];
+            [records addObject:deserializedRecord];
+        }
+        return records;
     }
-    return records;
+    return [NSArray new];
 }
 
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table
 {
-    NSError* error = nil;
-    NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
-    if(!error && serializedRecord) {
-        [self insertOrReplaceInto:table values:@{SFAnalyticsLoggerColumnDate : [NSDate date], SFAnalyticsLoggerColumnData : serializedRecord}];
-    }
-    if(error && !serializedRecord) {
-        secerror("Couldn't serialize failure record: %@", error);
+    if ([self tryToOpenDatabase]) {
+        NSError* error = nil;
+        NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+        if(!error && serializedRecord) {
+            [self insertOrReplaceInto:table values:@{SFAnalyticsLoggerColumnDate : [NSDate date], SFAnalyticsLoggerColumnData : serializedRecord}];
+        }
+        if(error && !serializedRecord) {
+            secerror("Couldn't serialize failure record: %@", error);
+        }
     }
 }
 
+// the other returning methods give default values in case of closed db,
+// but this needs to be nil so the comparison to 'now' fails and we don't upload
 - (NSDate*)uploadDate
 {
-    return [self datePropertyForKey:SFAnalyticsLoggerUploadDate];
+    if ([self tryToOpenDatabase]) {
+        return [self datePropertyForKey:SFAnalyticsLoggerUploadDate];
+    }
+    return nil;
 }
 
 - (void)setUploadDate:(NSDate*)uploadDate
 {
-    [self setDateProperty:uploadDate forKey:SFAnalyticsLoggerUploadDate];
+    if ([self tryToOpenDatabase]) {
+        [self setDateProperty:uploadDate forKey:SFAnalyticsLoggerUploadDate];
+    }
 }
 
 - (void)clearAllData
 {
-    [self deleteFrom:SFAnalyticsLoggerTableSuccessCount where:@"event_type like ?" bindings:@[@"%"]];
-    [self deleteFrom:SFAnalyticsLoggerTableHardFailures where:@"id >= 0" bindings:nil];
-    [self deleteFrom:SFAnalyticsLoggerTableSoftFailures where:@"id >= 0" bindings:nil];
+    if ([self tryToOpenDatabase]) {
+        [self deleteFrom:SFAnalyticsLoggerTableSuccessCount where:@"event_type like ?" bindings:@[@"%"]];
+        [self deleteFrom:SFAnalyticsLoggerTableHardFailures where:@"id >= 0" bindings:nil];
+        [self deleteFrom:SFAnalyticsLoggerTableSoftFailures where:@"id >= 0" bindings:nil];
+        [self deleteFrom:SFAnalyticsLoggerTableAllEvents where:@"id >= 0" bindings:nil];
+    }
 }
 
 @end

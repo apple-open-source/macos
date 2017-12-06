@@ -3713,6 +3713,10 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
         return nullptr;
     }
 
+    // FIXME: Provide line number information with respect to the opener's document.
+    if (protocolIsJavaScript(request.resourceRequest().url()) && !openerFrame.document()->contentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url(), { }))
+        return nullptr;
+
     // FIXME: Setting the referrer should be the caller's responsibility.
     String referrer = SecurityPolicy::generateReferrerHeader(openerFrame.document()->referrerPolicy(), request.resourceRequest().url(), openerFrame.loader().outgoingReferrer());
     if (!referrer.isEmpty())
@@ -3799,9 +3803,9 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
     return frame;
 }
 
-bool FrameLoader::shouldSuppressKeyboardInput() const
+bool FrameLoader::shouldSuppressTextInputFromEditing() const
 {
-    return m_frame.settings().shouldSuppressKeyboardInputDuringProvisionalNavigation() && m_state == FrameStateProvisional;
+    return m_frame.settings().shouldSuppressTextInputFromEditingDuringProvisionalNavigation() && m_state == FrameStateProvisional;
 }
 
 } // namespace WebCore

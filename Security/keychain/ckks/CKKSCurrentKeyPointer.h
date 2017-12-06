@@ -26,6 +26,8 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSItem.h"
 #import "keychain/ckks/CKKSKey.h"
+#import "keychain/ckks/CKKSTLKShare.h"
+
 
 #if OCTAGON
 
@@ -57,6 +59,8 @@
 @property CKKSCurrentKeyPointer* currentTLKPointer;
 @property CKKSCurrentKeyPointer* currentClassAPointer;
 @property CKKSCurrentKeyPointer* currentClassCPointer;
+
+@property NSArray<CKKSTLKShare*>* tlkShares;
 
 -(instancetype)init;
 -(instancetype)initForZone:(CKRecordZoneID*)zoneID;

@@ -652,7 +652,7 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
     mode_t mode = 0644;
 
     CFStringRef path = CFStringCreateWithCString(NULL, [_dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
-    SecDbRef result = SecDbCreateWithOptions(path, mode, readWrite, false, false,
+    SecDbRef result = SecDbCreateWithOptions(path, mode, readWrite, readWrite, false,
          ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
              if (!isDbOwner()) {
                  /* Non-owner process can't update the db, but it should get a db connection.

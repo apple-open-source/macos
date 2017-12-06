@@ -220,26 +220,29 @@
 }
 
 -(void)testCKKSZoneStateEntrySQL {
-    CKKSZoneStateEntry* zse = [[CKKSZoneStateEntry alloc] initWithCKZone: @"sqltest"
-                                                             zoneCreated: true
-                                                          zoneSubscribed: true
-                                                             changeToken: [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                               lastFetch: [NSDate date]
+    CKKSZoneStateEntry* zse = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
+                                                             zoneCreated:true
+                                                          zoneSubscribed:true
+                                                             changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                               lastFetch:[NSDate date]
+                                                               lastFixup:CKKSCurrentFixupNumber
                                                       encodedRateLimiter:nil];
     zse.rateLimiter = [[CKKSRateLimiter alloc] init];
 
-    CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithCKZone: @"sqltest"
-                                                             zoneCreated: true
-                                                          zoneSubscribed: true
-                                                             changeToken: [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                               lastFetch: zse.lastFetchTime
+    CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
+                                                                  zoneCreated:true
+                                                               zoneSubscribed:true
+                                                                  changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                                    lastFetch:zse.lastFetchTime
+                                                                    lastFixup:CKKSCurrentFixupNumber
                                                            encodedRateLimiter:zse.encodedRateLimiter];
 
-    CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithCKZone: @"sqltest"
-                                                             zoneCreated: true
-                                                          zoneSubscribed: true
-                                                             changeToken: [@"allnonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                               lastFetch: zse.lastFetchTime
+    CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
+                                                                      zoneCreated:true
+                                                                   zoneSubscribed:true
+                                                                      changeToken:[@"allnonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                                        lastFetch:zse.lastFetchTime
+                                                                        lastFixup:CKKSCurrentFixupNumber
                                                                encodedRateLimiter:zse.encodedRateLimiter];
     XCTAssertEqualObjects(zse, zseClone, "CKKSZoneStateEntry isEqual of equal objects seems sane");
     XCTAssertNotEqualObjects(zse, zseDifferent, "CKKSZoneStateEntry isEqual of nonequal objects seems sane");
@@ -408,6 +411,14 @@
     XCTAssertNotNil(selfWrapped, "Returned some array from allWhere");
     XCTAssertNil(error, "no error back from allWhere");
     XCTAssertEqual([selfWrapped count], 1ul, "Received one row (and expected one row)");
+
+    // Try using CKKSSQLWhereObject alongside normal binds
+    NSArray<CKKSKey*>* selfWrapped2 = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereObject op:@"=" string:@"uuid"],
+                                                           @"uuid": @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"}
+                                                  error: &error];
+    XCTAssertNotNil(selfWrapped2, "Returned some array from allWhere");
+    XCTAssertNil(error, "no error back from allWhere");
+    XCTAssertEqual([selfWrapped2 count], 1ul, "Received one row (and expected one row)");
 }
 
 - (void)testGroupBy {

@@ -59,7 +59,9 @@ static NSString* tablePath = nil;
 {
     NSString* schema = @"CREATE table test (test_column INTEGER);";
     SFSQLite* sqlTable = [[SFSQLite alloc] initWithPath:tablePath schema:schema];
-    XCTAssertTrue([sqlTable openWithError:nil]);
+    NSError* error = nil;
+    XCTAssertTrue([sqlTable openWithError:&error], @"failed to open sql database");
+    XCTAssertNil(error, "encountered error opening database: %@", error);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:tablePath]);
     [sqlTable close];
 }
@@ -68,7 +70,9 @@ static NSString* tablePath = nil;
 {
     NSString* schema = @"CREATE table test (test_column INTEGER);";
     SFSQLite* sqlTable = [[SFSQLite alloc] initWithPath:tablePath schema:schema];
-    XCTAssertTrue([sqlTable openWithError:nil]);
+    NSError* error = nil;
+    XCTAssertTrue([sqlTable openWithError:&error], @"failed to open sql database");
+    XCTAssertNil(error, "encountered error opening database: %@", error);
 
     [sqlTable insertOrReplaceInto:@"test" values:@{@"test_column" : @(1)}];
     [sqlTable insertOrReplaceInto:@"test" values:@{@"test_column" : @(2)}];
@@ -80,6 +84,44 @@ static NSString* tablePath = nil;
 
     [sqlTable executeSQL:@"delete from test"];
     XCTAssertTrue([[sqlTable selectAllFrom:@"test" where:nil bindings:nil] count] == 0);
+}
+
+- (void)testDontCrashWhenThereAreNoWritePermissions
+{
+    NSString* schema = @"CREATE table test (test_column INTEGER);";
+    SFSQLite* sqlTable = [[SFSQLite alloc] initWithPath:tablePath schema:schema];
+
+    NSError* error = nil;
+    XCTAssertNoThrow([sqlTable openWithError:&error], @"opening database threw an exception");
+    XCTAssertNil(error, "encountered error opening database: %@", error);
+    XCTAssertNoThrow([sqlTable close], @"closing database threw an exception");
+
+    NSDictionary* originalAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:tablePath error:&error];
+    XCTAssertNil(error, @"encountered error getting database file attributes: %@", error);
+
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(400), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
+    XCTAssertNil(error, @"encountered error setting database file attributes: %@", error);
+    XCTAssertNoThrow([sqlTable openWithError:&error]);
+    XCTAssertNotNil(error, @"failed to generate error when opening file without permissions");
+    error = nil;
+
+    [[NSFileManager defaultManager] setAttributes:originalAttributes ofItemAtPath:tablePath error:&error];
+    XCTAssertNil(error, @"encountered error setting database file attributes back to original attributes: %@", error);
+}
+
+- (void)testDontCrashFromInternalErrors
+{
+    NSString* schema = @"CREATE table test (test_column INTEGER);";
+    SFSQLite* sqlTable = [[SFSQLite alloc] initWithPath:tablePath schema:schema];
+
+    NSError* error = nil;
+    XCTAssertTrue([sqlTable openWithError:&error], @"failed to open database");
+    XCTAssertNil(error, "encountered error opening database: %@", error);
+
+    // delete the database to create havoc
+    [[NSFileManager defaultManager] removeItemAtPath:tablePath error:nil];
+
+    XCTAssertNoThrow([sqlTable insertOrReplaceInto:@"test" values:@{@"test_column" : @(1)}], @"inserting into deleted table threw an exception");
 }
 
 @end
@@ -103,7 +145,7 @@ static NSString* tablePath = nil;
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     NSError* error = nil;
-    NSData* json = [[CKKSAnalyticsLogger logger] getLoggingJSONWithError:&error];
+    NSData* json = [[CKKSAnalyticsLogger logger] getLoggingJSON:false error:&error];
     XCTAssertNotNil(json, @"failed to generate logging json");
     XCTAssertNil(error, @"encourntered error getting logging json: %@", error);
 
@@ -111,6 +153,27 @@ static NSString* tablePath = nil;
     XCTAssertNotNil(dictionary, @"failed to generate dictionary from json data");
     XCTAssertNil(error, @"encountered error deserializing json: %@", error);
     XCTAssertTrue([dictionary isKindOfClass:[NSDictionary class]], @"did not get the class we expected from json deserialization");
+
+    XCTAssertNotNil(dictionary[@"postTime"], @"Failed to get posttime");
+
+    NSArray *events = dictionary[@"events"];
+    XCTAssertNotNil(events, @"Failed to get events");
+    XCTAssert([events isKindOfClass:[NSArray class]], @"did not get the class we expected for events");
+
+
+    for (NSDictionary *event in events) {
+        XCTAssert([event isKindOfClass:[NSDictionary class]], @"did not get the class we expected for events");
+        XCTAssertNotNil(event[@"build"], @"Failed to get build in event");
+        XCTAssertNotNil(event[@"product"], @"Failed to get product in event");
+        XCTAssertNotNil(event[@"topic"], @"Failed to get topic in event");
+
+        NSString *eventtype = event[@"eventType"];
+        XCTAssertNotNil(eventtype, @"Failed to get eventType in eventtype");
+        XCTAssert([eventtype isKindOfClass:[NSString class]], @"did not get the class we expected for events");
+        if ([eventtype isEqualToString:@"ckksHealthSummary"]) {
+            XCTAssertNotNil(event[@"ckdeviceID"], @"Failed to get deviceID in event");
+        }
+    }
 }
 
 - (void)testSplunkDefaultTopicNameExists
@@ -173,6 +236,7 @@ static NSString* tablePath = nil;
     [[[self.keychainView waitForFetchAndIncomingQueueProcessing] completionHandlerDidRunCondition] wait:4 * NSEC_PER_SEC];
 
     NSDictionary* extraValues = [[CKKSAnalyticsLogger logger] extraValuesToUploadToServer];
+    XCTAssertTrue([extraValues[@"inCircle"] boolValue]);
     XCTAssertTrue([extraValues[@"keychain-TLKs"] boolValue]);
     XCTAssertTrue([extraValues[@"keychain-inSyncA"] boolValue]);
     XCTAssertTrue([extraValues[@"keychain-inSyncC"] boolValue]);
@@ -188,7 +252,7 @@ static NSString* tablePath = nil;
 
     NSData* json = nil;
     NSError* error = nil;
-    XCTAssertNoThrow(json = [logger getLoggingJSONWithError:&error]);
+    XCTAssertNoThrow(json = [logger getLoggingJSON:false error:&error]);
     XCTAssertNotNil(json, @"Failed to get JSON after logging nil event");
     XCTAssertNil(error, @"Got error when grabbing JSON after logging nil event: %@", error);
 }

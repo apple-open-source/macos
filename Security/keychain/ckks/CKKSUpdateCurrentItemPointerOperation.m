@@ -29,6 +29,7 @@
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ckks/CKKSUpdateCurrentItemPointerOperation.h"
 #import "keychain/ckks/CKKSManifest.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 #import <CloudKit/CloudKit.h>
 
@@ -38,6 +39,7 @@
 
 @property NSString* currentPointerIdentifier;
 @property NSString* oldCurrentItemUUID;
+@property NSData* oldCurrentItemHash;
 @property NSString* currentItemUUID;
 @end
 
@@ -46,6 +48,7 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*) ckks
                           currentPointer:(NSString*)identifier
                              oldItemUUID:(NSString*)oldItemUUID
+                             oldItemHash:(NSData*)oldItemHash
                              newItemUUID:(NSString*)newItemUUID
                         ckoperationGroup:(CKOperationGroup*)ckoperationGroup
 {
@@ -54,6 +57,7 @@
 
         _currentPointerIdentifier = identifier;
         _oldCurrentItemUUID = oldItemUUID;
+        _oldCurrentItemHash = oldItemHash;
         _currentItemUUID = newItemUUID;
         _ckoperationGroup = ckoperationGroup;
     }
@@ -64,13 +68,15 @@
     CKKSKeychainView* ckks = self.ckks;
     if(!ckks) {
         ckkserror("ckkscurrent", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
+        self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:errSecInternalError
+                                  description:@"no CKKS object"];
         return;
     }
 
     __weak __typeof(self) weakSelf = self;
 
-    [ckks dispatchSyncWithAccountQueue:^bool {
+    [ckks dispatchSyncWithAccountKeys:^bool {
         if(self.cancelled) {
             ckksnotice("ckksscan", ckks, "CKKSUpdateCurrentItemPointerOperation cancelled, quitting");
             return false;
@@ -81,8 +87,9 @@
         // Ensure that there's no pending pointer update
         CKKSCurrentItemPointer* cipPending = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier state:SecCKKSProcessedStateRemote zoneID:ckks.zoneID error:&error];
         if(cipPending) {
-            self.error = [NSError errorWithDomain:@"securityd" code:errSecItemInvalidValue
-                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Update to current item pointer is pending."]}];
+            self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSRemoteItemChangePending
+                                      description:[NSString stringWithFormat:@"Update to current item pointer is pending."]];
             ckkserror("ckkscurrent", ckks, "Attempt to set a new current item pointer when one exists: %@", self.error);
             return false;
         }
@@ -90,11 +97,18 @@
         CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier state:SecCKKSProcessedStateLocal zoneID:ckks.zoneID error:&error];
 
         if(cip) {
-            // Ensure that the itempointer matches the old item
-            if(![cip.currentItemUUID isEqualToString: self.oldCurrentItemUUID]) {
-                ckksnotice("ckkscurrent", ckks, "Caller's idea of the current item pointer for %@ doesn't match; rejecting change of current", cip);
-                self.error = [NSError errorWithDomain:@"securityd" code:errSecItemInvalidValue
-                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Current pointer does not match given value of '%@', aborting", self.oldCurrentItemUUID]}];
+            // Ensure that the itempointer matches the old item (and the old item exists)
+            //
+            // We might be in the dangling-pointer case, where the 'fetch' API has returned the client a nil value because we
+            // have a CIP, but it points to a deleted keychain item.
+            // In that case, we shouldn't error out.
+            //
+            if(self.oldCurrentItemHash && ![cip.currentItemUUID isEqualToString: self.oldCurrentItemUUID]) {
+
+                ckksnotice("ckkscurrent", ckks, "Caller's idea of the current item pointer %@ doesn't match (%@); rejecting change of current", cip, self.oldCurrentItemUUID);
+                self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSItemChanged
+                                          description:[NSString stringWithFormat:@"Current pointer(%@) does not match user-supplied %@, aborting", cip, self.oldCurrentItemUUID]];
                 return false;
             }
             // Cool. Since you know what you're updating, you're allowed to update!
@@ -103,8 +117,9 @@
         } else if(self.oldCurrentItemUUID) {
             // Error case: the client thinks there's a current pointer, but we don't have one
             ckksnotice("ckkscurrent", ckks, "Requested to update a current item pointer but one doesn't exist at %@; rejecting change of current", self.currentPointerIdentifier);
-            self.error = [NSError errorWithDomain:@"securityd" code:errSecItemInvalidValue
-                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Current pointer does not match given value of '%@', aborting", self.oldCurrentItemUUID]}];
+            self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSItemChanged
+                                      description:[NSString stringWithFormat:@"Current pointer(%@) does not match given value of '%@', aborting", cip, self.oldCurrentItemUUID]];
             return false;
         } else {
             // No current item pointer? How exciting! Let's make you a nice new one.
@@ -116,12 +131,14 @@
         NSArray* oqes = [CKKSOutgoingQueueEntry allUUIDs:&error];
         NSArray* iqes = [CKKSIncomingQueueEntry allUUIDs:&error];
         if([oqes containsObject:self.currentItemUUID] || [iqes containsObject:self.currentItemUUID]) {
-            error = [NSError errorWithDomain:@"securityd" code:errSecItemInvalidValue
-                                    userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"New item(%@) is being synced; can't set current pointer.", self.currentItemUUID]}];
+            error = [NSError errorWithDomain:CKKSErrorDomain
+                                        code:CKKSLocalItemChangePending
+                                 description:[NSString stringWithFormat:@"New item(%@) is being synced; can't set current pointer.", self.currentItemUUID]];
         }
         if([oqes containsObject: self.oldCurrentItemUUID] || [iqes containsObject:self.oldCurrentItemUUID]) {
-            error = [NSError errorWithDomain:@"securityd" code:errSecItemInvalidValue
-                                    userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Old item(%@) is being synced; can't set current pointer.", self.oldCurrentItemUUID]}];
+            error = [NSError errorWithDomain:CKKSErrorDomain
+                                        code:CKKSLocalItemChangePending
+                                 description:[NSString stringWithFormat:@"Old item(%@) is being synced; can't set current pointer.", self.oldCurrentItemUUID]];
         }
 
         if(error) {
@@ -134,19 +151,11 @@
         CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:cip.currentItemUUID zoneID:ckks.zoneID error:&error];
         if(!ckme || error) {
             ckkserror("ckkscurrent", ckks, "Error attempting to set a current item pointer to an item that isn't synced: %@ %@", cip, ckme);
-            // Why can't you put nulls in dictionary literals?
-            if(error) {
-                error = [NSError errorWithDomain:@"securityd"
-                                            code:errSecItemNotFound
-                                        userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"No synced item matching (%@); can't set current pointer.", cip.currentItemUUID],
-                                                   NSUnderlyingErrorKey:error,
-                                                   }];
-            } else {
-                error = [NSError errorWithDomain:@"securityd"
-                                            code:errSecItemNotFound
-                                        userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"No synced item matching (%@); can't set current pointer.", cip.currentItemUUID],
-                                                   }];
-            }
+            error = [NSError errorWithDomain:CKKSErrorDomain
+                                        code:errSecItemNotFound
+                                 description:[NSString stringWithFormat:@"No synced item matching (%@); can't set current pointer.", cip.currentItemUUID]
+                                  underlying:error];
+
             self.error = error;
             return false;
         }
@@ -195,7 +204,9 @@
             __strong __typeof(strongSelf.ckks) strongCKKS = strongSelf.ckks;
             if(!strongSelf || !strongCKKS) {
                 ckkserror("ckkscurrent", strongCKKS, "received callback for released object");
-                strongSelf.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
+                strongSelf.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                       code:errSecInternalError
+                                                description:@"no CKKS object"];
                 [strongCKKS scheduleOperation: modifyComplete];
                 return;
             }

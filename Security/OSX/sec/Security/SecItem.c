@@ -685,7 +685,7 @@ static const uint8_t tk_persistent_ref_id[] = {'t', 'k', 'p', 'r'};
 CFDataRef _SecItemCreatePersistentRef(CFTypeRef class, sqlite_int64 rowid, CFDictionaryRef attributes)
 {
     CFDataRef result = NULL;
-    if (attributes && CFDictionaryContainsKey(attributes, kSecAttrTokenID)) {
+    if (attributes && CFDictionaryContainsKey(attributes, CFEqual(class, kSecClassIdentity) ? kSecAttrIdentityCertificateTokenID : kSecAttrTokenID)) {
         CFDataRef tokenPersistentRef = CreateTokenPersistentRefData(class, attributes);
         require(tokenPersistentRef, out);
         CFMutableDataRef tmpData = CFDataCreateMutable(kCFAllocatorDefault, sizeof(tk_persistent_ref_id) + CFDataGetLength(tokenPersistentRef));

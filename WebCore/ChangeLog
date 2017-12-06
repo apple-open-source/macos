@@ -1,3 +1,1985 @@
+2017-11-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r224405. rdar://problem/35296404
+
+    2017-11-03  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Crash inside ChildListMutationAccumulator::enqueueMutationRecord()
+            https://bugs.webkit.org/show_bug.cgi?id=179234
+            <rdar://problem/35287748>
+
+            Reviewed by Darin Adler.
+
+            Fixed the crash by keeping MutationObserver referenced by MutationObserverInterestGroup alive.
+
+            Also added hasCallback() virtual function on MutationObserver to check whether the callback is alive
+            to work around the bug that JS function referenced by MutationObserver isn't kept alive.
+            We'll address this bug separately in https://webkit.org/b/179224.
+
+            Test: fast/dom/MutationObserver/disconnect-observer-while-mutation-records-are-enqueued-crash.html
+
+            * bindings/scripts/CodeGeneratorJS.pm:
+            (GenerateCallbackHeaderContent): Added an override for the newly added virtual hasCallback().
+            * dom/MutationCallback.h:
+            * dom/MutationObserver.cpp:
+            (WebCore::MutationObserver::deliver): Added the aforementioned workaround.
+            * dom/MutationObserverInterestGroup.cpp:
+            (WebCore::MutationObserverInterestGroup::MutationObserverInterestGroup): Fixed the crash by using Ref.
+            (WebCore::MutationObserverInterestGroup::enqueueMutationRecord): Ditto.
+            * dom/MutationObserverInterestGroup.h:
+            * dom/NativeNodeFilter.cpp:
+            (WebCore::NativeNodeFilter::hasCallback const): Always return true here. This function is never called
+            but we still need to implement it since NodeFilter has a pure virtual hasCallback() now.
+            * dom/NativeNodeFilter.h:
+            * dom/Node.cpp:
+            (WebCore::collectMatchingObserversForMutation): Use Ref to fix the crash.
+            (WebCore::Node::registeredMutationObservers): Ditto.
+            * dom/Node.h:
+            * dom/NodeFilter.h:
+
+2017-11-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r224398. rdar://problem/35329684
+
+    2017-11-03  Daniel Bates  <dabates@apple.com>
+
+            Invalidate node list when associated form control element is removed
+            https://bugs.webkit.org/show_bug.cgi?id=179232
+            <rdar://problem/35308269>
+
+            Reviewed by Ryosuke Niwa.
+
+            A node list represents a live view of the DOM. Invalidate the node list
+            associated with a form element whenever one of its associated form control
+            elements is removed.
+
+            Test: fast/forms/node-list-remove-button-from-form.html
+
+            * html/HTMLFormElement.cpp:
+            (WebCore::HTMLFormElement::removeFormElement):
+
+2017-10-29  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r224134. rdar://problem/35143359
+
+    2017-10-27  Daniel Bates  <dabates@apple.com>
+
+            Only allow non-mixed content protected subresources to ask for credentials
+            https://bugs.webkit.org/show_bug.cgi?id=178919
+            <rdar://problem/35015245>
+
+            Reviewed by Alex Christensen.
+
+            Only allow non-mixed content protected subresources to ask for credentials. It is not meaningful
+            to allow protected mixed-content subresources to ask for credentials.
+
+            Tests: http/tests/security/mixedContent/insecure-image-redirects-to-basic-auth-secure-image.html
+                   http/tests/security/mixedContent/insecure-script-redirects-to-basic-auth-secure-script.html
+                   http/tests/security/mixedContent/insecure-stylesheet-redirects-to-basic-auth-secure-stylesheet.html
+                   http/tests/security/mixedContent/secure-redirect-to-insecure-redirect-to-basic-auth-secure-image.https.html
+                   http/tests/security/mixedContent/secure-redirect-to-secure-redirect-to-basic-auth-insecure-image.https.html
+                   http/tests/security/mixedContent/secure-redirect-to-secure-redirect-to-basic-auth-secure-image.https.html
+
+            * loader/ResourceLoader.cpp:
+            (WebCore::ResourceLoader::ResourceLoader): Initialize m_canAskClientForCredentials based on the
+            specified resource loader options.
+            (WebCore::ResourceLoader::init): Update m_canAskClientForCredentials based on the URL of the initial
+            request.
+            (WebCore::ResourceLoader::isMixedContent const): Helper function to check if the specified URL
+            represents a mixed content resource.
+            (WebCore::ResourceLoader::willSendRequestInternal): If the original request or the redirect request
+            is mixed content then update state such that we will disallow asking for credentials.
+            (WebCore::ResourceLoader::isAllowedToAskUserForCredentials const): Modified to use m_canAskClientForCredentials
+            when determining whether the request is allowed to ask for credentials.
+            * loader/ResourceLoader.h:
+
+2017-10-27  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221233. rdar://problem/35228663
+
+    2017-08-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS WK2] Web process crashes after changing selection to the end of the document when speaking a selection
+            https://bugs.webkit.org/show_bug.cgi?id=176011
+            <rdar://problem/32614095>
+
+            Reviewed by Ryosuke Niwa.
+
+            Adds a null check to visiblePositionForPositionWithOffset. This is a crash point for accessibility codepaths,
+            since indexForVisiblePosition is not guaranteed to set the given `root` outparam to a non-null value, yet
+            visiblePositionForIndex requires root to be non-null. This causes a crash when selecting some text, hitting
+            'Speak', and then changing the selection to somewhere near the end of the document, since accessibility code
+            will attempt to speak words at an offset past the end of the document. While this is a bug in and of itself, the
+            web process should still handle this case gracefully and not crash. To fix this, we simply bail and return a
+            null VisiblePosition if a root container node was not found.
+
+            Currently, visiblePositionForPositionWithOffset is implemented twice, in WebCore (AXObjectCache.cpp) and also in
+            WebKit (WebPageIOS.mm), as identical static functions. This patch moves this helper into Editing.cpp and removes
+            it from AXObjectCache and WebPageIOS.
+
+            Tests: AccessibilityTests.RectsForSpeakingSelectionBasic
+                   AccessibilityTests.RectsForSpeakingSelectionWithLineWrapping
+                   AccessibilityTests.RectsForSpeakingSelectionDoNotCrashWhenChangingSelection
+
+            * accessibility/AXObjectCache.cpp:
+            (WebCore::visiblePositionForPositionWithOffset): Deleted.
+            * editing/Editing.cpp:
+            (WebCore::visiblePositionForPositionWithOffset):
+            * editing/Editing.h:
+
+2017-10-26  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223974. rdar://problem/35178887
+
+    2017-10-25  Jer Noble  <jer.noble@apple.com>
+
+            UNPACK_FLIP_Y is broken for MSE-backed videos
+            https://bugs.webkit.org/show_bug.cgi?id=178774
+
+            Reviewed by Dean Jackson.
+
+            The global GLSL variable gl_Position can apparently only be set once, and any modifications
+            made after that initial set are ignored. So rather than implement flipping by changing
+            gl_Position.y, flip the texture coordinates instead.
+
+            Drive-by fix: some of the constants used in VideoTextureCopierCV are not defined on older
+            macOS versions, so make them optional.
+
+            Tests: fast/canvas/webgl/texImage2D-mse-flipY-false.html
+                   fast/canvas/webgl/texImage2D-mse-flipY-true.html
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+            (WebCore::transferFunctionFromString):
+            (WebCore::VideoTextureCopierCV::initializeUVContextObjects):
+            * platform/cocoa/CoreVideoSoftLink.cpp:
+            * platform/cocoa/CoreVideoSoftLink.h:
+
+2017-10-25  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223960. rdar://problem/35178892
+
+    2017-10-25  Jer Noble  <jer.noble@apple.com>
+
+            Autoplay muted videos still stop playback of other streaming apps in the background
+            https://bugs.webkit.org/show_bug.cgi?id=177920
+
+            Reviewed by Eric Carlson.
+
+            When creating a new <video> or <audio> element, the global AudioSession can sometimes have
+            its sessionCategory() set to "MediaPlayback", even if the element does not yet have a
+            source. This is because the constructor for the MediaElementSession is called before
+            m_isPlayingToWirelessTarget is initialized, and so in the MediaElementSession constructor,
+            the media element's m_isPlayingToWirelessTarget ivar is sometimes (uninitialized) true.
+
+            We could move the MediaElementSession ivar to the very end of the header, so it's
+            initialized last, but that still leaves the possibility of the MediaElementSession et. all
+            calling into the HTMLMediaElement before it's subclass's constructors have a chance to
+            initialize their own ivars (much less their vtables). So instead, we'll create and set the
+            MediaElementSession in a finishInitialization() method called from the HTMLVideoElement and
+            HTMLAudioElement's create() factory methods.
+
+            * html/HTMLAudioElement.cpp:
+            (WebCore::HTMLAudioElement::create):
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::HTMLMediaElement):
+            (WebCore::HTMLMediaElement::finishInitialization):
+            * html/HTMLMediaElement.h:
+            * html/HTMLVideoElement.cpp:
+            (WebCore::HTMLVideoElement::create):
+
+2017-10-21  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223578. rdar://problem/34891313
+
+    2017-10-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Delete button doesn't fully delete certain emoji
+            https://bugs.webkit.org/show_bug.cgi?id=178096
+            <rdar://problem/34785106>
+
+            Reviewed by Simon Fraser.
+
+            System infrastructure for handling emoji changes every year. Instead of having
+            custom code to specifically walk over codepoints, we should delegate to the
+            system handling.
+
+            Tests: editing/deleting/delete-emoji.html
+                   editing/deleting/delete-emoji-1.html
+                   editing/deleting/delete-emoji-2.html
+                   editing/deleting/delete-emoji-3.html
+                   editing/deleting/delete-emoji-4.html
+                   editing/deleting/delete-emoji-5.html
+                   editing/deleting/delete-emoji-6.html
+                   editing/deleting/delete-emoji-7.html
+                   editing/deleting/delete-emoji-8.html
+                   editing/deleting/delete-emoji-9.html
+
+            * rendering/RenderText.cpp:
+            (WebCore::RenderText::previousOffset const):
+            (WebCore::RenderText::previousOffsetForBackwardDeletion const):
+            (WebCore::RenderText::nextOffset const):
+            (WebCore::isHangulLVT): Deleted.
+            (WebCore::isMark): Deleted.
+            (WebCore::isRegionalIndicator): Deleted.
+            (WebCore::isInArmenianToLimbuRange): Deleted.
+
+2017-10-20  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r223707 and r223711. rdar://problem/35099869
+
+    2017-10-19  Dean Jackson  <dino@apple.com>
+
+            Avoid duplicate multisample resolve before WebGL compositing
+            https://bugs.webkit.org/show_bug.cgi?id=178537
+            <rdar://problem/35080724>
+
+            Fix iOS build.
+
+            * platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp:
+            (WebCore::GraphicsContext3D::paintRenderingResultsToCanvas):
+
+    2017-10-19  Dean Jackson  <dino@apple.com>
+
+            Avoid duplicate multisample resolve before WebGL compositing
+            https://bugs.webkit.org/show_bug.cgi?id=178537
+            <rdar://problem/35080724>
+
+            Reviewed by Jer Noble.
+
+            Both endPaint and prepareTexture were doing the MSAA resolve
+            into the renderbuffer, and being called on macOS before compositing.
+            Without that step, endPaint became unnecessary on iOS so I renamed
+            it presentRenderbuffer.
+
+            Covered by existing tests.
+
+            * platform/graphics/GraphicsContext3D.h:
+            * platform/graphics/cocoa/GraphicsContext3DCocoa.mm:
+            (WebCore::GraphicsContext3D::presentRenderbuffer):
+            (WebCore::GraphicsContext3D::endPaint): Deleted.
+            * platform/graphics/cocoa/WebGLLayer.mm:
+            (-[WebGLLayer display]):
+
+2017-10-20  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223708. rdar://problem/34771406
+
+    2017-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Expand r209943 to suppress paste during provisional navigation as well
+            https://bugs.webkit.org/show_bug.cgi?id=178429
+            <rdar://problem/33952830>
+
+            Reviewed by Dean Jackson.
+
+            No new tests; adjusted an existing test to cover this case.
+
+            * editing/Editor.cpp:
+            (WebCore::Editor::canPaste const):
+            Disable pasting during provisional navigation, like r209943 did for
+            various other forms of text input.
+
+            (WebCore::Editor::shouldInsertText const):
+            * dom/EventDispatcher.cpp:
+            (WebCore::shouldSuppressEventDispatchInDOM):
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::shouldSuppressTextInputFromEditing const):
+            (WebCore::FrameLoader::shouldSuppressKeyboardInput const): Deleted.
+            * loader/FrameLoader.h:
+            * page/Settings.in:
+            Rename the setting to be about editing-related text input, not "keyboard" input.
+
+            * editing/EditorCommand.cpp:
+            (WebCore::allowExecutionWhenDisabled):
+            (WebCore::doNotAllowExecutionWhenDisabled):
+            (WebCore::allowExecutionWhenDisabledCopyCut):
+            (WebCore::allowExecutionWhenDisabledPaste):
+            (WebCore::createCommandMap):
+            (WebCore::Editor::Command::allowExecutionWhenDisabled const):
+            Completely disable execution of paste events when in no-text-input-from-editing mode.
+            Otherwise, even though canPaste was false and we wouldn't do a default paste action,
+            we would still dispatch the paste event to the DOM.
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223442. rdar://problem/34745623
+
+    2017-10-16  Maureen Daum  <mdaum@apple.com>
+
+            If an origin doesn't have databases in the Databases table we should still remove its information from disk in DatabaseTracker::deleteOrigin()
+            https://bugs.webkit.org/show_bug.cgi?id=178281
+            <rdar://problem/34576132>
+
+            Reviewed by Brent Fulgham.
+
+            New test:
+            DatabaseTracker.DeleteOriginWithMissingEntryInDatabasesTable
+
+            * Modules/webdatabase/DatabaseTracker.cpp:
+            (WebCore::DatabaseTracker::deleteOrigin):
+            If databaseNames is empty, don't bail early. Instead, delete everything in the directory
+            containing the databases for this origin. This condition indicates that we previously
+            tried to remove the origin but didn't get all of the way through the deletion process.
+            Because we have lost track of the databases for this origin, we can assume that no
+            other process is accessing them. This means it should be safe to delete them outright.
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223438. rdar://problem/34745623
+
+    2017-10-16  Ryan Haddad  <ryanhaddad@apple.com>
+
+            Unreviewed attempt to fix the Windows debug build.
+
+            * Modules/webdatabase/DatabaseTracker.cpp:
+            (WebCore::DatabaseTracker::deleteOrigin):
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223427. rdar://problem/34745623
+
+    2017-10-16  Maureen Daum  <mdaum@apple.com>
+
+            If we fail to delete any database file, don't remove its information from the tracker database
+            <rdar://problem/34576132> and https://bugs.webkit.org/show_bug.cgi?id=178251
+
+            Reviewed by Brady Eidson.
+
+            New tests:
+            DatabaseTracker.DeleteDatabase
+            DatabaseTracker.DeleteDatabaseWhenDatabaseDoesNotExist
+            DatabaseTracker.DeleteOrigin
+            DatabaseTracker.DeleteOriginWhenDeletingADatabaseFails
+            DatabaseTracker.DeleteOriginWhenDatabaseDoesNotExist
+
+            * Modules/webdatabase/DatabaseTracker.cpp:
+            (WebCore::DatabaseTracker::deleteDatabasesModifiedSince):
+            If the database doesn't exist, we previously deleted it but failed to remove the
+            information from the tracker database. We still want to delete all of the information
+            associated with this database from the tracker database, so add it to databaseNamesToDelete.
+            (WebCore::DatabaseTracker::deleteOrigin):
+            If a database doesn't exist, don't try to delete it. We don't need to, but more
+            importantly, deleteDatabaseFile() will fail if the database doesn't exist, which
+            will cause us to incorrectly think we failed to remove database information from disk.
+            If we actually fail to delete any database file, return before we remove the origin
+            information from the tracker database so we don't lose track of the database.
+            (WebCore::DatabaseTracker::deleteDatabase):
+            If a database doesn't exist, don't try to delete it. We don't need to, but also it
+            will cause us to incorrectly think that we were unable to delete a database, so we
+            would bail before we remove the database information from the tracker database. We
+            want to remove the database information from the tracker database because the database
+            doesn't exist.
+            * Modules/webdatabase/DatabaseTracker.h:
+            Expose fullPathForDatabase() for use by tests.
+            * platform/Logging.h:
+            Add a logging channel.
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223565. rdar://problem/35041490
+
+    2017-10-17  John Wilander  <wilander@apple.com>
+
+            Add and remove cookie partition accordingly in intermediary redirect requests
+            https://bugs.webkit.org/show_bug.cgi?id=178369
+            <rdar://problem/34467603>
+
+            Reviewed by Brent Fulgham.
+
+            Tests: http/tests/resourceLoadStatistics/add-partitioning-to-redirect.html
+                   http/tests/resourceLoadStatistics/remove-partitioning-from-redirect.html
+
+            * loader/ResourceLoadObserver.h:
+                Now exposes notifyObserver() so that it can be triggered
+                by the TestRunner.
+                Removed unimplemented ResourceLoadObserver::setShouldThrottleObserverNotifications().
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223253. rdar://problem/35077489
+
+    2017-10-12  John Wilander  <wilander@apple.com>
+
+            ResourceLoadObserver::logFrameNavigation() should use redirectResponse.url()
+            https://bugs.webkit.org/show_bug.cgi?id=175257
+            <rdar://problem/33359866>
+
+            Reviewed by Brent Fulgham.
+
+            This patch was joint work between Michael Specter and John Wilander.
+
+            Tests: http/tests/resourceLoadStatistics/non-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/non-sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+                   http/tests/resourceLoadStatistics/non-sandboxed-nesting-iframe-with-non-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/non-sandboxed-nesting-iframe-with-non-sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+                   http/tests/resourceLoadStatistics/non-sandboxed-nesting-iframe-with-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/non-sandboxed-nesting-iframe-with-sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+                   http/tests/resourceLoadStatistics/sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+                   http/tests/resourceLoadStatistics/sandboxed-nesting-iframe-with-non-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/sandboxed-nesting-iframe-with-non-sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+                   http/tests/resourceLoadStatistics/sandboxed-nesting-iframe-with-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html
+                   http/tests/resourceLoadStatistics/sandboxed-nesting-iframe-with-sandboxed-iframe-redirect-localhost-to-ip-to-localhost.html
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::willSendRequest):
+                Now sends redirectResponse.url() to WebCore::ResourceLoadObserver::logFrameNavigation().
+            * loader/ResourceLoadObserver.cpp:
+            (WebCore::ResourceLoadObserver::logFrameNavigation):
+                Now receives the redirect response URL from WebCore::DocumentLoader().
+            (WebCore::ResourceLoadObserver::nonNullOwnerURL const):
+                New function to traverse the frame chain upward and find the first non-null URL.
+            * loader/ResourceLoadObserver.h:
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223451. rdar://problem/34985194
+
+    2017-10-12  Matt Rajca  <mrajca@apple.com>
+
+            Add API support for quirk that lets an arbitrary click allow auto-play.
+            https://bugs.webkit.org/show_bug.cgi?id=178227
+
+            Reviewed by Alex Christensen.
+
+            Added API test.
+
+            Instead of hardcoding sites in WebCore, let API clients control which websites opt into the quirk that lets
+            an arbitrary click allow auto-play via website policies.
+
+            * html/MediaElementSession.cpp:
+            (WebCore::needsArbitraryUserGestureAutoplayQuirk):
+            * loader/DocumentLoader.h:
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223436. rdar://problem/35061711
+
+    2017-10-16  Chris Dumez  <cdumez@apple.com>
+
+            Log using differential privacy domains where the WebContent process crashes
+            https://bugs.webkit.org/show_bug.cgi?id=178346
+            <rdar://problem/33293830>
+
+            Reviewed by Alex Christensen.
+
+            Add new diagnostic logging key for domain causing crashes.
+
+            * page/DiagnosticLoggingKeys.cpp:
+            (WebCore::DiagnosticLoggingKeys::domainCausingCrashKey):
+            * page/DiagnosticLoggingKeys.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221921. rdar://problem/35041482
+
+    2017-09-12  Daniel Bates  <dabates@apple.com>
+
+            REGRESSION (r215784): The title of right-to-left pages are empty
+            https://bugs.webkit.org/show_bug.cgi?id=176746
+            <rdar://problem/34211419>
+
+            Reviewed by Brent Fulgham.
+
+            Left truncate a long right-to-left title.
+
+            Right-to-left text represents the visual ordering of text. Internally WebKit stores
+            right-to-left text identically to left-to-right text in memory. So, we can use the
+            same string operation to truncate right-to-left text as we do to truncate left-to-right
+            text.
+
+            * platform/text/StringWithDirection.h:
+            (WebCore::truncateFromEnd):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223589. rdar://problem/34771462
+
+    2017-10-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [Regression] Webkit "-apple-system" font fallback token handles font weights of PingFang incorrectly.
+            https://bugs.webkit.org/show_bug.cgi?id=177345
+            <rdar://problem/32975942>
+
+            Reviewed by Jon Lee.
+
+            This bug has a fairly insideous cause. In particular, the system font fallback path follows
+            system conventions, which are not the same as the CSS fallback path. For example, the Chinese
+            fallback of San Francisco weight 600 is Ping Fang weight 500. This doesn't match our
+            assumptions in CSS, because Ping Fang does have a 600 weight, which CSS would think is closer.
+            However, the whole point of system-ui is that it follows the system fallback path, not CSS's.
+            Therefore, falling back from a bold system-ui request to a non-bold fallback font is correct
+            and expected, and we shouldn't synthesize bold in this situation.
+
+            Test: fast/text/system-ui-chinese-bold-fallback.html
+
+            * platform/graphics/cocoa/FontFamilySpecificationCoreText.cpp:
+            (WebCore::FontFamilySpecificationCoreText::fontRanges const):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223580. rdar://problem/34958773
+
+    2017-10-16  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Add subLocality and subAdministrativeArea to ApplePayPaymentContact and ApplePayError
+            https://bugs.webkit.org/show_bug.cgi?id=178191
+            <rdar://problem/34906367>
+
+            Reviewed by Tim Horton.
+
+            Added test cases to http/tests/ssl/applepay/ApplePaySession.html.
+
+            * Modules/applepay/ApplePayError.idl:
+            * Modules/applepay/ApplePayPaymentContact.h:
+            * Modules/applepay/ApplePayPaymentContact.idl:
+            * Modules/applepay/ApplePaySessionPaymentRequest.h:
+            * Modules/applepay/cocoa/PaymentContactCocoa.mm:
+            (WebCore::subLocality):
+            (WebCore::setSubLocality):
+            (WebCore::subAdministrativeArea):
+            (WebCore::setSubAdministrativeArea):
+            (WebCore::convert):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223424. rdar://problem/34745623
+
+    2017-10-16  Alex Christensen  <achristensen@webkit.org>
+
+            Fix iOS build after r223422
+            https://bugs.webkit.org/show_bug.cgi?id=178251
+
+            * Modules/webdatabase/DatabaseManager.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223423. rdar://problem/34745623
+
+    2017-10-16  Maureen Daum  <mdaum@apple.com>
+
+            We should wrap the removal of information from the tracker database in a transaction in DatabaseTracker::deleteOrigin()
+            https://bugs.webkit.org/show_bug.cgi?id=178274
+            <rdar://problem/34576132>
+
+            Reviewed by Tim Horton.
+
+            * Modules/webdatabase/DatabaseTracker.cpp:
+            (WebCore::DatabaseTracker::deleteOrigin):
+            Wrap the removal of information from the tracker database in a transaction so that
+            we don't end up in a case where only one of the tables contains information about
+            an origin.
+            If anything goes wrong when we're modifying the tracker database, rollback the transaction
+            before bailing.
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223420. rdar://problem/34745623
+
+    2017-10-16  Ryan Haddad  <ryanhaddad@apple.com>
+
+            Unreviewed, rolling out r223419.
+
+            This change broke the Windows build.
+
+            Reverted changeset:
+
+            "If we fail to delete any database file, don't remove its
+            information from the tracker database"
+            https://bugs.webkit.org/show_bug.cgi?id=178251
+            https://trac.webkit.org/changeset/223419
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223419. rdar://problem/34745623
+
+    2017-10-16  Maureen Daum  <mdaum@apple.com>
+
+            If we fail to delete any database file, don't remove its information from the tracker database
+            <rdar://problem/34576132> and https://bugs.webkit.org/show_bug.cgi?id=178251
+
+            Reviewed by Brady Eidson.
+
+            New tests:
+            DatabaseTracker.DeleteDatabase
+            DatabaseTracker.DeleteDatabaseWhenDatabaseDoesNotExist
+            DatabaseTracker.DeleteOrigin
+            DatabaseTracker.DeleteOriginWhenDeletingADatabaseFails
+            DatabaseTracker.DeleteOriginWhenDatabaseDoesNotExist
+
+            * Modules/webdatabase/DatabaseTracker.cpp:
+            (WebCore::DatabaseTracker::deleteDatabasesModifiedSince):
+            If the database doesn't exist, we previously deleted it but failed to remove the
+            information from the tracker database. We still want to delete all of the information
+            associated with this database from the tracker database, so add it to databaseNamesToDelete.
+            (WebCore::DatabaseTracker::deleteOrigin):
+            If a database doesn't exist, don't try to delete it. We don't need to, but more
+            importantly, deleteDatabaseFile() will fail if the database doesn't exist, which
+            will cause us to incorrectly think we failed to remove database information from disk.
+            If we actually fail to delete any database file, return before we remove the origin
+            information from the tracker database so we don't lose track of the database.
+            (WebCore::DatabaseTracker::deleteDatabase):
+            If a database doesn't exist, don't try to delete it. We don't need to, but also it
+            will cause us to incorrectly think that we were unable to delete a database, so we
+            would bail before we remove the database information from the tracker database. We
+            want to remove the database information from the tracker database because the database
+            doesn't exist.
+            * Modules/webdatabase/DatabaseTracker.h:
+            Expose fullPathForDatabase() for use by tests.
+            * platform/Logging.h:
+            Add a logging channel.
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223228. rdar://problem/35061705
+
+    2017-10-11  Brent Fulgham  <bfulgham@apple.com>
+
+            Correct nullptr deref in selection handling.
+            https://bugs.webkit.org/show_bug.cgi?id=178189
+            <rdar://problem/33833012>
+
+            Reviewed by Ryosuke Niwa.
+
+            The VisibleSelection::toNormalizedRange returns nullptr for certain conditions (e.g., 'isNone'
+            and 'isOrphaned' cases). It's possible to crash the WebProcess by executing a code path with
+            an orphaned selection range.
+
+            The return value of 'toNormalizedRange' is checked for nullptr in many places, but not everywhere.
+            This patch adds those missing nullptr checks.
+
+            * accessibility/ios/WebAccessibilityObjectWrapperIOS.mm:
+            (-[WebAccessibilityObjectWrapper textMarkerRangeForSelection]):
+            * editing/DeleteSelectionCommand.cpp:
+            (WebCore::DeleteSelectionCommand::makeStylingElementsDirectChildrenOfEditableRootToPreventStyleLoss):
+            * editing/EditingStyle.cpp:
+            (WebCore::EditingStyle::styleAtSelectionStart):
+            * editing/Editor.cpp:
+            (WebCore::Editor::misspelledWordAtCaretOrRange const):
+            * page/DOMSelection.cpp:
+            (WebCore::DOMSelection::containsNode const):
+            * page/DragController.cpp:
+            (WebCore::DragController::concludeEditDrag):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223210. rdar://problem/34820936
+
+    2017-10-11  Simon Fraser  <simon.fraser@apple.com>
+
+            Avoid triggering layout from style change
+            https://bugs.webkit.org/show_bug.cgi?id=178184
+            rdar://problem/34699113
+
+            Reviewed by Zalan Bujtas.
+
+            It's bad for RenderBox::styleDidChange() to scroll RenderLayers, because that
+            can trigger layout via FrameView::updateWidgetPositions() and ScrollingCoordinator::absoluteEventTrackingRegions().
+            So postpone the scrolling until after layout.
+
+            Test: fast/scrolling/adjust-scroll-offset-on-zoom.html
+
+            * rendering/RenderBox.cpp:
+            (WebCore::RenderBox::styleDidChange):
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::updateLayerPositions):
+            (WebCore::RenderLayer::setPostLayoutScrollPosition):
+            (WebCore::RenderLayer::applyPostLayoutScrollPositionIfNeeded):
+            * rendering/RenderLayer.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222471. rdar://problem/35061708
+
+    2017-09-25  Youenn Fablet  <youenn@apple.com>
+
+            MediaStreamTrack.getSettings should compute its deviceId/groupId like enumerateDevices
+            https://bugs.webkit.org/show_bug.cgi?id=177433
+
+            Reviewed by Jer Noble.
+
+            Covered by improved test.
+
+            Hash the deviceId returned by getSettings as done by enumerateDevices/getUserMedia.
+            Do the same thing for groupId.
+            Make sure mock sources have their deviceId set consistently with mock devices.
+
+            * Modules/mediastream/MediaStreamTrack.cpp:
+            (WebCore::MediaStreamTrack::getSettings const):
+            * Modules/mediastream/MediaStreamTrack.h:
+            * Modules/mediastream/MediaStreamTrack.idl:
+            * platform/mediastream/mac/MockRealtimeAudioSourceMac.h:
+            * platform/mediastream/mac/MockRealtimeAudioSourceMac.mm:
+            (WebCore::MockRealtimeAudioSource::create):
+            (WebCore::MockRealtimeAudioSourceMac::MockRealtimeAudioSourceMac):
+            * platform/mediastream/mac/MockRealtimeVideoSourceMac.h:
+            * platform/mediastream/mac/MockRealtimeVideoSourceMac.mm:
+            (WebCore::MockRealtimeVideoSource::create):
+            (WebCore::MockRealtimeVideoSourceMac::MockRealtimeVideoSourceMac):
+            * platform/mock/MockRealtimeAudioSource.cpp:
+            (WebCore::MockRealtimeAudioSource::create):
+            (WebCore::MockRealtimeAudioSource::createMuted):
+            (WebCore::MockRealtimeAudioSource::MockRealtimeAudioSource):
+            * platform/mock/MockRealtimeAudioSource.h:
+            * platform/mock/MockRealtimeVideoSource.cpp:
+            (WebCore::MockRealtimeVideoSource::create):
+            (WebCore::MockRealtimeVideoSource::createMuted):
+            (WebCore::MockRealtimeVideoSource::MockRealtimeVideoSource):
+            * platform/mock/MockRealtimeVideoSource.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221971. rdar://problem/34958928
+
+    2017-09-13  Ms2ger  <Ms2ger@igalia.com>
+
+            Make WebGLRenderingContextBase::TypedList::data() const-correct.
+            https://bugs.webkit.org/show_bug.cgi?id=176833
+
+            Reviewed by Sam Weinig.
+
+            No change of behavior.
+
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::validateUniformMatrixParameters):
+            * html/canvas/WebGLRenderingContextBase.h:
+            (WebCore::WebGLRenderingContextBase::TypedList::data const):
+            * platform/graphics/GraphicsContext3D.h:
+            * platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp:
+            (WebCore::GraphicsContext3D::uniform1fv):
+            (WebCore::GraphicsContext3D::uniform2fv):
+            (WebCore::GraphicsContext3D::uniform3fv):
+            (WebCore::GraphicsContext3D::uniform4fv):
+            (WebCore::GraphicsContext3D::uniform1iv):
+            (WebCore::GraphicsContext3D::uniform2iv):
+            (WebCore::GraphicsContext3D::uniform3iv):
+            (WebCore::GraphicsContext3D::uniform4iv):
+            (WebCore::GraphicsContext3D::uniformMatrix2fv):
+            (WebCore::GraphicsContext3D::uniformMatrix3fv):
+            (WebCore::GraphicsContext3D::uniformMatrix4fv):
+            (WebCore::GraphicsContext3D::vertexAttrib1fv):
+            (WebCore::GraphicsContext3D::vertexAttrib2fv):
+            (WebCore::GraphicsContext3D::vertexAttrib3fv):
+            (WebCore::GraphicsContext3D::vertexAttrib4fv):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223315. rdar://problem/34985202
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Performance: Skip texture upload if source image and destination texture haven't changed
+            https://bugs.webkit.org/show_bug.cgi?id=178254
+            <rdar://problem/34968181>
+
+            Reviewed by Dean Jackson.
+
+            Update GraphicsContext3D to track which texture is bound to which texture unit, and also to
+            track when those bound textures have their backing stores modified. This new "seed" value
+            will be used to determine whether a given texture which has previously had image data
+            uploaded to it needs to be re-updated.
+
+            In VideoTextureCopierCV, track whether the texture's seed changed, whether the IOSurface is
+            the same,  whether the IOSurface's seed has changed, and whether the "flipY" parameter
+            changed since the last time the copier was asked to upload to the texture.
+
+            * platform/graphics/GraphicsContext3D.h:
+            (WebCore::GraphicsContext3D::textureSeed):
+            (WebCore::GraphicsContext3D::GraphicsContext3DState::currentBoundTexture):
+            (WebCore::GraphicsContext3D::GraphicsContext3DState::boundTexture):
+            (WebCore::GraphicsContext3D::GraphicsContext3DState::setBoundTexture):
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+            (WebCore::VideoTextureCopierCV::copyImageToPlatformTexture):
+            * platform/graphics/cv/VideoTextureCopierCV.h:
+            (WebCore::VideoTextureCopierCV::lastTextureSeed):
+            * platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp:
+            (WebCore::GraphicsContext3D::prepareTexture):
+            (WebCore::GraphicsContext3D::bindTexture):
+            (WebCore::GraphicsContext3D::texStorage2D):
+            (WebCore::GraphicsContext3D::texStorage3D):
+            (WebCore::GraphicsContext3D::framebufferTexture2D):
+            (WebCore::GraphicsContext3D::texSubImage2D):
+            (WebCore::GraphicsContext3D::compressedTexImage2D):
+            (WebCore::GraphicsContext3D::compressedTexSubImage2D):
+            (WebCore::GraphicsContext3D::createTexture):
+            (WebCore::GraphicsContext3D::deleteTexture):
+            (WebCore::GraphicsContext3D::texImage2DDirect):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223298. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; wrap more functions in USE(IOSURFACE) so that
+            they do not generate "unused function" errors.
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223297. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            One last unreviewed build fix; since the IOSurface APIs don't exist at
+            all on the simulator, just wrap the entirety of the implementation of
+            copyImageToPlatformTexture() in a #if USE(IOSURFACE) check.
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+            (WebCore::VideoTextureCopierCV::copyImageToPlatformTexture):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223295. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix for the previous build fix; use the right PAL path for IOSurfaceSPI.h.
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223294. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; add definitions for IOSurface methods missing on some platforms.
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223289. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; forward declare the type of IOSurfaceRef.
+
+            * platform/cocoa/CoreVideoSoftLink.cpp:
+            * platform/cocoa/CoreVideoSoftLink.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223287. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; add soft link macros for newly called CoreVideo methods.
+
+            * platform/cocoa/CoreVideoSoftLink.cpp:
+            * platform/cocoa/CoreVideoSoftLink.h:
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223285. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; add UNUSED_PARAM macros.
+
+            * platform/graphics/cocoa/GraphicsContext3DCocoa.mm:
+            (WebCore::GraphicsContext3D::texImageIOSurface2D):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223280. rdar://problem/34958928
+
+    2017-10-13  Jer Noble  <jer.noble@apple.com>
+
+            Performance: do pixel conformance and texturing in a single step.
+            https://bugs.webkit.org/show_bug.cgi?id=178219
+            <rdar://problem/34937237>
+
+            Reviewed by Dean Jackson.
+
+            No new tests; performance improvements should have no behavior change.
+
+            Rather than asking the VTDecompressionSession to conform the output CVPixelBuffer into a
+            pixel format compatible with OpenGL (& ES), don't constrain the output at all, and only do a
+            conformance step if the output is not already compatible with OpenGL. This eliminates one
+            copy (in hardware) operation.
+
+            Move the TextureCacheCV object into VideoTextureCopierCV; it will be conditionally used to
+            create the texture if the pixel buffer is compatible.
+
+            Refactor copyVideoTextureToPlatformTexture(CVOpenGLTextureRef) in VideoTextureCopierCV. The
+            new entry point, copyImageToPlatformTexture(), will attempt to use the texture cache first,
+            and call a new common copyVideoTextureToPlatformTexture(Platform3DObject) with the result.
+
+            The new copyImageToPlatformTexture() will pull planar YUV frames into two textures, and combine
+            the two with a color transfer function when drawing to the output texture.
+
+            * platform/graphics/GraphicsContext3D.h:
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture):
+            * platform/graphics/cocoa/GraphicsContext3DCocoa.mm:
+            (WebCore::GraphicsContext3D::texImageIOSurface2D):
+            * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+            (WebCore::WebCoreDecompressionSession::ensureDecompressionSessionForSample):
+            * platform/graphics/cv/TextureCacheCV.h:
+            * platform/graphics/cv/TextureCacheCV.mm:
+            (WebCore::TextureCacheCV::textureFromImage):
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+            (WebCore::pixelRangeFromPixelFormat):
+            (WebCore::transferFunctionFromString):
+            (WebCore::YCbCrToRGBMatrixForRangeAndTransferFunction):
+            (WebCore::VideoTextureCopierCV::~VideoTextureCopierCV):
+            (WebCore::VideoTextureCopierCV::initializeUVContextObjects):
+            (WebCore::VideoTextureCopierCV::copyImageToPlatformTexture):
+            (WebCore::VideoTextureCopierCV::copyVideoTextureToPlatformTexture):
+            * platform/graphics/cv/VideoTextureCopierCV.h:
+
+2017-10-18  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r223640. rdar://problem/35063901
+
+    2017-10-18  Dean Jackson  <dino@apple.com>
+
+            Some older hardware can't actually use renderbuffers at the size they advertise
+            https://bugs.webkit.org/show_bug.cgi?id=178417
+            <rdar://problem/35042291>
+
+            Reviewed by Tim Horton.
+
+            The change in r223567 caused some older hardware to fail, because even though
+            they claimed to support a maximum renderbuffer and viewport of 16K, they were
+            unable to actually handle one. Rather than trying to identify such hardware,
+            clamp all buffers to a maximum of 8192. This is bigger than the previous value
+            of 4096, and large enough to have a full-screen buffer on a Retina 5K iMac.
+
+            * platform/graphics/opengl/GraphicsContext3DOpenGL.cpp:
+            (WebCore::GraphicsContext3D::getIntegerv):
+
+2017-10-17  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r223567. rdar://problem/35041476
+
+    2017-10-16  Dean Jackson  <dino@apple.com>
+
+            WebGL clamps drawingBufferWidth to 4096 pixels on a 5120 monitor/canvas
+            https://bugs.webkit.org/show_bug.cgi?id=178223
+            <rdar://problem/34597567>
+
+            Reviewed by Antoine Quint.
+
+            Remove the limit of 4k on the width/height of the renderbuffer.
+
+            Test: fast/canvas/webgl/large-drawing-buffer-resize.html
+
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::reshape):
+
+2017-10-17  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223313. rdar://problem/35042269
+
+    2017-10-13  Brent Fulgham  <bfulgham@apple.com>
+
+            Protect FrameView during style calculations
+            https://bugs.webkit.org/show_bug.cgi?id=178300
+            <rdar://problem/34869329>
+
+            Reviewed by Ryosuke Niwa.
+
+            Protect the FrameView during layout and style updates in case arbitrary script
+            is run that might clear it.
+
+            Test: fast/html/marquee-reparent-check.html
+
+            * page/FrameView.cpp:
+            (WebCore::FrameView::updateLayoutAndStyleIfNeededRecursive):
+
+2017-10-12  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/34891297
+
+    Cherry-pick of r222803 <rdar://problem/34745579>
+    
+        2017-10-03  Jer Noble  <jer.noble@apple.com>
+    
+        Implement quality-of-service tiers in WebCoreDecompressionSession
+        https://bugs.webkit.org/show_bug.cgi?id=177769
+    
+        Reviewed by Dean Jackson.
+    
+        VTDecompressionSession will suggest quality-of-service tiers to be used when decompression
+        can't keep up with playback speed. Use a simple exponential-moving-average heuristic to
+        determine when to move up and down the tiers.
+    
+        Drive-by fix: When frames are so late that they miss the display deadline, mark them as
+        dropped rather than just delayed.
+    
+        * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+        * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+        (WebCore::WebCoreDecompressionSession::ensureDecompressionSessionForSample):
+        (WebCore::WebCoreDecompressionSession::decodeSample):
+        (WebCore::WebCoreDecompressionSession::handleDecompressionOutput):
+        (WebCore::WebCoreDecompressionSession::automaticDequeue):
+        (WebCore::WebCoreDecompressionSession::enqueueDecodedSample):
+        (WebCore::WebCoreDecompressionSession::resetQosTier):
+        (WebCore::WebCoreDecompressionSession::increaseQosTier):
+        (WebCore::WebCoreDecompressionSession::decreaseQosTier):
+        (WebCore::WebCoreDecompressionSession::updateQosWithDecodeTimeStatistics):
+        * platform/cocoa/VideoToolboxSoftLink.cpp:
+        * platform/cocoa/VideoToolboxSoftLink.h:
+
+    2017-10-12  Jer Noble  <jer.noble@apple.com>
+
+            Cherry-pick of r222803 <rdar://problem/34745579>
+
+        2017-10-03  Jer Noble  <jer.noble@apple.com>
+
+                Implement quality-of-service tiers in WebCoreDecompressionSession
+                https://bugs.webkit.org/show_bug.cgi?id=177769
+
+                Reviewed by Dean Jackson.
+
+                VTDecompressionSession will suggest quality-of-service tiers to be used when decompression
+                can't keep up with playback speed. Use a simple exponential-moving-average heuristic to
+                determine when to move up and down the tiers.
+
+                Drive-by fix: When frames are so late that they miss the display deadline, mark them as
+                dropped rather than just delayed.
+
+                * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+                * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+                (WebCore::WebCoreDecompressionSession::ensureDecompressionSessionForSample):
+                (WebCore::WebCoreDecompressionSession::decodeSample):
+                (WebCore::WebCoreDecompressionSession::handleDecompressionOutput):
+                (WebCore::WebCoreDecompressionSession::automaticDequeue):
+                (WebCore::WebCoreDecompressionSession::enqueueDecodedSample):
+                (WebCore::WebCoreDecompressionSession::resetQosTier):
+                (WebCore::WebCoreDecompressionSession::increaseQosTier):
+                (WebCore::WebCoreDecompressionSession::decreaseQosTier):
+                (WebCore::WebCoreDecompressionSession::updateQosWithDecodeTimeStatistics):
+                * platform/cocoa/VideoToolboxSoftLink.cpp:
+                * platform/cocoa/VideoToolboxSoftLink.h:
+
+2017-10-12  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/34891297
+
+    Partial cherry-pick of r222225 <rdar://problem/34745579>, only the changes to WebCoreDecompressionSession.
+    
+        2017-09-19  Jer Noble  <jer.noble@apple.com>
+    
+        [Cocoa] Add an ImageDecoder subclass backed by AVFoundation
+        https://bugs.webkit.org/show_bug.cgi?id=176825
+    
+        Reviewed by Eric Carlson.
+    
+        Modify WebCoreDecompressionSession so that it can emit frames which have been converted from
+        YUV -> RGB as part of the decode operation. Also, add a synchronous decoding operation
+        method, for use in ImageDecoderAVFObjC.
+    
+        * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+        (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession):
+        * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+        (WebCore::WebCoreDecompressionSession::createOpenGL):
+        (WebCore::WebCoreDecompressionSession::createRGB):
+        * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+        (WebCore::WebCoreDecompressionSession::WebCoreDecompressionSession):
+        (WebCore::WebCoreDecompressionSession::ensureDecompressionSessionForSample):
+        (WebCore::WebCoreDecompressionSession::decodeSample):
+        (WebCore::WebCoreDecompressionSession::decodeSampleSync):
+
+    2017-10-12  Jer Noble  <jer.noble@apple.com>
+
+            Partial cherry-pick of r222225 <rdar://problem/34745579>, only the changes to WebCoreDecompressionSession.
+
+        2017-09-19  Jer Noble  <jer.noble@apple.com>
+
+                [Cocoa] Add an ImageDecoder subclass backed by AVFoundation
+                https://bugs.webkit.org/show_bug.cgi?id=176825
+
+                Reviewed by Eric Carlson.
+
+                Modify WebCoreDecompressionSession so that it can emit frames which have been converted from
+                YUV -> RGB as part of the decode operation. Also, add a synchronous decoding operation
+                method, for use in ImageDecoderAVFObjC.
+
+                * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+                (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession):
+                * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+                (WebCore::WebCoreDecompressionSession::createOpenGL):
+                (WebCore::WebCoreDecompressionSession::createRGB):
+                * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+                (WebCore::WebCoreDecompressionSession::WebCoreDecompressionSession):
+                (WebCore::WebCoreDecompressionSession::ensureDecompressionSessionForSample):
+                (WebCore::WebCoreDecompressionSession::decodeSample):
+                (WebCore::WebCoreDecompressionSession::decodeSampleSync):
+
+2017-10-12  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223144. rdar://problem/34958765
+
+    2017-10-10  Matt Rajca  <mrajca@apple.com>
+
+            Respect audio rate change restrictions in HTMLMediaElement::setVolume.
+            https://bugs.webkit.org/show_bug.cgi?id=178140
+
+            Reviewed by Eric Carlson.
+
+            Tests: media/audio-playback-volume-changes-with-restrictions-and-user-gestures.html
+                   media/audio-playback-volume-changes-with-restrictions.html
+
+            It's currently possible for a website to start auto-playing media with a zero volume and then
+            programmatically set the volume to a non-zero value without a user gesture. This code path didn't
+            have to be considered previously because volume changes are not supported on iOS.
+
+            We currently pause media when an audio track comes in after an element has already started playing silently
+            in mediaPlayerDidAddAudioTrack. This patch does the same when a non-zero volume is set after a media
+            element already began playing silently and there is an audio rate change restriction.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::setVolume):
+
+2017-10-12  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222627. rdar://problem/34938437
+
+    2017-09-28  Tim Horton  <timothy_horton@apple.com>
+
+            Remove constant() in favor of env()
+            https://bugs.webkit.org/show_bug.cgi?id=177581
+            <rdar://problem/34701321>
+
+            Reviewed by Dean Jackson.
+
+            No new tests, removing a feature.
+
+            * css/CSSValueKeywords.in:
+            * css/CSSVariableData.cpp:
+            (WebCore::CSSVariableData::checkVariablesForCyclesWithRange const):
+            (WebCore::CSSVariableData::resolveTokenRange const):
+            * css/parser/CSSVariableParser.cpp:
+            (WebCore::classifyBlock):
+
+2017-10-13  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r223063. rdar://problem/34921832
+
+    2017-10-09  Dean Jackson  <dino@apple.com>
+
+            [WebGL] Third IOSurface buffer might be allocated with the wrong size
+            https://bugs.webkit.org/show_bug.cgi?id=178092
+            <rdar://problem/34893173>
+
+            Reviewed by Jer Noble.
+
+            If the WebGL canvas resizes after the third buffer was allocated, it
+            was never getting told that its backing store should be thrown away.
+
+            * platform/graphics/cocoa/WebGLLayer.mm: Allocate the third buffer at
+            the same time as the first two.
+            (-[WebGLLayer allocateIOSurfaceBackingStoreWithSize:usingAlpha:]):
+            (-[WebGLLayer bindFramebufferToNextAvailableSurface]):
+
+2017-10-13  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r222961. rdar://problem/34891070
+
+    2017-10-05  Dean Jackson  <dino@apple.com>
+
+            Lots of missing frames in YouTube360 when fullscreen on MacBook
+            https://bugs.webkit.org/show_bug.cgi?id=177903
+            <rdar://problem/33273300>
+
+            Reviewed by Sam Weinig.
+
+            Our compositing path for WebGL on macOS was too slow, requiring a copy
+            of the framebuffer into another GL context. Replace this by having
+            WebGL render into a texture that is backed by an IOSurface, and then
+            set the WebGLLayer to use the IOSurface as contents.
+
+            Covered by the existing WebGL tests.
+
+            * platform/graphics/GraphicsContext3D.h:
+            (WebCore::GraphicsContext3D::platformTexture const): We no longer use the
+            framebuffer object outside the class, so change this to return the GL texture
+            that the framebuffer is rendering in to. It was kind-of strange that it was
+            named this way originally.
+            Also make endPaint available on macOS, and add the definitions for
+            createIOSurfaceBackingStore and updateFramebufferTextureBackingStoreFromLayer.
+
+            * platform/graphics/cocoa/GraphicsContext3DCocoa.mm:
+            (WebCore::GraphicsContext3D::GraphicsContext3D): Now that we're using an IOSurface,
+            we're binding to a new attachment point, GL_TEXTURE_RECTANGLE.
+            (WebCore::GraphicsContext3D::endPaint): This is now being called on macOS and iOS,
+            so add a comment that explains the extra work that iOS needs to do. At some future
+            point it would be nice to make this slightly cleaner, so that iOS and macOS are
+            more similar.
+            (WebCore::GraphicsContext3D::allocateIOSurfaceBackingStore): New function that calls
+            into the corresponding WebGLLayer function.
+            (WebCore::GraphicsContext3D::updateFramebufferTextureBackingStoreFromLayer): Ditto.
+
+            * platform/graphics/opengl/GraphicsContext3DOpenGL.cpp:
+            (WebCore::wipeAlphaChannelFromPixels): Both readPixels and drawing a WebGL context
+            into another buffer need to fill out the alpha channel if this context was
+            created without one, otherwise the IOSurface backing store will happily provide
+            what might be non-zero values.
+            (WebCore::GraphicsContext3D::readPixelsAndConvertToBGRAIfNecessary): Call the helper above.
+            (WebCore::GraphicsContext3D::reshapeFBOs): Add more code to call into the macOS-specific
+            function to use an IOSurface as the framebuffer texture.
+            (WebCore::GraphicsContext3D::readPixels): Call the helper above.
+
+            * platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm:
+            (PlatformCALayerCocoa::copyContentsFromLayer): Replace the use of the
+            deprecated setContentsChanged with reloadValueForKeyPath.
+
+            * platform/graphics/cocoa/WebGLLayer.h: The macOS implementation now
+            inherits from CALayer directly rather than CAOpenGLLayer. It also adds
+            a few member variables to handle the IOSurfaces used for triple buffering.
+
+            * platform/graphics/cocoa/WebGLLayer.mm:
+            (-[WebGLLayer initWithGraphicsContext3D:]): If we were created without an
+            alpha channel, tell CA that we're an opaque layer. Also set the layer's transform
+            to identity, so that it calls into the code below to flip the contents.
+            (-[WebGLLayer setTransform:]): Because an IOSurface is used for the layer contents,
+            we don't get a chance to flip the drawing the way we do via the drawInContext delegate.
+            Instead we have to apply a scale(1, -1) transform on top of the layer transform to
+            make sure the layer is rendered right-way up.
+            (-[WebGLLayer setAnchorPoint:]): Ditto, except we have to assume the anchor point is
+            at the bottom of the layer, so flip the Y value.
+            (-[WebGLLayer display]): Swap between the drawing buffer and the contents buffer, and
+            then get a new buffer ready for display.
+            (createAppropriateIOSurface): Helper.
+            (-[WebGLLayer allocateIOSurfaceBackingStoreWithSize:usingAlpha:]): Initializes the
+            IOSurfaces used for drawing buffers.
+            (-[WebGLLayer bindFramebufferToNextAvailableSurface]): Take the next available IOSurface and
+            make it the drawing buffer (binding in to WebGL at the same time).
+            (-[WebGLLayer copyCGLPixelFormatForDisplayMask:]): Deleted.
+            (-[WebGLLayer copyCGLContextForPixelFormat:]): Deleted.
+            (-[WebGLLayer drawInCGLContext:pixelFormat:forLayerTime:displayTime:]): Deleted.
+
+            * platform/graphics/mac/WebLayer.mm: Remove the definition of reloadValueForKeyPath.
+
+2017-10-11  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222963. rdar://problem/34891307
+
+    2017-10-05  Dean Jackson  <dino@apple.com>
+
+            [WebGL] Safari performance is slow due to high MSAA usage
+            https://bugs.webkit.org/show_bug.cgi?id=177949
+            <rdar://problem/34835619>
+
+            Reviewed by Sam Weinig.
+
+            On some hardware, typically integrated GPUs, using MSAA with a sample
+            count above 4 produces bad performance. Limit the number of samples to
+            4 universally.
+
+            * platform/graphics/opengl/GraphicsContext3DOpenGL.cpp:
+            (WebCore::GraphicsContext3D::reshapeFBOs):
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222788. rdar://problem/34771440
+
+    2017-10-03  Daniel Bates  <dabates@apple.com>
+
+            [CSP] Check policy before opening a new window to a JavaScript URL
+            https://bugs.webkit.org/show_bug.cgi?id=176815
+            <rdar://problem/34400057>
+
+            Reviewed by Brent Fulgham.
+
+            Ensure that the Content Security Policy of the page allows navigation to a JavaScript URL
+            before opening a new window to it.
+
+            Test: http/tests/security/contentSecurityPolicy/window-open-javascript-url-blocked.html
+
+            * loader/FrameLoader.cpp:
+            (WebCore::createWindow):
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221937. rdar://problem/34893195
+
+    2017-09-12  Jer Noble  <jer.noble@apple.com>
+
+            [MSE] Don't increase the reported totalFrameDelay for non-displayed frames (or frames coming in while paused).
+            https://bugs.webkit.org/show_bug.cgi?id=175900
+
+            Reviewed by Eric Carlson.
+
+            When seeking to a specific time, the decompression session necessarily needs to be fed samples from before that
+            time (i.e., all samples from the previous I-frame forward). These shouldn't contribute to the "total frame
+            delay" metric. Neither should samples delivered when the video is paused (like, during seeking), as a frame can't
+            be "late" if time is not moving forward.
+
+            * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+            (WebCore::WebCoreDecompressionSession::handleDecompressionOutput):
+            * platform/cf/CoreMediaSoftLink.cpp:
+            * platform/cf/CoreMediaSoftLink.h:
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221872. rdar://problem/34891288
+
+    2017-09-11  Dean Jackson  <dino@apple.com>
+
+            [WebGL macOS] No need to multisample when blitting into WebGLLayer
+            https://bugs.webkit.org/show_bug.cgi?id=176666
+            <rdar://problem/27774626>
+
+            Reviewed by Sam Weinig.
+
+            We were seeing performance profiles suggesting WebGL was
+            doing 8x MSAA, even though we explicitly set it to only
+            use 4 samples in the GLPixelFormatObj used to create
+            the WebGL CGLContextObj. However, that same CGLPixelFormatObj
+            was also used for the WebGLLayer's CGLContextObj, meaning the
+            blit of the WebGL FBO into the WebGLLayer's backing store was
+            multisampling as well -- so an extra 4 samples on top of the
+            original 4, making it look like we were doing 8x.
+
+            This was obviously unnecessary, since we already have the
+            multisampled FBO and just want to copy it, as is, into the layer.
+
+            Now, instead of copying the CGLPixelFormatObj, we create
+            a new one and copy most of the attributes, leaving out
+            the multisample flags (and the depth buffer, since we're
+            only doing 2d blits).
+
+            Covered by existing WebGL tests, since there should be no
+            visible change.
+
+            * platform/graphics/cocoa/WebGLLayer.mm:
+            (-[WebGLLayer copyCGLPixelFormatForDisplayMask:]): Create a new
+            CGLPixelFormatObj that copies most of the values from
+            the corresponding object on the WebGL's backing CGLContextObj.
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221831. rdar://problem/34891283
+
+    2017-09-08  Dean Jackson  <dino@apple.com>
+
+            gl.detachShader breaks shader program
+            https://bugs.webkit.org/show_bug.cgi?id=137689
+            <rdar://problem/34025056>
+
+            Reviewed by Sam Weinig.
+
+            It should be possible to compile shaders, attach them to a program,
+            link the program, detach the shaders, delete the shaders, and then
+            ask for the uniform and attribute locations. That is, once you've
+            linked, the shaders can be thrown away.
+
+            We were using the attached shaders to look up uniform locations, so
+            we now keep around a separate map that remembers what shaders were
+            attached when the program links.
+
+            This fixes the bug, but the whole area is still a bit messy. For one,
+            we're keeping around all the shader information even after it is
+            no longer used.
+            See https://bugs.webkit.org/show_bug.cgi?id=98204
+
+            Test: fast/canvas/webgl/detachShader-before-accessing-uniform.html
+
+            * platform/graphics/GraphicsContext3D.h: Add another map to remember
+            what shaders were used when a program was linked.
+            * platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp:
+            (WebCore::GraphicsContext3D::mappedSymbolInShaderSourceMap): New helper
+            to look up a name in our source maps.
+            (WebCore::GraphicsContext3D::mappedSymbolName): Use the helper, and look
+            at linked shaders if there are no attached shaders.
+            (WebCore::GraphicsContext3D::originalSymbolInShaderSourceMap): Does the
+            reverse of the above.
+            (WebCore::GraphicsContext3D::originalSymbolName):
+            (WebCore::GraphicsContext3D::linkProgram): Add to the new map.
+            (WebCore::GraphicsContext3D::deleteProgram): Delete the program from
+            our shader entries.
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222478. rdar://problem/34771020
+
+    2017-09-25  Youenn Fablet  <youenn@apple.com>
+
+            WebRTC video does not resume receiving when switching back to Safari 11 on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=175472
+            <rdar://problem/33860863>
+
+            Reviewed by Darin Adler.
+
+            Test: webrtc/video-interruption.html and manual testing.
+
+            Using new SetActive method from libwebrtc encoder/decoder to enable/disable them based on interuptions.
+            For that purpose, LibWebRTCProvider is now storing the peer connection factory and keeping track of the encoder/decoder factories.
+            LibWebRTCProvider is then notified by WebPage when backgrounded/foregrounded.
+
+            * WebCore.xcodeproj/project.pbxproj:
+            * platform/mediastream/libwebrtc/LibWebRTCProvider.cpp:
+            (WebCore::staticFactoryAndThreads):
+            (WebCore::initializePeerConnectionFactoryAndThreads):
+            (WebCore::LibWebRTCProvider::factory):
+            (WebCore::LibWebRTCProvider::setPeerConnectionFactory):
+            (WebCore::LibWebRTCProvider::createPeerConnection):
+            (WebCore::LibWebRTCProvider::setActive):
+            (WebCore::LibWebRTCProvider::webRTCAvailable):
+            (WebCore::LibWebRTCProvider::mayResumePlayback): Deleted.
+            (WebCore::LibWebRTCProvider::suspendPlayback): Deleted.
+            * platform/mediastream/libwebrtc/LibWebRTCProvider.h:
+            * platform/mediastream/libwebrtc/VideoToolBoxDecoderFactory.cpp: Copied from Source/WebCore/platform/mediastream/libwebrtc/VideoToolBoxEncoderFactory.cpp.
+            (WebCore::VideoToolboxVideoDecoderFactory::setActive):
+            (WebCore::VideoToolboxVideoDecoderFactory::CreateVideoDecoder):
+            (WebCore::VideoToolboxVideoDecoderFactory::DestroyVideoDecoder):
+            * platform/mediastream/libwebrtc/VideoToolBoxDecoderFactory.h: Copied from Source/WebCore/platform/mediastream/libwebrtc/VideoToolBoxEncoderFactory.h.
+            * platform/mediastream/libwebrtc/VideoToolBoxEncoderFactory.cpp:
+            (WebCore::VideoToolboxVideoEncoderFactory::setActive):
+            (WebCore::VideoToolboxVideoEncoderFactory::CreateSupportedVideoEncoder):
+            (WebCore::VideoToolboxVideoEncoderFactory::DestroyVideoEncoder):
+            * platform/mediastream/libwebrtc/VideoToolBoxEncoderFactory.h:
+            * testing/Internals.cpp:
+            (WebCore::Internals::resetToConsistentState):
+            * testing/MockLibWebRTCPeerConnection.cpp:
+            (WebCore::useRealRTCPeerConnectionFactory):
+            (WebCore::useMockRTCPeerConnectionFactory):
+            * testing/MockLibWebRTCPeerConnection.h:
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221430. rdar://problem/34770998
+
+    2017-08-31  Jer Noble  <jer.noble@apple.com>
+
+            MSE-to-Canvas painting can become "stuck" during heavy workloads
+            https://bugs.webkit.org/show_bug.cgi?id=176170
+
+            Reviewed by Eric Carlson.
+
+            During heavy workloads, the trigger from CMBufferQueue notifying us that we have dipped below
+            the "low-water mark" of decoded (and decoding) frames will not fire. Instead of using a trigger
+            (since it will not fire when the number of "frames being decoded" changes, just the number of
+            decoded frames), just call maybeBecomeReadyForMoreMediaData() whenever the number of frames in
+            the decoded queue decreases, or when the number of frames being decoded decreases.
+
+            * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+            * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+            (WebCore::WebCoreDecompressionSession::maybeBecomeReadyForMoreMediaData):
+            (WebCore::WebCoreDecompressionSession::enqueueSample):
+            (WebCore::WebCoreDecompressionSession::decodeSample):
+            (WebCore::WebCoreDecompressionSession::handleDecompressionOutput):
+            (WebCore::WebCoreDecompressionSession::getFirstVideoFrame):
+            (WebCore::WebCoreDecompressionSession::automaticDequeue):
+            (WebCore::WebCoreDecompressionSession::imageForTime):
+            (WebCore::WebCoreDecompressionSession::maybeBecomeReadyForMoreMediaDataCallback): Deleted.
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222995. rdar://problem/34891302
+
+    2017-10-06  Jer Noble  <jer.noble@apple.com>
+
+            Netflix playback fails with S7353 error
+            https://bugs.webkit.org/show_bug.cgi?id=178023
+
+            Reviewed by Dean Jackson.
+
+            On certain platforms, WebCoreDecompressionSession will fail to produce CVImageBuffers when presented with
+            encrypted content. On those platforms, the seek() command will fail, because frames at the destination time
+            cannot be decoded. This occurs for Netflix because the <video> element is not in the DOM at decode time.
+
+            Only create a WebCoreDecompressionSession in MediaPlayerPrivateMediaSourceAVFObjC when we have explicitly
+            been asked to paint into a WebGL canvas.
+
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged):
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222786. rdar://problem/34820881
+
+    2017-10-03  Brent Fulgham  <bfulgham@apple.com>
+
+            Unreviewed test fix after r222779.
+
+            * testing/cocoa/WebArchiveDumpSupport.mm:
+            (WebCoreTestSupport::createCFURLResponseFromResponseData): Setting NSSecureCoding in this test code should be
+            done based on build system, just like it is in the actual WebArchive handling code.
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222779. rdar://problem/34820881
+
+    2017-10-03  Brent Fulgham  <bfulgham@apple.com>
+
+            [Mac] Use safer decoding practices for NSKeyedUnarchiver
+            https://bugs.webkit.org/show_bug.cgi?id=175887
+            <rdar://problem/33435281>
+
+            Reviewed by Daniel Bates.
+
+            * loader/archive/cf/LegacyWebArchiveMac.mm:
+            (WebCore::LegacyWebArchive::createResourceResponseFromMacArchivedData): Use NSSecureCoding to unarchive.
+            (WebCore::LegacyWebArchive::createPropertyListRepresentation): Ditto for archiving.
+            * testing/cocoa/WebArchiveDumpSupport.mm:
+            (WebCoreTestSupport::createCFURLResponseFromResponseData): Update to use NSSecureCoding if possible.
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221098. rdar://problem/34771028
+
+    2017-08-23  Jer Noble  <jer.noble@apple.com>
+
+            Track VideoPlaybackQuality metrics when using WebCoreDecompressionSession.
+            https://bugs.webkit.org/show_bug.cgi?id=175835
+            <rdar://problem/34022234>
+
+            Reviewed by Eric Carlson.
+
+            Test: platform/mac/media/media-source/videoplaybackquality-decompressionsession.html
+
+            Track the total number of frames decoded, dropped, & corrupted, as well as the total
+            delay imposed by decoding in the WebCoreDecompressionSession.
+
+            Drive-by fix: implement frame dropping by skipping frames whose presentation times are
+            before the video's current time and which aren't depended upon by other frames.
+
+            * platform/cf/CoreMediaSoftLink.cpp:
+            * platform/cf/CoreMediaSoftLink.h:
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::videoPlaybackQualityMetrics):
+            * platform/graphics/cocoa/WebCoreDecompressionSession.h:
+            (WebCore::WebCoreDecompressionSession::totalVideoFrames):
+            (WebCore::WebCoreDecompressionSession::droppedVideoFrames):
+            (WebCore::WebCoreDecompressionSession::corruptedVideoFrames):
+            (WebCore::WebCoreDecompressionSession::totalFrameDelay):
+            * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+            (WebCore::WebCoreDecompressionSession::shouldDecodeSample):
+            (WebCore::WebCoreDecompressionSession::decodeSample):
+            (WebCore::WebCoreDecompressionSession::handleDecompressionOutput):
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221046. rdar://problem/34891067
+
+    2017-08-22  Jer Noble  <jer.noble@apple.com>
+
+            Refactor videoPerformanceQuality() MediaPlayer methods into single call.
+            https://bugs.webkit.org/show_bug.cgi?id=175830
+
+            Reviewed by Eric Carlson.
+
+            Allow MediaPlayerPrivate subclasses to return all the metrics required for VideoPerformanceQuality in
+            a single call. For clients which incur significant overhead to request this data, this reduces the cost
+            of requesting data by the number of calls removed.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::getVideoPlaybackQuality):
+            * platform/graphics/MediaPlayer.cpp:
+            (WebCore::MediaPlayer::videoPlaybackQualityMetrics):
+            (WebCore::MediaPlayer::totalVideoFrames): Deleted.
+            (WebCore::MediaPlayer::droppedVideoFrames): Deleted.
+            (WebCore::MediaPlayer::corruptedVideoFrames): Deleted.
+            (WebCore::MediaPlayer::totalFrameDelay): Deleted.
+            * platform/graphics/MediaPlayer.h:
+            (WebCore::PlatformVideoPlaybackQualityMetrics::PlatformVideoPlaybackQualityMetrics):
+            * platform/graphics/MediaPlayerPrivate.h:
+            (WebCore::MediaPlayerPrivateInterface::videoPlaybackQualityMetrics):
+            (WebCore::MediaPlayerPrivateInterface::totalVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateInterface::droppedVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateInterface::corruptedVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateInterface::totalFrameDelay): Deleted.
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.h:
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::videoPlaybackQualityMetrics):
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::totalVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::droppedVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::corruptedVideoFrames): Deleted.
+            (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::totalFrameDelay): Deleted.
+            * platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.h:
+            * platform/mock/mediasource/MockMediaPlayerMediaSource.cpp:
+            (WebCore::MockMediaPlayerMediaSource::videoPlaybackQualityMetrics):
+            (WebCore::MockMediaPlayerMediaSource::totalVideoFrames): Deleted.
+            (WebCore::MockMediaPlayerMediaSource::droppedVideoFrames): Deleted.
+            (WebCore::MockMediaPlayerMediaSource::corruptedVideoFrames): Deleted.
+            (WebCore::MockMediaPlayerMediaSource::totalFrameDelay): Deleted.
+            * platform/mock/mediasource/MockMediaPlayerMediaSource.h:
+            * platform/mock/mediasource/MockMediaSourcePrivate.cpp:
+            (WebCore::MockMediaSourcePrivate::videoPlaybackQualityMetrics):
+            * platform/mock/mediasource/MockMediaSourcePrivate.h:
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222402. rdar://problem/34770839
+
+    2017-09-22  Tim Horton  <timothy_horton@apple.com>
+
+            Add env() as an alias of constant()
+            https://bugs.webkit.org/show_bug.cgi?id=177371
+
+            Reviewed by Simon Fraser.
+
+            * css/CSSValueKeywords.in:
+            * css/CSSVariableData.cpp:
+            (WebCore::CSSVariableData::checkVariablesForCyclesWithRange const):
+            (WebCore::CSSVariableData::resolveTokenRange const):
+            * css/parser/CSSVariableParser.cpp:
+            (WebCore::classifyBlock):
+            Add env() as an alias of constant() everywhere it is mentioned.
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/34770842
+
+    Cherry-pick r221083. rdar://problem/34770842, rdar://problem/34770849
+
+    2017-10-02  Mark Lam  <mark.lam@apple.com>
+
+            Cherry-pick r221083. rdar://problem/34770842, rdar://problem/34770849
+
+        2017-08-23  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+                Race condition in StartWebThread causing crash
+                https://bugs.webkit.org/show_bug.cgi?id=175852
+
+                Reviewed by Mark Lam.
+
+                When starting web thread, the main thread waits for completion of web thread initialization
+                by using pthread_cond_t. However, the main thread may be woken up due to the existence of
+                the spurious wake up of pthread_cond_t.
+
+                Instead, we should use WTF::Lock and WTF::Condition. Since our StartWebThread already calls
+                WTF::initializeThreading, it is safe to use WTF::Lock and WTF::Condition. And our WTF::Condition
+                does not have the spurious wake up problem as described in Condition.h.
+
+                * platform/ios/wak/WebCoreThread.mm:
+                (RunWebThread):
+                (StartWebThread):
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222190. rdar://problem/34771470
+
+    2017-09-18  Tim Horton  <timothy_horton@apple.com>
+
+            Support min() and max() in calc()
+            https://bugs.webkit.org/show_bug.cgi?id=167000
+            <rdar://problem/30153481>
+
+            Reviewed by David Hyatt.
+            Patch originally by Myles Maxfield.
+
+            Add two new toplevel functions to CSS, min() and max(), which take an
+            arbirary number of arguments and resolve to the minimum and maximum of
+            the resolved value of the arguments, respectively. It is also possible
+            to use min() and max() inside calc(), and to use calc()-like math
+            inside min() and max().
+
+            * css/CSSCalculationValue.cpp:
+            (WebCore::determineCategory):
+            min and max operators don't use determineCategory; we have a specific
+            implementation for them in createMinOrMax.
+
+            (WebCore::resolvedTypeForMinOrMax):
+            The spec says that min() and max() should be marked as invalid if they
+            have values of more than one type, but that percentages should resolve
+            against the destination type before making this determination. So,
+            if the destination type is length, percent turns into percent-length,
+            and similarly for number.
+
+            (WebCore::isIntegerResult):
+            Add an n-way implementation of isIntegerResult.
+
+            (WebCore::isSamePair):
+            (WebCore::CSSCalcOperation::createMinOrMax): Create a min() or max()
+            operation, as long as the types of arguments are all the same. Allow
+            lengths to upgrade the whole operation to percent-length, and numbers
+            to percent-number, which will cause us to use CalculationValue and friends
+            in order to do proper resolution of all of the parameters instead of
+            just comparing their numeric values.
+
+            (WebCore::CSSCalcOperation::createCalcExpression):
+            (WebCore::CSSCalcOperation::doubleValue):
+            (WebCore::CSSCalcOperation::computeLengthPx):
+            (WebCore::CSSCalcOperation::customCSSText):
+            (WebCore::CSSCalcOperation::primitiveType):
+            (WebCore::CSSCalcOperation::CSSCalcOperation):
+            (WebCore::CSSCalcOperation::evaluate):
+            (WebCore::CSSCalcOperation::evaluateOperator):
+            Adapt to child counts greater than two.
+
+            (WebCore::CSSCalcOperation::buildCssText):
+            Add support for min() and max().
+
+            (WebCore::CSSCalcExpressionNodeParser::parseCalc):
+            parseCalc now accepts a CSSValueID parameter indicating which calc function
+            it should parse (calc, webkit-calc, min, or max), and delegates to either
+            parseValueExpression or parseMinMaxExpression.
+
+            (WebCore::CSSCalcExpressionNodeParser::operatorValue):
+            (WebCore::CSSCalcExpressionNodeParser::parseValue):
+            If min() or max() are found while parsing a value (i.e. nested inside
+            either calc or themselves), use parseMinMaxExpression on that subtree.
+
+            (WebCore::CSSCalcExpressionNodeParser::parseValueTerm):
+            (WebCore::CSSCalcExpressionNodeParser::parseValueMultiplicativeExpression):
+            (WebCore::CSSCalcExpressionNodeParser::parseAdditiveValueExpression):
+            Adjust to the CSSCalcBinaryOperation->CSSCalcOperation rename.
+
+            (WebCore::CSSCalcExpressionNodeParser::parseMinMaxExpression):
+            Added. Parse an arbitrary number of comma-and-whitespace-separated children.
+
+            (WebCore::createBlendHalf):
+            Adjust to the CSSCalcBinaryOperation->CSSCalcOperation rename.
+
+            (WebCore::createCSS):
+            Build the CSSCalcOperation for the platform-independent min and max operations.
+
+            (WebCore::CSSCalcValue::create):
+            Pass the function being parsed and the destination calc category for the
+            property being parsed for into create, and then into the parser so that
+            it can know which function it is parsing for, and what kind of result it
+            needs (as previously mentioned above in resolvedTypeForMinOrMax).
+
+            * css/CSSCalculationValue.h:
+            * css/CSSValueKeywords.in:
+            Add min and max functions as CSS keywords.
+
+            * css/StyleBuilderConverter.h:
+            (WebCore::StyleBuilderConverter::convertLength):
+            (WebCore::StyleBuilderConverter::convertTo100PercentMinusLength):
+            * platform/Length.cpp:
+            (WebCore::convertTo100PercentMinusLength):
+            Adapt to the CalcExpressionOperation constructor taking a vector of
+            arguments instead of two.
+
+            * css/parser/CSSPropertyParserHelpers.cpp:
+            (WebCore::CSSPropertyParserHelpers::CalcParser::CalcParser):
+            Store and pass the specific function being parsed down into CSSCalcValue.
+
+            (WebCore::CSSPropertyParserHelpers::consumeInteger):
+            (WebCore::CSSPropertyParserHelpers::consumePositiveIntegerRaw):
+            (WebCore::CSSPropertyParserHelpers::consumeNumberRaw):
+            (WebCore::CSSPropertyParserHelpers::consumeNumber):
+            (WebCore::CSSPropertyParserHelpers::consumeFontWeightNumber):
+            (WebCore::CSSPropertyParserHelpers::consumeLength):
+            (WebCore::CSSPropertyParserHelpers::consumePercent):
+            (WebCore::CSSPropertyParserHelpers::consumeLengthOrPercent):
+            (WebCore::CSSPropertyParserHelpers::consumeAngle):
+            (WebCore::CSSPropertyParserHelpers::consumeTime):
+            Pass the destination type into each calc parser.
+
+            * platform/CalculationValue.cpp:
+            (WebCore::CalcExpressionOperation::evaluate const):
+            (WebCore::CalcExpressionOperation::operator== const):
+            (WebCore::CalcExpressionOperation::dump const):
+            (WebCore::operator<<):
+            (WebCore::CalcExpressionBinaryOperation::evaluate const): Deleted.
+            (WebCore::CalcExpressionBinaryOperation::operator== const): Deleted.
+            (WebCore::CalcExpressionBinaryOperation::dump const): Deleted.
+            * platform/CalculationValue.h:
+            (WebCore::CalcExpressionOperation::CalcExpressionOperation):
+            (WebCore::operator==):
+            (WebCore::toCalcExpressionOperation):
+            (WebCore::CalcExpressionBinaryOperation::CalcExpressionBinaryOperation): Deleted.
+            (WebCore::toCalcExpressionBinaryOperation): Deleted.
+            Adjust to the CSSCalcBinaryOperation->CSSCalcOperation rename.
+            Adjust to having n>2 children.
+            Support min() and max() operators in various places.
+
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221100. rdar://problem/34771028
+
+    2017-08-23  Jer Noble  <jer.noble@apple.com>
+
+            Build fix for 32-bit Mac after r221098. Make sure constant used in WebCoreDecompressionSession is SoftLinked.
+
+            * platform/cf/CoreMediaSoftLink.cpp:
+            * platform/cf/CoreMediaSoftLink.h:
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221016. rdar://problem/34770830
+
+    2017-08-22  Jer Noble  <jer.noble@apple.com>
+
+            Autoplay Muted Videos Don't Play When Outside Viewport
+            https://bugs.webkit.org/show_bug.cgi?id=175748
+            <rdar://problem/33974383>
+
+            Reviewed by Eric Carlson.
+
+            Test: media/video-restricted-invisible-autoplay-not-allowed-source.html
+
+            The media session is notified that its client (the media element) will begin autoplaying inside
+            prepareForLoad(), where the m_autoplaying flag is also set. But loading via <source> elements does not go
+            through prepareForLoad(); the HTML standard states that the <source> element loading path does not trigger the
+            "media element load algorithm" which is implemented in prepareForLoad(). Since the m_autoplaying flag is
+            initially set to true, notify the media session that the element will begin autoplaying inside the element's
+            constructor.
+
+            Drive-by fix: Doing the above causes other tests to crash, as purturbing play state during style change can cause
+            re-entrancy in the native controls code, or fail, since we will transition from autoplay -> play even if there's
+            not yet a src or source to the media element. Add a task queue for updating the autoplay state and check the ready
+            state before allowing autoplay to transition to play.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::HTMLMediaElement):
+            (WebCore::HTMLMediaElement::~HTMLMediaElement):
+            (WebCore::HTMLMediaElement::canTransitionFromAutoplayToPlay const):
+            (WebCore::HTMLMediaElement::isVisibleInViewportChanged):
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220484. rdar://problem/34770810
+
+    2017-08-09  Commit Queue  <commit-queue@webkit.org>
+
+            Unreviewed, rolling out r219334.
+            https://bugs.webkit.org/show_bug.cgi?id=175398
+
+            Caused bug 175023 (Requested by ap on #webkit).
+
+            Reverted changeset:
+
+            "[SVG] Leak in SVGAnimatedListPropertyTearOff"
+            https://bugs.webkit.org/show_bug.cgi?id=172545
+            http://trac.webkit.org/changeset/219334
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220302. rdar://problem/34770803
+
+    2017-08-04  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Report user interaction immediately, but only when needed
+            https://bugs.webkit.org/show_bug.cgi?id=175090
+            <rdar://problem/33685546>
+
+            Reviewed by Chris Dumez.
+
+            Test: http/tests/loading/resourceLoadStatistics/user-interaction-only-reported-once-within-short-period-of-time.html
+
+            * loader/ResourceLoadObserver.cpp:
+            (WebCore::ResourceLoadObserver::ResourceLoadObserver):
+            (WebCore::ResourceLoadObserver::logUserInteractionWithReducedTimeResolution):
+                Now tells the UI process immediately but also records that it has
+                done so to avoid doing it when not needed.
+            (WebCore::ResourceLoadObserver::scheduleNotificationIfNeeded):
+                Conditional throttling gone, now always throttles.
+            (WebCore::ResourceLoadObserver::notifyObserver):
+                Renamed from ResourceLoadObserver::notificationTimerFired().
+            (WebCore::ResourceLoadObserver::clearState):
+                New function to allow the test runner to reset the web process'
+                statistics state now that we keep track of whether or not we've
+                reported user interaction to the UI process.
+            (WebCore::ResourceLoadObserver::setShouldThrottleObserverNotifications): Deleted.
+            (WebCore::ResourceLoadObserver::notificationTimerFired): Deleted.
+            * loader/ResourceLoadObserver.h:
+            (): Deleted.
+            * testing/Internals.cpp:
+            (WebCore::Internals::resetToConsistentState):
+            (WebCore::Internals::setResourceLoadStatisticsShouldThrottleObserverNotifications): Deleted.
+                No longer needed since user interaction is always communicated
+                immediately.
+            * testing/Internals.h:
+            * testing/Internals.idl:
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221128. rdar://problem/34771005
+
+    2017-08-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            DeleteSelectionCommand should be robust when starting and ending editable positions cannot be found
+            https://bugs.webkit.org/show_bug.cgi?id=175914
+            <rdar://problem/29792688>
+
+            Reviewed by Ryosuke Niwa.
+
+            DeleteSelectionCommand can cause a null dereference if editable start and end positions are not found. This can
+            happen when attempting to delete after selecting the contents within a canvas or output element with `read-write`
+            `-webkit-user-modify` style. To fix this, we make the initialization step of the DeleteSelectionCommand robust
+            when editable start and end positions are missing.
+
+            Test: editing/execCommand/forward-delete-read-write-canvas.html
+
+            * editing/DeleteSelectionCommand.cpp:
+            (WebCore::DeleteSelectionCommand::initializePositionData):
+
+            Make this initialization helper indicate failure via a bool return value. DeleteSelectionCommand::doApply bails
+            early if initializePositionData returned false.
+
+            (WebCore::DeleteSelectionCommand::doApply):
+            * editing/DeleteSelectionCommand.h:
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221116. rdar://problem/34771068
+
+    2017-08-23  Jer Noble  <jer.noble@apple.com>
+
+            [EME] WebCoreDecompressionSession should only report having an available frame if it has one for the current time.
+            https://bugs.webkit.org/show_bug.cgi?id=175901
+
+            Reviewed by Eric Carlson.
+
+            The WebCoreDecompressionSession will trigger the hasAvailableFrame callback whenever a frame is decoded,
+            regardless of its presentation time. For formats which have out-of-order decoding, the newly decoded frame could
+            have a presentation time far in the future. Instead, only fire the callback if the decoded frame's presentation
+            times contains the timebase's current time.
+
+            * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+            (WebCore::WebCoreDecompressionSession::enqueueDecodedSample):
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220718. rdar://problem/34771041
+
+    2017-08-14  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Add support for phonetic contact names
+            https://bugs.webkit.org/show_bug.cgi?id=175537
+            <rdar://problem/32002644>
+
+            Reviewed by Tim Horton.
+
+            * Modules/applepay/ApplePayError.idl: Defined "phoneticName" in ApplePayErrorContactField.
+            * Modules/applepay/ApplePayPaymentContact.h: Defined phoneticGivenName and phoneticFamilyName
+            in ApplePayPaymentContact.
+            * Modules/applepay/ApplePayPaymentContact.idl: Ditto.
+            * Modules/applepay/ApplePayPaymentRequest.h: Defined PhoneticName in
+            ApplePayPaymentRequest::ContactField.
+            * Modules/applepay/ApplePayPaymentRequest.idl: Defined "phoneticName" in ApplePayContactField.
+            * Modules/applepay/ApplePaySession.cpp:
+            (WebCore::convertAndValidate): Added a version parameter. Added code to convert
+            ContactField::PhoneticName, throwing an exception if version is less than 3.
+            * Modules/applepay/PaymentContact.h: Added a version parameter to fromApplePayPaymentContact().
+            * Modules/applepay/PaymentRequest.h: Defined phoneticName in PaymentRequest::ContactFields
+            and defined PhoneticName in PaymentError::ContactField.
+            * Modules/applepay/cocoa/PaymentContactCocoa.mm:
+            (WebCore::convert): Added a version parameter. Set a phoneticRepresentation on the
+            PKContact's name if there are non-empty phonetic names and version is 3 or greater.
+            (WebCore::PaymentContact::fromApplePayPaymentContact): Passed version to convert().
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220496. rdar://problem/34770816
+
+    2017-08-09  Jeremy Jones  <jeremyj@apple.com>
+
+            Use MPAVRoutingController instead of deprecated versions.
+            https://bugs.webkit.org/show_bug.cgi?id=175063
+
+            Reviewed by Tim Horton.
+
+            No new tests because no behavior change. This uses a different platform class to present
+            an interface.
+
+            Remove deprecated MPAudioVideoRoutingPopoverController and MPAVRoutingSheet
+            Add MPMediaControlsViewController.
+
+            * platform/spi/ios/MediaPlayerSPI.h:
+
 2017-10-04  Kocsen Chung  <kocsen_chung@apple.com>
 
         Revert r222779. rdar://problem/34706688

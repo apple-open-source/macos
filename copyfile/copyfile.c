@@ -607,6 +607,10 @@ reset_security(copyfile_state_t s)
  * copytree() is called from copyfile() -- but copytree() itself then calls
  * copyfile() to copy each individual object.
  *
+ * If COPYFILE_CLONE is passed, copytree() will clone (instead of copy)
+ * regular files and symbolic links found in each directory.
+ * Directories will still be copied normally.
+ *
  * XXX - no effort is made to handle overlapping hierarchies at the moment.
  *
  */
@@ -645,7 +649,7 @@ copytree(copyfile_state_t s)
 		goto done;
 	}
 
-	flags = s->flags & (COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_VERBOSE | COPYFILE_EXCL);
+	flags = s->flags & (COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_VERBOSE | COPYFILE_EXCL | COPYFILE_CLONE);
 
 	paths[0] = src = s->src;
 	dst = s->dst;
@@ -739,8 +743,9 @@ copytree(copyfile_state_t s)
 
 	// COPYFILE_RECURSIVE is always done physically: see 11717978.
 	fts_flags |= FTS_PHYSICAL;
-	if (!(s->flags & COPYFILE_NOFOLLOW_SRC)) {
-		// Follow 'src', even if it's a symlink.
+	if (!(s->flags & (COPYFILE_NOFOLLOW_SRC|COPYFILE_CLONE))) {
+		// Follow 'src', even if it's a symlink, unless instructed not to
+		// or we're cloning, where we never follow symlinks.
 		fts_flags |= FTS_COMFOLLOW;
 	}
 
@@ -829,6 +834,8 @@ copytree(copyfile_state_t s)
 					goto stopit;
 				}
 			}
+			// Since we don't support cloning directories this code depends on copyfile()
+			// falling back to a regular directory copy.
 			int tmp_flags = (cmd == COPYFILE_RECURSE_DIR) ? (flags & ~COPYFILE_STAT) : flags;
 			rv = copyfile(ftsent->fts_path, dstfile, tstate, tmp_flags);
 			if (rv < 0) {
@@ -1005,21 +1012,18 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
  * however, in case of best try flag, we fallback to the copy method.
  */
 
-static int copyfile_clone(const char *src, const char *dst, copyfile_state_t state, copyfile_flags_t flags)
+static int copyfile_clone(copyfile_state_t state)
 {
 	int ret = 0;
-	int cloneFlags = 0;
+	// Since we don't allow cloning of directories, we must also forbid
+	// cloning the target of symlinks (since that may be a directory).
+	int cloneFlags = CLONE_NOFOLLOW;
 	struct stat src_sb;
 
-	if (lstat(src, &src_sb) != 0)
+	if (lstat(state->src, &src_sb) != 0)
 	{
 		errno = EINVAL;
 		return -1;
-	}
-
-	if (COPYFILE_NOFOLLOW & flags)
-	{
-		cloneFlags = CLONE_NOFOLLOW;
 	}
 
 	/*
@@ -1033,14 +1037,14 @@ static int copyfile_clone(const char *src, const char *dst, copyfile_state_t sta
 		 * before we create it.  We don't care if the file doesn't
 		 * exist, so we ignore ENOENT.
 		 */
-		if (flags & COPYFILE_UNLINK)
+		if (state->flags & COPYFILE_UNLINK)
 		{
-			if (remove(dst) < 0 && errno != ENOENT)
+			if (remove(state->dst) < 0 && errno != ENOENT)
 			{
 				return -1;
 			}
 		}
-		ret = clonefileat(AT_FDCWD, src, AT_FDCWD, dst, cloneFlags);
+		ret = clonefileat(AT_FDCWD, state->src, AT_FDCWD, state->dst, cloneFlags);
 		if (ret == 0) {
 			/*
 			 * We could also report the size of the single
@@ -1051,16 +1055,15 @@ static int copyfile_clone(const char *src, const char *dst, copyfile_state_t sta
 			 * and let the caller figure out how they want to
 			 * deal.
 			 */
-			if (state != NULL)
-				state->was_cloned = true;
+			state->was_cloned = true;
 
 			/*
 			 * COPYFILE_MOVE tells us to attempt removing
 			 * the source file after the copy, and to
 			 * ignore any errors returned by remove(3).
 			 */
-			if (flags & COPYFILE_MOVE) {
-				(void)remove(src);
+			if (state->flags & COPYFILE_MOVE) {
+				(void)remove(state->src);
 			}
 		}
 	}
@@ -1091,21 +1094,6 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 		return -1;
 	}
 
-	if (flags & (COPYFILE_CLONE_FORCE | COPYFILE_CLONE))
-	{
-		ret = copyfile_clone(src, dst, state, flags);
-		if (ret == 0) {
-			goto exit;
-		} else if (flags & COPYFILE_CLONE_FORCE) {
-			goto error_exit;
-		}
-		// cloning failed. Inherit clonefile flags required for
-		// falling back to copyfile.
-		flags = flags |  (COPYFILE_EXCL | COPYFILE_ACL |
-						  COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA);
-		flags = flags & (~COPYFILE_CLONE);
-	}
-	ret = 0;
 	if (copyfile_preamble(&s, flags) < 0)
 	{
 		return -1;
@@ -1147,6 +1135,24 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	if (s->flags & COPYFILE_RECURSIVE) {
 		ret = copytree(s);
 		goto exit;
+	}
+
+	if (s->flags & (COPYFILE_CLONE_FORCE | COPYFILE_CLONE))
+	{
+		ret = copyfile_clone(s);
+		if (ret == 0) {
+			goto exit;
+		} else if (s->flags & COPYFILE_CLONE_FORCE) {
+			goto error_exit;
+		}
+		// cloning failed. Inherit clonefile flags required for
+		// falling back to copyfile.
+		s->flags |= (COPYFILE_ACL | COPYFILE_EXCL | COPYFILE_NOFOLLOW_SRC |
+					 COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA);
+
+		s->flags &= ~COPYFILE_CLONE;
+		flags = s->flags;
+		ret = 0;
 	}
 
 	/*

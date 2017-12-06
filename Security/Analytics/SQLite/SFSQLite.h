@@ -103,9 +103,6 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 - (void)analyze;
 - (void)vacuum;
 
-// Raise an exception. Including any database error in the description and removing the databse if it's corrupt.
-- (void)raise:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
-
 // The rowID assigned to the last record inserted into the database.
 - (SFSQLiteRowID)lastInsertRowID;
 
@@ -113,8 +110,8 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 - (int)changes;
 
 // Execute one-or-more queries. Use prepared statements for anything performance critical.
-- (void)executeSQL:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
-- (void)executeSQL:(NSString *)format arguments:(va_list)args NS_FORMAT_FUNCTION(1, 0);
+- (BOOL)executeSQL:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
+- (BOOL)executeSQL:(NSString *)format arguments:(va_list)args NS_FORMAT_FUNCTION(1, 0);
 
 // Prepared statement pool accessors. Statements must be reset after they're used.
 - (SFSQLiteStatement *)statementForSQL:(NSString *)SQL;

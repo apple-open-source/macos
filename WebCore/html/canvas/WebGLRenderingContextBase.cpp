@@ -847,9 +847,6 @@ void WebGLRenderingContextBase::reshape(int width, int height)
     // This is an approximation because at WebGLRenderingContext level we don't
     // know if the underlying FBO uses textures or renderbuffers.
     GC3Dint maxSize = std::min(m_maxTextureSize, m_maxRenderbufferSize);
-    // Limit drawing buffer size to 4k to avoid memory exhaustion.
-    const int sizeUpperLimit = 4096;
-    maxSize = std::min(maxSize, sizeUpperLimit);
     GC3Dint maxWidth = std::min(maxSize, m_maxViewportDims[0]);
     GC3Dint maxHeight = std::min(maxSize, m_maxViewportDims[1]);
     width = clamp(width, 1, maxWidth);
@@ -5276,7 +5273,7 @@ bool WebGLRenderingContextBase::validateUniformMatrixParameters(const char* func
     return validateUniformMatrixParameters(functionName, location, transpose, v.data(), v.length(), requiredMinSize);
 }
 
-bool WebGLRenderingContextBase::validateUniformMatrixParameters(const char* functionName, const WebGLUniformLocation* location, GC3Dboolean transpose, void* v, GC3Dsizei size, GC3Dsizei requiredMinSize)
+bool WebGLRenderingContextBase::validateUniformMatrixParameters(const char* functionName, const WebGLUniformLocation* location, GC3Dboolean transpose, const void* v, GC3Dsizei size, GC3Dsizei requiredMinSize)
 {
     if (!location)
         return false;

@@ -226,6 +226,8 @@ protected:
 		semaphore_t fTimeSyncCallbackStopSemaphore;
 		semaphore_t fTimeSyncCallbackQueueSemaphore;
 		uint64_t fTimeSyncCallbackTimeoutTime;
+		
+		bool fgPTPPresent;
 	};
 	
 	/*! @var reserved

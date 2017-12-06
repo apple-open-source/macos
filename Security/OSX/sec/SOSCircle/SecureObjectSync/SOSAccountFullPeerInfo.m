@@ -169,7 +169,6 @@ static bool UpdateKeyName(SecKeyRef key, SOSPeerInfoRef peer, CFErrorRef* error)
 
 SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error) {
     SecKeyRef cloud_key = GeneratePermanentFullECKeyForCloudIdentity(256, kicloud_identity_name, error);
-    SecKeyRef octagon_key = GeneratePermanentFullECKeyForCloudIdentity(384, kicloud_identity_name, error);
     SOSPeerInfoRef cloud_peer = NULL;
     
     CFDictionaryRef gestalt = NULL;
@@ -181,17 +180,15 @@ SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error) {
                                                            NULL);
     require_action_quiet(gestalt, fail, SecError(errSecAllocate, error, CFSTR("Can't allocate gestalt")));
     
-    cloud_peer = SOSPeerInfoCreateCloudIdentity(kCFAllocatorDefault, gestalt, cloud_key, octagon_key, error);
+    cloud_peer = SOSPeerInfoCreateCloudIdentity(kCFAllocatorDefault, gestalt, cloud_key, error);
     
     require(cloud_peer, fail);
     
     UpdateKeyName(cloud_key, cloud_peer, error);
-    UpdateKeyName(octagon_key, cloud_peer, error);
-    
+
 fail:
     CFReleaseNull(gestalt);
     CFReleaseNull(cloud_key);
-    CFReleaseNull(octagon_key);
     
     return cloud_peer;
 }

@@ -102,7 +102,7 @@ bool SOSAccountTrustedCircleHasNoGhostOfMe(SOSAccount* account) {
 }
 
 bool SOSAccountGhostResultsInReset(SOSAccount* account) {
-    return SOSTrustedCircleGhostSetCount(account) == SOSCircleCountActivePeers([account.trust getCircle:NULL]);
+    return SOSTrustedCircleGhostSetCount(account) == SOSCircleCountPeers([account.trust getCircle:NULL]);
 }
 
 

@@ -36,7 +36,6 @@
 #include "SecIdentitySearchPriv.h"
 #include "SecKeychainPriv.h"
 #include "SecCertificatePriv.h"
-#include "SecCertificatePrivP.h"
 #include "TrustAdditions.h"
 #include "TrustSettingsSchema.h"
 #include <Security/SecTrustPriv.h>

@@ -649,6 +649,9 @@ void
 auth_items_copy(auth_items_t items, auth_items_t src)
 {
     auth_items_iterate(src, ^bool(const char *key) {
+		if (!key) {
+			return true;
+		}
         CFStringRef lookup = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, key, kCFStringEncodingUTF8, kCFAllocatorNull);
         auth_item_t item = (auth_item_t)CFDictionaryGetValue(src->dictionary, lookup);
         CFDictionarySetValue(items->dictionary, auth_item_get_cf_key(item), item);

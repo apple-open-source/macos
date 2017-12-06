@@ -94,7 +94,8 @@ static void tests(void)
 
     SecKeyRef peer1SigningKey = NULL;
     SecKeyRef peer1OctagonSigningKey = NULL;
-    SOSFullPeerInfoRef fullPeer1WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer1WithBackupID"), &peer1SigningKey, &peer1OctagonSigningKey, &localError);
+    SecKeyRef peer1OctagonEncryptionKey = NULL;
+    SOSFullPeerInfoRef fullPeer1WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer1WithBackupID"), &peer1SigningKey, &peer1OctagonSigningKey, &peer1OctagonEncryptionKey, &localError);
     ok(fullPeer1WithBackup, "Allocate peer 1 (%@)", localError);
     CFReleaseNull(localError);
 
@@ -108,7 +109,8 @@ static void tests(void)
 
     SecKeyRef peer2SigningKey = NULL;
     SecKeyRef peer2OctagonSigningKey = NULL;
-    SOSFullPeerInfoRef fullPeer2WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer2WithBackupID"), &peer2SigningKey, &peer2OctagonSigningKey, &localError);
+    SecKeyRef peer2OctagonEncryptionKey = NULL;
+    SOSFullPeerInfoRef fullPeer2WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer2WithBackupID"), &peer2SigningKey, &peer2OctagonSigningKey, &peer2OctagonEncryptionKey, &localError);
     ok(fullPeer2WithBackup, "Allocate peer 2 (%@)", localError);
     CFReleaseNull(localError);
 

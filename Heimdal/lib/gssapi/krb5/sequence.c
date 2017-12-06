@@ -34,6 +34,7 @@
 #include "gsskrb5_locl.h"
 
 #define DEFAULT_JITTER_WINDOW 20
+#define MAX_JITTER_WINDOW 10000
 
 struct gss_msg_order {
     OM_uint32 flags;
@@ -266,6 +267,11 @@ _gssapi_msg_order_import(OM_uint32 *minor_status,
     if (kret)
 	goto failed;
 
+    if (jitter_window < 0 || jitter_window > MAX_JITTER_WINDOW) {
+	kret = EINVAL;
+	goto failed;
+    }
+
     ret = msg_order_alloc(minor_status, o, jitter_window);
     if (ret != GSS_S_COMPLETE)
         return ret;
@@ -287,6 +293,7 @@ _gssapi_msg_order_import(OM_uint32 *minor_status,
 
 failed:
     _gssapi_msg_order_destroy(o);
-    *minor_status = kret;
+    if (minor_status)
+	*minor_status = kret;
     return GSS_S_FAILURE;
 }

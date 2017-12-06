@@ -65,8 +65,8 @@ DISPATCH_NOINLINE
 _os_object_t
 _os_object_retain(_os_object_t obj)
 {
-	int xref_cnt = _os_object_xrefcnt_inc(obj);
-	if (slowpath(xref_cnt <= 0)) {
+	int xref_cnt = _os_object_xrefcnt_inc_orig(obj);
+	if (slowpath(xref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an object");
 	}
 	return obj;
@@ -76,7 +76,7 @@ DISPATCH_NOINLINE
 _os_object_t
 _os_object_retain_with_resurrect(_os_object_t obj)
 {
-	int xref_cnt = _os_object_xrefcnt_inc(obj);
+	int xref_cnt = _os_object_xrefcnt_inc_orig(obj) + 1;
 	if (slowpath(xref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an over-released object");
 	}

@@ -134,7 +134,7 @@
 
 - (void)unexpectedError:(OSStatus)status
 {
-    NSLog(@"Unexpected error %d at step %d", status, self.step);
+    NSLog(@"Unexpected error %d at step %d", (int)status, self.step);
     exit(1);
 }
 

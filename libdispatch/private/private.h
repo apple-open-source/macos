@@ -227,6 +227,11 @@ _dispatch_network_root_queue_create_4NW(const char *_Nullable label,
 		const pthread_attr_t *_Nullable attrs,
 		dispatch_block_t _Nullable configure);
 #endif
+
+API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
+DISPATCH_EXPORT DISPATCH_WARN_RESULT DISPATCH_NOTHROW
+bool
+_dispatch_source_will_reenable_kevent_4NW(dispatch_source_t source);
 #endif
 
 API_AVAILABLE(macos(10.9), ios(7.0))

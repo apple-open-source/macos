@@ -113,7 +113,8 @@
 }
 
 -(bool)isLockedError:(NSError *)error {
-    return [error.domain isEqualToString:@"securityd"] && error.code == errSecInteractionNotAllowed;
+    return ([error.domain isEqualToString:@"securityd"] || [error.domain isEqualToString:(__bridge NSString*)kSecErrorDomain])
+            && error.code == errSecInteractionNotAllowed;
 }
 
 

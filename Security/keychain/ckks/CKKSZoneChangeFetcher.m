@@ -55,6 +55,8 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
 @property CKKSResultOperation* successfulFetchDependency;
 
 @property CKKSNearFutureScheduler* fetchScheduler;
+
+@property CKKSResultOperation* holdOperation;
 @end
 
 @implementation CKKSZoneChangeFetcher
@@ -157,6 +159,7 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
     CKOperationGroup* operationGroup = [CKOperationGroup CKKSGroupWithName: [[lastFetchReasons sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"description" ascending:YES]]] componentsJoinedByString:@","]];
 
     CKKSFetchAllRecordZoneChangesOperation* fetchAllChanges = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView: ckks ckoperationGroup:operationGroup];
+    [fetchAllChanges addNullableDependency: self.holdOperation];
     fetchAllChanges.resync = self.newResyncRequests;
     self.newResyncRequests = false;
 
@@ -243,6 +246,10 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
     dep.name = @"successful-fetch-dependency";
 
     self.successfulFetchDependency = dep;
+}
+
+- (void)holdFetchesUntil:(CKKSResultOperation*)holdOperation {
+    self.holdOperation = holdOperation;
 }
 
 -(void)cancel {

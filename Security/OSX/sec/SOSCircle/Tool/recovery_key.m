@@ -49,11 +49,13 @@ recovery_key(int argc, char * const *argv)
     static struct option long_options[] =
     {
         /* These options set a flag. */
+        {"recovery-string", no_argument, NULL, 'R' },
         {"generate",    required_argument, NULL, 'G'},
         {"set",         required_argument, NULL, 's'},
         {"get",         no_argument, NULL, 'g'},
         {"clear",       no_argument, NULL, 'c'},
         {"follow-up",   no_argument, NULL, 'F'},
+        {"verifier",   no_argument, NULL, 'V'},
         {0, 0, 0, 0}
     };
     int option_index = 0;
@@ -75,7 +77,7 @@ recovery_key(int argc, char * const *argv)
                 if(publicKey == nil)
                     return 2;
 
-                printmsg(CFSTR("public recovery key: %@\n"), publicKey);
+                printmsg(CFSTR("example (not registered) public recovery key: %@\n"), publicKey);
                 break;
             }
             case 'R': {
@@ -99,12 +101,13 @@ recovery_key(int argc, char * const *argv)
                     printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
                     return 2;
                 }
-
-                NSData *publicKey = SecRKCopyBackupPublicKey(rk);
-                if(publicKey == nil)
+                
+                CFErrorRef cferror = NULL;
+                if(!SecRKRegisterBackupPublicKey(rk, &cferror)) {
+                    printmsg(CFSTR("Error from SecRKRegisterBackupPublicKey: %@\n"), cferror);
+                    CFReleaseNull(cferror);
                     return 2;
-
-                hadError = SOSCCRegisterRecoveryPublicKey((__bridge CFDataRef)(publicKey), &error) != true;
+                }
                 break;
             }
             case 'g':

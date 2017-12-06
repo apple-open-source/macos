@@ -259,6 +259,8 @@ enum
 // property to disable LTR on wake
 #define kIOPMPCIWakeL1PMDisableKey      "pci-wake-l1pm-disable"
 
+#define kIOPCIFunctionsDependentKey     "pci-functions-dependent"
+
 enum
 {
 	kCheckLinkParents  = 0x00000001,

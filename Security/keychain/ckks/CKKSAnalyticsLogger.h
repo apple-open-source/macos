@@ -34,6 +34,7 @@ typedef NSString<CKKSAnalyticsFailableEvent> CKKSAnalyticsFailableEvent;
 extern CKKSAnalyticsFailableEvent* const CKKSEventProcessIncomingQueueClassA;
 extern CKKSAnalyticsFailableEvent* const CKKSEventProcessIncomingQueueClassC;
 extern CKKSAnalyticsFailableEvent* const CKKSEventUploadChanges;
+extern CKKSAnalyticsFailableEvent* const CKKSEventStateError;
 
 @protocol CKKSAnalyticsSignpostEvent
 @end
@@ -46,8 +47,8 @@ extern CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue;
 + (instancetype)logger;
 
 - (void)logSuccessForEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view;
-- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view;
-- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view;
+- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes;
+- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes;
 
 - (void)noteEvent:(CKKSAnalyticsSignpostEvent*)event inView:(CKKSKeychainView*)view;
 

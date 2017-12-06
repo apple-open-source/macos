@@ -386,6 +386,8 @@ enum { kTestOptionsPatLenMax = 32 };
 static const UChar skel_Hmm[]     = { 0x0048, 0x006D, 0x006D, 0 };
 static const UChar skel_HHmm[]    = { 0x0048, 0x0048, 0x006D, 0x006D, 0 };
 static const UChar skel_hhmm[]    = { 0x0068, 0x0068, 0x006D, 0x006D, 0 };
+static const UChar skel_mmss[]    = { 0x006D, 0x006D, 0x0073, 0x0073, 0 };
+static const UChar skel_mmssSS[]  = { 0x006D, 0x006D, 0x0073, 0x0073, 0x0053, 0x0053, 0 };
 static const UChar patn_hcmm_a[]  = { 0x0068, 0x003A, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* h:mm a */
 static const UChar patn_HHcmm[]   = { 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0 }; /* HH:mm */
 static const UChar patn_hhcmm_a[] = { 0x0068, 0x0068, 0x003A, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* hh:mm a */
@@ -393,6 +395,8 @@ static const UChar patn_HHpmm[]   = { 0x0048, 0x0048, 0x002E, 0x006D, 0x006D, 0 
 static const UChar patn_hpmm_a[]  = { 0x0068, 0x002E, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* h.mm a */
 static const UChar patn_Hpmm[]    = { 0x0048, 0x002E, 0x006D, 0x006D, 0 }; /* H.mm */
 static const UChar patn_hhpmm_a[] = { 0x0068, 0x0068, 0x002E, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* hh.mm a */
+static const UChar patn_mmcss[]   = { 0x006D, 0x006D, 0x003A, 0x0073, 0x0073, 0 }; /* mm:ss */
+static const UChar patn_mmcsspSS[]= { 0x006D, 0x006D, 0x003A, 0x0073, 0x0073, 0x002E, 0x0053, 0x0053, 0 }; /* mm:ss.SS */
 
 static void TestOptions() {
     const DTPtnGenOptionsData testData[] = {
@@ -409,6 +413,8 @@ static void TestOptions() {
         { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
         { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
         { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
+        { "en_JP@calendar=japanese", skel_mmss, UDATPG_MATCH_NO_OPTIONS, patn_mmcss },
+        { "en_JP@calendar=japanese", skel_mmssSS, UDATPG_MATCH_NO_OPTIONS, patn_mmcsspSS },
     };
 
     int count = UPRV_LENGTHOF(testData);

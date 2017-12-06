@@ -45,4 +45,5 @@ DOVIEWMACRO(Engram,                 "Engram",               "engram",           
 DOVIEWMACRO(Manatee,                "Manatee",              "manatee",                 CKKS, D,  , A,  ,  )
 DOVIEWMACRO(AutoUnlock,             "AutoUnlock",           "autounlock",              CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Health,                 "Health",               "health",                  CKKS, D,  , A,  ,  )
+DOVIEWMACRO(ApplePay,               "ApplePay",             "applepay",                CKKS, D,  , A,  ,  )
 

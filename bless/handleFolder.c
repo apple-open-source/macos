@@ -658,6 +658,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                                     blesscontextprintf(context, kBLLogLevelVerbose,
                                                        "Preserving EFI blessed file ID %llu for %s\n",
                                                        oldWords[0], actargs[kfile].argument );
+									fileInum = oldWords[0];
                                 }
                             }
                         }

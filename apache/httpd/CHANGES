@@ -1,6 +1,70 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.28
+
+  *) SECURITY: CVE-2017-9798 (cve.mitre.org)
+     Corrupted or freed memory access. <Limit[Except]> must now be used in the
+     main configuration file (httpd.conf) to register HTTP methods before the
+     .htaccess files.  [Yann Ylavic]
+
+  *) event: Avoid possible blocking in the listener thread when shutting down
+     connections. PR 60956.  [Yann Ylavic]
+
+  *) mod_speling: Don't embed referer data in a link in error page.
+     PR 38923 [Nick Kew]
+
+  *) htdigest: prevent a buffer overflow when a string exceeds the allowed max
+     length in a password file.
+     [Luca Toscano, Hanno Böck <hanno hboeck de>]
+
+  *) mod_proxy: loadfactor parameter can now be a decimal number (eg: 1.25).
+     [Jim Jagielski]
+
+  *) mod_proxy_wstunnel: Allow upgrade to any protocol dynamically.
+     PR 61142.
+
+  *) mod_watchdog/mod_proxy_hcheck: Time intervals can now be spefified
+     down to the millisecond. Supports 'mi' (minute), 'ms' (millisecond),
+     's' (second) and 'hr' (hour!) time suffixes. [Jim Jagielski]
+
+  *) mod_http2: Fix for stalling when more than 32KB are written to a
+     suspended stream.  [Stefan Eissing]
+
+  *) build: allow configuration without APR sources.  [Jacob Champion]
+
+  *) mod_ssl, ab: Fix compatibility with LibreSSL.  PR 61184.
+     [Bernard Spil <brnrd freebsd.org>, Michael Schlenker <msc contact.de>,
+      Yann Ylavic]
+
+  *) core/log: Support use of optional "tag" in syslog entries.
+     PR 60525. [Ben Rubson <ben.rubson gmail.com>, Jim Jagielski]
+
+  *) mod_proxy: Fix ProxyAddHeaders merging.  [Joe Orton]
+ 
+  *) core: Disallow multiple Listen on the same IP:port when listener buckets
+     are configured (ListenCoresBucketsRatio > 0), consistently with the single
+     bucket case (default), thus avoiding the leak of the corresponding socket
+     descriptors on graceful restart.  [Yann Ylavic]
+
+  *) event: Avoid listener periodic wake ups by using the pollset wake-ability
+     when available.  PR 57399.  [Yann Ylavic, Luca Toscano]
+
+  *) mod_proxy_wstunnel: Fix detection of unresponded request which could have
+     led to spurious HTTP 502 error messages sent on upgrade connections.
+     PR 61283.  [Yann Ylavic]
 
 Changes with Apache 2.4.27
+
+  *) SECURITY: CVE-2017-9789 (cve.mitre.org)
+     mod_http2: Read after free. When under stress, closing many connections,
+     the HTTP/2 handling code would sometimes access memory after it has been
+     freed, resulting in potentially erratic behaviour.
+     [Stefan Eissing]
+
+  *) SECURITY: CVE-2017-9788 (cve.mitre.org)
+     mod_auth_digest: Uninitialized memory reflection.  The value placeholder
+     in [Proxy-]Authorization headers type 'Digest' was not initialized or
+     reset before or between successive key=value assignments.
+     [William Rowe]
 
   *) COMPATIBILITY: mod_lua: Remove the undocumented exported 'apr_table'
      global variable when using Lua 5.2 or later. This was exported as a
@@ -22,7 +86,7 @@ Changes with Apache 2.4.27
   *) mod_http2: Simplify ready queue, less memory and better performance. Update
      mod_http2 version to 1.10.7. [Stefan Eissing]
   
-  *) Allow single-char field names inadvertantly disallowed in 2.4.25.
+  *) Allow single-char field names inadvertently disallowed in 2.4.25.
      PR 61220. [Yann Ylavic]
 
   *) htpasswd / htdigest: Do not apply the strict permissions of the temporary

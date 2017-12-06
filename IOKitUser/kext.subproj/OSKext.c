@@ -6331,6 +6331,15 @@ static void __OSKextPersonalityBundleIdentifierApplierFunction(
     char                 * bundleIDCString     = NULL;  // must free
     char                 * personalityCString  = NULL;  // must free
 
+    // Make sure that each personality is a dict of dicts
+    if (CFGetTypeID(personality) != CFDictionaryGetTypeID()) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogKextBookkeepingFlag,
+            "Kext personality %s subentry is not a dictionary",
+            CFStringGetCStringPtr(personalityName, kCFStringEncodingUTF8));
+        goto finish;
+    }
+
     bundleID = OSKextGetIdentifier(aKext);
     if (!bundleID) {
         goto finish; // xxx - not much we can do, maybe log an error?
@@ -6406,7 +6415,16 @@ CFArrayRef OSKextCopyPersonalitiesArray(OSKextRef aKext)
 
     personalities = OSKextGetValueForInfoDictionaryKey(aKext,
         CFSTR(kIOKitPersonalitiesKey));
-    if (!personalities || !CFDictionaryGetCount(personalities)) {
+
+    if (!personalities) {
+        goto finish;
+    } else if (CFGetTypeID(personalities) != CFDictionaryGetTypeID()) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogKextBookkeepingFlag,
+            "Kext personality for kext %s is not a dictionary",
+            CFStringGetCStringPtr(CFURLGetString(aKext->bundleURL), kCFStringEncodingUTF8));
+        goto finish;
+    } else if (!CFDictionaryGetCount(personalities)) {
         goto finish;
     }
 
@@ -6449,9 +6467,23 @@ CFArrayRef OSKextCopyPersonalitiesOfKexts(CFArrayRef kextArray)
 
         kextPersonalities = OSKextGetValueForInfoDictionaryKey(thisKext,
             CFSTR(kIOKitPersonalitiesKey));
-        if (!kextPersonalities || !CFDictionaryGetCount(kextPersonalities)) {
+
+        // This is gross, but we can't safely get the type of the pointer without
+        // checking first if it's NULL, and we can't get the count of the elements
+        // unless we're sure it's a dictionary (and if it isn't, we should probably
+        // log it.)
+        if (!kextPersonalities) {
+            continue;
+        } else if (CFGetTypeID(kextPersonalities) != CFDictionaryGetTypeID()) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogKextBookkeepingFlag,
+                "Kext personality for kext %s is not a dictionary",
+                CFStringGetCStringPtr(CFURLGetString(thisKext->bundleURL), kCFStringEncodingUTF8));
+            continue;
+        } else if (!CFDictionaryGetCount(kextPersonalities)) {
             continue;
         }
+
         context.kext = thisKext;
         CFDictionaryApplyFunction(kextPersonalities,
             __OSKextPersonalityBundleIdentifierApplierFunction,

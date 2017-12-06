@@ -213,6 +213,7 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/perl.c < fix/perl.c.ed && \
 	ed - $(PROJECT)/perlio.c < fix/perlio.c.ed && \
 	ed - $(PROJECT)/pp_sys.c < fix/pp_sys.c.ed && \
+	ed - $(PROJECT)/regcomp.c < fix/regcomp.c.ed && \
 	patch -p0 -F0 $(PROJECT)/perl.c fix/CVE-2016-2381.diff && \
 	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2013-7422.diff && \
 	patch -p0 -F0 $(PROJECT)/config_h.SH fix/CORE-config.h.diff && \

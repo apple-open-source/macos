@@ -267,7 +267,7 @@
 
                 NSMutableDictionary<NSString*, NSMutableArray*>* changedRecordsDict = [[NSMutableDictionary alloc] init];
 
-                [blockCKKS dispatchSyncWithAccountQueue:^bool{
+                [blockCKKS dispatchSyncWithAccountKeys:^bool{
                     // let's process records in a specific order by type
                     // 1. Manifest leaf records, without which the manifest master records are meaningless
                     // 2. Manifest master records, which will be used to validate incoming items
@@ -300,6 +300,7 @@
                     [strongSelf _onqueueRecordsChanged:changedRecordsDict[SecCKRecordItemType]];
                     [strongSelf _onqueueRecordsChanged:changedRecordsDict[SecCKRecordCurrentItemType]];
                     [strongSelf _onqueueRecordsChanged:changedRecordsDict[SecCKRecordDeviceStateType]];
+                    [strongSelf _onqueueRecordsChanged:changedRecordsDict[SecCKRecordTLKShareType]];
 
                     [strongSelf _onqueueProcessRecordDeletions];
                     [strongSelf _onqueueScanForExtraneousLocalItems];

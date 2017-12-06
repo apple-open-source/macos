@@ -340,12 +340,14 @@ static apr_status_t ssl_cleanup_pre_config(void *data)
 #if HAVE_ENGINE_LOAD_BUILTIN_ENGINES
     ENGINE_cleanup();
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x1000200fL && !defined(OPENSSL_NO_COMP)
+#if OPENSSL_VERSION_NUMBER >= 0x1000200fL
+#ifndef OPENSSL_NO_COMP
     SSL_COMP_free_compression_methods();
+#endif
 #endif
 
     /* Usually needed per thread, but this parent process is single-threaded */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#if MODSSL_USE_OPENSSL_PRE_1_1_API
 #if OPENSSL_VERSION_NUMBER >= 0x1000000fL
     ERR_remove_thread_state(NULL);
 #else
@@ -386,15 +388,15 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
     /* Some OpenSSL internals are allocated per-thread, make sure they
      * are associated to the/our same thread-id until cleaned up.
      */
-#if APR_HAS_THREADS && OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#if APR_HAS_THREADS && MODSSL_USE_OPENSSL_PRE_1_1_API
     ssl_util_thread_id_setup(pconf);
 #endif
 
     /* We must register the library in full, to ensure our configuration
      * code can successfully test the SSL environment.
      */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
-    CRYPTO_malloc_init();
+#if MODSSL_USE_OPENSSL_PRE_1_1_API
+    (void)CRYPTO_malloc_init();
 #else
     OPENSSL_malloc_init();
 #endif

@@ -7434,6 +7434,7 @@
 		1873300218CBD4A700275344 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = nvram;
 			};
@@ -8334,6 +8335,7 @@
 		BAE589A4137836A00049DD3B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = nvram;
 			};

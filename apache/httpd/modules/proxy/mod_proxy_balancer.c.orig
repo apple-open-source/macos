@@ -22,6 +22,7 @@
 #include "apr_version.h"
 #include "ap_hooks.h"
 #include "apr_date.h"
+#include "mod_watchdog.h"
 
 static const char *balancer_mutex_type = "proxy-balancer-shm";
 ap_slotmem_provider_t *storage = NULL;
@@ -699,10 +700,10 @@ static void recalc_factors(proxy_balancer *balancer)
     /* Recalculate lbfactors */
     workers = (proxy_worker **)balancer->workers->elts;
     /* Special case if there is only one worker its
-     * load factor will always be 1
+     * load factor will always be 100
      */
     if (balancer->workers->nelts == 1) {
-        (*workers)->s->lbstatus = (*workers)->s->lbfactor = 1;
+        (*workers)->s->lbstatus = (*workers)->s->lbfactor = 100;
         return;
     }
     for (i = 0; i < balancer->workers->nelts; i++) {
@@ -1092,8 +1093,10 @@ static int balancer_handler(request_rec *r)
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01192) "settings worker params");
 
         if ((val = apr_table_get(params, "w_lf"))) {
-            int ival = atoi(val);
-            if (ival >= 1 && ival <= 100) {
+            int ival;
+            double fval = atof(val);
+            ival = fval * 100.0;
+            if (ival >= 100 && ival <= 10000) {
                 wsel->s->lbfactor = ival;
                 if (bsel)
                     recalc_factors(bsel);
@@ -1140,9 +1143,11 @@ static int balancer_handler(request_rec *r)
              }
         }
         if ((val = apr_table_get(params, "w_hi"))) {
-            int ival = atoi(val);
-            if (ival >= HCHECK_WATHCHDOG_INTERVAL) {
-                wsel->s->interval = apr_time_from_sec(ival);
+            apr_interval_time_t hci;
+            if (ap_timeout_parameter_parse(val, &hci, "ms") == APR_SUCCESS) {
+                if (hci >= AP_WD_TM_SLICE) {
+                    wsel->s->interval = hci;
+                }
              }
         }
         if ((val = apr_table_get(params, "w_hp"))) {
@@ -1359,8 +1364,8 @@ static int balancer_handler(request_rec *r)
                           "</httpd:scheme>\n", NULL);
                 ap_rvputs(r, "          <httpd:hostname>", worker->s->hostname,
                           "</httpd:hostname>\n", NULL);
-                ap_rprintf(r, "          <httpd:loadfactor>%d</httpd:loadfactor>\n",
-                          worker->s->lbfactor);
+                ap_rprintf(r, "          <httpd:loadfactor>%.2f</httpd:loadfactor>\n",
+                          (float)(worker->s->lbfactor)/100.0);
                 ap_rprintf(r,
                            "          <httpd:port>%d</httpd:port>\n",
                            worker->s->port);
@@ -1413,8 +1418,8 @@ static int balancer_handler(request_rec *r)
                            "          <httpd:lbstatus>%d</httpd:lbstatus>\n",
                            worker->s->lbstatus);
                 ap_rprintf(r,
-                           "          <httpd:loadfactor>%d</httpd:loadfactor>\n",
-                           worker->s->lbfactor);
+                           "          <httpd:loadfactor>%.2f</httpd:loadfactor>\n",
+                           (float)(worker->s->lbfactor)/100.0);
                 ap_rprintf(r,
                            "          <httpd:transferred>%" APR_OFF_T_FMT "</httpd:transferred>\n",
                            worker->s->transferred);
@@ -1600,7 +1605,7 @@ static int balancer_handler(request_rec *r)
                           NULL);
                 ap_rvputs(r, "</td><td>",
                           ap_escape_html(r->pool, worker->s->redirect), NULL);
-                ap_rprintf(r, "</td><td>%d</td>", worker->s->lbfactor);
+                ap_rprintf(r, "</td><td>%.2f</td>", (float)(worker->s->lbfactor)/100.0);
                 ap_rprintf(r, "<td>%d</td><td>", worker->s->lbset);
                 ap_rvputs(r, ap_proxy_parse_wstatus(r->pool, worker), NULL);
                 ap_rputs("</td>", r);
@@ -1612,7 +1617,7 @@ static int balancer_handler(request_rec *r)
                 ap_rputs(apr_strfsize(worker->s->read, fbuf), r);
                 if (set_worker_hc_param_f) {
                     ap_rprintf(r, "</td><td>%s</td>", ap_proxy_show_hcmethod(worker->s->method));
-                    ap_rprintf(r, "<td>%d</td>", (int)apr_time_sec(worker->s->interval));
+                    ap_rprintf(r, "<td>%" APR_TIME_T_FMT "ms</td>", apr_time_as_msec(worker->s->interval));
                     ap_rprintf(r, "<td>%d (%d)</td>", worker->s->passes,worker->s->pcount);
                     ap_rprintf(r, "<td>%d (%d)</td>", worker->s->fails, worker->s->fcount);
                     ap_rprintf(r, "<td>%s</td>", worker->s->hcuri);
@@ -1635,7 +1640,7 @@ static int balancer_handler(request_rec *r)
             ap_rputs("<form method='POST' enctype='application/x-www-form-urlencoded' action='", r);
             ap_rvputs(r, ap_escape_uri(r->pool, action), "'>\n", NULL);
             ap_rputs("<table><tr><td>Load factor:</td><td><input name='w_lf' id='w_lf' type=text ", r);
-            ap_rprintf(r, "value='%d'></td></tr>\n", wsel->s->lbfactor);
+            ap_rprintf(r, "value='%.2f'></td></tr>\n", (float)(wsel->s->lbfactor)/100.0);
             ap_rputs("<tr><td>LB Set:</td><td><input name='w_ls' id='w_ls' type=text ", r);
             ap_rprintf(r, "value='%d'></td></tr>\n", wsel->s->lbset);
             ap_rputs("<tr><td>Route:</td><td><input name='w_wr' id='w_wr' type=text ", r);
@@ -1681,8 +1686,8 @@ static int balancer_handler(request_rec *r)
                 ap_rputs("<tr><td>Expr</td><td><select name='w_he'>\n", r);
                 hc_select_exprs_f(r, wsel->s->hcexpr);
                 ap_rputs("</select>\n</td></tr>\n", r);
-                ap_rprintf(r, "<tr><td>Interval (secs)</td><td><input name='w_hi' id='w_hi' type='text'"
-                           "value='%d'></td></tr>\n", (int)apr_time_sec(wsel->s->interval));
+                ap_rprintf(r, "<tr><td>Interval (ms)</td><td><input name='w_hi' id='w_hi' type='text'"
+                           "value='%" APR_TIME_T_FMT "'></td></tr>\n", apr_time_as_msec(wsel->s->interval));
                 ap_rprintf(r, "<tr><td>Passes trigger</td><td><input name='w_hp' id='w_hp' type='text'"
                            "value='%d'></td></tr>\n", wsel->s->passes);
                 ap_rprintf(r, "<tr><td>Fails trigger)</td><td><input name='w_hf' id='w_hf' type='text'"

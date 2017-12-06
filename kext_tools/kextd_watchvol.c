@@ -365,6 +365,9 @@ static void checkAutoUpdate(CFRunLoopTimerRef timer, void *ctx)
     // Also, vol_appeared() won't call check_rebuild() until this is clear.
     sAutoUpdateDelayer = NULL;
 
+    // Enable network access for future security checks.
+    enableNetworkAuthentication();
+
     // and check all of the watched volumes for updates
     (void)checkAllWatched(ignore);
 }

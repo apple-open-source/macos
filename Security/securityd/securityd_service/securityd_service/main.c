@@ -278,6 +278,7 @@ static bool
 _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * data, size_t length)
 {
     bool result = false;
+    char tmp_bag[PATH_MAX];
     int fd = -1;
 
     require(bag_file, done);
@@ -285,9 +286,17 @@ _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * d
     _set_thread_credentials(ur);
     require(_kb_verify_create_path(ur), done);
 
-    fd = open(bag_file, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW, 0600);
-    require_action(fd != -1, done, os_log(OS_LOG_DEFAULT, "could not create file: %s (%s)", bag_file, strerror(errno)));
-    require_action(write(fd, data, length) == length, done, os_log(OS_LOG_DEFAULT, "failed to write keybag to disk %s (%s)", bag_file, strerror(errno)));
+    require_action(snprintf(tmp_bag, sizeof(tmp_bag), "%s.tmp", bag_file) < sizeof(tmp_bag), done, os_log(OS_LOG_DEFAULT, "path too large"));
+
+    fd = open(tmp_bag, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW, 0600);
+    require_action(fd != -1, done, os_log(OS_LOG_DEFAULT, "could not create file: %s (%s)", tmp_bag, strerror(errno)));
+    require_action(write(fd, data, length) == length, done, os_log(OS_LOG_DEFAULT, "failed to write keybag to disk %s (%s)", tmp_bag, strerror(errno)));
+
+    /* try atomic swap (will fail if destination doesn't exist); if that fails, try regular rename */
+    if (renamex_np(tmp_bag, bag_file, RENAME_SWAP) != 0) {
+        os_log(OS_LOG_DEFAULT, "Warning: atomic swap failed");
+        require_noerr_action(rename(tmp_bag, bag_file), done, os_log(OS_LOG_DEFAULT, "could not save keybag file"));
+    }
 
     result = true;
 

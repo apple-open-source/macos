@@ -4005,7 +4005,7 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-    SecPolicyAddBasicX509Options(options);
+    SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
     require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAppleSoftwareSigning),

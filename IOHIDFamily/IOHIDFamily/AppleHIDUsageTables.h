@@ -94,7 +94,8 @@ enum {
     kHIDUsage_AppleVendor_Payload               = 0x0025, /* Application Collection */
     kHIDUsage_AppleVendor_Perf                  = 0x0026, /* Application Collection */
     kHIDUsage_AppleVendor_Gallium               = 0x0027, /* Application Collection */
-    kHIDUsage_AppleVendor_HIDRelay              = 0x0028  /* Application Collection */
+    kHIDUsage_AppleVendor_HIDRelay              = 0x0028, /* Application Collection */
+    kHIDUsage_AppleVendor_SmartCover            = 0x0029  /* Application Collection */
 };
 
 
@@ -116,6 +117,8 @@ enum {
     /* Synthesized Keyboard Events */
     kHIDUsage_AppleVendorKeyboard_WillReset             = 0x0040,
     kHIDUsage_AppleVendorKeyboard_Reset                 = 0x0041,
+    kHIDUsage_AppleVendorKeyboard_WillFactoryReset      = 0x0042,
+    
 };
 
 /* AppleVendor Page Headset (0xff07) */
@@ -138,6 +141,7 @@ enum {
     kHIDUsage_AppleVendorSmartCover_Flap2       = 0x0003,
     kHIDUsage_AppleVendorSmartCover_Flap3       = 0x0004,
     kHIDUsage_AppleVendorSmartCover_Attach      = 0x0010,
+    kHIDUsage_AppleVendorSmartCover_StateUnknown= 0x0020,
 };
 
 /* AppleVendor Platinum - Heart Rate (0xff0A) */

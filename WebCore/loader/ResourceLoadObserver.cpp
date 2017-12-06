@@ -28,6 +28,8 @@
 
 #include "Document.h"
 #include "Frame.h"
+#include "FrameLoader.h"
+#include "HTMLFrameOwnerElement.h"
 #include "Logging.h"
 #include "MainFrame.h"
 #include "Page.h"
@@ -99,19 +101,6 @@ static bool areDomainsAssociated(Page* page, const String& firstDomain, const St
     return firstMetaDomainIdentifier == metaDomainIdentifiers.get().get(secondDomain);
 }
 
-void ResourceLoadObserver::setShouldThrottleObserverNotifications(bool shouldThrottle)
-{
-    m_shouldThrottleNotifications = shouldThrottle;
-
-    if (!m_notificationTimer.isActive())
-        return;
-
-    // If we change the notification state, we need to restart any notifications
-    // so they will be on the right schedule.
-    m_notificationTimer.stop();
-    scheduleNotificationIfNeeded();
-}
-
 void ResourceLoadObserver::setNotificationCallback(WTF::Function<void (Vector<ResourceLoadStatistics>&&)>&& notificationCallback)
 {
     ASSERT(!m_notificationCallback);
@@ -119,7 +108,7 @@ void ResourceLoadObserver::setNotificationCallback(WTF::Function<void (Vector<Re
 }
 
 ResourceLoadObserver::ResourceLoadObserver()
-    : m_notificationTimer(*this, &ResourceLoadObserver::notificationTimerFired)
+    : m_notificationTimer(*this, &ResourceLoadObserver::notifyObserver)
 {
 }
 
@@ -142,7 +131,7 @@ static WallTime reduceToHourlyTimeResolution(WallTime time)
     return WallTime::fromRawSeconds(std::floor(time.secondsSinceEpoch() / timestampResolution) * timestampResolution.seconds());
 }
 
-void ResourceLoadObserver::logFrameNavigation(const Frame& frame, const Frame& topFrame, const ResourceRequest& newRequest)
+void ResourceLoadObserver::logFrameNavigation(const Frame& frame, const Frame& topFrame, const ResourceRequest& newRequest, const URL& redirectUrl)
 {
     ASSERT(frame.document());
     ASSERT(topFrame.document());
@@ -155,7 +144,11 @@ void ResourceLoadObserver::logFrameNavigation(const Frame& frame, const Frame& t
     if (!shouldLog(page))
         return;
 
-    auto& sourceURL = frame.document()->url();
+    auto sourceURL = redirectUrl;
+    bool isRedirect = !redirectUrl.isNull();
+    if (!isRedirect)
+        sourceURL = nonNullOwnerURL(*frame.document());
+
     auto& targetURL = newRequest.url();
     auto& mainFrameURL = topFrame.document()->url();
     
@@ -165,20 +158,30 @@ void ResourceLoadObserver::logFrameNavigation(const Frame& frame, const Frame& t
     auto targetHost = targetURL.host();
     auto mainFrameHost = mainFrameURL.host();
 
-    if (targetHost.isEmpty() || mainFrameHost.isEmpty() || targetHost == mainFrameHost || targetHost == sourceURL.host())
+    if (targetHost.isEmpty() || mainFrameHost.isEmpty() || targetHost == sourceURL.host())
         return;
 
     auto targetPrimaryDomain = primaryDomain(targetURL);
     auto mainFramePrimaryDomain = primaryDomain(mainFrameURL);
     auto sourcePrimaryDomain = primaryDomain(sourceURL);
-    
-    if (areDomainsAssociated(page, targetPrimaryDomain, mainFramePrimaryDomain) || areDomainsAssociated(page, targetPrimaryDomain, sourcePrimaryDomain))
-        return;
+    bool shouldCallNotificationCallback = false;
 
-    auto& targetStatistics = ensureResourceStatisticsForPrimaryDomain(targetPrimaryDomain);
-    targetStatistics.lastSeen = reduceToHourlyTimeResolution(WallTime::now());
-    auto subframeUnderTopFrameOriginsResult = targetStatistics.subframeUnderTopFrameOrigins.add(mainFramePrimaryDomain);
-    if (subframeUnderTopFrameOriginsResult.isNewEntry)
+    if (targetHost != mainFrameHost
+        && !(areDomainsAssociated(page, targetPrimaryDomain, mainFramePrimaryDomain) || areDomainsAssociated(page, targetPrimaryDomain, sourcePrimaryDomain))) {
+        auto& targetStatistics = ensureResourceStatisticsForPrimaryDomain(targetPrimaryDomain);
+        targetStatistics.lastSeen = reduceToHourlyTimeResolution(WallTime::now());
+        if (targetStatistics.subframeUnderTopFrameOrigins.add(mainFramePrimaryDomain).isNewEntry)
+            shouldCallNotificationCallback = true;
+    }
+
+    if (isRedirect
+        && !areDomainsAssociated(page, sourcePrimaryDomain, targetPrimaryDomain)) {
+        auto& redirectingOriginStatistics = ensureResourceStatisticsForPrimaryDomain(sourcePrimaryDomain);
+        if (redirectingOriginStatistics.subresourceUniqueRedirectsTo.add(targetPrimaryDomain).isNewEntry)
+            shouldCallNotificationCallback = true;
+    }
+
+    if (shouldCallNotificationCallback)
         scheduleNotificationIfNeeded();
 }
 
@@ -280,16 +283,21 @@ void ResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const Doc
     if (url.isBlankURL() || url.isEmpty())
         return;
 
-    auto& statistics = ensureResourceStatisticsForPrimaryDomain(primaryDomain(url));
+    auto domain = primaryDomain(url);
     auto newTime = reduceToHourlyTimeResolution(WallTime::now());
-    if (newTime == statistics.mostRecentUserInteractionTime)
+    auto lastReportedUserInteraction = m_lastReportedUserInteractionMap.get(domain);
+    if (newTime == lastReportedUserInteraction)
         return;
 
+    m_lastReportedUserInteractionMap.set(domain, newTime);
+
+    auto& statistics = ensureResourceStatisticsForPrimaryDomain(domain);
     statistics.hadUserInteraction = true;
     statistics.lastSeen = newTime;
     statistics.mostRecentUserInteractionTime = newTime;
 
-    scheduleNotificationIfNeeded();
+    m_notificationTimer.stop();
+    notifyObserver();
 }
 
 ResourceLoadStatistics& ResourceLoadObserver::ensureResourceStatisticsForPrimaryDomain(const String& primaryDomain)
@@ -309,12 +317,13 @@ void ResourceLoadObserver::scheduleNotificationIfNeeded()
     }
 
     if (!m_notificationTimer.isActive())
-        m_notificationTimer.startOneShot(m_shouldThrottleNotifications ? minimumNotificationInterval : 0_s);
+        m_notificationTimer.startOneShot(minimumNotificationInterval);
 }
 
-void ResourceLoadObserver::notificationTimerFired()
+void ResourceLoadObserver::notifyObserver()
 {
     ASSERT(m_notificationCallback);
+    m_notificationTimer.stop();
     m_notificationCallback(takeStatistics());
 }
 
@@ -337,6 +346,33 @@ Vector<ResourceLoadStatistics> ResourceLoadObserver::takeStatistics()
     m_resourceStatisticsMap.clear();
 
     return statistics;
+}
+
+void ResourceLoadObserver::clearState()
+{
+    m_notificationTimer.stop();
+    m_resourceStatisticsMap.clear();
+    m_lastReportedUserInteractionMap.clear();
+}
+
+URL ResourceLoadObserver::nonNullOwnerURL(const Document& document) const
+{
+    auto url = document.url();
+    auto* frame = document.frame();
+    auto host = document.url().host();
+
+    while ((host.isNull() || host.isEmpty()) && !frame->isMainFrame()) {
+        auto* ownerElement = frame->ownerElement();
+
+        ASSERT(ownerElement != nullptr);
+        
+        auto& doc = ownerElement->document();
+        frame = doc.frame();
+        url = doc.url();
+        host = url.host();
+    }
+
+    return url;
 }
 
 } // namespace WebCore

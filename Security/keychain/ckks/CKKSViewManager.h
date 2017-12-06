@@ -34,6 +34,7 @@
 #import "keychain/ckks/CKKSRateLimiter.h"
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSCondition.h"
+#import "keychain/ckks/CKKSPeer.h"
 #endif
 
 @class CKKSKeychainView, CKKSRateLimiter;
@@ -41,7 +42,7 @@
 #if !OCTAGON
 @interface CKKSViewManager : NSObject
 #else
-@interface CKKSViewManager : NSObject <CKKSControlProtocol>
+@interface CKKSViewManager : NSObject <CKKSControlProtocol, CKKSPeerProvider>
 
 @property CKContainer* container;
 @property CKKSCKAccountStateTracker* accountTracker;
@@ -58,9 +59,11 @@
 @property NSOperation* zoneStartupDependency;
 
 - (instancetype)initCloudKitWithContainerName: (NSString*) containerName usePCS:(bool)usePCS;
-- (instancetype)initWithContainerName: (NSString*) containerNamee
+- (instancetype)initWithContainerName: (NSString*) containerName
                                usePCS: (bool)usePCS
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
+           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
     modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
       modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
                    apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass
@@ -119,11 +122,18 @@
 - (CKKSKeychainView*)restartZone:(NSString*)viewName;
 
 // Returns the viewList for a CKKSViewManager
-+(NSSet*)viewList;
+-(NSSet*)viewList;
 
 // Notify sbd to re-backup.
 -(void)notifyNewTLKsInKeychain;
-+(void)syncBackupAndNotifyAboutSync;
+-(void)syncBackupAndNotifyAboutSync;
+
+// Fetch peers from SOS
+- (CKKSSelves*)fetchSelfPeers:(NSError* __autoreleasing *)error;
+- (NSSet<id<CKKSPeer>>*)fetchTrustedPeers:(NSError* __autoreleasing *)error;
+
+- (void)sendSelfPeerChangedUpdate;
+- (void)sendTrustedPeerSetChangedUpdate;
 
 #endif // OCTAGON
 @end

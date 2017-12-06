@@ -4,6 +4,7 @@
 #include <string.h>
 #include <locale.h>
 #include <err.h>
+#include <TargetConditionals.h>
 
 #include <darwintest.h>
 
@@ -18,6 +19,7 @@ T_DECL(strptime_PR_24428248, "strptime parse day of year %j does not work correc
 	T_EXPECT_EQ(percent_j_out, standard_out, NULL);
 }
 
+#if !TARGET_OS_BRIDGE
 T_DECL(strptime_PR_5879606, "alloca(strlen(input)) in strptime(\"%Z\")")
 {
     struct tm tm;
@@ -61,6 +63,7 @@ T_DECL(strptime_PR_6882179, "date command fails with 'illegal time format'")
     T_EXPECT_EQ(tm.tm_wday, 0x2, NULL);
     T_EXPECT_EQ(tm.tm_yday, 0x83, NULL);
 }
+#endif
 
 T_DECL(strptime_lukemftp, "year parsing"){
 	struct tm tm;
@@ -140,6 +143,7 @@ T_DECL(strptime_PR_10842560, "strptime() with %W and %U")
     }
 }
 
+#if !TARGET_OS_BRIDGE
 T_DECL(strptime_asctime, "strptime->asctime")
 {
     char *test[] = {
@@ -176,3 +180,4 @@ T_DECL(strptime_asctime, "strptime->asctime")
         i++;
     }
 }
+#endif

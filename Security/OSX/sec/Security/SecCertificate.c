@@ -1665,7 +1665,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
     }
     require_quiet(tbsCert.serialNum.data != NULL &&
                   tbsCert.serialNum.length >= 1 &&
-                  tbsCert.serialNum.length <= 36, badCert);
+                  tbsCert.serialNum.length <= 37, badCert);
     certificate->_serialNumber = CFDataCreate(allocator,
         tbsCert.serialNum.data, tbsCert.serialNum.length);
 
@@ -2755,41 +2755,43 @@ static void appendDERThingProperty(CFMutableArrayRef properties,
 }
 
 static OSStatus appendRDNProperty(void *context, const DERItem *rdnType,
-	const DERItem *rdnValue, CFIndex rdnIX) {
-	CFMutableArrayRef properties = (CFMutableArrayRef)context;
-	if (rdnIX > 0) {
-		/* If there is more than one value pair we create a subsection for the
-		   second pair, and append things to the subsection for subsequent
-		   pairs. */
-		CFIndex lastIX = CFArrayGetCount(properties) - 1;
-		CFTypeRef lastValue = CFArrayGetValueAtIndex(properties, lastIX);
-		if (rdnIX == 1) {
-			/* Since this is the second rdn pair for a given rdn, we setup a
-			   new subsection for this rdn.  We remove the first property
-			   from the properties array and make it the first element in the
-			   subsection instead. */
-			CFMutableArrayRef rdn_props = CFArrayCreateMutable(
-				CFGetAllocator(properties), 0, &kCFTypeArrayCallBacks);
-			CFArrayAppendValue(rdn_props, lastValue);
-			CFArrayRemoveValueAtIndex(properties, lastIX);
-			appendProperty(properties, kSecPropertyTypeSection, NULL, NULL,
+                                  const DERItem *rdnValue, CFIndex rdnIX) {
+    CFMutableArrayRef properties = (CFMutableArrayRef)context;
+    if (rdnIX > 0) {
+        /* If there is more than one value pair we create a subsection for the
+         second pair, and append things to the subsection for subsequent
+         pairs. */
+        CFIndex lastIX = CFArrayGetCount(properties) - 1;
+        CFTypeRef lastValue = CFArrayGetValueAtIndex(properties, lastIX);
+        if (rdnIX == 1) {
+            /* Since this is the second rdn pair for a given rdn, we setup a
+             new subsection for this rdn.  We remove the first property
+             from the properties array and make it the first element in the
+             subsection instead. */
+            CFMutableArrayRef rdn_props = CFArrayCreateMutable(
+                CFGetAllocator(properties), 0, &kCFTypeArrayCallBacks);
+            CFArrayAppendValue(rdn_props, lastValue);
+            CFArrayRemoveValueAtIndex(properties, lastIX);
+            appendProperty(properties, kSecPropertyTypeSection, NULL, NULL,
                            rdn_props);
-			properties = rdn_props;
-		} else {
-			/* Since this is the third or later rdn pair we have already
-			   created a subsection in the top level properties array.  Instead
-			   of appending to that directly we append to the array inside the
-			   subsection. */
-			properties = (CFMutableArrayRef)CFDictionaryGetValue(
-				(CFDictionaryRef)lastValue, kSecPropertyKeyValue);
-		}
-	}
+            properties = rdn_props;
+            // rdn_props is now retained by the original properties array
+            CFReleaseSafe(rdn_props);
+        } else {
+            /* Since this is the third or later rdn pair we have already
+             created a subsection in the top level properties array.  Instead
+             of appending to that directly we append to the array inside the
+             subsection. */
+            properties = (CFMutableArrayRef)CFDictionaryGetValue(
+                (CFDictionaryRef)lastValue, kSecPropertyKeyValue);
+        }
+    }
 
-	/* Finally we append the new rdn value to the property array. */
-	CFStringRef label = SecDERItemCopyOIDDecimalRepresentation(
-        CFGetAllocator(properties), rdnType);
-	CFStringRef localizedLabel =
-        copyLocalizedOidDescription(CFGetAllocator(properties), rdnType);
+    /* Finally we append the new rdn value to the property array. */
+    CFStringRef label = SecDERItemCopyOIDDecimalRepresentation(CFGetAllocator(properties),
+                                                               rdnType);
+    CFStringRef localizedLabel =
+    copyLocalizedOidDescription(CFGetAllocator(properties), rdnType);
     appendDERThingProperty(properties, label, localizedLabel, rdnValue);
     CFReleaseSafe(label);
     CFReleaseSafe(localizedLabel);
@@ -4076,6 +4078,85 @@ CFMutableArrayRef SecCertificateCopySummaryProperties(
     CFRelease(lmessage);
 
 	return summary;
+}
+
+CFArrayRef SecCertificateCopyLegacyProperties(SecCertificateRef certificate) {
+    /*
+       This function replicates the content returned by SecCertificateCopyProperties
+       prior to 10.12.4, providing stable return values for SecCertificateCopyValues.
+       Unlike SecCertificateCopyProperties, it does not cache the result and
+       assumes the caller will do so.
+    */
+    CFAllocatorRef allocator = CFGetAllocator(certificate);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator,
+        0, &kCFTypeArrayCallBacks);
+
+    /* Subject Name */
+    CFArrayRef subject_plist = createPropertiesForX501NameContent(allocator,
+        &certificate->_subject);
+    appendProperty(properties, kSecPropertyTypeSection, CFSTR("Subject Name"),
+        NULL, subject_plist);
+    CFRelease(subject_plist);
+
+    /* Issuer Name */
+    CFArrayRef issuer_plist = createPropertiesForX501NameContent(allocator,
+        &certificate->_issuer);
+    appendProperty(properties, kSecPropertyTypeSection, CFSTR("Issuer Name"),
+        NULL, issuer_plist);
+    CFRelease(issuer_plist);
+
+    /* Version */
+    CFStringRef versionString = CFStringCreateWithFormat(allocator,
+        NULL, CFSTR("%d"), certificate->_version + 1);
+    appendProperty(properties, kSecPropertyTypeString, CFSTR("Version"),
+        NULL, versionString);
+    CFRelease(versionString);
+
+    /* Serial Number */
+    if (certificate->_serialNum.length) {
+        appendIntegerProperty(properties, CFSTR("Serial Number"),
+            &certificate->_serialNum);
+    }
+
+    /* Signature Algorithm */
+    appendAlgorithmProperty(properties, CFSTR("Signature Algorithm"),
+        &certificate->_tbsSigAlg);
+
+    /* Validity dates */
+    appendDateProperty(properties, CFSTR("Not Valid Before"), certificate->_notBefore);
+    appendDateProperty(properties, CFSTR("Not Valid After"), certificate->_notAfter);
+
+    if (certificate->_subjectUniqueID.length) {
+        appendDataProperty(properties, CFSTR("Subject Unique ID"),
+            NULL, &certificate->_subjectUniqueID);
+    }
+    if (certificate->_issuerUniqueID.length) {
+        appendDataProperty(properties, CFSTR("Issuer Unique ID"),
+            NULL, &certificate->_issuerUniqueID);
+    }
+
+    /* Public Key Algorithm */
+    appendAlgorithmProperty(properties, CFSTR("Public Key Algorithm"),
+        &certificate->_algId);
+
+    /* Public Key Data */
+    appendDataProperty(properties, CFSTR("Public Key Data"),
+        NULL, &certificate->_pubKeyDER);
+
+    /* Signature */
+    appendDataProperty(properties, CFSTR("Signature"),
+        NULL, &certificate->_signature);
+
+    /* Extensions */
+    CFIndex ix;
+    for (ix = 0; ix < certificate->_extensionCount; ++ix) {
+        appendExtension(properties, &certificate->_extensions[ix]);
+    }
+
+    /* Fingerprints */
+    appendFingerprintsProperty(properties, CFSTR("Fingerprints"), certificate);
+
+    return properties;
 }
 
 CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {

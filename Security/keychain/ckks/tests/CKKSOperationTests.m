@@ -24,6 +24,7 @@
 #import <XCTest/XCTest.h>
 
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSCondition.h"
 
 // Helper Operations
 @interface CKKSResultCancelOperation : CKKSResultOperation
@@ -83,6 +84,20 @@
     self.queue = nil;
 
     [super tearDown];
+}
+
+- (void)testIsPending {
+    NSBlockOperation* run     = [NSBlockOperation blockOperationWithBlock:^{}];
+    NSBlockOperation* cancel  = [NSBlockOperation blockOperationWithBlock:^{}];
+    NSBlockOperation* pending = [NSBlockOperation blockOperationWithBlock:^{}];
+
+    [self.queue addOperation: run];
+    [cancel cancel];
+    [self.queue waitUntilAllOperationsAreFinished];
+
+    XCTAssertTrue( [pending isPending], @"Pending operation should be pending");
+    XCTAssertFalse([run isPending],     @"run operation should not be pending");
+    XCTAssertFalse([cancel isPending],  @"Cancelled operation should not be pending");
 }
 
 - (void)testResultOperation {
@@ -283,7 +298,7 @@
     XCTAssertNil(group.error, "Group operation: no error");
 }
 
-- (void)testGroupOperationCancel {
+- (void)testGroupOperationSubOperationCancel {
     CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
 
     CKKSResultOperation* op1 = [[CKKSResultOperation alloc] init];
@@ -306,8 +321,115 @@
 
     XCTAssertNil(op1.error, "First operation: no error");
     XCTAssertNil(op2.error, "Second operation: no error");
-    XCTAssertNotNil(group.error, "Group operation: no error");
+    XCTAssertNotNil(group.error, "Group operation: has an error");
     XCTAssertEqual(group.error.code, CKKSResultSubresultCancelled, "Error code is CKKSResultSubresultCancelled");
+}
+
+- (void)testGroupOperationCancel {
+    CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
+
+    CKKSResultOperation* op1 = [[CKKSResultOperation alloc] init];
+    [group runBeforeGroupFinished: op1];
+
+    [group cancel];
+    [self.queue addOperation: group];
+
+    [self.queue waitUntilAllOperationsAreFinished];
+
+    XCTAssertEqual(op1.finished,   YES, "First operation finished");
+    XCTAssertEqual(group.finished, YES, "Group operation finished");
+
+    XCTAssertEqual(op1.cancelled,   YES, "First operation cancelled");
+    XCTAssertEqual(group.cancelled, YES, "Group operation cancelled");
+
+    XCTAssertNil(op1.error, "First operation: no error");
+    XCTAssertNil(group.error, "Group operation: no error");
+}
+
+- (void)testGroupOperationCancelAfterAdd {
+    CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
+
+    CKKSResultOperation* op1 = [[CKKSResultOperation alloc] init];
+    [group runBeforeGroupFinished: op1];
+
+    CKKSResultOperation* never = [[CKKSResultOperation alloc] init];
+    [group addDependency: never];
+
+    [self.queue addOperation: group];
+
+    [group cancel];
+
+    // Both of these should finish. Wait for that.
+    [op1 waitUntilFinished];
+    [group waitUntilFinished];
+
+    XCTAssertEqual(op1.finished,   YES, "First operation finished");
+    XCTAssertEqual(group.finished, YES, "Group operation finished");
+
+    XCTAssertEqual(op1.cancelled,   YES, "First operation cancelled");
+    XCTAssertEqual(group.cancelled, YES, "Group operation cancelled");
+
+    XCTAssertNil(op1.error, "First operation: no error");
+    XCTAssertNil(group.error, "Group operation: no error");
+}
+
+- (void)testGroupOperationCancelWhileRunning {
+    CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
+    group.name = @"operation-under-test";
+
+    XCTestExpectation* groupStarted = [self expectationWithDescription: @"group started"];
+    XCTestExpectation* cancelOccurs = [self expectationWithDescription: @"cancel occurs"];
+
+    CKKSCondition* everythingFinished = [[CKKSCondition alloc] init];
+    CKKSResultOperation* op1 = [CKKSResultOperation named:@"op1" withBlock:^{
+        [groupStarted fulfill];
+
+        [self waitForExpectations:@[cancelOccurs] timeout:8.0];
+
+        // 'do some work'. Will wait 200msec.
+        [everythingFinished wait:200*NSEC_PER_MSEC];
+    }];
+    [group runBeforeGroupFinished: op1];
+    [self.queue addOperation: group];
+
+    [self waitForExpectations:@[groupStarted] timeout:8.0];
+    [group cancel];
+    [cancelOccurs fulfill];
+
+    [group waitUntilFinished];
+
+    XCTAssertEqual(op1.finished,   YES, "First operation finished");
+    XCTAssertEqual(group.finished, YES, "Group operation finished");
+
+    [everythingFinished fulfill];
+
+    XCTAssertEqual(op1.cancelled,   YES, "First operation cancelled");
+    XCTAssertEqual(group.cancelled, YES, "Group operation cancelled");
+
+    XCTAssertNil(op1.error, "First operation: no error");
+    XCTAssertNotNil(group.error, "Group operation: has an error");
+    XCTAssertEqual(group.error.code, CKKSResultSubresultCancelled, "Error code is CKKSResultSubresultCancelled");
+}
+
+- (void)testGroupOperationWithDependsOn {
+    CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
+
+    CKKSResultOperation* op1 = [[CKKSResultOperation alloc] init];
+    [group dependOnBeforeGroupFinished:op1];
+
+    [group cancel];
+    [self.queue addOperation: group];
+
+    [self.queue waitUntilAllOperationsAreFinished];
+
+    XCTAssertEqual(op1.finished,   NO, "First operation not finished");
+    XCTAssertEqual(group.finished, YES, "Group operation finished");
+
+    XCTAssertEqual(op1.cancelled,   NO, "First operation not cancelled");
+    XCTAssertEqual(group.cancelled, YES, "Group operation cancelled");
+
+    XCTAssertNil(op1.error, "First operation: no error");
+    XCTAssertNil(group.error, "Group operation: no error");
 }
 
 - (void)testGroupOperationTimeout {
@@ -328,7 +450,7 @@
     CKKSResultOperation* never = [[CKKSResultOperation alloc] init];
     [group addDependency: never];
 
-    [group timeout:50*NSEC_PER_MSEC];
+    [group timeout:10*NSEC_PER_MSEC];
     [self.queue addOperation: group];
 
     [self.queue waitUntilAllOperationsAreFinished];
@@ -348,6 +470,16 @@
     XCTAssertNil(op2.error, "Second operation: no error");
     XCTAssertNotNil(group.error, "Group operation: error");
     XCTAssertEqual(group.error.code, CKKSResultTimedOut, "Error code is CKKSResultTimedOut");
+
+    // Try a few more times, just in case
+    for(int i = 0; i < 100; i++) {
+        CKKSGroupOperation* g = [[CKKSGroupOperation alloc] init];
+        [g addDependency: never];
+        [g timeout:((i%20)+1)*NSEC_PER_MSEC];
+
+        [self.queue addOperation: g];
+        [self.queue waitUntilAllOperationsAreFinished];
+    }
 }
 
 - (void)testGroupOperationError {
@@ -410,5 +542,20 @@
     XCTAssertNil(op2.error, "Second operation: no error");
     XCTAssertNil(group.error, "Group operation: no error");
 }
+
+- (void)testGroupOperationPendingAfterCancel {
+    CKKSGroupOperation* group = [[CKKSGroupOperation alloc] init];
+
+    CKKSResultOperation* op1 = [[CKKSResultOperation alloc] init];
+    [group runBeforeGroupFinished: op1];
+
+    CKKSResultOperation* op2 = [[CKKSResultOperation alloc] init];
+    [group addDependency: op2];
+
+    [group cancel];
+
+    XCTAssertFalse([group isPending], "group operation isn't pending, as it's cancelled");
+}
+
 
 @end

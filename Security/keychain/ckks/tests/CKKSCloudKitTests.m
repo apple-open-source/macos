@@ -91,6 +91,8 @@
     CKKSViewManager* manager = [[CKKSViewManager alloc] initWithContainerName:containerName
                                                                        usePCS:SecCKKSContainerUsePCS
                                          fetchRecordZoneChangesOperationClass:[CKFetchRecordZoneChangesOperation class]
+                                                   fetchRecordsOperationClass:[CKFetchRecordsOperation class]
+                                                          queryOperationClass:[CKQueryOperation class]
                                             modifySubscriptionsOperationClass:[CKModifySubscriptionsOperation class]
                                               modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
                                                            apsConnectionClass:[APSConnection class]

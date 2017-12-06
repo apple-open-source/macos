@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSSQLDatabaseObject.h"
 #import "CKKSItem.h"
 #include <utilities/SecDb.h>
@@ -28,8 +30,6 @@
 
 #ifndef CKKSMirrorEntry_h
 #define CKKSMirrorEntry_h
-
-#if OCTAGON
 
 #import <CloudKit/CloudKit.h>
 

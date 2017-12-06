@@ -6113,6 +6113,70 @@ case kIOHIDEventTypeBrightness:\
 
 #define _IOHIDBrightnessGetFieldsAsDataMacro(event, field) \
 
+#define _IOHIDCollectionSetFieldsAsIntegerMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionSetSynthesizedFieldsAsIntegerMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionGetFieldsAsIntegerMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionGetSynthesizedFieldsAsIntegerMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionSetFieldsAsDoubleMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionSetSynthesizedFieldsAsDoubleMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionGetFieldsAsDoubleMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionGetSynthesizedFieldsAsDoubleMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionSetFieldsAsFixedMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionSetSynthesizedFieldsAsFixedMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionGetFieldsAsFixedMacro(event, field) \
+case kIOHIDEventTypeCollection:\
+{\
+    switch (field)\
+    {\
+        _IOHIDCollectionGetSynthesizedFieldsAsFixedMacro(event,field) \
+    }\
+    break;\
+}
+
+#define _IOHIDCollectionSetFieldsAsDataMacro(event, field) \
+
+#define _IOHIDCollectionGetFieldsAsDataMacro(event, field) \
+
 
 #ifndef _IOHIDNULLGetSynthesizedFieldsAsIntegerMacro
 #define _IOHIDNULLGetSynthesizedFieldsAsIntegerMacro _IOHIDUnknowDefaultField
@@ -6336,6 +6400,12 @@ case kIOHIDEventTypeBrightness:\
 #ifndef _IOHIDBrightnessSetSynthesizedFieldsAsIntegerMacro
 #define _IOHIDBrightnessSetSynthesizedFieldsAsIntegerMacro _IOHIDUnknowDefaultField
 #endif
+#ifndef _IOHIDCollectionGetSynthesizedFieldsAsIntegerMacro
+#define _IOHIDCollectionGetSynthesizedFieldsAsIntegerMacro _IOHIDUnknowDefaultField
+#endif
+#ifndef _IOHIDCollectionSetSynthesizedFieldsAsIntegerMacro
+#define _IOHIDCollectionSetSynthesizedFieldsAsIntegerMacro _IOHIDUnknowDefaultField
+#endif
 #ifndef _IOHIDNULLGetSynthesizedFieldsAsDoubleMacro
 #define _IOHIDNULLGetSynthesizedFieldsAsDoubleMacro _IOHIDUnknowDefaultField
 #endif
@@ -6557,6 +6627,12 @@ case kIOHIDEventTypeBrightness:\
 #endif
 #ifndef _IOHIDBrightnessSetSynthesizedFieldsAsDoubleMacro
 #define _IOHIDBrightnessSetSynthesizedFieldsAsDoubleMacro _IOHIDUnknowDefaultField
+#endif
+#ifndef _IOHIDCollectionGetSynthesizedFieldsAsDoubleMacro
+#define _IOHIDCollectionGetSynthesizedFieldsAsDoubleMacro _IOHIDUnknowDefaultField
+#endif
+#ifndef _IOHIDCollectionSetSynthesizedFieldsAsDoubleMacro
+#define _IOHIDCollectionSetSynthesizedFieldsAsDoubleMacro _IOHIDUnknowDefaultField
 #endif
 #ifndef _IOHIDNULLGetSynthesizedFieldsAsFixedMacro
 #define _IOHIDNULLGetSynthesizedFieldsAsFixedMacro _IOHIDUnknowDefaultField
@@ -6780,6 +6856,12 @@ case kIOHIDEventTypeBrightness:\
 #ifndef _IOHIDBrightnessSetSynthesizedFieldsAsFixedMacro
 #define _IOHIDBrightnessSetSynthesizedFieldsAsFixedMacro _IOHIDUnknowDefaultField
 #endif
+#ifndef _IOHIDCollectionGetSynthesizedFieldsAsFixedMacro
+#define _IOHIDCollectionGetSynthesizedFieldsAsFixedMacro _IOHIDUnknowDefaultField
+#endif
+#ifndef _IOHIDCollectionSetSynthesizedFieldsAsFixedMacro
+#define _IOHIDCollectionSetSynthesizedFieldsAsFixedMacro _IOHIDUnknowDefaultField
+#endif
 #ifndef _IOHIDNULLGetSynthesizedFieldsAsDataMacro
 #define _IOHIDNULLGetSynthesizedFieldsAsDataMacro _IOHIDUnknowDefaultField
 #endif
@@ -7002,6 +7084,12 @@ case kIOHIDEventTypeBrightness:\
 #ifndef _IOHIDBrightnessSetSynthesizedFieldsAsDataMacro
 #define _IOHIDBrightnessSetSynthesizedFieldsAsDataMacro _IOHIDUnknowDefaultField
 #endif
+#ifndef _IOHIDCollectionGetSynthesizedFieldsAsDataMacro
+#define _IOHIDCollectionGetSynthesizedFieldsAsDataMacro _IOHIDUnknowDefaultField
+#endif
+#ifndef _IOHIDCollectionSetSynthesizedFieldsAsDataMacro
+#define _IOHIDCollectionSetSynthesizedFieldsAsDataMacro _IOHIDUnknowDefaultField
+#endif
 
 #define IOHIDEventSetIntegerFieldsMacro(event, field) \
      _IOHIDNULLSetFieldsAsIntegerMacro(event, field)\
@@ -7040,7 +7128,8 @@ case kIOHIDEventTypeBrightness:\
      _IOHIDMotionGestureSetFieldsAsIntegerMacro(event, field)\
      _IOHIDGameControllerSetFieldsAsIntegerMacro(event, field)\
      _IOHIDHumiditySetFieldsAsIntegerMacro(event, field)\
-     _IOHIDBrightnessSetFieldsAsIntegerMacro(event, field)
+     _IOHIDBrightnessSetFieldsAsIntegerMacro(event, field)\
+     _IOHIDCollectionSetFieldsAsIntegerMacro(event, field)
 
 #define IOHIDEventSetDoubleFieldsMacro(event, field) \
      _IOHIDNULLSetFieldsAsDoubleMacro(event, field)\
@@ -7079,7 +7168,8 @@ case kIOHIDEventTypeBrightness:\
      _IOHIDMotionGestureSetFieldsAsDoubleMacro(event, field)\
      _IOHIDGameControllerSetFieldsAsDoubleMacro(event, field)\
      _IOHIDHumiditySetFieldsAsDoubleMacro(event, field)\
-     _IOHIDBrightnessSetFieldsAsDoubleMacro(event, field)
+     _IOHIDBrightnessSetFieldsAsDoubleMacro(event, field)\
+     _IOHIDCollectionSetFieldsAsDoubleMacro(event, field)
 
 #define IOHIDEventSetFixedFieldsMacro(event, field) \
      _IOHIDNULLSetFieldsAsFixedMacro(event, field)\
@@ -7118,7 +7208,8 @@ case kIOHIDEventTypeBrightness:\
      _IOHIDMotionGestureSetFieldsAsFixedMacro(event, field)\
      _IOHIDGameControllerSetFieldsAsFixedMacro(event, field)\
      _IOHIDHumiditySetFieldsAsFixedMacro(event, field)\
-     _IOHIDBrightnessSetFieldsAsFixedMacro(event, field)
+     _IOHIDBrightnessSetFieldsAsFixedMacro(event, field)\
+     _IOHIDCollectionSetFieldsAsFixedMacro(event, field)
 
 #define IOHIDEventSetDataFieldsMacro(event, field) \
      _IOHIDNULLSetFieldsAsDataMacro(event, field)\
@@ -7157,7 +7248,8 @@ case kIOHIDEventTypeBrightness:\
      _IOHIDMotionGestureSetFieldsAsDataMacro(event, field)\
      _IOHIDGameControllerSetFieldsAsDataMacro(event, field)\
      _IOHIDHumiditySetFieldsAsDataMacro(event, field)\
-     _IOHIDBrightnessSetFieldsAsDataMacro(event, field)
+     _IOHIDBrightnessSetFieldsAsDataMacro(event, field)\
+     _IOHIDCollectionSetFieldsAsDataMacro(event, field)
 
 
 #define IOHIDEventGetIntegerFieldsMacro(event, field) \
@@ -7197,7 +7289,8 @@ case kIOHIDEventTypeBrightness:\
     _IOHIDMotionGestureGetFieldsAsIntegerMacro(event, field) \
     _IOHIDGameControllerGetFieldsAsIntegerMacro(event, field) \
     _IOHIDHumidityGetFieldsAsIntegerMacro(event, field) \
-    _IOHIDBrightnessGetFieldsAsIntegerMacro(event, field) 
+    _IOHIDBrightnessGetFieldsAsIntegerMacro(event, field) \
+    _IOHIDCollectionGetFieldsAsIntegerMacro(event, field) 
 
 #define IOHIDEventGetDoubleFieldsMacro(event, field) \
     _IOHIDNULLGetFieldsAsDoubleMacro(event, field) \
@@ -7236,7 +7329,8 @@ case kIOHIDEventTypeBrightness:\
     _IOHIDMotionGestureGetFieldsAsDoubleMacro(event, field) \
     _IOHIDGameControllerGetFieldsAsDoubleMacro(event, field) \
     _IOHIDHumidityGetFieldsAsDoubleMacro(event, field) \
-    _IOHIDBrightnessGetFieldsAsDoubleMacro(event, field) 
+    _IOHIDBrightnessGetFieldsAsDoubleMacro(event, field) \
+    _IOHIDCollectionGetFieldsAsDoubleMacro(event, field) 
 
 #define IOHIDEventGetFixedFieldsMacro(event, field) \
     _IOHIDNULLGetFieldsAsFixedMacro(event, field) \
@@ -7275,7 +7369,8 @@ case kIOHIDEventTypeBrightness:\
     _IOHIDMotionGestureGetFieldsAsFixedMacro(event, field) \
     _IOHIDGameControllerGetFieldsAsFixedMacro(event, field) \
     _IOHIDHumidityGetFieldsAsFixedMacro(event, field) \
-    _IOHIDBrightnessGetFieldsAsFixedMacro(event, field) 
+    _IOHIDBrightnessGetFieldsAsFixedMacro(event, field) \
+    _IOHIDCollectionGetFieldsAsFixedMacro(event, field) 
 
 #define IOHIDEventGetDataFieldsMacro(event, field) \
     _IOHIDNULLGetFieldsAsDataMacro(event, field) \
@@ -7314,7 +7409,8 @@ case kIOHIDEventTypeBrightness:\
     _IOHIDMotionGestureGetFieldsAsDataMacro(event, field) \
     _IOHIDGameControllerGetFieldsAsDataMacro(event, field) \
     _IOHIDHumidityGetFieldsAsDataMacro(event, field) \
-    _IOHIDBrightnessGetFieldsAsDataMacro(event, field) 
+    _IOHIDBrightnessGetFieldsAsDataMacro(event, field) \
+    _IOHIDCollectionGetFieldsAsDataMacro(event, field) 
 
 #define IOHIDEventGetBaseSize(type, size) \
     switch(type) {\
@@ -7428,6 +7524,9 @@ case kIOHIDEventTypeBrightness:\
           break; \
       case kIOHIDEventTypeBrightness:\
           size = sizeof (IOHIDBrightnessEventData);\
+          break; \
+      case kIOHIDEventTypeCollection:\
+          size = sizeof (IOHIDCollectionEventData);\
           break; \
       default:\
           size = 0;\
@@ -7546,6 +7645,9 @@ case kIOHIDEventTypeBrightness:\
           break; \
       case kIOHIDEventTypeBrightness:\
           size = sizeof (__IOHIDBrightnessEventData);\
+          break; \
+      case kIOHIDEventTypeCollection:\
+          size = sizeof (__IOHIDCollectionEventData);\
           break; \
       default:\
           size = 0;\

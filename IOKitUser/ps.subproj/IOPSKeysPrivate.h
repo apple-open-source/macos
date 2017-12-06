@@ -69,6 +69,7 @@
 #define kIOPSShowChargingUIKey     "Show Charging UI"
 
 
+#endif
 /*
  * kIOPSAccessoryIdentifierKey -
  * Accessory Identifier key. This key holds identifier key for each accessory power source.
@@ -159,7 +160,6 @@
 #define kIOPSAccessoryCategoryUnknown       "Unknown"
 
 
-#endif
 
 /*
  * Power adapter related internal keys

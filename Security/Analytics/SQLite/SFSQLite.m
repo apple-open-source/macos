@@ -25,7 +25,7 @@
 #import "SFSQLiteStatement.h"
 #include <sqlite3.h>
 #include <CommonCrypto/CommonDigest.h>
-
+#import "debugging.h"
 
 #define kSFSQLiteBusyTimeout       (5*60*1000)
 
@@ -41,10 +41,6 @@ static NSString *const kSFSQLiteCreatePropertiesTableSQL =
     @"    key    text primary key,\n"
     @"    value  text\n"
     @");\n";
-
-@interface SFSQLiteError : NSObject
-+ (void)raise:(NSString *)reason code:(int)code extended:(int)extended;
-@end
 
 
 NSArray *SFSQLiteJournalSuffixes() {
@@ -339,9 +335,15 @@ allDone:
     }
     
     // You don't argue with the Ben: rdar://12685305
-    [self executeSQL:@"pragma journal_mode = WAL"];
-    [self executeSQL:@"pragma synchronous = %@", [self _synchronousModeString]];
-    [self executeSQL:@"pragma auto_vacuum = FULL"];
+    if (![self executeSQL:@"pragma journal_mode = WAL"]) {
+        goto done;
+    }
+    if (![self executeSQL:@"pragma synchronous = %@", [self _synchronousModeString]]) {
+        goto done;
+    }
+    if (![self executeSQL:@"pragma auto_vacuum = FULL"]) {
+        goto done;
+    }
     
     // rdar://problem/32168789
     // [self executeSQL:@"pragma foreign_keys = 1"];
@@ -410,7 +412,15 @@ allDone:
     success = YES;
     
 done:
+    if (!success) {
+        sqlite3_close_v2(_db);
+        _db = nil;
+    }
+    
     if (!success && error) {
+        if (!localError) {
+            localError = [NSError errorWithDomain:NSCocoaErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, ", _path]}];
+        }
         *error = localError;
     }
     return success;
@@ -419,7 +429,8 @@ done:
 - (void)open {
     NSError *error;
     if (![self openWithError:&error]) {
-        [self raise:@"Error opening db at %@: %@", self.path, error];
+        secerror("sfsqlite: Error opening db at %@: %@", self.path, error);
+        return;
     }
 }
 
@@ -432,7 +443,8 @@ done:
             [self removeAllStatements];
             
             if (sqlite3_close(_db)) {
-                [self raise:@"Error closing database"];
+                secerror("sfsqlite: Error closing database");
+                return;
             }
             _db = NULL;
         }
@@ -468,44 +480,10 @@ done:
     [self executeSQL:@"vacuum"];
 }
 
-- (void)raise:(NSString *)format, ... {
-    va_list args;
-    va_start(args, format);
-    
-    NSString *reason = [[NSString alloc] initWithFormat:format arguments:args];
-    
-    int code = 0;
-    int extendedCode = 0;
-    if (_db) {
-        code = sqlite3_errcode(_db) & 0xFF;
-        extendedCode = sqlite3_extended_errcode(_db);
-        const char *errmsg = sqlite3_errmsg(_db);
-
-        NSDictionary *dbAttrs = [[NSFileManager defaultManager] attributesOfItemAtPath:self.path error:NULL];
-        NSDictionary *fsAttrs = [[NSFileManager defaultManager] attributesOfFileSystemForPath:self.path error:NULL];
-        reason = [reason stringByAppendingFormat:@" - errcode:%04x, msg:\"%s\", size: %@, path:%@, fs:%@/%@", extendedCode, errmsg, dbAttrs[NSFileSize], _path, fsAttrs[NSFileSystemFreeSize], fsAttrs[NSFileSystemSize]];
-
-        if (!_corrupt && (code == SQLITE_CORRUPT || code == SQLITE_NOTADB)) {
-            _corrupt = YES;
-            
-            @try {
-                [self close];
-            } @catch (NSException *x) {
-                NSLog(@"Warn: Error closing corrupt db: %@", x);
-            }
-            
-            [self remove];
-        }
-    }
-    
-    va_end(args);
-    
-    [SFSQLiteError raise:reason code:code extended:extendedCode];
-}
-
 - (SFSQLiteRowID)lastInsertRowID {
     if (!_db) {
-        [self raise:@"Database is closed"];
+        secerror("sfsqlite: Database is closed");
+        return -1;
     }
     
     return sqlite3_last_insert_rowid(_db);
@@ -514,33 +492,40 @@ done:
 - (int)changes
 {
     if (!_db) {
-        [self raise:@"Database is closed"];
+        secerror("sfsqlite: Database is closed");
+        return -1;
     }
     
     return sqlite3_changes(_db);
 }
 
-- (void)executeSQL:(NSString *)format, ... {
+- (BOOL)executeSQL:(NSString *)format, ... {
     va_list args;
     va_start(args, format);
-    [self executeSQL:format arguments:args];
+    BOOL result = [self executeSQL:format arguments:args];
     va_end(args);
+    return result;
 }
 
-- (void)executeSQL:(NSString *)format arguments:(va_list)args {
+- (BOOL)executeSQL:(NSString *)format arguments:(va_list)args {
     NS_VALID_UNTIL_END_OF_SCOPE NSString *SQL = [[NSString alloc] initWithFormat:format arguments:args];
     if (!_db) {
-        [self raise:@"Database is closed"];
+        secerror("sfsqlite: Database is closed");
+        return NO;
     }
     int execRet = sqlite3_exec(_db, [SQL UTF8String], NULL, NULL, NULL);
     if (execRet != SQLITE_OK) {
-        [self raise:@"Error executing SQL: \"%@\" (%d)", SQL, execRet];
+        secerror("sfsqlite: Error executing SQL: \"%@\" (%d)", SQL, execRet);
+        return NO;
     }
+
+    return YES;
 }
 
 - (SFSQLiteStatement *)statementForSQL:(NSString *)SQL {
     if (!_db) {
-        [self raise:@"Database is closed"];
+        secerror("sfsqlite: Database is closed");
+        return nil;
     }
     
     SFSQLiteStatement *statement = _statementsBySQL[SQL];
@@ -550,7 +535,8 @@ done:
         sqlite3_stmt *handle = NULL;
         NS_VALID_UNTIL_END_OF_SCOPE NSString *arcSafeSQL = SQL;
         if (sqlite3_prepare_v2(_db, [arcSafeSQL UTF8String], -1, &handle, NULL)) {
-            [self raise:@"Error preparing statement: %@", SQL];
+            secerror("Error preparing statement: %@", SQL);
+            return nil;
         }
         
         statement = [[SFSQLiteStatement alloc] initWithSQLite:self SQL:SQL handle:handle];
@@ -880,7 +866,8 @@ done:
 - (NSString *)_tableNameForClass:(Class)objectClass {
     NSString *className = [objectClass SFSQLiteClassName];
     if (![className hasPrefix:_objectClassPrefix]) {
-        [NSException raise:NSInvalidArgumentException format:@"Object class \"%@\" does not have prefix \"%@\"", className, _objectClassPrefix];
+        secerror("sfsqlite: %@", [NSString stringWithFormat:@"Object class \"%@\" does not have prefix \"%@\"", className, _objectClassPrefix]);
+        return nil;
     }
     return [className substringFromIndex:_objectClassPrefix.length];
 }
@@ -894,174 +881,6 @@ done:
     [statement reset];
     
     return userVersion;
-}
-
-@end
-
-
-#define SFSQLiteErrorRaiseMethod(SQLiteError) + (void)SQLiteError:(NSString *)reason { [NSException raise:NSGenericException format:@"%@", reason]; }
-#define SFSQLiteErrorCase(SQLiteError) case SQLITE_ ## SQLiteError: [self SQLiteError:reason]; break
-
-@implementation SFSQLiteError
-
-// SQLite error codes
-SFSQLiteErrorRaiseMethod(ERROR)
-SFSQLiteErrorRaiseMethod(INTERNAL)
-SFSQLiteErrorRaiseMethod(PERM)
-SFSQLiteErrorRaiseMethod(ABORT)
-SFSQLiteErrorRaiseMethod(BUSY)
-SFSQLiteErrorRaiseMethod(LOCKED)
-SFSQLiteErrorRaiseMethod(NOMEM)
-SFSQLiteErrorRaiseMethod(READONLY)
-SFSQLiteErrorRaiseMethod(INTERRUPT)
-SFSQLiteErrorRaiseMethod(IOERR)
-SFSQLiteErrorRaiseMethod(CORRUPT)
-SFSQLiteErrorRaiseMethod(NOTFOUND)
-SFSQLiteErrorRaiseMethod(FULL)
-SFSQLiteErrorRaiseMethod(CANTOPEN)
-SFSQLiteErrorRaiseMethod(PROTOCOL)
-SFSQLiteErrorRaiseMethod(SCHEMA)
-SFSQLiteErrorRaiseMethod(TOOBIG)
-SFSQLiteErrorRaiseMethod(CONSTRAINT)
-SFSQLiteErrorRaiseMethod(MISMATCH)
-SFSQLiteErrorRaiseMethod(MISUSE)
-SFSQLiteErrorRaiseMethod(RANGE)
-SFSQLiteErrorRaiseMethod(NOTADB)
-
-// SQLite extended error codes
-SFSQLiteErrorRaiseMethod(IOERR_READ)
-SFSQLiteErrorRaiseMethod(IOERR_SHORT_READ)
-SFSQLiteErrorRaiseMethod(IOERR_WRITE)
-SFSQLiteErrorRaiseMethod(IOERR_FSYNC)
-SFSQLiteErrorRaiseMethod(IOERR_DIR_FSYNC)
-SFSQLiteErrorRaiseMethod(IOERR_TRUNCATE)
-SFSQLiteErrorRaiseMethod(IOERR_FSTAT)
-SFSQLiteErrorRaiseMethod(IOERR_UNLOCK)
-SFSQLiteErrorRaiseMethod(IOERR_RDLOCK)
-SFSQLiteErrorRaiseMethod(IOERR_DELETE)
-SFSQLiteErrorRaiseMethod(IOERR_BLOCKED)
-SFSQLiteErrorRaiseMethod(IOERR_NOMEM)
-SFSQLiteErrorRaiseMethod(IOERR_ACCESS)
-SFSQLiteErrorRaiseMethod(IOERR_CHECKRESERVEDLOCK)
-SFSQLiteErrorRaiseMethod(IOERR_LOCK)
-SFSQLiteErrorRaiseMethod(IOERR_CLOSE)
-SFSQLiteErrorRaiseMethod(IOERR_DIR_CLOSE)
-SFSQLiteErrorRaiseMethod(IOERR_SHMOPEN)
-SFSQLiteErrorRaiseMethod(IOERR_SHMSIZE)
-SFSQLiteErrorRaiseMethod(IOERR_SHMLOCK)
-SFSQLiteErrorRaiseMethod(IOERR_SHMMAP)
-SFSQLiteErrorRaiseMethod(IOERR_SEEK)
-SFSQLiteErrorRaiseMethod(IOERR_DELETE_NOENT)
-SFSQLiteErrorRaiseMethod(IOERR_MMAP)
-SFSQLiteErrorRaiseMethod(IOERR_GETTEMPPATH)
-SFSQLiteErrorRaiseMethod(IOERR_CONVPATH)
-SFSQLiteErrorRaiseMethod(LOCKED_SHAREDCACHE)
-SFSQLiteErrorRaiseMethod(BUSY_RECOVERY)
-SFSQLiteErrorRaiseMethod(BUSY_SNAPSHOT)
-SFSQLiteErrorRaiseMethod(CANTOPEN_NOTEMPDIR)
-SFSQLiteErrorRaiseMethod(CANTOPEN_ISDIR)
-SFSQLiteErrorRaiseMethod(CANTOPEN_FULLPATH)
-SFSQLiteErrorRaiseMethod(CANTOPEN_CONVPATH)
-SFSQLiteErrorRaiseMethod(CORRUPT_VTAB)
-SFSQLiteErrorRaiseMethod(READONLY_RECOVERY)
-SFSQLiteErrorRaiseMethod(READONLY_CANTLOCK)
-SFSQLiteErrorRaiseMethod(READONLY_ROLLBACK)
-SFSQLiteErrorRaiseMethod(READONLY_DBMOVED)
-SFSQLiteErrorRaiseMethod(ABORT_ROLLBACK)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_CHECK)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_COMMITHOOK)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_FOREIGNKEY)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_FUNCTION)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_NOTNULL)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_PRIMARYKEY)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_TRIGGER)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_UNIQUE)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_VTAB)
-SFSQLiteErrorRaiseMethod(CONSTRAINT_ROWID)
-SFSQLiteErrorRaiseMethod(NOTICE_RECOVER_WAL)
-SFSQLiteErrorRaiseMethod(NOTICE_RECOVER_ROLLBACK)
-
-+ (void)raise:(NSString *)reason code:(int)code extended:(int)extended {
-    switch(extended) {
-            SFSQLiteErrorCase(IOERR_READ);
-            SFSQLiteErrorCase(IOERR_SHORT_READ);
-            SFSQLiteErrorCase(IOERR_WRITE);
-            SFSQLiteErrorCase(IOERR_FSYNC);
-            SFSQLiteErrorCase(IOERR_DIR_FSYNC);
-            SFSQLiteErrorCase(IOERR_TRUNCATE);
-            SFSQLiteErrorCase(IOERR_FSTAT);
-            SFSQLiteErrorCase(IOERR_UNLOCK);
-            SFSQLiteErrorCase(IOERR_RDLOCK);
-            SFSQLiteErrorCase(IOERR_DELETE);
-            SFSQLiteErrorCase(IOERR_BLOCKED);
-            SFSQLiteErrorCase(IOERR_NOMEM);
-            SFSQLiteErrorCase(IOERR_ACCESS);
-            SFSQLiteErrorCase(IOERR_CHECKRESERVEDLOCK);
-            SFSQLiteErrorCase(IOERR_LOCK);
-            SFSQLiteErrorCase(IOERR_CLOSE);
-            SFSQLiteErrorCase(IOERR_DIR_CLOSE);
-            SFSQLiteErrorCase(IOERR_SHMOPEN);
-            SFSQLiteErrorCase(IOERR_SHMSIZE);
-            SFSQLiteErrorCase(IOERR_SHMLOCK);
-            SFSQLiteErrorCase(IOERR_SHMMAP);
-            SFSQLiteErrorCase(IOERR_SEEK);
-            SFSQLiteErrorCase(IOERR_DELETE_NOENT);
-            SFSQLiteErrorCase(IOERR_MMAP);
-            SFSQLiteErrorCase(IOERR_GETTEMPPATH);
-            SFSQLiteErrorCase(IOERR_CONVPATH);
-            SFSQLiteErrorCase(LOCKED_SHAREDCACHE);
-            SFSQLiteErrorCase(BUSY_RECOVERY);
-            SFSQLiteErrorCase(BUSY_SNAPSHOT);
-            SFSQLiteErrorCase(CANTOPEN_NOTEMPDIR);
-            SFSQLiteErrorCase(CANTOPEN_ISDIR);
-            SFSQLiteErrorCase(CANTOPEN_FULLPATH);
-            SFSQLiteErrorCase(CANTOPEN_CONVPATH);
-            SFSQLiteErrorCase(CORRUPT_VTAB);
-            SFSQLiteErrorCase(READONLY_RECOVERY);
-            SFSQLiteErrorCase(READONLY_CANTLOCK);
-            SFSQLiteErrorCase(READONLY_ROLLBACK);
-            SFSQLiteErrorCase(READONLY_DBMOVED);
-            SFSQLiteErrorCase(ABORT_ROLLBACK);
-            SFSQLiteErrorCase(CONSTRAINT_CHECK);
-            SFSQLiteErrorCase(CONSTRAINT_COMMITHOOK);
-            SFSQLiteErrorCase(CONSTRAINT_FOREIGNKEY);
-            SFSQLiteErrorCase(CONSTRAINT_FUNCTION);
-            SFSQLiteErrorCase(CONSTRAINT_NOTNULL);
-            SFSQLiteErrorCase(CONSTRAINT_PRIMARYKEY);
-            SFSQLiteErrorCase(CONSTRAINT_TRIGGER);
-            SFSQLiteErrorCase(CONSTRAINT_UNIQUE);
-            SFSQLiteErrorCase(CONSTRAINT_VTAB);
-            SFSQLiteErrorCase(CONSTRAINT_ROWID);
-            SFSQLiteErrorCase(NOTICE_RECOVER_WAL);
-            SFSQLiteErrorCase(NOTICE_RECOVER_ROLLBACK);
-        default: break;
-    }
-    switch(code) {
-            SFSQLiteErrorCase(ERROR);
-            SFSQLiteErrorCase(INTERNAL);
-            SFSQLiteErrorCase(PERM);
-            SFSQLiteErrorCase(ABORT);
-            SFSQLiteErrorCase(BUSY);
-            SFSQLiteErrorCase(LOCKED);
-            SFSQLiteErrorCase(NOMEM);
-            SFSQLiteErrorCase(READONLY);
-            SFSQLiteErrorCase(INTERRUPT);
-            SFSQLiteErrorCase(IOERR);
-            SFSQLiteErrorCase(CORRUPT);
-            SFSQLiteErrorCase(NOTFOUND);
-            SFSQLiteErrorCase(FULL);
-            SFSQLiteErrorCase(CANTOPEN);
-            SFSQLiteErrorCase(PROTOCOL);
-            SFSQLiteErrorCase(SCHEMA);
-            SFSQLiteErrorCase(TOOBIG);
-            SFSQLiteErrorCase(CONSTRAINT);
-            SFSQLiteErrorCase(MISMATCH);
-            SFSQLiteErrorCase(MISUSE);
-            SFSQLiteErrorCase(RANGE);
-            SFSQLiteErrorCase(NOTADB);
-        default: break;
-    }
-    [NSException raise:NSGenericException format:@"%@", reason];
 }
 
 @end

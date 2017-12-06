@@ -30,6 +30,7 @@
 #include <notify.h>
 #include <xpc/private.h>
 #include <xpc/xpc.h>
+#include <CoreFoundation/CFStream.h>
 
 #include <Security/SecuritydXPC.h>
 #include <Security/SecTrustStore.h>
@@ -595,6 +596,14 @@ static void trustd_sandbox(void) {
 }
 #endif
 
+static void trustd_cfstream_init() {
+    /* <rdar://problem/33635964> Force legacy CFStream run loop initialization before any NSURLSession usage */
+    CFReadStreamRef rs = CFReadStreamCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8*) "", 0, kCFAllocatorNull);
+    CFReadStreamSetDispatchQueue(rs, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    CFReadStreamSetDispatchQueue(rs, NULL);
+    CFRelease(rs);
+}
+
 int main(int argc, char *argv[])
 {
     char *wait4debugger = getenv("WAIT4DEBUGGER");
@@ -649,6 +658,7 @@ int main(int argc, char *argv[])
 #if TARGET_OS_OSX
     SecTrustLegacySourcesListenForKeychainEvents();
 #endif
+    trustd_cfstream_init();
     trustd_xpc_init(serviceName);
 
     dispatch_main();

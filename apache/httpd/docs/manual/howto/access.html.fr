@@ -175,7 +175,7 @@ d'accès</a></h2>
     l'accès à une ressource en fonction d'un critère arbitraire.</p>
 
     <p>Par exemple, pour bloquer l'accès à une ressources entre 20h et
-    6h du matin, vous pouvez utiliser <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> :</p>
+    7h du matin, vous pouvez utiliser <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> :</p>
 
     <pre class="prettyprint lang-config">RewriteEngine On
 RewriteCond "%{TIME_HOUR}" "&gt;=20" [OR]

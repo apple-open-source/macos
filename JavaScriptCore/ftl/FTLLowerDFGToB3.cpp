@@ -606,6 +606,9 @@ private:
         case CheckStructure:
             compileCheckStructure();
             break;
+        case CheckStructureOrEmpty:
+            compileCheckStructureOrEmpty();
+            break;
         case CheckCell:
             compileCheckCell();
             break;
@@ -2703,6 +2706,39 @@ private:
         default:
             DFG_CRASH(m_graph, m_node, "Bad use kind");
             return;
+        }
+    }
+
+    void compileCheckStructureOrEmpty()
+    {
+        ExitKind exitKind;
+        if (m_node->child1()->hasConstant())
+            exitKind = BadConstantCache;
+        else
+            exitKind = BadCache;
+
+        LValue cell = lowCell(m_node->child1());
+        bool maySeeEmptyValue = m_interpreter.forNode(m_node->child1()).m_type & SpecEmpty;
+        LBasicBlock notEmpty;
+        LBasicBlock continuation;
+        LBasicBlock lastNext;
+        if (maySeeEmptyValue) {
+            notEmpty = m_out.newBlock();
+            continuation = m_out.newBlock();
+            m_out.branch(m_out.isZero64(cell), unsure(continuation), unsure(notEmpty));
+            lastNext = m_out.appendTo(notEmpty, continuation);
+        }
+
+        checkStructure(
+            m_out.load32(cell, m_heaps.JSCell_structureID), jsValueValue(cell),
+            exitKind, m_node->structureSet(),
+            [&] (RegisteredStructure structure) {
+                return weakStructureID(structure);
+            });
+
+        if (maySeeEmptyValue) {
+            m_out.jump(continuation);
+            m_out.appendTo(continuation, lastNext);
         }
     }
     
@@ -5428,9 +5464,9 @@ private:
                 // SaneChainOutOfBounds.
                 // https://bugs.webkit.org/show_bug.cgi?id=144668
                 
-                m_graph.watchpoints().addLazily(globalObject->stringPrototype()->structure()->transitionWatchpointSet());
-                m_graph.watchpoints().addLazily(globalObject->objectPrototype()->structure()->transitionWatchpointSet());
-                
+                m_graph.registerAndWatchStructureTransition(globalObject->stringPrototype()->structure());
+                m_graph.registerAndWatchStructureTransition(globalObject->objectPrototype()->structure());
+
                 prototypeChainIsSane = globalObject->stringPrototypeChainIsSane();
             }
             if (prototypeChainIsSane) {
@@ -7236,6 +7272,11 @@ private:
         // https://bugs.webkit.org/show_bug.cgi?id=141448
         
         LValue lengthIncludingThis = m_out.add(length, m_out.int32One);
+
+        speculate(
+            VarargsOverflow, noValue(), nullptr,
+            m_out.above(length, lengthIncludingThis));
+
         speculate(
             VarargsOverflow, noValue(), nullptr,
             m_out.above(lengthIncludingThis, m_out.constInt32(data->limit)));

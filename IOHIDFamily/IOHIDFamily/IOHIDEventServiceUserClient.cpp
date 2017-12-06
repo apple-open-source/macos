@@ -320,9 +320,14 @@ IOReturn IOHIDEventServiceUserClient::_open(
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
 {
-    if (!_owner || _state) {
+    if (!_owner) {
         return kIOReturnOffline;
     }
+    
+    if (_state == kUserClientStateOpen) {
+        return kIOReturnStillOpen;
+    }
+    
     
     _options = options;
     
@@ -333,7 +338,8 @@ IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
                         this, &IOHIDEventServiceUserClient::eventServiceCallback)) ) {
        return kIOReturnExclusiveAccess;
     }
-    OSBitOrAtomic(kUserClientStateOpen, &_state);
+    
+    _state = kUserClientStateOpen;
     
     return kIOReturnSuccess;
 }
@@ -355,10 +361,10 @@ IOReturn IOHIDEventServiceUserClient::_close(
 IOReturn IOHIDEventServiceUserClient::close()
 {
     
-    uint32_t state = _state;
     
-    if (_owner && state == kUserClientStateOpen) {
-      _owner->close(this, _options | kIOHIDOpenedByEventSystem);
+    if (_owner && _state == kUserClientStateOpen) {
+        _owner->close(this, _options | kIOHIDOpenedByEventSystem);
+        _state = kUserClientStateClose;
     }
 
     return kIOReturnSuccess;

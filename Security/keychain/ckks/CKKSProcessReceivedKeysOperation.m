@@ -57,7 +57,7 @@
         return;
     }
 
-    [ckks dispatchSync: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksinfo("ckkskey", ckks, "CKKSProcessReceivedKeysOperation cancelled, quitting");
             return false;
@@ -131,7 +131,7 @@
         }
 
         // This key is our proposed TLK. Check with the CKKS object.
-        if(![ckks checkTLK: tlk error: &error]) {
+        if(![ckks _onqueueWithAccountKeysCheckTLK: tlk error: &error]) {
             // Was this error "I've never seen that TLK before in my life"? If so, enter the "wait for TLK sync" state.
             if(error && [error.domain isEqualToString: @"securityd"] && error.code == errSecItemNotFound) {
                 ckksnotice("ckkskey", ckks, "Received a TLK which we don't have in the local keychain(%@). Entering waitfortlk.", tlk);

@@ -2799,6 +2799,25 @@ static const PatternAndOffsets scModsPatternsOffsets[] = {
     { NULL,      NULL,           0,                        NULL }
 };
 
+static const UChar scFlagText[] = {
+/*00*/ 0xD83C,0xDDF3,0xD83C,0xDDFF, /*NZ*/
+/*04*/ 0xD83C,0xDFF4,0xDB40,0xDC67,0xDB40,0xDC62,0xDB40,0xDC65,0xDB40,0xDC6E,0xDB40,0xDC67,0xDB40,0xDC7F, /*gbeng*/
+/*18*/ 0x0061,0x0062,0x0063,
+/*21*/ 0xD83C,0xDFF4,0xDB40,0xDC67,0xDB40,0xDC62,0xDB40,0xDC73,0xDB40,0xDC63,0xDB40,0xDC74,0xDB40,0xDC7F, /*gbsct*/
+/*35*/ 0xD83C,0xDFF4,0xDB40,0xDC67,0xDB40,0xDC62,0xDB40,0xDC77,0xDB40,0xDC6C,0xDB40,0xDC73,0xDB40,0xDC7F, /*gbwls*/
+/*49*/ 0x0020,0
+};
+
+static const UChar scFlag1[] = { 0xD83C,0xDFF4,0xDB40,0xDC67,0xDB40,0xDC62,0xDB40,0xDC73,0xDB40,0xDC63,0xDB40,0xDC74,0xDB40,0xDC7F,0 }; /* gbsct */
+static const int32_t scOffFlag1[]  = { 21 };
+static const int32_t scLenFlag1[]  = { 14 };
+
+static const PatternAndOffsets scFlagPatternsOffsets[] = {
+    { scFlag1,   scOffFlag1,   UPRV_LENGTHOF(scOffFlag1),   scLenFlag1 },
+    { NULL,      NULL,         0,                           NULL }
+};
+
+
 typedef struct {
     const char *  locale;
     const UChar * text;
@@ -2814,6 +2833,7 @@ static const TUSCItem tuscItems[] = {
     { "ja@colStrength=primary",                    scJaText, scJaStndPatternsOffsets },
     { "ja@collation=search;colStrength=primary",   scJaText, scJaSrchPatternsOffsets },
     { "root@collation=search;colStrength=primary", scModsText, scModsPatternsOffsets },
+    { "root@collation=search;colStrength=primary", scFlagText, scFlagPatternsOffsets },
     { NULL,                    NULL,     NULL                    }
 };
 

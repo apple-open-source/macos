@@ -61,13 +61,13 @@ static inline SOSPeerInfoRef asSOSPeerInfo(CFTypeRef obj) {
     return isSOSPeerInfo(obj) ? (SOSPeerInfoRef) obj : NULL;
 }
 
-SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
                                                       CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
+                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, CFErrorRef* error);
 
-SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
@@ -172,7 +172,10 @@ CFStringRef SOSPeerGestaltGetName(CFDictionaryRef gestalt);
 CFTypeRef SOSPeerGestaltGetAnswer(CFDictionaryRef gestalt, CFStringRef question);
 
 SecKeyRef SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer, CFErrorRef *error);
-SecKeyRef SOSPeerInfoCopyOctagonPubKey(SOSPeerInfoRef peer, CFErrorRef* error);
+SecKeyRef SOSPeerInfoCopyOctagonSigningPublicKey(SOSPeerInfoRef peer, CFErrorRef* error);
+SecKeyRef SOSPeerInfoCopyOctagonEncryptionPublicKey(SOSPeerInfoRef peer, CFErrorRef* error);
+bool SOSPeerInfoHasOctagonSigningPubKey(SOSPeerInfoRef peer);
+bool SOSPeerInfoHasOctagonEncryptionPubKey(SOSPeerInfoRef peer);
 
 CFDataRef SOSPeerInfoGetAutoAcceptInfo(SOSPeerInfoRef peer);
 
@@ -219,6 +222,22 @@ bool SOSPeerInfoKVSOnly(SOSPeerInfoRef pi);
 bool SOSPeerInfoHasDeviceID(SOSPeerInfoRef peer);
 CFStringRef SOSPeerInfoCopyDeviceID(SOSPeerInfoRef peer);
 SOSPeerInfoRef SOSPeerInfoSetDeviceID(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef IDS, SecKeyRef signingKey, CFErrorRef *error);
+
+/* octagon keys */
+SOSPeerInfoRef CF_RETURNS_RETAINED
+SOSPeerInfoSetOctagonSigningKey(CFAllocatorRef allocator,
+                                SOSPeerInfoRef toCopy,
+                                SecKeyRef octagonSigningKey,
+                                SecKeyRef signingKey,
+                                CFErrorRef *error);
+
+SOSPeerInfoRef CF_RETURNS_RETAINED
+SOSPeerInfoSetOctagonEncryptionKey(CFAllocatorRef allocator,
+                                 SOSPeerInfoRef toCopy,
+                                 SecKeyRef octagonEncryptionKey,
+                                 SecKeyRef signingKey,
+                                 CFErrorRef *error);
+
 
 CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 CFStringRef SOSPeerInfoCopyOSVersion(SOSPeerInfoRef pi);

@@ -100,7 +100,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
         strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
     } else {
         // The preboot volume isn't mounted right now.  We'll have to mount it.
-        ret = MountPrebootVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint);
+        ret = MountPrebootVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, false);
         if (ret) goto exit;
         mustUnmount = true;
     }

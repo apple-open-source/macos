@@ -103,12 +103,31 @@
     }
 
     for(CKRecordZoneID* zoneID in self.recordZoneIDsToDelete) {
-        ckdb[zoneID] = nil;
+        FakeCKZone* zone = ckdb[zoneID];
 
-        if(!self.recordZoneIDsDeleted) {
-            self.recordZoneIDsDeleted = [[NSMutableArray alloc] init];
+        if(zone) {
+            // The zone exists. Its deletion will succeed.
+            ckdb[zoneID] = nil;
+
+            if(!self.recordZoneIDsDeleted) {
+                self.recordZoneIDsDeleted = [[NSMutableArray alloc] init];
+            }
+            [self.recordZoneIDsDeleted addObject:zoneID];
+        } else {
+            // The zone does not exist! CloudKit will tell us that the deletion failed.
+            if(!self.creationError) {
+                self.creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:nil];
+            }
+
+            // There really should be a better way to do this...
+            NSMutableDictionary* newDictionary = [self.creationError.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
+            NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
+            newPartials[zoneID] = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorZoneNotFound
+                                                               userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: zone '%@' not found", zoneID.zoneName]}];
+            newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
+
+            self.creationError = [[CKPrettyError alloc] initWithDomain:self.creationError.domain code:self.creationError.code userInfo:newDictionary];
         }
-        [self.recordZoneIDsDeleted addObject:zoneID];
     }
 }
 
@@ -285,6 +304,11 @@
 
         self.recordZoneChangeTokensUpdatedBlock(zoneID, zone.currentChangeToken, nil);
         self.recordZoneFetchCompletionBlock(zoneID, zone.currentChangeToken, nil, NO, nil);
+
+        if(self.blockAfterFetch) {
+            self.blockAfterFetch();
+        }
+
         self.fetchRecordZoneChangesCompletionBlock(nil);
     }
 }
@@ -296,6 +320,156 @@
                                  userInfo:nil];
 }
 @end
+
+@implementation FakeCKFetchRecordsOperation
+@synthesize recordIDs = _recordIDs;
+@synthesize desiredKeys = _desiredKeys;
+
+@synthesize perRecordProgressBlock = _perRecordProgressBlock;
+@synthesize perRecordCompletionBlock = _perRecordCompletionBlock;
+
+@synthesize fetchRecordsCompletionBlock = _fetchRecordsCompletionBlock;
+
+- (instancetype)init {
+    if((self = [super init])) {
+
+    }
+    return self;
+}
+- (instancetype)initWithRecordIDs:(NSArray<CKRecordID *> *)recordIDs {
+    if((self = [super init])) {
+        _recordIDs = recordIDs;
+    }
+    return self;
+}
+
+
+- (void)main {
+    FakeCKDatabase* ckdb = [FakeCKFetchRecordsOperation ckdb];
+
+    // Doesn't call the per-record progress block
+    NSMutableDictionary<CKRecordID*, CKRecord*>* records = [NSMutableDictionary dictionary];
+    NSError* operror = nil;
+
+    for(CKRecordID* recordID in self.recordIDs) {
+        CKRecordZoneID* zoneID = recordID.zoneID;
+        FakeCKZone* zone = ckdb[zoneID];
+
+        if(!zone) {
+            ckksnotice("fakeck", zoneID, "Fetched for a missing zone %@", zoneID);
+            NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                          code:CKErrorZoneNotFound
+                                                                      userInfo:@{}];
+            NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                              code:CKErrorPartialFailure
+                                                          userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
+
+            // Not strictly right, but good enough for now
+            self.fetchRecordsCompletionBlock(nil, error);
+            return;
+        }
+
+        CKRecord* record = zone.currentDatabase[recordID];
+        if(record) {
+            if(self.perRecordCompletionBlock) {
+                self.perRecordCompletionBlock(record, recordID, nil);
+            }
+            records[recordID] = record;
+        } else {
+            secerror("fakeck: Should be an error fetching %@", recordID);
+
+            if(!operror) {
+                operror = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:nil];
+            }
+
+            // There really should be a better way to do this...
+            NSMutableDictionary* newDictionary = [operror.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
+            NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
+            newPartials[recordID] = [[CKPrettyError alloc] initWithDomain:operror.domain code:CKErrorUnknownItem
+                                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: no record of %@", recordID]}];
+            newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
+
+            operror = [[CKPrettyError alloc] initWithDomain:operror.domain code:operror.code userInfo:newDictionary];
+
+            /// TODO: do this better
+            if(self.perRecordCompletionBlock) {
+                self.perRecordCompletionBlock(nil, recordID, newPartials[zoneID]);
+            }
+        }
+    }
+
+    if(self.fetchRecordsCompletionBlock) {
+        self.fetchRecordsCompletionBlock(records, operror);
+    }
+}
+
++(FakeCKDatabase*) ckdb {
+    // Shouldn't ever be called: must be mocked out.
+    @throw [NSException exceptionWithName:NSInternalInconsistencyException
+                                   reason:[NSString stringWithFormat:@"+ckdb[] must be mocked out for use"]
+                                 userInfo:nil];
+}
+@end
+
+
+@implementation FakeCKQueryOperation
+@synthesize query = _query;
+@synthesize cursor = _cursor;
+@synthesize zoneID = _zoneID;
+@synthesize resultsLimit = _resultsLimit;
+@synthesize desiredKeys = _desiredKeys;
+@synthesize recordFetchedBlock = _recordFetchedBlock;
+@synthesize queryCompletionBlock = _queryCompletionBlock;
+
+- (instancetype)initWithQuery:(CKQuery *)query {
+    if((self = [super init])) {
+        _query = query;
+    }
+    return self;
+}
+
+- (void)main {
+    FakeCKDatabase* ckdb = [FakeCKFetchRecordsOperation ckdb];
+
+    FakeCKZone* zone = ckdb[self.zoneID];
+    if(!zone) {
+        ckksnotice("fakeck", self.zoneID, "Queried a missing zone %@", self.zoneID);
+
+        // I'm really not sure if this is right, but...
+        NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                      code:CKErrorZoneNotFound
+                                                                  userInfo:@{}];
+        self.queryCompletionBlock(nil, zoneNotFoundError);
+        return;
+    }
+
+    NSMutableArray<CKRecord*>* matches = [NSMutableArray array];
+    for(CKRecordID* recordID in zone.currentDatabase.keyEnumerator) {
+        CKRecord* record = zone.currentDatabase[recordID];
+
+        if([self.query.recordType isEqualToString: record.recordType] &&
+           [self.query.predicate evaluateWithObject:record]) {
+
+            [matches addObject:record];
+            self.recordFetchedBlock(record);
+        }
+    }
+
+    if(self.queryCompletionBlock) {
+        // The query cursor will be non-null if there are more than self.resultsLimit classes. Don't implement this.
+        self.queryCompletionBlock(nil, nil);
+    }
+}
+
+
++(FakeCKDatabase*) ckdb {
+    // Shouldn't ever be called: must be mocked out.
+    @throw [NSException exceptionWithName:NSInternalInconsistencyException
+                                   reason:[NSString stringWithFormat:@"+ckdb[] must be mocked out for use"]
+                                 userInfo:nil];
+}
+@end
+
 
 
 // Do literally nothing
@@ -360,7 +534,7 @@
     [self rollChangeToken];
 
     record.etag = [self.currentChangeToken description];
-    ckksnotice("fakeck", self.zoneID, "change tag: %@", record.recordChangeTag);
+    ckksnotice("fakeck", self.zoneID, "change tag: %@ %@", record.recordChangeTag, record.recordID);
     record.modificationDate = [NSDate date];
     self.currentDatabase[record.recordID] = record;
 }

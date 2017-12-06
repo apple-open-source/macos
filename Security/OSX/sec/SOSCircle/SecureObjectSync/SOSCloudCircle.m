@@ -73,6 +73,7 @@ const char * kSOSCCInitialSyncChangedNotification = "com.apple.security.secureob
 const char * kSOSCCHoldLockForInitialSync = "com.apple.security.secureobjectsync.holdlock";
 const char * kSOSCCPeerAvailable = "com.apple.security.secureobjectsync.peeravailable";
 const char * kSOSCCRecoveryKeyChanged = "com.apple.security.secureobjectsync.recoverykeychanged";
+const char * kSOSCCCircleOctagonKeysChangedNotification = "com.apple.security.sosoctagonbitschanged";
 
 #define do_if_registered(sdp, ...) if (gSecurityd && gSecurityd->sdp) { return gSecurityd->sdp(__VA_ARGS__); }
 
@@ -484,7 +485,15 @@ static bool recovery_and_bool_to_bool_error_request(enum SecXPCOperation op, CFD
 {
     secdebug("sosops", "enter - operation: %d", op);
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        xpc_object_t xData = _CFXPCCreateXPCObjectFromCFObject(data);
+        xpc_object_t xData = NULL;
+        if(data) {
+            xData = _CFXPCCreateXPCObjectFromCFObject(data);
+        } else {
+            uint8_t zero = 0;
+            CFDataRef nullData = CFDataCreate(kCFAllocatorDefault, &zero, 1);
+            xData = _CFXPCCreateXPCObjectFromCFObject(nullData);
+            CFReleaseNull(nullData);
+        }
         bool success = false;
         if (xData){
             xpc_dictionary_set_value(message, kSecXPCKeyRecoveryPublicKey, xData);
@@ -1086,13 +1095,8 @@ bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
     sec_trace_return_bool_api(^{
         bool retval = false;
         do_if_registered(soscc_RegisterRecoveryPublicKey, recovery_key, error);
-        if(!recovery_key)    { // this is used to clear the rk
-            CFDataRef empty = CFDataCreate(kCFAllocatorDefault, 0, 0);
-            retval = recovery_and_bool_to_bool_error_request(kSecXPCOpRegisterRecoveryPublicKey, empty, error);
-            CFReleaseNull(empty);
-        } else {
-            retval = recovery_and_bool_to_bool_error_request(kSecXPCOpRegisterRecoveryPublicKey, recovery_key, error);
-        }
+        // NULL recovery_key is handled in recovery_and_bool_to_bool_error_request now.
+        retval = recovery_and_bool_to_bool_error_request(kSecXPCOpRegisterRecoveryPublicKey, recovery_key, error);
         return retval;
     }, NULL);
 }

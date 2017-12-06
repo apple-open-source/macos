@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSSQLDatabaseObject.h"
 #import "CKKSItem.h"
 #import "CKKSMirrorEntry.h"
@@ -29,7 +31,7 @@
 
 #ifndef CKKSIncomingQueueEntry_h
 #define CKKSIncomingQueueEntry_h
-#if OCTAGON
+
 
 #import <CloudKit/CloudKit.h>
 

@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+package CKKS;
+
+message SerializedKey {
+    required string uuid = 1;
+    required string zoneName = 2;
+    required string keyclass = 3;
+    required bytes key = 4;
+}

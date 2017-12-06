@@ -24,6 +24,7 @@
 #import "SFSQLite.h"
 #import "SFSQLiteStatement.h"
 #import "SFObjCType.h"
+#import "debugging.h"
 
 @interface SFSQLiteStatement ()
 @property (nonatomic, strong) NSMutableArray *temporaryBoundObjects;
@@ -47,13 +48,13 @@
 }
 
 - (void)finalizeStatement {
-    SFSQLite *strongSQLite = _SQLite;
-
     if (!_reset) {
-        [strongSQLite raise: @"Statement not reset after last use: \"%@\"", _SQL];
+        secerror("sfsqlite: Statement not reset after last use: \"%@\"", _SQL);
+        return;
     }
     if (sqlite3_finalize(_handle)) {
-        [strongSQLite raise:@"Error finalizing prepared statement: \"%@\"", _SQL];
+        secerror("sfsqlite: Error finalizing prepared statement: \"%@\"", _SQL);
+        return;
     }
 }
 
@@ -79,21 +80,21 @@
         return NO;
     } else {
         [self resetAfterStepError];
-        [_SQLite raise:@"Failed to step (%d): \"%@\"", rc, _SQL];
+        secerror("sfsqlite: Failed to step (%d): \"%@\"", rc, _SQL);
         return NO;
     }
 }
 
 - (void)reset {
-    SFSQLite *strongSQLite = _SQLite;
-
     if (!_reset) {
         if (sqlite3_reset(_handle)) {
-            [strongSQLite raise:@"Error resetting prepared statement: \"%@\"", _SQL];
+            secerror("sfsqlite: Error resetting prepared statement: \"%@\"", _SQL);
+            return;
         }
         
         if (sqlite3_clear_bindings(_handle)) {
-            [strongSQLite raise:@"Error clearing prepared statement bindings: \"%@\"", _SQL];
+            secerror("sfsqlite: Error clearing prepared statement bindings: \"%@\"", _SQL);
+            return;
         }
         [_temporaryBoundObjects removeAllObjects];
         _reset = YES;
@@ -101,36 +102,52 @@
 }
 
 - (void)bindInt:(SInt32)value atIndex:(NSUInteger)index {
-    NSAssert(_reset, @"Statement is not reset: \"%@\"", _SQL);
+    if (!_reset) {
+        secerror("sfsqlite: Statement is not reset: \"%@\"", _SQL);
+        return;
+    }
     
     if (sqlite3_bind_int(_handle, (int)index+1, value)) {
-        [_SQLite raise:@"Error binding int at %ld: \"%@\"", (unsigned long)index, _SQL];
+        secerror("sfsqlite: Error binding int at %ld: \"%@\"", (unsigned long)index, _SQL);
+        return;
     }
 }
 
 - (void)bindInt64:(SInt64)value atIndex:(NSUInteger)index {
-    NSAssert(_reset, @"Statement is not reset: \"%@\"", _SQL);
+    if (!_reset) {
+        secerror("sfsqlite: Statement is not reset: \"%@\"", _SQL);
+        return;
+    }
     
     if (sqlite3_bind_int64(_handle, (int)index+1, value)) {
-        [_SQLite raise:@"Error binding int64 at %ld: \"%@\"", (unsigned long)index, _SQL];
+        secerror("sfsqlite: Error binding int64 at %ld: \"%@\"", (unsigned long)index, _SQL);
+        return;
     }
 }
 
 - (void)bindDouble:(double)value atIndex:(NSUInteger)index {
-    NSAssert(_reset, @"Statement is not reset: \"%@\"", _SQL);
+    if (!_reset) {
+        secerror("sfsqlite: Statement is not reset: \"%@\"", _SQL);
+        return;
+    }
     
     if (sqlite3_bind_double(_handle, (int)index+1, value)) {
-        [_SQLite raise:@"Error binding double at %ld: \"%@\"", (unsigned long)index, _SQL];
+        secerror("sfsqlite: Error binding double at %ld: \"%@\"", (unsigned long)index, _SQL);
+        return;
     }
 }
 
 - (void)bindBlob:(NSData *)value atIndex:(NSUInteger)index {
-    NSAssert(_reset, @"Statement is not reset: \"%@\"", _SQL);
+    if (!_reset) {
+        secerror("sfsqlite: Statement is not reset: \"%@\"", _SQL);
+        return;
+    }
     
     if (value) {
         NS_VALID_UNTIL_END_OF_SCOPE NSData *arcSafeValue = value;
         if (sqlite3_bind_blob(_handle, (int)index+1, [arcSafeValue bytes], (int)[arcSafeValue length], NULL)) {
-            [_SQLite raise:@"Error binding blob at %ld: \"%@\"", (unsigned long)index, _SQL];
+            secerror("sfsqlite: Error binding blob at %ld: \"%@\"", (unsigned long)index, _SQL);
+            return;
         }
     } else {
         [self bindNullAtIndex:index];
@@ -138,12 +155,16 @@
 }
 
 - (void)bindText:(NSString *)value atIndex:(NSUInteger)index {
-    NSAssert(_reset, @"Statement is not reset: \"%@\"", _SQL);
-    
+    if (!_reset) {
+        secerror("sfsqlite: Statement is not reset: \"%@\"", _SQL);
+        return;
+    }
+
     if (value) {
         NS_VALID_UNTIL_END_OF_SCOPE NSString *arcSafeValue = value;
         if (sqlite3_bind_text(_handle, (int)index+1, [arcSafeValue UTF8String], -1, NULL)) {
-            [_SQLite raise:@"Error binding text at %ld: \"%@\"", (unsigned long)index, _SQL];
+            secerror("sfsqlite: Error binding text at %ld: \"%@\"", (unsigned long)index, _SQL);
+            return;
         }
     } else {
         [self bindNullAtIndex:index];
@@ -153,7 +174,8 @@
 - (void)bindNullAtIndex:(NSUInteger)index {
     int rc = sqlite3_bind_null(_handle, (int)index+1);
     if ((rc & 0x00FF) != SQLITE_OK) {
-        [_SQLite raise:@"sqlite3_bind_null error"];
+        secerror("sfsqlite: sqlite3_bind_null error");
+        return;
     }
 }
 
@@ -201,7 +223,8 @@
     } else if ([value isKindOfClass:[NSURL class]]) {
         [self bindText:[self retainedTemporaryBoundObject:[value absoluteString]] atIndex:index];
     } else {
-        [NSException raise:NSInvalidArgumentException format:@"Can't bind object of type %@", [value class]];
+        secerror("sfsqlite: Can't bind object of type %@", [value class]);
+        return;
     }
 }
 
@@ -289,7 +312,7 @@
             return nil;
             
         default:
-            [NSException raise:NSGenericException format:@"Unexpected column type: %d", type];
+            secerror("sfsqlite: Unexpected column type: %d", type);
             return nil;
     }
 }

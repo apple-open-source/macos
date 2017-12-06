@@ -943,8 +943,9 @@ __private_extern__ void sendActivityTickle ()
     SystemLoadUserActiveAssertions(true);
 
     if (((currTime - lastTickle_ts) < kDisplayTickleDelay) &&
-            (!isDisplayAsleep())){
-        DEBUG_LOG("Avoiding display tickle\n");
+            (!isDisplayAsleep()) && (userActiveRootDomain())){
+        DEBUG_LOG("Avoiding display tickle. cTime:%lld lTime:%lld Display:%d rd:%d\n",
+                currTime, lastTickle_ts, isDisplayAsleep(), userActiveRootDomain());
         return;
     }
 

@@ -107,6 +107,7 @@ _kSOSCCInitialSyncChangedNotification
 _kSOSCCHoldLockForInitialSync
 _kSOSCCPeerAvailable
 _kSOSCCRecoveryKeyChanged
+_kSOSCCCircleOctagonKeysChangedNotification
 
 _SOSCCSetLastDepartureReason
 _SOSCCAccountSetToNew

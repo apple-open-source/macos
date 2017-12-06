@@ -64,7 +64,7 @@ NSString* const SecCKKSSubscriptionID = @"keychain-changes";
 NSString* const SecCKKSAPSNamedPort = @"com.apple.securityd.aps";
 
 NSString* const SecCKRecordItemType = @"item";
-NSString* const SecCKRecordVersionKey = @"uploadver";
+NSString* const SecCKRecordHostOSVersionKey = @"uploadver";
 NSString* const SecCKRecordEncryptionVersionKey = @"encver";
 NSString* const SecCKRecordDataKey = @"data";
 NSString* const SecCKRecordParentKeyRefKey = @"parentkeyref";
@@ -78,6 +78,16 @@ NSString* const SecCKRecordServerWasCurrent = @"server_wascurrent";
 
 NSString* const SecCKRecordIntermediateKeyType = @"synckey";
 NSString* const SecCKRecordKeyClassKey = @"class";
+
+NSString* const SecCKRecordTLKShareType = @"tlkshare";
+NSString* const SecCKRecordSenderPeerID = @"sender";
+NSString* const SecCKRecordReceiverPeerID = @"receiver";
+NSString* const SecCKRecordReceiverPublicEncryptionKey = @"receiverPublicEncryptionKey";
+NSString* const SecCKRecordCurve = @"curve";
+NSString* const SecCKRecordEpoch = @"epoch";
+NSString* const SecCKRecordPoisoned = @"poisoned";
+NSString* const SecCKRecordSignature = @"signature";
+NSString* const SecCKRecordVersion = @"version";
 
 NSString* const SecCKRecordCurrentKeyType = @"currentkey";
 
@@ -119,24 +129,31 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForUnlock = (CKKSZoneKeyState*) @
 CKKSZoneKeyState* const SecCKKSZoneKeyStateUnhealthy = (CKKSZoneKeyState*) @"unhealthy";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateBadCurrentPointers = (CKKSZoneKeyState*) @"badcurrentpointers";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateNewTLKsFailed = (CKKSZoneKeyState*) @"newtlksfailed";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares = (CKKSZoneKeyState*) @"healtlkshares";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed = (CKKSZoneKeyState*) @"healtlksharesfailed";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation = (CKKSZoneKeyState*) @"waitforfixupoperation";
 
 NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
     static NSDictionary<CKKSZoneKeyState*, NSNumber*>* map = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         map = @{
-          SecCKKSZoneKeyStateReady:              [NSNumber numberWithUnsignedInt: 0],
-          SecCKKSZoneKeyStateError:              [NSNumber numberWithUnsignedInt: 1],
-          SecCKKSZoneKeyStateCancelled:          [NSNumber numberWithUnsignedInt: 2],
+          SecCKKSZoneKeyStateReady:              @0U,
+          SecCKKSZoneKeyStateError:              @1U,
+          SecCKKSZoneKeyStateCancelled:          @2U,
 
-          SecCKKSZoneKeyStateInitializing:       [NSNumber numberWithUnsignedInt: 3],
-          SecCKKSZoneKeyStateInitialized:        [NSNumber numberWithUnsignedInt: 4],
-          SecCKKSZoneKeyStateFetchComplete:      [NSNumber numberWithUnsignedInt: 5],
-          SecCKKSZoneKeyStateWaitForTLK:         [NSNumber numberWithUnsignedInt: 6],
-          SecCKKSZoneKeyStateWaitForUnlock:      [NSNumber numberWithUnsignedInt: 7],
-          SecCKKSZoneKeyStateUnhealthy:          [NSNumber numberWithUnsignedInt: 8],
-          SecCKKSZoneKeyStateBadCurrentPointers: [NSNumber numberWithUnsignedInt: 9],
-          SecCKKSZoneKeyStateNewTLKsFailed:      [NSNumber numberWithUnsignedInt:10],
+          SecCKKSZoneKeyStateInitializing:       @3U,
+          SecCKKSZoneKeyStateInitialized:        @4U,
+          SecCKKSZoneKeyStateFetchComplete:      @5U,
+          SecCKKSZoneKeyStateWaitForTLK:         @6U,
+          SecCKKSZoneKeyStateWaitForUnlock:      @7U,
+          SecCKKSZoneKeyStateUnhealthy:          @8U,
+          SecCKKSZoneKeyStateBadCurrentPointers: @9U,
+          SecCKKSZoneKeyStateNewTLKsFailed:      @10U,
+          SecCKKSZoneKeyStateNeedFullRefetch:    @11U,
+          SecCKKSZoneKeyStateHealTLKShares:      @12U,
+          SecCKKSZoneKeyStateHealTLKSharesFailed:@13U,
+          SecCKKSZoneKeyStateWaitForFixupOperation:@14U,
         };
     });
     return map;
@@ -181,6 +198,9 @@ NSString* const SecCKKSAggdViewKeyCount = @"com.apple.security.ckks.keycount";
 NSString* const SecCKKSAggdItemReencryption = @"com.apple.security.ckks.reencrypt";
 
 NSString* const SecCKKSUserDefaultsSuite = @"com.apple.security.ckks";
+
+NSString* const CKKSErrorDomain = @"CKKSErrorDomain";
+NSString* const CKKSServerExtensionErrorDomain = @"CKKSServerExtensionErrorDomain";
 
 #if OCTAGON
 static bool enableCKKS = true;
@@ -257,6 +277,31 @@ bool SecCKKSEnableEnforceManifests() {
 bool SecCKKSSetEnforceManifests(bool value) {
     CKKSEnforceManifests = value;
     return CKKSEnforceManifests;
+}
+
+static bool CKKSShareTLKs = true;
+bool SecCKKSShareTLKs(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // Use the default value as above, or apply the preferences value if it exists
+        NSUserDefaults* defaults = [[NSUserDefaults alloc] initWithSuiteName:SecCKKSUserDefaultsSuite];
+        [defaults registerDefaults: @{@"tlksharing": CKKSShareTLKs ? @YES : @NO}];
+
+        CKKSShareTLKs = !![defaults boolForKey:@"tlksharing"];
+        secnotice("ckksshare", "TLK sharing is %@", CKKSShareTLKs ? @"on" : @"off");
+    });
+
+    return CKKSShareTLKs;
+}
+bool SecCKKSEnableShareTLKs(void) {
+    return SecCKKSSetShareTLKs(true);
+}
+bool SecCKKSSetShareTLKs(bool value) {
+    // Call this to do the dispatch_once first
+    SecCKKSShareTLKs();
+
+    CKKSShareTLKs = value;
+    return CKKSShareTLKs;
 }
 
 // Feature flags to twiddle behavior for tests

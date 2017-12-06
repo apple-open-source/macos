@@ -292,32 +292,44 @@ CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 }
 
 
-SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, CFErrorRef *error)
+SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name,
+                                         SecKeyRef* outSigningKey,
+                                         SecKeyRef* outOctagonSigningKey,
+                                         SecKeyRef* outOctagonEncryptionKey,
+                                         CFErrorRef *error)
 {
     SOSPeerInfoRef result = NULL;
     SecKeyRef publicKey = NULL;
-    SecKeyRef octagonPublicKey = NULL;
+    SecKeyRef octagonSigningPublicKey = NULL;
+    SecKeyRef octagonEncryptionPublicKey = NULL;
     CFDictionaryRef gestalt = NULL;
 
     require(outSigningKey, exit);
 
     require_quiet(SecError(GeneratePermanentECPair(256, &publicKey, outSigningKey), error, CFSTR("Failed To Create Key")), exit);
-    require_quiet(SecError(GeneratePermanentECPair(384, &octagonPublicKey, outOctagonSigningKey), error, CFSTR("Failed To Creaete Key")), exit);
+    require_quiet(SecError(GeneratePermanentECPair(384, &octagonSigningPublicKey, outOctagonSigningKey), error, CFSTR("Failed to Create Octagon Signing Key")), exit);
+    require_quiet(SecError(GeneratePermanentECPair(384, &octagonEncryptionPublicKey, outOctagonEncryptionKey), error, CFSTR("Failed to Create Octagon Encryption Key")), exit);
 
     gestalt = SOSCreatePeerGestaltFromName(name);
     require(gestalt, exit);
 
-    result = SOSPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey, *outOctagonSigningKey, error);
+    result = SOSPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey,
+                               *outOctagonSigningKey, *outOctagonEncryptionKey, error);
 
 exit:
     CFReleaseNull(gestalt);
     CFReleaseNull(publicKey);
-    CFReleaseNull(octagonPublicKey);
+    CFReleaseNull(octagonSigningPublicKey);
+    CFReleaseNull(octagonEncryptionPublicKey);
 
     return result;
 }
 
-SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, CFErrorRef *error)
+SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
+                                                 SecKeyRef* outSigningKey,
+                                                 SecKeyRef* outOctagonSigningKey,
+                                                 SecKeyRef* outOctagonEncryptionKey,
+                                                 CFErrorRef *error)
 {
     SOSFullPeerInfoRef result = NULL;
     SecKeyRef publicKey = NULL;
@@ -331,10 +343,19 @@ SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name, SecKeyRef* ou
     *outOctagonSigningKey = GeneratePermanentFullECKey(384, name, error);
     require(*outOctagonSigningKey, exit);
 
+    require(outOctagonEncryptionKey, exit);
+    *outOctagonEncryptionKey = GeneratePermanentFullECKey(384, name, error);
+    require(*outOctagonEncryptionKey, exit);
+
     gestalt = SOSCreatePeerGestaltFromName(name);
     require(gestalt, exit);
 
-    result = SOSFullPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey, *outOctagonSigningKey, error);
+    result = SOSFullPeerInfoCreate(NULL, gestalt,
+                                   NULL,
+                                   *outSigningKey,
+                                   *outOctagonSigningKey,
+                                   *outOctagonEncryptionKey,
+                                   error);
 
 exit:
     CFReleaseNull(gestalt);

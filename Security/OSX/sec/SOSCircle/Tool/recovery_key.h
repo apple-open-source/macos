@@ -25,11 +25,13 @@
 #include <SecurityTool/security_tool_commands.h>
 
 SECURITY_COMMAND(
-                 "recovery-key", recovery_key,
+                 "recovery", recovery_key,
                  "[options]\n"
-                 "Recovery Key\n"
-                 "    -s <string turned into recovery key> //Set the recovery key\n"
-                 "    -g                                   //Get the recovery key\n"
-                 "    -c                                   //Clear the recovery key\n"
-                 "    -V                                   //Create Verifier Dictionary (printout)\n",
-                 "Recovery Key." )
+                 "    -R //generates and prints a string encoded key seed\n"
+                 "    -G <string encoded seed> //Generate a recovery key from string encoded seed, but don't register\n"
+                 "    -s <string encoded seed> //Set the recovery key\n"
+                 "    -g                       //Get the recovery key\n"
+                 "    -c                       //Clear the recovery key\n"
+                 "    -V                       //Create Verifier Dictionary (printout)\n"
+                 "    -F                       // prompt cdp to followup to repair the recovery key\n",
+                 "Recovery Key Tool" )

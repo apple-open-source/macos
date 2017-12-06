@@ -53,11 +53,15 @@
 #include "SOSCircle_regressions.h"
 #include "SOSRegressionUtilities.h"
 
-static SOSFullPeerInfoRef SOSCreateApplicantFullPeerInfoFromName(CFStringRef peerName, SecKeyRef user_private_key,
-                                                                 SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, CFErrorRef *error)
+static SOSFullPeerInfoRef SOSCreateApplicantFullPeerInfoFromName(CFStringRef peerName,
+                                                                 SecKeyRef user_private_key,
+                                                                 SecKeyRef* outSigningKey,
+                                                                 SecKeyRef* outOctagonSigningKey,
+                                                                 SecKeyRef* outOctagonEncryptionKey,
+                                                                 CFErrorRef *error)
 {
     SOSFullPeerInfoRef result = NULL;
-    SOSFullPeerInfoRef fullPeer = SOSCreateFullPeerInfoFromName(peerName, outSigningKey, outOctagonSigningKey, error);
+    SOSFullPeerInfoRef fullPeer = SOSCreateFullPeerInfoFromName(peerName, outSigningKey, outOctagonSigningKey, outOctagonEncryptionKey, error);
 
     if (fullPeer && SOSFullPeerInfoPromoteToApplication(fullPeer, user_private_key, error))
         CFTransferRetained(result, fullPeer);
@@ -74,9 +78,12 @@ static void tests(void)
     SecKeyRef dev_a_key = NULL;
     SecKeyRef dev_b_key = NULL;
     SecKeyRef dev_c_key = NULL;
-    SecKeyRef oct_dev_a_key = NULL;
-    SecKeyRef oct_dev_b_key = NULL;
-    SecKeyRef oct_dev_c_key = NULL;
+    SecKeyRef oct_dev_as_key = NULL;
+    SecKeyRef oct_dev_aw_key = NULL;
+    SecKeyRef oct_dev_bs_key = NULL;
+    SecKeyRef oct_dev_bw_key = NULL;
+    SecKeyRef oct_dev_cs_key = NULL;
+    SecKeyRef oct_dev_cw_key = NULL;
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
 
@@ -93,9 +100,9 @@ static void tests(void)
     SecKeyRef user_pubkey = SecKeyCreatePublicFromPrivate(user_privkey);
 
 
-    SOSFullPeerInfoRef peer_a_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer A"), user_privkey, &dev_a_key, &oct_dev_a_key, NULL);
-    SOSFullPeerInfoRef peer_b_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer B"), user_privkey, &dev_b_key, &oct_dev_b_key, NULL);
-    SOSFullPeerInfoRef peer_c_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer C"), user_privkey, &dev_c_key, &oct_dev_c_key, NULL);
+    SOSFullPeerInfoRef peer_a_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer A"), user_privkey, &dev_a_key, &oct_dev_as_key, &oct_dev_aw_key, NULL);
+    SOSFullPeerInfoRef peer_b_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer B"), user_privkey, &dev_b_key, &oct_dev_bs_key, &oct_dev_bw_key, NULL);
+    SOSFullPeerInfoRef peer_c_full_info = SOSCreateApplicantFullPeerInfoFromName(CFSTR("Peer C"), user_privkey, &dev_c_key, &oct_dev_cs_key, &oct_dev_cw_key, NULL);
     CFStringRef peerID_a = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(peer_a_full_info));
     CFStringRef peerID_b = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(peer_b_full_info));
     SOSRingRef Ring = SOSRingCreate(CFSTR("TESTRING"), peerID_a, kSOSRingBase, NULL);
@@ -147,9 +154,12 @@ static void tests(void)
     CFReleaseNull(dev_a_key);
     CFReleaseNull(dev_b_key);
     CFReleaseNull(dev_c_key);
-    CFReleaseNull(oct_dev_a_key);
-    CFReleaseNull(oct_dev_b_key);
-    CFReleaseNull(oct_dev_c_key);
+    CFReleaseNull(oct_dev_as_key);
+    CFReleaseNull(oct_dev_aw_key);
+    CFReleaseNull(oct_dev_bs_key);
+    CFReleaseNull(oct_dev_bw_key);
+    CFReleaseNull(oct_dev_cs_key);
+    CFReleaseNull(oct_dev_cw_key);
     CFReleaseNull(cfpassword);
 
     CFReleaseNull(user_privkey);

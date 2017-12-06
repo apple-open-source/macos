@@ -364,6 +364,7 @@ extern const CFStringRef kSecAttrViewHintEngram;
 extern const CFStringRef kSecAttrViewHintManatee;
 extern const CFStringRef kSecAttrViewHintAutoUnlock;
 extern const CFStringRef kSecAttrViewHintHealth;
+extern const CFStringRef kSecAttrViewHintApplePay;
 
 
 #if SEC_OS_IPHONE

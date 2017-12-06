@@ -693,7 +693,6 @@ bool IOPCIBridge::start( IOService * provider )
     // join the tree
     provider->joinPMtree(this);
 
-	pciDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!pciDevice)
     {
         IOReturn

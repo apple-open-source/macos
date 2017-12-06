@@ -2,7 +2,7 @@
 //  PSCert.m
 //  CertificateTool
 //
-//  Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
+//  Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
 //
 
 #import "PSCert.h"
@@ -15,185 +15,36 @@
 
 #import "DataConversion.h"
 
-/* In OS X 10.9, the following symbols are exported:
-_SecCertificateCopyIssuerSequence  (SecCertificateRef)  SecCertificatePriv.h
-_SecCertificateCopySubjectSequence  (SecCertificateRef)  SecCertificatePriv.h
-_SecCertificateGetNormalizedIssuerContent  (SecCertificateRefP)  SecCertificateInternal.h
-_SecCertificateGetNormalizedSubjectContent  (SecCertificateRefP)  SecCertificateInternal.h
-_SecCertificateCopyNormalizedIssuerContent  (SecCertificateRef)  SecCertificate.h
-_SecCertificateCopyNormalizedSubjectContent  (SecCertificateRef)  SecCertificate.h
- */
-// This is from the SecCertificatePriv.h file
-CFDataRef SecCertificateCopyIssuerSequence(SecCertificateRef certificate);
-CFDataRef SecCertificateCopySubjectSequence(SecCertificateRef certificate);
-
-// This is from the SecCertificateInternal.h file
-typedef struct __SecCertificate *SecCertificateRefP;
-SecCertificateRefP SecCertificateCreateWithDataP(CFAllocatorRef allocator, CFDataRef der_certificate);
-//CFDataRef SecCertificateGetNormalizedIssuerContentP(SecCertificateRefP certificate);
-//CFDataRef SecCertificateGetNormalizedSubjectContentP(SecCertificateRefP certificate);
+// SecCertificateInternal.h declararations
 CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 
-// rdar://22245471
-// The size and layout of a __SecCertificateP differs from the __SecCertificate struct
-// that is more recent; in particular, the normalized issuer and normalized subject are
-// at different offsets. To address this bug without changing the Security framework,
-// we need to avoid calling SecCertificateGetNormalizedIssuerContent on a cert we created
-// with SecCertificateCreateWithDataP (since it expects a different non-P struct version),
-// and find the content offset ourselves.
+// SecCertificatePriv.h declarations
+// (note we cannot simply include SecCertificatePriv.h, since some of
+// these functions were exported but not declared prior to 10.12.2,
+// and we need to build on earlier versions.)
+CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
+CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
+CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
 
-#include <CoreFoundation/CFRuntime.h>
 
-#ifndef _LIB_DER_OIDS_H_
-typedef uint8_t DERByte;
-typedef size_t DERSize;
-
-typedef struct {
-    DERByte		*data;
-    DERSize		length;
-} DERItem;
-#endif
-
-typedef struct {
-    DERItem		oid;			/* OID */
-    DERItem		params;			/* ASN_ANY, optional, DER_DEC_SAVE_DER */
-} DERAlgorithmId;
-
-typedef struct {
-    bool                present;
-    bool                critical;
-    bool                isCA;
-    bool                pathLenConstraintPresent;
-    uint32_t			pathLenConstraint;
-} SecCEBasicConstraints;
-
-typedef struct {
-    bool                present;
-    bool                critical;
-    bool                requireExplicitPolicyPresent;
-    uint32_t			requireExplicitPolicy;
-    bool                inhibitPolicyMappingPresent;
-    uint32_t			inhibitPolicyMapping;
-} SecCEPolicyConstraints;
-
-typedef struct {
-    DERItem policyIdentifier;
-    DERItem policyQualifiers;
-} SecCEPolicyInformation;
-
-typedef struct {
-    bool                    present;
-    bool                    critical;
-    size_t                  numPolicies;			// size of *policies;
-    SecCEPolicyInformation  *policies;
-} SecCECertificatePolicies;
-
-typedef struct SecCertificateExtension {
-    DERItem extnID;
-    bool critical;
-    DERItem extnValue;
-} SecCertificateExtension;
-
-struct __SecCertificateP {
-    char _block1[
-        sizeof(CFRuntimeBase) +
-        sizeof(DERItem) +
-        sizeof(DERItem) +
-        sizeof(DERAlgorithmId) +
-        sizeof(DERItem) +
-        sizeof(UInt8) +
-        sizeof(DERItem) +
-        sizeof(DERAlgorithmId) +
-        sizeof(DERItem) +
-        sizeof(CFAbsoluteTime) +
-        sizeof(CFAbsoluteTime) +
-        sizeof(DERItem) +
-        sizeof(DERAlgorithmId) +
-        sizeof(DERItem) +
-        sizeof(DERItem) +
-        sizeof(DERItem) +
-        sizeof(bool) +
-        sizeof(SecCEBasicConstraints) +
-        sizeof(SecCEPolicyConstraints) +
-        sizeof(CFDictionaryRef) +
-        sizeof(SecCECertificatePolicies) +
-        sizeof(uint32_t) +
-        sizeof(uint32_t)
-    ];
-
-    DERItem				_subjectKeyIdentifier;
-    DERItem				_authorityKeyIdentifier;
-
-    char _block2[
-        sizeof(DERItem) +
-        sizeof(DERItem) +
-        sizeof(SecCertificateExtension *) +
-        sizeof(CFMutableArrayRef) +
-        sizeof(CFMutableArrayRef) +
-        sizeof(CFMutableArrayRef) +
-        sizeof(CFIndex) +
-        sizeof(SecCertificateExtension *) +
-        sizeof(SecKeyRef) +
-        sizeof(CFDataRef) +
-        sizeof(CFArrayRef) +
-        sizeof(CFDataRef)
-    ];
-
-    CFDataRef			_normalizedIssuer;
-    CFDataRef			_normalizedSubject;
-    CFDataRef			_authorityKeyID;
-    CFDataRef			_subjectKeyID;
-
-    char _block3[
-        sizeof(CFDataRef) +
-        sizeof(uint8_t)
-    ];
-};
-
-static CFDataRef GetNormalizedIssuerContent(SecCertificateRefP cert)
+static CFDataRef GetNormalizedIssuerContent(SecCertificateRef cert)
 {
-    struct __SecCertificateP *certP = (struct __SecCertificateP *)cert;
-    if (!certP) {
-        return NULL;
-    }
-    return certP->_normalizedIssuer;
+    return SecCertificateGetNormalizedIssuerContent(cert);
 }
 
-static CFDataRef GetNormalizedSubjectContent(SecCertificateRefP cert)
+static CFDataRef GetNormalizedSubjectContent(SecCertificateRef cert)
 {
-    struct __SecCertificateP *certP = (struct __SecCertificateP *)cert;
-    if (!certP) {
-        return NULL;
-    }
-    return certP->_normalizedSubject;
+    return SecCertificateGetNormalizedSubjectContent(cert);
 }
 
-static CFDataRef GetAuthorityKeyID(SecCertificateRefP cert)
+static CFDataRef GetAuthorityKeyID(SecCertificateRef cert)
 {
-    struct __SecCertificateP *certP = (struct __SecCertificateP *)cert;
-    if (!certP) {
-        return NULL;
-    }
-    if (!certP->_authorityKeyID && certP->_authorityKeyIdentifier.length) {
-        certP->_authorityKeyID = CFDataCreate(kCFAllocatorDefault,
-            certP->_authorityKeyIdentifier.data,
-            certP->_authorityKeyIdentifier.length);
-    }
-    return certP->_authorityKeyID;
+    return SecCertificateGetAuthorityKeyID(cert);
 }
 
-static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
+static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
 {
-    struct __SecCertificateP *certP = (struct __SecCertificateP *)cert;
-    if (!certP) {
-        return NULL;
-    }
-    if (!certP->_subjectKeyID && certP->_subjectKeyIdentifier.length) {
-        certP->_subjectKeyID = CFDataCreate(kCFAllocatorDefault,
-            certP->_subjectKeyIdentifier.data,
-            certP->_subjectKeyIdentifier.length);
-    }
-    return certP->_subjectKeyID;
+    return SecCertificateGetSubjectKeyID(cert);
 }
 
 
@@ -295,8 +146,8 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
     {
         return result;
     }
-    SecCertificateRefP iosCertRef = NULL;
-    NSData* normalized_subject = NULL;
+    SecCertificateRef iosCertRef = NULL;
+    NSData* normalized_subject = nil;
     CFDataRef cert_data = SecCertificateCopyData(cert_ref);
     if (NULL == cert_data)
     {
@@ -304,7 +155,7 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
         return result;
     }
 
-    iosCertRef = SecCertificateCreateWithDataP(NULL, cert_data);
+    iosCertRef = SecCertificateCreateWithData(NULL, cert_data);
     CFRelease(cert_data);
 
     if (NULL != iosCertRef)
@@ -314,20 +165,28 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
         if (NULL == temp_data)
         {
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
-            NSLog(@"SecCertificateGetNormalizedIssuerContent returned NULL for %@", name);
-            if (name)
-                CFRelease(name);
+            NSLog(@"GetNormalizedIssuerContent returned NULL for %@", name);
+            if (name) { CFRelease(name); }
             CFRelease(iosCertRef);
             return result;
         }
+
+        if (CFGetTypeID(temp_data) != CFDataGetTypeID())
+        {
+            CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
+            NSLog(@"GetNormalizedIssuerContent returned non-CFDataRef type for %@", name);
+            if (name) { CFRelease(name); }
+            CFRelease(iosCertRef);
+            return result;
+        }
+
         normalized_subject = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
         CFRelease(iosCertRef);
     }
 
     if (NULL == normalized_subject)
     {
-
-        NSLog(@"SecCertificateGetNormalizedIssuerContent returned NULL");
+        NSLog(@"normalized_subject is nil!");
         return result;
     }
 
@@ -386,15 +245,15 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
         result = CFBridgingRelease(hashBits);
     }
 
-	return result;
+    return result;
 }
 
 - (NSString *)getKeyIDString:(SecCertificateRef)cert_ref forAuthKey:(BOOL)auth_key
 {
     NSString *result = nil;
 
-    SecCertificateRefP iosCertRef = NULL;
-    NSData* key_data = NULL;
+    SecCertificateRef iosCertRef = NULL;
+    NSData* key_data = nil;
     CFDataRef cert_data = SecCertificateCopyData(cert_ref);
     if (NULL == cert_data)
     {
@@ -402,32 +261,39 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
         return result;
     }
 
-    iosCertRef = SecCertificateCreateWithDataP(NULL, cert_data);
+    iosCertRef = SecCertificateCreateWithData(NULL, cert_data);
     CFRelease(cert_data);
 
     if (NULL != iosCertRef)
     {
         CFDataRef temp_data = (auth_key) ? GetAuthorityKeyID(iosCertRef) : GetSubjectKeyID(iosCertRef);
+        NSString *keyid_str = (auth_key) ? @"GetAuthorityKeyID" : @"GetSubjectKeyID";
 
         if (NULL == temp_data)
         {
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
-            NSLog(@"SecCertificateGetAuthorityKeyID returned NULL for %@", name);
-            if (name) {
-                CFRelease(name);
-            }
+            NSLog(@"%@ returned NULL for %@", keyid_str, name);
+            if (name) { CFRelease(name); }
             CFRelease(iosCertRef);
             return result;
         }
+
+        if (CFGetTypeID(temp_data) != CFDataGetTypeID())
+        {
+            CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
+            NSLog(@"%@ returned non-CFDataRef type for %@", keyid_str, name);
+            if (name) { CFRelease(name); }
+            CFRelease(iosCertRef);
+            return result;
+        }
+
         key_data = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
         //%%% debug-only code to verify output
         if (false) {
             NSString *str = [[key_data toHexString] uppercaseString];
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
             NSLog(@"AuthKeyID for %@ is %@", name, str);
-            if (name) {
-                CFRelease(name);
-            }
+            if (name) { CFRelease(name); }
         }
         //%%%
         CFRelease(iosCertRef);
@@ -436,7 +302,7 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
     if (key_data) {
         return [[key_data toHexString] uppercaseString];
     } else {
-        return NULL;
+        return nil;
     }
 }
 

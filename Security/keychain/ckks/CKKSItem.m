@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #include <AssertMacros.h>
 
 #import <Foundation/Foundation.h>
@@ -30,8 +32,6 @@
 #include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
-
-#if OCTAGON
 
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
@@ -203,7 +203,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 
     // subtly improve osversion (but it's okay if that does nothing)
     NSString* finalversion = [platform stringByAppendingString: [osversion stringByReplacingOccurrencesOfString:@"Version" withString:@""]];
-    record[SecCKRecordVersionKey] = finalversion;
+    record[SecCKRecordHostOSVersionKey] = finalversion;
 }
 
 - (CKRecord*) updateCKRecord: (CKRecord*) record zoneID: (CKRecordZoneID*) zoneID {
@@ -351,7 +351,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
         if(record) {
             for(NSString* key in record.allKeys) {
                 if([key isEqualToString:@"UUID"] ||
-                   [key isEqualToString:SecCKRecordVersionKey] ||
+                   [key isEqualToString:SecCKRecordHostOSVersionKey] ||
                    [key isEqualToString:SecCKRecordDataKey] ||
                    [key isEqualToString:SecCKRecordWrappedKeyKey] ||
                    [key isEqualToString:SecCKRecordGenerationCountKey] ||

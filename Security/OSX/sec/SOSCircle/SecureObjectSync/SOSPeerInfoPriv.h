@@ -21,7 +21,7 @@ struct __OpaqueSOSPeerInfo {
     
     // Cached data
     CFDictionaryRef         gestalt;
-    CFStringRef             id;
+    CFStringRef             peerID;
     CFIndex                 version;
     /* V2 and beyond are listed below */
     CFMutableDictionaryRef  v2Dictionary;

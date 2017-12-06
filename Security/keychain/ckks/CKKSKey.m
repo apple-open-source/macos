@@ -21,15 +21,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSViewManager.h"
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #include <securityd/SecItemSchema.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
-
-#if OCTAGON
 
 #include <CloudKit/CloudKit.h>
 #include <CloudKit/CloudKit_Private.h>
@@ -276,6 +277,23 @@
 
     _aessivkey = [parent unwrapAESKey:self.wrappedkey error:error];
     return self.aessivkey;
+}
+
+- (bool)trySelfWrappedKeyCandidate:(CKKSAESSIVKey*)candidate error:(NSError * __autoreleasing *) error {
+    if(![self wrapsSelf]) {
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSKeyNotSelfWrapped userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"%@ is not self-wrapped", self]}];
+        }
+        return false;
+    }
+
+    CKKSAESSIVKey* unwrapped = [candidate unwrapAESKey:self.wrappedkey error:error];
+    if(unwrapped && [unwrapped isEqual: candidate]) {
+        _aessivkey = unwrapped;
+        return true;
+    }
+
+    return false;
 }
 
 - (CKKSWrappedAESSIVKey*)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error {
@@ -755,14 +773,13 @@
 #pragma mark - Utility
 
 - (NSString*)description {
-    return [NSString stringWithFormat: @"<%@(%@): %@ (%@,%@:%d) %p>",
+    return [NSString stringWithFormat: @"<%@(%@): %@ (%@,%@:%d)>",
             NSStringFromClass([self class]),
             self.zoneID.zoneName,
             self.uuid,
             self.keyclass,
             self.state,
-            self.currentkey,
-            &self];
+            self.currentkey];
 }
 
 #pragma mark - CKKSSQLDatabaseObject methods
@@ -826,6 +843,39 @@
     keyCopy->_keyclass = _keyclass;
     keyCopy->_currentkey = _currentkey;
     return keyCopy;
+}
+
+- (NSData*)serializeAsProtobuf: (NSError * __autoreleasing *) error {
+    if(![self ensureKeyLoaded:error]) {
+        return nil;
+    }
+    CKKSSerializedKey* proto = [[CKKSSerializedKey alloc] init];
+
+    proto.uuid = self.uuid;
+    proto.zoneName = self.zoneID.zoneName;
+    proto.keyclass = self.keyclass;
+    proto.key = [[NSData alloc] initWithBytes:self.aessivkey->key length:self.aessivkey->size];
+
+    return proto.data;
+}
+
++ (CKKSKey*)loadFromProtobuf:(NSData*)data error:(NSError* __autoreleasing *)error {
+    CKKSSerializedKey* key = [[CKKSSerializedKey alloc] initWithData: data];
+    if(key && key.uuid && key.zoneName && key.keyclass && key.key) {
+        return [[CKKSKey alloc] initSelfWrappedWithAESKey:[[CKKSAESSIVKey alloc] initWithBytes:(uint8_t*)key.key.bytes len:key.key.length]
+                                                     uuid:key.uuid
+                                                 keyclass:(CKKSKeyClass*)key.keyclass // TODO sanitize
+                                                    state:SecCKKSProcessedStateRemote
+                                                   zoneID:[[CKRecordZoneID alloc] initWithZoneName:key.zoneName
+                                                                                         ownerName:CKCurrentUserDefaultName]
+                                          encodedCKRecord:nil
+                                               currentkey:false];
+    }
+
+    if(error) {
+        *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSProtobufFailure description:@"Data failed to parse as a CKKSSerializedKey"];
+    }
+    return nil;
 }
 
 @end

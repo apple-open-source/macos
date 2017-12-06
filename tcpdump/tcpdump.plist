@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2017-01-30</string>
+	<string>2017-09-06</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -11,11 +11,11 @@
 	<key>OpenSourceProject</key>
 	<string>tcpdump</string>
 	<key>OpenSourceSHA1</key>
-	<string>2c4193685edb1040506a9ec0f15cd85825085697</string>
+	<string>f7dccebe94c3d07ac8744d43297ea2b98b35a13f</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.tcpdump.org/release/tcpdump-4.9.0.tar.gz</string>
+	<string>http://www.tcpdump.org/release/tcpdump-4.9.2.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>4.9.0</string>
+	<string>4.9.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.tcpdump.org/</string>
 </dict>

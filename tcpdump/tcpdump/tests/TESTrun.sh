@@ -1,5 +1,9 @@
 #!/bin/sh
 
+cd `dirname $0`
+cat /dev/null > verbose-outputs.txt
+rm -rf DIFF/ NEW/
+
 mkdir -p NEW
 mkdir -p DIFF
 passed=0
@@ -8,9 +12,11 @@ cat /dev/null > failure-outputs.txt
 
 runComplexTests()
 {
+  [ "$1" != "" ] && only=$1.sh
   for i in *.sh
   do
     case $i in TEST*.sh) continue;; esac
+    [ "$only" != "" -a "$i" != "$only" ] && continue
     sh ./$i
   done
 }
@@ -28,7 +34,7 @@ runSimpleTests()
     esac
     rm -f core
     [ "$only" != "" -a "$name" != "$only" ] && continue
-    if ./TESTonce $name $input $output "$options"
+    if ./TESTonce.sh $name $input $output "$options"
     then
       echo $passed >.passed
       passed=`expr $passed + 1`
@@ -51,6 +57,7 @@ then
   runSimpleTests
 elif [ $# -eq 1 ]
 then
+  runComplexTests $1
   runSimpleTests $1
 else
   echo "Usage: $0 [test_name]"

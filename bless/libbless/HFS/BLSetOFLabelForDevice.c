@@ -169,6 +169,6 @@ static int GetBlessedFolder(BLContextPtr context, const char *device, uint32_t *
 		return 1;
 	}
 	
-	*blessedFolderID = vh.finderInfo[0];
+	*blessedFolderID = CFSwapInt32BigToHost(*(uint32_t *)&vh.finderInfo[0]);
 	return 0;
 }

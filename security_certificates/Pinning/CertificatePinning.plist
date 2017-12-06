@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>14</integer>
+	<integer>16</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -437,5 +437,109 @@
 			</dict>
 		</array>
 	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^p..-setup$|^setup$</string>
+				<key>suffix</key>
+				<string>icloud.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>iCloudSetup</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.15.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.15.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.15.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.15.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+			<dict>
+				<key>AnchorSHA256</key>
+				<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateCountry</key>
+				<string>US</string>
+				<key>CheckIntermediateOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.15.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.15.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.15.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.15.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+       <dict>
+               <key>domains</key>
+               <array>
+                       <dict>
+                               <key>labelRegex</key>
+                               <string>^provider-api</string>
+                               <key>suffix</key>
+                               <string>health.apple.com</string>
+                       </dict>
+               </array>
+               <key>policyName</key>
+               <string>GalaxyProvider</string>
+               <key>rules</key>
+               <array>
+                       <dict>
+                               <key>AnchorApple</key>
+                               <dict/>
+                               <key>ChainLength</key>
+                               <integer>3</integer>
+                               <key>CheckIntermediateMarkerOid</key>
+                               <string>1.2.840.113635.100.6.2.12</string>
+                               <key>CheckLeafMarkerOid</key>
+                               <string>1.2.840.113635.100.6.27.19</string>
+                               <key>Revocation</key>
+                               <string>AnyRevocationMethod</string>
+                       </dict>
+               </array>
+       </dict>
 </array>
 </plist>

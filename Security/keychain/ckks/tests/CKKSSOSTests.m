@@ -46,13 +46,16 @@
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <Security/SecureObjectSync/SOSAccount.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
+#pragma clang diagnostic pop
+
 @interface CloudKitKeychainSyncingSOSIntegrationTests : CloudKitKeychainSyncingMockXCTest
 
 @property CKRecordZoneID*      engramZoneID;
@@ -75,6 +78,10 @@
 @property FakeCKZone*          healthZone;
 @property (readonly) ZoneKeys* healthZoneKeys;
 
+@property CKRecordZoneID*      applepayZoneID;
+@property CKKSKeychainView*    applepayView;
+@property FakeCKZone*          applepayZone;
+@property (readonly) ZoneKeys* applepayZoneKeys;
 
 @end
 
@@ -119,7 +126,13 @@
     self.healthZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
     self.zones[self.healthZoneID] = self.healthZone;
     self.healthView = [[CKKSViewManager manager] findView:@"Health"];
-    XCTAssertNotNil(self.autoUnlockView, "CKKSViewManager created the Health view");
+    XCTAssertNotNil(self.healthView, "CKKSViewManager created the Health view");
+
+    self.applepayZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"ApplePay" ownerName:CKCurrentUserDefaultName];
+    self.applepayZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
+    self.zones[self.applepayZoneID] = self.applepayZone;
+    self.applepayView = [[CKKSViewManager manager] findView:@"ApplePay"];
+    XCTAssertNotNil(self.applepayView, "CKKSViewManager created the ApplePay view");
 }
 
 + (void)tearDown {
@@ -129,17 +142,29 @@
 }
 
 - (void)tearDown {
+    // If the test didn't already do this, allow each zone to spin up
+    self.accountStatus = CKAccountStatusNoAccount;
+    [self startCKKSSubsystem];
+
     [self.engramView cancelAllOperations];
     [self.engramView waitUntilAllOperationsAreFinished];
+    self.engramView = nil;
 
     [self.manateeView cancelAllOperations];
     [self.manateeView waitUntilAllOperationsAreFinished];
+    self.manateeView = nil;
 
     [self.autoUnlockView cancelAllOperations];
     [self.autoUnlockView waitUntilAllOperationsAreFinished];
+    self.autoUnlockView = nil;
 
     [self.healthView cancelAllOperations];
     [self.healthView waitUntilAllOperationsAreFinished];
+    self.healthView = nil;
+
+    [self.applepayView cancelAllOperations];
+    [self.applepayView waitUntilAllOperationsAreFinished];
+    self.applepayView = nil;
 
     [super tearDown];
 }
@@ -157,6 +182,7 @@
     [self createAndSaveFakeKeyHierarchy: self.manateeZoneID];
     [self createAndSaveFakeKeyHierarchy: self.autoUnlockZoneID];
     [self createAndSaveFakeKeyHierarchy: self.healthZoneID];
+    [self createAndSaveFakeKeyHierarchy: self.applepayZoneID];
 }
 
 -(void)testAddEngramManateeItems {
@@ -212,7 +238,7 @@
     [self startCKKSSubsystem];
 
     XCTestExpectation* healthChanged = [self expectChangeForView:self.healthZoneID.zoneName];
-    // AutoUnlock is NOT is PCS view, so it should not send the fake 'PCS' view notification
+    // Health is NOT is PCS view, so it should not send the fake 'PCS' view notification
     XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
     pcsChanged.inverted = YES;
 
@@ -224,6 +250,26 @@
     [self waitForExpectations:@[healthChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
+
+-(void)testAddApplePayItems {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* applepayChanged = [self expectChangeForView:self.applepayZoneID.zoneName];
+    // ApplePay is NOT is PCS view, so it should not send the fake 'PCS' view notification
+    XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
+    pcsChanged.inverted = YES;
+
+    // We expect a single record to be uploaded to the ApplePay view.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.applepayZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-autounlock" viewHint:(NSString*) kSecAttrViewHintApplePay];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForExpectations:@[applepayChanged] timeout:1];
+    [self waitForExpectations:@[pcsChanged] timeout:0.2];
+}
+
 
 -(void)testAddOtherViewHintItem {
     [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
@@ -299,6 +345,9 @@
 
     [self.healthZoneKeys.tlk loadKeyMaterialFromKeychain:&error];
     XCTAssertNil(error, "No error loading Health tlk from piggy contents");
+
+    [self.applepayZoneKeys.tlk loadKeyMaterialFromKeychain:&error];
+    XCTAssertNil(error, "No error loading ApplePay tlk from piggy contents");
 }
 
 -(NSString*)fileForStorage
@@ -331,7 +380,7 @@
     NSArray<NSData *>* icloudidentities = piggydata[@"idents"];
     NSArray<NSDictionary *>* tlks = piggydata[@"tlk"];
 
-    XCTAssertEqual([tlks count], [[CKKSViewManager viewList] count], "TLKs not same as views");
+    XCTAssertEqual([tlks count], [[self.injectedManager viewList] count], "TLKs not same as views");
 
     XCTAssertNotNil(tlks, "tlks not set");
     XCTAssertNotEqual([tlks count], (NSUInteger)0, "0 tlks");
@@ -469,18 +518,21 @@
     [self putFakeKeyHierarchyInCloudKit: self.manateeZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.autoUnlockZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.healthZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
 }
 -(void)saveTLKsToKeychain{
     [self saveTLKMaterialToKeychain:self.engramZoneID];
     [self saveTLKMaterialToKeychain:self.manateeZoneID];
     [self saveTLKMaterialToKeychain:self.autoUnlockZoneID];
     [self saveTLKMaterialToKeychain:self.healthZoneID];
+    [self saveTLKMaterialToKeychain:self.applepayZoneID];
 }
 -(void)deleteTLKMaterialsFromKeychain{
     [self deleteTLKMaterialFromKeychain: self.engramZoneID];
     [self deleteTLKMaterialFromKeychain: self.manateeZoneID];
     [self deleteTLKMaterialFromKeychain: self.autoUnlockZoneID];
     [self deleteTLKMaterialFromKeychain: self.healthZoneID];
+    [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
 }
 
 -(void)waitForKeyHierarchyReadinesses {
@@ -488,6 +540,7 @@
     [self.engramView waitForKeyHierarchyReadiness];
     [self.autoUnlockView waitForKeyHierarchyReadiness];
     [self.healthView waitForKeyHierarchyReadiness];
+    [self.applepayView waitForKeyHierarchyReadiness];
 }
 
 -(void)testAcceptExistingAndUsePiggyKeyHierarchy {

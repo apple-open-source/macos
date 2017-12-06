@@ -124,6 +124,8 @@ void scheduleReleaseExtensions(void);
 void releaseExtensions(CFRunLoopTimerRef timer, void * context);
 void rescanExtensions(void);
 
+void enableNetworkAuthentication(void);
+
 void usage(UsageLevel usageLevel);
 
 #endif /* _KEXTD_MAIN_H */

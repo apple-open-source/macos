@@ -410,7 +410,7 @@ int msdosfs_vnop_lookup(struct vnop_lookup_args *ap)
 	u_int16_t found_name[WIN_MAXLEN];  /* TODO: Should we malloc this? */
 	u_int16_t found_name_len;
 	size_t utf8_len;
-	boolean_t case_folded;
+	boolean_t case_folded = 0;
 	
 	/*
 	 * TODO: What should we log here?  pmp, pdp, flags, nameiop?

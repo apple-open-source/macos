@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <Foundation/Foundation.h>
 
 // For AES-SIV 512.
@@ -60,3 +62,5 @@
 - (NSData*)decryptData: (NSData*) ciphertext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error;
 
 @end
+
+#endif // OCTAGON

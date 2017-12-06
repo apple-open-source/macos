@@ -80,7 +80,8 @@ struct __OpaqueSOSFullPeerInfo {
     
     SOSPeerInfoRef         peer_info;
     CFDataRef              key_ref;
-    CFDataRef              octagon_sync_signing_key_ref;
+    CFDataRef              octagon_peer_signing_key_ref;
+    CFDataRef              octagon_peer_encryption_key_ref;
 };
 
 CFGiblisWithHashFor(SOSFullPeerInfo);
@@ -92,17 +93,17 @@ CFStringRef kSOSFullPeerInfoSignatureKey = CFSTR("SOSFullPeerInfoSignature");
 CFStringRef kSOSFullPeerInfoNameKey = CFSTR("SOSFullPeerInfoName");
 
 
-static bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef peer, CFErrorRef *error, SOSPeerInfoRef (^create_modification)(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error)) {
+static bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, SOSPeerInfoRef (^create_modification)(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error)) {
     bool result = false;
     
     SOSPeerInfoRef newPeer = NULL;
-    SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(peer, error);
+    SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(fullPeerInfo, error);
     require_quiet(device_key, fail);
     
-    newPeer = create_modification(peer->peer_info, device_key, error);
+    newPeer = create_modification(fullPeerInfo->peer_info, device_key, error);
     require_quiet(newPeer, fail);
     
-    CFTransferRetained(peer->peer_info, newPeer);
+    CFTransferRetained(fullPeerInfo->peer_info, newPeer);
     
     result = true;
     
@@ -119,14 +120,21 @@ bool SOSFullPeerInfoUpdateToThisPeer(SOSFullPeerInfoRef peer, SOSPeerInfoRef pi,
 }
 
 SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt,
-                                         CFDataRef backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey,
+                                         CFDataRef backupKey,
+                                         SecKeyRef signingKey,
+                                         SecKeyRef octagonPeerSigningKey,
+                                         SecKeyRef octagonPeerEncryptionKey,
                                          CFErrorRef* error) {
-    return SOSFullPeerInfoCreateWithViews(allocator, gestalt, backupKey, NULL, signingKey, octagonSigningKey, error);
+    return SOSFullPeerInfoCreateWithViews(allocator, gestalt, backupKey, NULL, signingKey,
+                                          octagonPeerSigningKey, octagonPeerEncryptionKey, error);
 }
 
 SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
                                                   CFDictionaryRef gestalt, CFDataRef backupKey, CFSetRef initialViews,
-                                                  SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error) {
+                                                  SecKeyRef signingKey,
+                                                  SecKeyRef octagonPeerSigningKey,
+                                                  SecKeyRef octagonPeerEncryptionKey,
+                                                  CFErrorRef* error) {
 
     SOSFullPeerInfoRef result = NULL;
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, allocator);
@@ -140,14 +148,16 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
     fpi->peer_info = SOSPeerInfoCreateWithTransportAndViews(allocator, gestalt, backupKey,
                                                             IDSID, transportType, preferIDS,
                                                             preferIDSFragmentation, preferACKModel, initialViews,
-                                                            signingKey, octagonSigningKey, error);
+                                                            signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey, error);
     require_quiet(fpi->peer_info, exit);
 
     OSStatus status = SecKeyCopyPersistentRef(signingKey, &fpi->key_ref);
     require_quiet(SecError(status, error, CFSTR("Inflating persistent ref")), exit);
     
-    status = SecKeyCopyPersistentRef(octagonSigningKey, &fpi->octagon_sync_signing_key_ref);
-    require_quiet(SecError(status, error, CFSTR("Inflating octagon persistent ref")), exit);
+    status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_signing_key_ref);
+    require_quiet(SecError(status, error, CFSTR("Inflating octagon peer signing persistent ref")), exit);
+    status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_encryption_key_ref);
+    require_quiet(SecError(status, error, CFSTR("Inflating octagon peer encryption persistent ref")), exit);
 
     CFTransferRetained(result, fpi);
 
@@ -203,6 +213,20 @@ bool SOSFullPeerInfoUpdateTransportAckModelPreference(SOSFullPeerInfoRef peer, C
         return SOSPeerInfoSetIDSACKModelPreference(kCFAllocatorDefault, peer, preference, key, error);
     });
 }
+
+bool SOSFullPeerInfoUpdateOctagonSigningKey(SOSFullPeerInfoRef peer, SecKeyRef octagonSigningKey, CFErrorRef* error){
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoSetOctagonSigningKey(kCFAllocatorDefault, peer, octagonSigningKey, key, error);
+    });
+}
+
+bool SOSFullPeerInfoUpdateOctagonEncryptionKey(SOSFullPeerInfoRef peer, SecKeyRef octagonEncryptionKey, CFErrorRef* error){
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoSetOctagonEncryptionKey(kCFAllocatorDefault, peer, octagonEncryptionKey, key, error);
+    });
+}
+
+
 
 CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
 {
@@ -296,6 +320,8 @@ static void SOSFullPeerInfoDestroy(CFTypeRef aObj) {
     
     CFReleaseNull(fpi->peer_info);
     CFReleaseNull(fpi->key_ref);
+    CFReleaseNull(fpi->octagon_peer_signing_key_ref);
+    CFReleaseNull(fpi->octagon_peer_encryption_key_ref);
 }
 
 static Boolean SOSFullPeerInfoCompare(CFTypeRef lhs, CFTypeRef rhs) {
@@ -507,17 +533,30 @@ errOut:
     return retval;
 }
 
-static SecKeyRef SOSFullPeerInfoCopyOctagonPubKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
+SecKeyRef SOSFullPeerInfoCopyOctagonPublicSigningKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
 {
     SecKeyRef retval = NULL;
     require_quiet(fpi, errOut);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
     require_quiet(pi, errOut);
-    retval = SOSPeerInfoCopyOctagonPubKey(pi, error);
+    retval = SOSPeerInfoCopyOctagonSigningPublicKey(pi, error);
     
 errOut:
     return retval;
 }
+
+SecKeyRef SOSFullPeerInfoCopyOctagonPublicEncryptionKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
+{
+    SecKeyRef retval = NULL;
+    require_quiet(fpi, errOut);
+    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
+    require_quiet(pi, errOut);
+    retval = SOSPeerInfoCopyOctagonEncryptionPublicKey(pi, error);
+
+errOut:
+    return retval;
+}
+
 
 static SecKeyRef SOSFullPeerInfoCopyMatchingPrivateKey(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     SecKeyRef retval = NULL;
@@ -530,10 +569,10 @@ exit:
     return retval;
 }
 
-static SecKeyRef SOSFullPeerInfoCopyMatchingOctagonPrivateKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
+static SecKeyRef SOSFullPeerInfoCopyMatchingOctagonSigningPrivateKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
 {
     SecKeyRef retval = NULL;    
-    SecKeyRef pub = SOSFullPeerInfoCopyOctagonPubKey(fpi, error);
+    SecKeyRef pub = SOSFullPeerInfoCopyOctagonPublicSigningKey(fpi, error);
     require_quiet(pub, exit);
     retval = SecKeyCopyMatchingPrivateKey(pub, error);
     
@@ -541,6 +580,18 @@ exit:
     CFReleaseNull(pub);
     return retval;
 }
+static SecKeyRef SOSFullPeerInfoCopyMatchingOctagonEncryptionPrivateKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
+{
+    SecKeyRef retval = NULL;
+    SecKeyRef pub = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(fpi, error);
+    require_quiet(pub, exit);
+    retval = SecKeyCopyMatchingPrivateKey(pub, error);
+
+exit:
+    CFReleaseNull(pub);
+    return retval;
+}
+
 
 static OSStatus SOSFullPeerInfoGetMatchingPrivateKeyStatus(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     OSStatus retval = errSecParam;
@@ -573,23 +624,37 @@ bool SOSFullPeerInfoPurgePersistentKey(SOSFullPeerInfoRef fpi, CFErrorRef* error
     CFMutableDictionaryRef octagonQuery = NULL;
 
     SecKeyRef pub = SOSFullPeerInfoCopyPubKey(fpi, error);
-    SecKeyRef octagonPub = SOSFullPeerInfoCopyOctagonPubKey(fpi, error);
+    SecKeyRef octagonSigningPub = SOSFullPeerInfoCopyOctagonPublicSigningKey(fpi, error);
+    SecKeyRef octagonEncryptionPub = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(fpi, error);
     require_quiet(pub, fail);
-    require_quiet(octagonPub, fail);
+    // iCloud Identities doesn't have either signing or encryption key here. Don't fail if they're not present.
 
     privQuery = CreatePrivateKeyMatchingQuery(pub, false);
     query = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, privQuery);
     CFDictionaryAddValue(query, kSecUseTombstones, kCFBooleanFalse);
 
     result = SecError(SecItemDelete(query), error, CFSTR("Deleting while purging"));
-    
+
     // do the same thing to also purge the octagon sync signing key
-    
-    octagonPrivQuery = CreatePrivateKeyMatchingQuery(octagonPub, false);
-    octagonQuery = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, octagonPrivQuery);
-    CFDictionaryAddValue(octagonQuery, kSecUseTombstones, kCFBooleanFalse);
-    
-    result &= SecError(SecItemDelete(octagonQuery), error, CFSTR("Deleting while purging"));
+    if(octagonSigningPub) {
+        octagonPrivQuery = CreatePrivateKeyMatchingQuery(octagonSigningPub, false);
+        octagonQuery = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, octagonPrivQuery);
+        CFDictionaryAddValue(octagonQuery, kSecUseTombstones, kCFBooleanFalse);
+
+        result &= SecError(SecItemDelete(octagonQuery), error, CFSTR("Deleting signing key while purging"));
+    }
+
+    CFReleaseNull(octagonPrivQuery);
+    CFReleaseNull(octagonQuery);
+
+    // do the same thing to also purge the octagon encryption key
+    if(octagonEncryptionPub) {
+        octagonPrivQuery = CreatePrivateKeyMatchingQuery(octagonEncryptionPub, false);
+        octagonQuery = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, octagonPrivQuery);
+        CFDictionaryAddValue(octagonQuery, kSecUseTombstones, kCFBooleanFalse);
+
+        result &= SecError(SecItemDelete(octagonQuery), error, CFSTR("Deleting encryption key while purging"));
+    }
 
 fail:
     CFReleaseNull(privQuery);
@@ -597,17 +662,24 @@ fail:
     CFReleaseNull(pub);
     CFReleaseNull(octagonPrivQuery);
     CFReleaseNull(octagonQuery);
-    CFReleaseNull(octagonPub);
+    CFReleaseNull(octagonSigningPub);
+    CFReleaseNull(octagonEncryptionPub);
     return result;
 }
 
-SecKeyRef  SOSFullPeerInfoCopyDeviceKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error) {
+SecKeyRef  SOSFullPeerInfoCopyDeviceKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error)
+{
     return SOSFullPeerInfoCopyMatchingPrivateKey(fullPeer, error);
 }
 
 SecKeyRef SOSFullPeerInfoCopyOctagonSigningKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error)
 {
-    return SOSFullPeerInfoCopyMatchingOctagonPrivateKey(fullPeer, error);
+    return SOSFullPeerInfoCopyMatchingOctagonSigningPrivateKey(fullPeer, error);
+}
+
+SecKeyRef SOSFullPeerInfoCopyOctagonEncryptionKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error)
+{
+    return SOSFullPeerInfoCopyMatchingOctagonEncryptionPrivateKey(fullPeer, error);
 }
 
 //

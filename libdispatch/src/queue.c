@@ -3737,7 +3737,7 @@ _dispatch_sync_waiter_redirect_or_wake(dispatch_queue_t dq, uint64_t owned,
 {
 	dispatch_sync_context_t dsc = (dispatch_sync_context_t)dou._dc;
 	uint64_t next_owner = 0, old_state, new_state;
-	dispatch_wlh_t wlh = NULL;
+	dispatch_wlh_t wlh = DISPATCH_WLH_ANON;
 
 	_dispatch_trace_continuation_pop(dq, dsc->_as_dc);
 

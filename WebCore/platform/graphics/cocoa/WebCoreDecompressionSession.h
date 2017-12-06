@@ -36,8 +36,8 @@
 #include <wtf/ThreadSafeRefCounted.h>
 
 typedef CFTypeRef CMBufferRef;
+typedef const struct __CFArray * CFArrayRef;
 typedef struct opaqueCMBufferQueue *CMBufferQueueRef;
-typedef struct opaqueCMBufferQueueTriggerToken *CMBufferQueueTriggerToken;
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
 typedef signed long CMItemCount;
@@ -51,7 +51,8 @@ namespace WebCore {
 
 class WebCoreDecompressionSession : public ThreadSafeRefCounted<WebCoreDecompressionSession> {
 public:
-    static Ref<WebCoreDecompressionSession> create() { return adoptRef(*new WebCoreDecompressionSession()); }
+    static Ref<WebCoreDecompressionSession> createOpenGL() { return adoptRef(*new WebCoreDecompressionSession(OpenGL)); }
+    static Ref<WebCoreDecompressionSession> createRGB() { return adoptRef(*new WebCoreDecompressionSession(RGB)); }
 
     void invalidate();
     bool isInvalidated() const { return m_invalidated; }
@@ -62,6 +63,8 @@ public:
     void stopRequestingMediaData();
     void notifyWhenHasAvailableVideoFrame(std::function<void()>);
 
+    RetainPtr<CVPixelBufferRef> decodeSampleSync(CMSampleBufferRef);
+
     void setTimebase(CMTimebaseRef);
     CMTimebaseRef timebase() const { return m_timebase.get(); }
 
@@ -69,8 +72,19 @@ public:
     RetainPtr<CVPixelBufferRef> imageForTime(const MediaTime&, ImageForTimeFlags = ExactTime);
     void flush();
 
+    unsigned long totalVideoFrames() { return m_totalVideoFrames; }
+    unsigned long droppedVideoFrames() { return m_droppedVideoFrames; }
+    unsigned long corruptedVideoFrames() { return m_corruptedVideoFrames; }
+    MediaTime totalFrameDelay() { return m_totalFrameDelay; }
+
 private:
-    WebCoreDecompressionSession();
+    enum Mode {
+        OpenGL,
+        RGB,
+    };
+    WebCoreDecompressionSession(Mode);
+
+    void ensureDecompressionSessionForSample(CMSampleBufferRef);
 
     void decodeSample(CMSampleBufferRef, bool displaying);
     void enqueueDecodedSample(CMSampleBufferRef, bool displaying);
@@ -78,19 +92,24 @@ private:
     RetainPtr<CVPixelBufferRef> getFirstVideoFrame();
     void resetAutomaticDequeueTimer();
     void automaticDequeue();
+    bool shouldDecodeSample(CMSampleBufferRef, bool displaying);
 
-    static void decompressionOutputCallback(void* decompressionOutputRefCon, void* sourceFrameRefCon, OSStatus, VTDecodeInfoFlags, CVImageBufferRef, CMTime presentationTimeStamp, CMTime presentationDuration);
     static CMTime getDecodeTime(CMBufferRef, void* refcon);
     static CMTime getPresentationTime(CMBufferRef, void* refcon);
     static CMTime getDuration(CMBufferRef, void* refcon);
     static CFComparisonResult compareBuffers(CMBufferRef buf1, CMBufferRef buf2, void* refcon);
-    static void maybeBecomeReadyForMoreMediaDataCallback(void* refcon, CMBufferQueueTriggerToken);
     void maybeBecomeReadyForMoreMediaData();
+
+    void resetQosTier();
+    void increaseQosTier();
+    void decreaseQosTier();
+    void updateQosWithDecodeTimeStatistics(double ratio);
 
     static const CMItemCount kMaximumCapacity = 120;
     static const CMItemCount kHighWaterMark = 60;
     static const CMItemCount kLowWaterMark = 15;
 
+    Mode m_mode;
     RetainPtr<VTDecompressionSessionRef> m_decompressionSession;
     RetainPtr<CMBufferQueueRef> m_producerQueue;
     RetainPtr<CMBufferQueueRef> m_consumerQueue;
@@ -101,10 +120,17 @@ private:
     OSObjectPtr<dispatch_source_t> m_timerSource;
     std::function<void()> m_notificationCallback;
     std::function<void()> m_hasAvailableFrameCallback;
-    CMBufferQueueTriggerToken m_didBecomeReadyTrigger { nullptr };
+    RetainPtr<CFArrayRef> m_qosTiers;
+    long m_currentQosTier { 0 };
+    unsigned long m_framesSinceLastQosCheck { 0 };
+    double m_decodeRatioMovingAverage { 0 };
 
     bool m_invalidated { false };
     int m_framesBeingDecoded { 0 };
+    unsigned long m_totalVideoFrames { 0 };
+    unsigned long m_droppedVideoFrames { 0 };
+    unsigned long m_corruptedVideoFrames { 0 };
+    MediaTime m_totalFrameDelay;
 };
 
 }

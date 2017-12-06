@@ -278,7 +278,6 @@ static void ksyn_freeallkwe(ksyn_queue_t kq);
 
 static kern_return_t ksyn_mtxsignal(ksyn_wait_queue_t, ksyn_waitq_element_t kwe, uint32_t);
 static void ksyn_mtx_update_owner_qos_override(ksyn_wait_queue_t, uint64_t tid, boolean_t prepost);
-static void ksyn_mtx_transfer_qos_override(ksyn_wait_queue_t, ksyn_waitq_element_t);
 static void ksyn_mtx_drop_qos_override(ksyn_wait_queue_t);
 
 static int kwq_handle_unlock(ksyn_wait_queue_t, uint32_t mgen, uint32_t rw_wc, uint32_t *updatep, int flags, int *blockp, uint32_t premgen);
@@ -589,17 +588,20 @@ static void ksyn_mtx_update_owner_qos_override(ksyn_wait_queue_t kwq, uint64_t t
 	}
 }
 
-static void ksyn_mtx_transfer_qos_override(ksyn_wait_queue_t kwq, ksyn_waitq_element_t kwe)
+static boolean_t
+ksyn_mtx_transfer_qos_override_begin(ksyn_wait_queue_t kwq,
+		ksyn_waitq_element_t kwe, uint64_t *kw_owner)
 {
+	boolean_t needs_commit = FALSE;
 	if (!(kwq->kw_pflags & KSYN_WQ_SHARED)) {
 		boolean_t wasboosted = (kwq->kw_kflags & KSYN_KWF_QOS_APPLIED) ? TRUE : FALSE;
-		
+
 		if (kwq->kw_inqueue > 1) {
 			boolean_t boostsucceeded;
-			
+
 			// More than one waiter, so resource will still be contended after handing off ownership
 			boostsucceeded = pthread_kern->proc_usynch_thread_qos_add_override_for_resource(current_task(), kwe->kwe_uth, 0, kwq->kw_qos_override, TRUE, kwq->kw_addr, THREAD_QOS_OVERRIDE_TYPE_PTHREAD_MUTEX);
-			
+
 			if (boostsucceeded) {
 				kwq->kw_kflags |= KSYN_KWF_QOS_APPLIED;
 			}
@@ -616,12 +618,25 @@ static void ksyn_mtx_transfer_qos_override(ksyn_wait_queue_t kwq, ksyn_waitq_ele
 				PTHREAD_TRACE(TRACE_psynch_ksyn_incorrect_owner, 0, 0, 0, 0, 0);
 			} else if (thread_tid(current_thread()) != kwq->kw_owner) {
 				PTHREAD_TRACE(TRACE_psynch_ksyn_incorrect_owner, kwq->kw_owner, 0, 0, 0, 0);
-				pthread_kern->proc_usynch_thread_qos_remove_override_for_resource(current_task(), NULL, kwq->kw_owner, kwq->kw_addr, THREAD_QOS_OVERRIDE_TYPE_PTHREAD_MUTEX);
+				*kw_owner = kwq->kw_owner;
+				needs_commit = TRUE;
 			} else {
-				pthread_kern->proc_usynch_thread_qos_remove_override_for_resource(current_task(), current_uthread(), 0, kwq->kw_addr, THREAD_QOS_OVERRIDE_TYPE_PTHREAD_MUTEX);
+				*kw_owner = 0;
+				needs_commit = TRUE;
 			}
 		}
 	}
+	return needs_commit;
+}
+
+static void
+ksyn_mtx_transfer_qos_override_commit(ksyn_wait_queue_t kwq, uint64_t kw_owner)
+{
+	struct uthread *uthread = kw_owner ? NULL : current_uthread();
+
+	pthread_kern->proc_usynch_thread_qos_remove_override_for_resource(
+			current_task(), uthread, kw_owner, kwq->kw_addr,
+			THREAD_QOS_OVERRIDE_TYPE_PTHREAD_MUTEX);
 }
 
 static void ksyn_mtx_drop_qos_override(ksyn_wait_queue_t kwq)
@@ -809,6 +824,8 @@ static kern_return_t
 ksyn_mtxsignal(ksyn_wait_queue_t kwq, ksyn_waitq_element_t kwe, uint32_t updateval)
 {
 	kern_return_t ret;
+	boolean_t needs_commit;
+	uint64_t kw_owner;
 
 	if (!kwe) {
 		kwe = TAILQ_FIRST(&kwq->kw_ksynqueues[KSYN_QUEUE_WRITER].ksynq_kwelist);
@@ -817,7 +834,7 @@ ksyn_mtxsignal(ksyn_wait_queue_t kwq, ksyn_waitq_element_t kwe, uint32_t updatev
 		}
 	}
 
-	ksyn_mtx_transfer_qos_override(kwq, kwe);
+	needs_commit = ksyn_mtx_transfer_qos_override_begin(kwq, kwe, &kw_owner);
 	kwq->kw_owner = kwe->kwe_tid;
 
 	ret = ksyn_signal(kwq, KSYN_QUEUE_WRITER, kwe, updateval);
@@ -826,8 +843,9 @@ ksyn_mtxsignal(ksyn_wait_queue_t kwq, ksyn_waitq_element_t kwe, uint32_t updatev
 	if (ret != KERN_SUCCESS) {
 		ksyn_mtx_drop_qos_override(kwq);
 		kwq->kw_owner = 0;
+	} else if (needs_commit) {
+		ksyn_mtx_transfer_qos_override_commit(kwq, kw_owner);
 	}
-	
 	return ret;
 }
 

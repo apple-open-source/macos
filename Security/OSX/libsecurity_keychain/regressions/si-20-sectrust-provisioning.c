@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -199,6 +199,164 @@ static unsigned char c1[1063]={
 };
 
 
+static CFStringRef copyIssuerCN(SecCertificateRef certificate)
+{
+    if (!certificate ||
+        CFGetTypeID(certificate) !=SecCertificateGetTypeID()) {
+        return NULL;
+    }
+
+    CFStringRef         issuerCN        = NULL; // do not release
+    CFDictionaryRef     issuerDict      = NULL; // do not release
+    CFArrayRef          issuerArray     = NULL; // do not release
+    CFDictionaryRef     issuerInfo      = NULL; // do not release
+    CFErrorRef          error           = NULL; // do not release
+
+    CFMutableArrayRef   certificateKeys = NULL; // must release
+    CFDictionaryRef     certificateDict = NULL; // must release
+
+    certificateKeys = CFArrayCreateMutable(kCFAllocatorDefault,
+                                           1,
+                                           &kCFTypeArrayCallBacks);
+    if (!certificateKeys) {
+        goto finish;
+    }
+
+    CFArrayAppendValue(certificateKeys, kSecOIDX509V1IssuerName);
+
+    certificateDict = SecCertificateCopyValues(certificate,
+                                               certificateKeys,
+                                               &error);
+
+    if (error != errSecSuccess ||
+        !certificateDict ||
+        CFGetTypeID(certificateDict) != CFDictionaryGetTypeID()) {
+        goto finish;
+    }
+
+    issuerDict = (CFDictionaryRef) CFDictionaryGetValue(certificateDict,
+                                                        kSecOIDX509V1IssuerName);
+    if (!issuerDict ||
+        CFGetTypeID(issuerDict) != CFDictionaryGetTypeID()) {
+        goto finish;
+    }
+
+    issuerArray = (CFArrayRef) CFDictionaryGetValue(issuerDict,
+                                                    kSecPropertyKeyValue);
+    if (!issuerArray ||
+        CFGetTypeID(issuerArray) != CFArrayGetTypeID()) {
+        goto finish;
+    }
+
+    for (int index=0; index<CFArrayGetCount(issuerArray); index++) {
+        issuerInfo = (CFDictionaryRef) CFArrayGetValueAtIndex(issuerArray,
+                                                              index);
+        if (!issuerInfo ||
+            CFGetTypeID(issuerInfo) != CFDictionaryGetTypeID()) {
+            continue;
+        }
+
+        CFStringRef label = NULL; // do not release
+        label = CFDictionaryGetValue(issuerInfo,
+                                     kSecPropertyKeyLabel);
+        if (kCFCompareEqualTo == CFStringCompare(label,
+                                                 CFSTR("2.5.4.3"),
+                                                 0)) {
+            issuerCN = CFDictionaryGetValue(issuerInfo,
+                                            kSecPropertyKeyValue);
+            if (issuerCN &&
+                CFGetTypeID(issuerCN) == CFStringGetTypeID()) {
+                CFRetain(issuerCN);
+                goto finish;
+            }
+            else {
+                issuerCN = NULL;
+            }
+        }
+    }
+
+finish:
+    if (certificateKeys) { CFRelease(certificateKeys); }
+    if (certificateDict) { CFRelease(certificateDict); }
+    return issuerCN;
+}
+
+static void CertificateValuesTests(SecCertificateRef certificate)
+{
+    CFDictionaryRef     subjectDict     = NULL; // do not release
+    CFArrayRef          subjectArray    = NULL; // do not release
+    CFStringRef         orgNameString   = NULL; // do not release
+    CFErrorRef          error           = NULL; // do not release
+
+    CFMutableArrayRef   certificateKeys = NULL; // must release
+    CFDictionaryRef     certificateDict = NULL; // must release
+
+    bool hasAppleOrgName = false;
+    bool hasWWDRIssuerCN = false;
+
+    certificateKeys = CFArrayCreateMutable(kCFAllocatorDefault,
+                                           1,
+                                           &kCFTypeArrayCallBacks);
+    if (!certificateKeys) {
+        goto finish;
+    }
+    CFArrayAppendValue(certificateKeys, kSecOIDX509V1SubjectName);
+
+    certificateDict = SecCertificateCopyValues(certificate, certificateKeys, &error);
+    if (error != errSecSuccess || !certificateDict ||
+        CFGetTypeID(certificateDict) != CFDictionaryGetTypeID()) {
+        goto finish;
+    }
+
+    subjectDict = (CFDictionaryRef) CFDictionaryGetValue(certificateDict,
+                                                         kSecOIDX509V1SubjectName);
+    if (!subjectDict || CFGetTypeID(subjectDict) != CFDictionaryGetTypeID()) {
+        goto finish;
+    }
+
+    subjectArray = (CFArrayRef) CFDictionaryGetValue(subjectDict,
+                                                     kSecPropertyKeyValue);
+    if (!subjectArray ||
+        CFGetTypeID(subjectArray) != CFArrayGetTypeID()) {
+        goto finish;
+    }
+
+    // look for Organization Name field ("2.5.4.10") in subject
+    for (int index=0; index<CFArrayGetCount(subjectArray); index++) {
+        CFDictionaryRef subjectInfo = (CFDictionaryRef) CFArrayGetValueAtIndex(subjectArray, index);
+        if (!subjectInfo || CFGetTypeID(subjectInfo) != CFDictionaryGetTypeID()) {
+            continue;
+        }
+        CFStringRef label = CFDictionaryGetValue(subjectInfo, kSecPropertyKeyLabel);
+        if (kCFCompareEqualTo == CFStringCompare(label, CFSTR("2.5.4.10"), 0)) {
+            orgNameString = CFDictionaryGetValue(subjectInfo, kSecPropertyKeyValue);
+            if (orgNameString && CFGetTypeID(orgNameString) == CFStringGetTypeID()) {
+                if (kCFCompareEqualTo == CFStringCompare(orgNameString, CFSTR("Apple Inc."), 0)) {
+                    hasAppleOrgName = true;
+                }
+            }
+        }
+    }
+
+    // look for issuer common name
+    CFStringRef commonName = copyIssuerCN(certificate);
+    if (commonName) {
+        if (kCFCompareEqualTo == CFStringCompare(commonName,
+            CFSTR("Apple Worldwide Developer Relations Certification Authority"), 0))  {
+            hasWWDRIssuerCN = true;
+        }
+        CFRelease(commonName);
+    }
+
+finish:
+    if (certificateKeys) { CFRelease(certificateKeys); }
+    if (certificateDict) { CFRelease(certificateDict); }
+
+    /* and now, the actual tests... */
+    is(hasAppleOrgName, true, "O=Apple Inc.");
+    is(hasWWDRIssuerCN, true, "CN=Apple Worldwide Developer Relations Certification Authority");
+}
+
 static void tests(void)
 {
     SecTrustRef trust = NULL;
@@ -242,6 +400,9 @@ static void tests(void)
     is(signerStatus, kCMSSignerValid, "signer status valid");
     is(verifyResult, errSecSuccess, "verify result valid");
 
+    /* Add some basic subject/issuer field value tests */
+    CertificateValuesTests(cert0);
+
     CFReleaseSafe(decoder);
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
@@ -255,7 +416,7 @@ int si_20_sectrust_provisioning(int argc, char *const *argv);
 
 int si_20_sectrust_provisioning(int argc, char *const *argv)
 {
-    plan_tests(15);
+    plan_tests(17);
 
     tests();
 

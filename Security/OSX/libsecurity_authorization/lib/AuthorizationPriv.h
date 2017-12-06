@@ -53,7 +53,9 @@ extern "C" {
 	@enum Private (for now) AuthorizationFlags
 */
 enum {
-	kAuthorizationFlagLeastPrivileged		= (1 << 5)
+	kAuthorizationFlagLeastPrivileged		= (1 << 5),
+	kAuthorizationFlagSheet					= (1 << 6),
+	kAuthorizationFlagIgnorePasswordOnly	= (1 << 7),
 };
 
 /*!

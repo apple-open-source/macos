@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,17 +31,14 @@
 #include <Security/SecCertificatePriv.h>
 #include "SecCertificateOIDs.h"
 #include "CertificateValues.h"
-#include "SecCertificateP.h"
-#include "SecCertificatePrivP.h"
 #include <CoreFoundation/CFNumber.h>
-#include "SecCertificateP.h"
 
-/* FIXME including SecCertificateInternalP.h here produces errors; investigate */
-extern "C" CFDataRef SecCertificateCopyIssuerSequenceP(SecCertificateRefP certificate);
-extern "C" CFDataRef SecCertificateCopySubjectSequenceP(SecCertificateRefP certificate);
-extern "C" CFDictionaryRef SecCertificateCopyAttributeDictionaryP(SecCertificateRefP certificate);
-
-extern "C" void appendPropertyP(CFMutableArrayRef properties, CFStringRef propertyType, CFStringRef label, CFTypeRef value);
+// SecCertificateInternal.h cannot be included in this file, due to its
+// use of types which are not resolved in our macOS-only library.
+//
+extern "C" CFArrayRef SecCertificateCopyLegacyProperties(SecCertificateRef certificate);
+extern "C" void appendProperty(CFMutableArrayRef properties, CFStringRef propertyType,
+    CFStringRef label, CFStringRef localizedLabel, CFTypeRef value);
 
 extern const CFStringRef __nonnull kSecPropertyKeyType;
 extern const CFStringRef __nonnull kSecPropertyKeyLabel;
@@ -75,7 +72,8 @@ typedef struct FieldValueFilterContext
 } FieldValueFilterContext;
 
 CertificateValues::CertificateValues(SecCertificateRef certificateRef) : mCertificateRef(certificateRef),
-	mCertificateData(NULL)
+	mCertificateData(NULL),
+	mCertificateProperties(NULL)
 {
 	if (mCertificateRef)
 		CFRetain(mCertificateRef);
@@ -83,10 +81,27 @@ CertificateValues::CertificateValues(SecCertificateRef certificateRef) : mCertif
 
 CertificateValues::~CertificateValues() throw()
 {
+	if (mCertificateProperties)
+		CFRelease(mCertificateProperties);
 	if (mCertificateData)
 		CFRelease(mCertificateData);
 	if (mCertificateRef)
 		CFRelease(mCertificateRef);
+}
+
+CFArrayRef CertificateValues::copyPropertyValues(CFErrorRef *error)
+{
+	if (!mCertificateProperties) {
+		mCertificateProperties = SecCertificateCopyLegacyProperties(mCertificateRef);
+	}
+	if (mCertificateProperties) {
+		CFRetain(mCertificateProperties);
+	}
+	else if (error) {
+		*error = CFErrorCreate(NULL,
+				kCFErrorDomainOSStatus, errSecInvalidCertificateRef, NULL);
+	}
+	return mCertificateProperties;
 }
 
 CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *error)
@@ -119,8 +134,8 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		}
 	}
 
-	SecCertificateRefP certificateP = SecCertificateCreateWithDataP(kCFAllocatorDefault, mCertificateData);
-	if (!certificateP)
+	SecCertificateRef certificate = SecCertificateCreateWithData(kCFAllocatorDefault, mCertificateData);
+	if (!certificate)
 	{
 		if (error)
 			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
@@ -131,93 +146,93 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	// Return an array of CFStringRefs representing the common names in the certificates subject if any
-	CFArrayRef commonNames=SecCertificateCopyCommonNamesP(certificateP);
+	CFArrayRef commonNames=SecCertificateCopyCommonNames(certificate);
 	if (commonNames)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeArray, CFSTR("CN"), commonNames);
+		appendProperty(additionalValues, kSecPropertyTypeArray, CFSTR("CN"), NULL, commonNames);
 		CFDictionaryAddValue(fieldValues, kSecOIDCommonName, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(commonNames);
 		CFRelease(additionalValues);
 	}
 
 	// These can exist in the subject alt name or in the subject
-	CFArrayRef dnsNames=SecCertificateCopyDNSNamesP(certificateP);
+	CFArrayRef dnsNames=SecCertificateCopyDNSNames(certificate);
 	if (dnsNames)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeArray, CFSTR("DNS"), dnsNames);
+		appendProperty(additionalValues, kSecPropertyTypeArray, CFSTR("DNS"), NULL, dnsNames);
 		CFDictionaryAddValue(fieldValues, CFSTR("DNSNAMES"), (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(dnsNames);
 		CFRelease(additionalValues);
 	}
 
-	CFArrayRef ipAddresses=SecCertificateCopyIPAddressesP(certificateP);
+	CFArrayRef ipAddresses=SecCertificateCopyIPAddresses(certificate);
 	if (ipAddresses)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeArray, CFSTR("IP"), dnsNames);
+		appendProperty(additionalValues, kSecPropertyTypeArray, CFSTR("IP"), NULL, dnsNames);
 		CFDictionaryAddValue(fieldValues, CFSTR("IPADDRESSES"), (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(ipAddresses);
 		CFRelease(additionalValues);
 	}
 
 	// These can exist in the subject alt name or in the subject
-	CFArrayRef emailAddrs=SecCertificateCopyRFC822NamesP(certificateP);
+	CFArrayRef emailAddrs=SecCertificateCopyRFC822Names(certificate);
 	if (emailAddrs)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeArray, CFSTR("DNS"), dnsNames);
+		appendProperty(additionalValues, kSecPropertyTypeArray, CFSTR("DNS"), NULL, dnsNames);
 		CFDictionaryAddValue(fieldValues, kSecOIDEmailAddress, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(emailAddrs);
 		CFRelease(additionalValues);
 	}
 
-	CFAbsoluteTime notBefore = SecCertificateNotValidBeforeP(certificateP);
+	CFAbsoluteTime notBefore = SecCertificateNotValidBefore(certificate);
 	CFNumberRef notBeforeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &notBefore);
 	if (notBeforeRef)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeNumber, CFSTR("Not Valid Before"), notBeforeRef);
+		appendProperty(additionalValues, kSecPropertyTypeNumber, CFSTR("Not Valid Before"), NULL, notBeforeRef);
 		CFDictionaryAddValue(fieldValues, kSecOIDX509V1ValidityNotBefore, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(notBeforeRef);
 		CFRelease(additionalValues);
 	}
 
-	CFAbsoluteTime notAfter = SecCertificateNotValidAfterP(certificateP);
+	CFAbsoluteTime notAfter = SecCertificateNotValidAfter(certificate);
 	CFNumberRef notAfterRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &notAfter);
 	if (notAfterRef)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeNumber, CFSTR("Not Valid After"), notAfterRef);
+		appendProperty(additionalValues, kSecPropertyTypeNumber, CFSTR("Not Valid After"), NULL, notAfterRef);
 		CFDictionaryAddValue(fieldValues, kSecOIDX509V1ValidityNotAfter, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(notAfterRef);
 		CFRelease(additionalValues);
 	}
 
-	SecKeyUsage keyUsage=SecCertificateGetKeyUsageP(certificateP);
+	SecKeyUsage keyUsage=SecCertificateGetKeyUsage(certificate);
 	CFNumberRef ku = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &keyUsage);
 	if (ku)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeNumber, CFSTR("Key Usage"), ku);
+		appendProperty(additionalValues, kSecPropertyTypeNumber, CFSTR("Key Usage"), NULL, ku);
 		CFDictionaryAddValue(fieldValues, kSecOIDKeyUsage, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(ku);
 		CFRelease(additionalValues);
 	}
 
-	CFArrayRef ekus = SecCertificateCopyExtendedKeyUsageP(certificateP);
+	CFArrayRef ekus = SecCertificateCopyExtendedKeyUsage(certificate);
 	if (ekus)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-		appendPropertyP(additionalValues, kSecPropertyTypeArray, CFSTR("Extended Key Usage"), ekus);
+		appendProperty(additionalValues, kSecPropertyTypeArray, CFSTR("Extended Key Usage"), NULL, ekus);
 		CFDictionaryAddValue(fieldValues, kSecOIDExtendedKeyUsage, (CFTypeRef)CFArrayGetValueAtIndex(additionalValues, 0));
 		CFRelease(ekus);
 		CFRelease(additionalValues);
 	}
 
 	// Add all values from properties dictionary
-	CFArrayRef properties = SecCertificateCopyPropertiesP(certificateP);
+	CFArrayRef properties = copyPropertyValues(NULL);
 	if (properties)
 	{
 		CFRange range = CFRangeMake(0, CFArrayGetCount((CFArrayRef)properties));
@@ -228,7 +243,7 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 
 	CFAbsoluteTime verifyTime = CFAbsoluteTimeGetCurrent();
 	CFMutableArrayRef summaryProperties =
-		SecCertificateCopySummaryPropertiesP(certificateP, verifyTime);
+		SecCertificateCopySummaryProperties(certificate, verifyTime);
 	if (summaryProperties)
 	{
 		CFRange range = CFRangeMake(0, CFArrayGetCount((CFArrayRef)summaryProperties));
@@ -238,8 +253,8 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		CFRelease(summaryProperties);
 	}
 
-	if (certificateP)
-		CFRelease(certificateP);
+	if (certificate)
+		CFRelease(certificate);
 
 	if (keys==NULL)
 		return (CFDictionaryRef)fieldValues;
@@ -362,12 +377,12 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 CFDataRef CertificateValues::copySerialNumber(CFErrorRef *error)
 {
 	CFDataRef result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+	SecCertificateRef certificate = copySecCertificateRef(error);
 
-	if (certificateP)
+	if (certificate)
 	{
-		result = SecCertificateCopySerialNumberP(certificateP);
-		CFRelease(certificateP);
+		result = SecCertificateCopySerialNumberData(certificate, error);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -375,11 +390,14 @@ CFDataRef CertificateValues::copySerialNumber(CFErrorRef *error)
 CFDataRef CertificateValues::copyNormalizedIssuerContent(CFErrorRef *error)
 {
 	CFDataRef result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateCopyNormalizedIssuerSequenceP(certificateP);
-		CFRelease(certificateP);
+		// this matches the behavior on OS X prior to 10.12, where
+		// normalized content was actually returned as a sequence.
+
+		result = SecCertificateCopyNormalizedIssuerSequence(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -387,11 +405,14 @@ CFDataRef CertificateValues::copyNormalizedIssuerContent(CFErrorRef *error)
 CFDataRef CertificateValues::copyNormalizedSubjectContent(CFErrorRef *error)
 {
 	CFDataRef result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateCopyNormalizedSubjectSequenceP(certificateP);
-		CFRelease(certificateP);
+		// this matches the behavior on OS X prior to 10.12, where
+		// normalized content was actually returned as a sequence.
+
+		result = SecCertificateCopyNormalizedSubjectSequence(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -399,11 +420,11 @@ CFDataRef CertificateValues::copyNormalizedSubjectContent(CFErrorRef *error)
 CFDataRef CertificateValues::copyIssuerSequence(CFErrorRef *error)
 {
 	CFDataRef result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateCopyIssuerSequenceP(certificateP);
-		CFRelease(certificateP);
+		result = SecCertificateCopyIssuerSequence(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -411,35 +432,59 @@ CFDataRef CertificateValues::copyIssuerSequence(CFErrorRef *error)
 CFDataRef CertificateValues::copySubjectSequence(CFErrorRef *error)
 {
 	CFDataRef result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateCopySubjectSequenceP(certificateP);
-		CFRelease(certificateP);
+		result = SecCertificateCopySubjectSequence(certificate);
+		CFRelease(certificate);
+	}
+	return result;
+}
+
+CFStringRef CertificateValues::copyIssuerSummary(CFErrorRef *error)
+{
+	CFStringRef result = NULL;
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
+	{
+		result = SecCertificateCopyIssuerSummary(certificate);
+		CFRelease(certificate);
+	}
+	return result;
+}
+
+CFStringRef CertificateValues::copySubjectSummary(CFErrorRef *error)
+{
+	CFStringRef result = NULL;
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
+	{
+		result = SecCertificateCopySubjectSummary(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
 
 CFDictionaryRef CertificateValues::copyAttributeDictionary(CFErrorRef *error)
 {
-    CFDictionaryRef result = NULL;
-    SecCertificateRefP certificateP = getSecCertificateRefP(error);
-    if (certificateP)
-    {
-        result = SecCertificateCopyAttributeDictionaryP(certificateP);
-        CFRelease(certificateP);
-    }
-    return result;
+	CFDictionaryRef result = NULL;
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
+	{
+		result = SecCertificateCopyAttributeDictionary(certificate);
+		CFRelease(certificate);
+	}
+	return result;
 }
 
 bool CertificateValues::isValid(CFAbsoluteTime verifyTime, CFErrorRef *error)
 {
 	bool result = NULL;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateIsValidP(certificateP, verifyTime);
-		CFRelease(certificateP);
+		result = SecCertificateIsValid(certificate, verifyTime);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -447,11 +492,11 @@ bool CertificateValues::isValid(CFAbsoluteTime verifyTime, CFErrorRef *error)
 CFAbsoluteTime CertificateValues::notValidBefore(CFErrorRef *error)
 {
 	CFAbsoluteTime result = 0;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateNotValidBeforeP(certificateP);
-		CFRelease(certificateP);
+		result = SecCertificateNotValidBefore(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
@@ -459,16 +504,16 @@ CFAbsoluteTime CertificateValues::notValidBefore(CFErrorRef *error)
 CFAbsoluteTime CertificateValues::notValidAfter(CFErrorRef *error)
 {
 	CFAbsoluteTime result = 0;
-	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	if (certificateP)
+	SecCertificateRef certificate = copySecCertificateRef(error);
+	if (certificate)
 	{
-		result = SecCertificateNotValidAfterP(certificateP);
-		CFRelease(certificateP);
+		result = SecCertificateNotValidAfter(certificate);
+		CFRelease(certificate);
 	}
 	return result;
 }
 
-SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)
+SecCertificateRef CertificateValues::copySecCertificateRef(CFErrorRef *error)
 {
 	// SecCertificateCopyData returns an object created with CFDataCreate, so we
 	// own it and must release it
@@ -480,20 +525,26 @@ SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)
 	}
 
 	mCertificateData = SecCertificateCopyData(mCertificateRef);	// OK to call, no big lock
-	if (!mCertificateData && error)
+	if (!mCertificateData)
 	{
-		*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateRef, NULL);
+		if (error)
+		{
+			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateRef, NULL);
+		}
 		return NULL;
 	}
 
-	SecCertificateRefP certificateP = SecCertificateCreateWithDataP(kCFAllocatorDefault, mCertificateData);
-	if (!certificateP && error)
+	SecCertificateRef certificate = SecCertificateCreateWithData(kCFAllocatorDefault, mCertificateData);
+	if (!certificate)
 	{
-		*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
+		if (error)
+		{
+			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
+		}
 		return NULL;
 	}
 
-	return certificateP;
+	return certificate;
 }
 
 #pragma mark ---------- OID Constants ----------

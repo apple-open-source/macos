@@ -23,6 +23,7 @@
 
 #if OCTAGON
 
+#include <utilities/SecInternalReleasePriv.h>
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSUpdateDeviceStateOperation.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
@@ -79,7 +80,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountQueue:^bool {
+    [ckks dispatchSyncWithAccountKeys:^bool {
         NSError* error = nil;
 
         CKKSDeviceStateEntry* cdse = [ckks _onqueueCurrentDeviceStateEntry:&error];
@@ -91,10 +92,14 @@
         if(self.rateLimit) {
             NSDate* lastUpdate = cdse.storedCKRecord.modificationDate;
 
-            // Only upload this every 3 days
+            // Only upload this every 3 days (1 day for internal installs)
             NSDate* now = [NSDate date];
             NSDateComponents* offset = [[NSDateComponents alloc] init];
-            [offset setHour:-3 * 24];
+            if(SecIsInternalRelease()) {
+                [offset setHour:-23];
+            } else {
+                [offset setHour:-3*24];
+            }
             NSDate* deadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
 
             if(lastUpdate == nil || [lastUpdate compare: deadline] == NSOrderedAscending) {

@@ -48,6 +48,8 @@
 @property id mockFakeCKModifyRecordZonesOperation;
 @property id mockFakeCKModifySubscriptionsOperation;
 @property id mockFakeCKFetchRecordZoneChangesOperation;
+@property id mockFakeCKFetchRecordsOperation;
+@property id mockFakeCKQueryOperation;
 
 @property id mockAccountStateTracker;
 
@@ -70,6 +72,7 @@
 @property NSBlockOperation* ckaccountHoldOperation;
 
 @property NSBlockOperation* ckModifyHoldOperation;
+@property NSBlockOperation* ckFetchHoldOperation;
 
 @property bool silentFetchesAllowed;
 
@@ -94,9 +97,10 @@
 
 - (void)expectCKDeleteItemRecords: (NSUInteger) expectedNumberOfRecords zoneID: (CKRecordZoneID*) zoneID;
 
-- (void)expectCKModifyKeyRecords: (NSUInteger) expectedNumberOfRecords
-        currentKeyPointerRecords: (NSUInteger) expectedCurrentKeyRecords
-                          zoneID: (CKRecordZoneID*) zoneID;
+- (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
+        currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                 tlkShareRecords:(NSUInteger)expectedTLKShareRecords
+                          zoneID:(CKRecordZoneID*)zoneID;
 
 - (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*) expectedRecordTypeCounts
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*) expectedDeletedRecordTypeCounts
@@ -117,6 +121,16 @@
 // Use this to assert that a fetch occurs (especially if silentFetchesAllowed = false)
 - (void)expectCKFetch;
 
+// Use this to 1) assert that a fetch occurs and 2) cause a block to run _after_ all changes have been delivered but _before_ the fetch 'completes'.
+// This way, you can modify the CK zone to cause later collisions.
+- (void)expectCKFetchAndRunBeforeFinished: (void (^)())blockAfterFetch;
+
+// Use this to assert that a FakeCKFetchRecordsOperation occurs.
+-(void)expectCKFetchByRecordID;
+
+// Use this to assert that a FakeCKQueryOperation occurs.
+- (void)expectCKFetchByQuery;
+
 // Wait until all scheduled cloudkit operations are reflected in the currentDatabase
 - (void)waitForCKModifications;
 
@@ -134,6 +148,18 @@
 
 // Unblocks the hold you've added with holdCloudKitModifications; CloudKit modifications will finish
 -(void)releaseCloudKitModificationHold;
+
+// Blocks the CloudKit fetches from beginning (similar to network latency)
+-(void)holdCloudKitFetches;
+// Unblocks the hold you've added with holdCloudKitFetches; CloudKit fetches will finish
+-(void)releaseCloudKitFetchHold;
+
+// Make a CK internal server extension error with a given code and description.
+- (NSError*)ckInternalServerExtensionError:(NSInteger)code description:(NSString*)desc;
+
+// Schedule an operation for execution (and failure), with some existing record errors.
+// Other records in the operation but not in failedRecords will have CKErrorBatchRequestFailed errors created.
+-(void)rejectWrite:(CKModifyRecordsOperation*)op failedRecords:(NSMutableDictionary<CKRecordID*, NSError*>*)failedRecords;
 
 #endif // OCTAGON
 @end

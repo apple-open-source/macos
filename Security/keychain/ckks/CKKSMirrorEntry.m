@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #include <AssertMacros.h>
 
 #import <Foundation/Foundation.h>
@@ -31,7 +33,6 @@
 #include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
 
-#if OCTAGON
 
 #import <CloudKit/CloudKit.h>
 #import "CKKSOutgoingQueueEntry.h"

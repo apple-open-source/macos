@@ -60,6 +60,8 @@
                              zoneName: (NSString*) zoneName
                        accountTracker:(CKKSCKAccountStateTracker*) tracker
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
+           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
     modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
       modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
                    apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass
@@ -79,6 +81,8 @@
         _accountOperations = [NSHashTable weakObjectsHashTable];
 
         _fetchRecordZoneChangesOperationClass = fetchRecordZoneChangesOperationClass;
+        _fetchRecordsOperationClass = fetchRecordsOperationClass;
+        _queryOperationClass = queryOperationClass;
         _modifySubscriptionsOperationClass = modifySubscriptionsOperationClass;
         _modifyRecordZonesOperationClass = modifyRecordZonesOperationClass;
         _apsConnectionClass = apsConnectionClass;
@@ -427,10 +431,34 @@
             return;
         }
 
+        bool fatalError = false;
+        if(operationError) {
+            // Okay, but if this error is either 'ZoneNotFound' or 'UserDeletedZone', that's fine by us: the zone is deleted.
+            NSDictionary* partialErrors = operationError.userInfo[CKPartialErrorsByItemIDKey];
+            if([operationError.domain isEqualToString:CKErrorDomain] && operationError.code == CKErrorPartialFailure && partialErrors) {
+                for(CKRecordZoneID* errorZoneID in partialErrors.allKeys) {
+                    NSError* errorZone = partialErrors[errorZoneID];
+
+                    if(errorZone && [errorZone.domain isEqualToString:CKErrorDomain] &&
+                       (errorZone.code == CKErrorZoneNotFound || errorZone.code == CKErrorUserDeletedZone)) {
+                        ckksnotice("ckkszone", strongSelf, "Attempted to delete zone %@, but it's already missing. This is okay: %@", errorZoneID, errorZone);
+                    } else {
+                        fatalError = true;
+                    }
+                }
+
+            } else {
+                fatalError = true;
+            }
+        }
+
         ckksinfo("ckkszone", strongSelf, "record zones deletion %@ completed with error: %@", deletedRecordZoneIDs, operationError);
         [strongSelf resetSetup];
 
-        doneOp.error = operationError;
+        if(operationError && fatalError) {
+            // If the error wasn't actually a problem, don't report it upward.
+            doneOp.error = operationError;
+        }
         [strongSelf.operationQueue addOperation: doneOp];
     };
 

@@ -297,7 +297,11 @@ _kSSLSessionConfig_anonymous
 
 _SecAbsoluteTimeFromDateContent
 
-/* Internal securityd RPC stuff for tests */
+/* Internal securityd RPC stuff */
+_CKKSSetupControlProtocol
+#if TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__)
+_OBJC_CLASS_$_CKKSControl
+#endif
 _OBJC_CLASS_$_SecuritydXPCClient
 _SecAccessGroupsGetCurrent
 _SecAccessGroupsSetCurrent

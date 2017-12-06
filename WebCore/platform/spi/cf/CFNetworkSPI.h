@@ -99,9 +99,24 @@ typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 - (void)_setProperty:(id)value forKey:(NSString *)key;
 @end
 
+#if HAVE(CFNETWORK_IGNORE_HSTS)
+@interface NSURLRequest ()
+- (BOOL)_schemeWasUpgradedDueToDynamicHSTS;
+- (BOOL)_preventHSTSStorage;
+- (BOOL)_ignoreHSTS;
+@end
+#endif
+
 @interface NSMutableURLRequest ()
 - (void)setContentDispositionEncodingFallbackArray:(NSArray *)theEncodingFallbackArray;
 @end
+
+#if HAVE(CFNETWORK_IGNORE_HSTS)
+@interface NSMutableURLRequest ()
+- (void)_setPreventHSTSStorage:(BOOL)preventHSTSStorage;
+- (void)_setIgnoreHSTS:(BOOL)ignoreHSTS;
+@end
+#endif
 
 @interface NSURLResponse ()
 + (NSURLResponse *)_responseWithCFURLResponse:(CFURLResponseRef)response;

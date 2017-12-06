@@ -215,7 +215,7 @@ static CFDataRef copyInflatedDataToFile(CFDataRef data, char *fileName) {
         zs.avail_out = (uInt)buf_sz;
         rc = inflate(&zs, 0);
         if (off < (int64_t)zs.total_out) {
-            off = write(fd, buf, (int64_t)zs.total_out - off);
+            off = write(fd, buf, (size_t)zs.total_out - (size_t)off);
         }
     } while (rc == Z_OK);
     close(fd);
@@ -408,7 +408,7 @@ static bool SecValidUpdateProcessData(CFIndex format, CFDataRef updateData) {
     CFIndex version = 0;
     CFIndex interval = 0;
     const UInt8* p = CFDataGetBytePtr(updateData);
-    CFIndex bytesRemaining = (p) ? CFDataGetLength(updateData) : 0;
+    size_t bytesRemaining = (p) ? (size_t)CFDataGetLength(updateData) : 0;
     /* make sure there is enough data to contain length and count */
     if (bytesRemaining < ((CFIndex)sizeof(uint32_t) * 2)) {
         secinfo("validupdate", "Skipping property list creation (length %ld is too short)", (long)bytesRemaining);
@@ -620,8 +620,11 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
         if (semPathBuf) {
             struct stat sb;
             int fd = open(semPathBuf, O_WRONLY | O_CREAT, DEFFILEMODE);
-            if (fd == -1 || fstat(fd, &sb) || close(fd)) {
+            if (fd == -1 || fstat(fd, &sb)) {
                 secnotice("validupdate", "unable to write %s", semPathBuf);
+            }
+            if (fd >= 0) {
+                close(fd);
             }
             free(semPathBuf);
         }

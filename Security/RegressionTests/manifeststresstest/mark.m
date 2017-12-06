@@ -42,7 +42,7 @@ void writeMark(NSString *ident, NSString *view)
                 NSLog(@"(mark was already there, fine)");
                 break;
             default:
-                NSLog(@"Error writing mark %@: %d", name, status);
+                NSLog(@"Error writing mark %@: %d", name, (int)status);
                 exit(1);
         }
     }];
@@ -72,7 +72,7 @@ void updateMark(NSString *ident)
                 NSLog(@"(updated mark was already there, fine)");
                 break;
             default:
-                NSLog(@"Error updating mark %@: %d", name, status);
+                NSLog(@"Error updating mark %@: %d", name, (int)status);
                 exit(1);
         }
     }];

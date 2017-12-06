@@ -66,6 +66,8 @@
 
 // Dependencies (for injection)
 @property (readonly) Class<CKKSFetchRecordZoneChangesOperation> fetchRecordZoneChangesOperationClass;
+@property (readonly) Class<CKKSFetchRecordsOperation> fetchRecordsOperationClass;
+@property (readonly) Class<CKKSQueryOperation> queryOperationClass;
 @property (readonly) Class<CKKSModifySubscriptionsOperation> modifySubscriptionsOperationClass;
 @property (readonly) Class<CKKSModifyRecordZonesOperation> modifyRecordZonesOperationClass;
 @property (readonly) Class<CKKSAPSConnection> apsConnectionClass;
@@ -76,6 +78,8 @@
                              zoneName: (NSString*) zoneName
                        accountTracker:(CKKSCKAccountStateTracker*) tracker
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
+           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
     modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
       modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
                    apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass;

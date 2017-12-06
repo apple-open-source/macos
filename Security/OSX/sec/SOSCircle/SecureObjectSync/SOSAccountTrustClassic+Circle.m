@@ -130,15 +130,18 @@ fail:
 
 -(bool) ghostBustingOK:(SOSCircleRef) oldCircle updatingTo:(SOSCircleRef) newCircle {
     bool retval = false;
+    // Preliminaries - we must have a peer and it must be in the newCircle in order to attempt busting
     SOSFullPeerInfoRef me_full = self.fullPeerInfo;
     if(!me_full) return false;
     SOSPeerInfoRef me = SOSFullPeerInfoGetPeerInfo(me_full);
+    if(!me || (!SOSCircleHasPeer(newCircle, me, NULL) && !SOSCircleHasApplicant(newCircle, me, NULL))) return false;
+    
     CFStringRef myPid = SOSPeerInfoGetPeerID(me);
     CFDictionaryRef newSigs = SOSCircleCopyAllSignatures(newCircle);
     bool iSignedNew = CFDictionaryGetCountOfKey(newSigs, myPid);
     long otherPeerSigCount = CFDictionaryGetCount(newSigs) - ((iSignedNew) ? 2: 1);
-    
-    if (me && SOSCircleHasPeer(oldCircle, me, NULL) && SOSCircleHasPeer(newCircle, me, NULL)) { // If we're already in the old one we're not PBing
+
+    if (SOSCircleHasPeer(oldCircle, me, NULL)) { // If we're already in the old one we're not PBing
         retval = true;
     } else if (!iSignedNew) { // Piggybacking peers always have signed as part of genSigning - so this indicates we're safe to bust.
         retval = true;
@@ -161,6 +164,53 @@ fail:
         return true;
     }
     return false;
+}
+
+static bool SOSCirclePeerOctagonKeysChanged(SOSPeerInfoRef oldPeer, SOSPeerInfoRef newPeer) {
+    bool oldHasOctagonBits = oldPeer && (SOSPeerInfoHasOctagonSigningPubKey(oldPeer) || SOSPeerInfoHasOctagonEncryptionPubKey(oldPeer));
+    bool newHasOctagonBits = newPeer && (SOSPeerInfoHasOctagonSigningPubKey(newPeer) || SOSPeerInfoHasOctagonEncryptionPubKey(newPeer));
+
+    if(!oldPeer) {
+        if(newPeer && newHasOctagonBits) {
+            return true;
+        } else {
+            // New peer to circle has no octagon bits: no change
+            return false;
+        }
+    } else {
+        // Have an old peer
+        if(!newPeer) {
+            // We removed a peer. This is an octagon bits change if the old peer had octagon bits
+            return oldHasOctagonBits;
+        }
+
+        // This is a peer update: Did the keys change?
+        if(!oldHasOctagonBits && !newHasOctagonBits) {
+            // both peers have no keys: no change
+            return false;
+        }
+
+        bool signingKeyChanged = CFEqualSafe(SOSPeerInfoCopyOctagonSigningPublicKey(oldPeer, NULL), SOSPeerInfoCopyOctagonSigningPublicKey(newPeer, NULL));
+        bool encryptionKeyChanged = CFEqualSafe(SOSPeerInfoCopyOctagonEncryptionPublicKey(oldPeer, NULL), SOSPeerInfoCopyOctagonEncryptionPublicKey(newPeer, NULL));
+
+        return signingKeyChanged || encryptionKeyChanged;
+    }
+}
+ 
+static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SOSCircleRef newCircle)
+{
+    __block bool hasUpdated = false;
+    SOSCircleForEachPeer(oldCircle, ^(SOSPeerInfoRef oldPeer) {
+        SOSPeerInfoRef equivalentNewPeer = SOSCircleCopyPeerWithID(newCircle, SOSPeerInfoGetPeerID(oldPeer), NULL);
+        hasUpdated |= SOSCirclePeerOctagonKeysChanged(oldPeer, equivalentNewPeer);
+    });
+
+    SOSCircleForEachPeer(newCircle, ^(SOSPeerInfoRef newPeer) {
+        SOSPeerInfoRef equivalentOldPeer = SOSCircleCopyPeerWithID(oldCircle, SOSPeerInfoGetPeerID(newPeer), NULL);
+        hasUpdated |= SOSCirclePeerOctagonKeysChanged(equivalentOldPeer, newPeer);
+    });
+
+    return hasUpdated;
 }
 
 -(bool) handleUpdateCircle:(SOSCircleRef) prospective_circle transport:(SOSKVSCircleStorageTransport*)circleTransport update:(bool) writeUpdate err:(CFErrorRef*)error
@@ -362,6 +412,9 @@ fail:
     }
     
     if (circle_action == accept) {
+        if(SOSCircleHasUpdatedPeerInfoWithOctagonKey(oldCircle, newCircle)){
+            notify_post(kSOSCCCircleOctagonKeysChangedNotification);
+        }
         if (me && SOSCircleHasActivePeer(oldCircle, me, NULL) && !SOSCircleHasPeer(newCircle, me, NULL)) {
             //  Don't destroy evidence of other code determining reason for leaving.
             if(![self hasLeft]) self.departureCode = kSOSMembershipRevoked;

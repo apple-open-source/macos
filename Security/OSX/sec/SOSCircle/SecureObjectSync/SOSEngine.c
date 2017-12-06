@@ -1825,6 +1825,7 @@ static void ReportItemSyncTime(SOSDataSourceRef ds, bool known, SOSObjectRef obj
         SecADClientPushValueForDistributionKey(known ? kSecADSecurityKnownItemSyncTimeKey : kSecADSecurityNewItemSyncTimeKey,
                                                SecBucket2Significant(syncTime));
     }
+    CFReleaseNull(itemModDate);
 }
 
 /* Handle incoming message from peer p.  Return false if there was an error, true otherwise. */

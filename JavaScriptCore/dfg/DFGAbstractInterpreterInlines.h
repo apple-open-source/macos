@@ -561,6 +561,14 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             setConstant(node, jsNumber(clz32(value)));
             break;
         }
+        switch (node->child1().useKind()) {
+        case Int32Use:
+        case KnownInt32Use:
+            break;
+        default:
+            clobberWorld(node->origin.semantic, clobberLimit);
+            break;
+        }
         forNode(node).setType(SpecInt32Only);
         break;
     }
@@ -2327,6 +2335,18 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         filter(value, set, admittedTypes);
         break;
     }
+
+    case CheckStructureOrEmpty: {
+        AbstractValue& value = forNode(node->child1());
+
+        bool mayBeEmpty = value.m_type & SpecEmpty;
+        if (!mayBeEmpty)
+            m_state.setFoundConstants(true);
+
+        SpeculatedType admittedTypes = mayBeEmpty ? SpecEmpty : SpecNone;
+        filter(value, node->structureSet(), admittedTypes);
+        break;
+    }
         
     case CheckStructureImmediate: {
         // FIXME: This currently can only reason about one structure at a time.
@@ -2844,10 +2864,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
     case HasGenericProperty: {
         forNode(node).setType(SpecBoolean);
+        clobberWorld(node->origin.semantic, clobberLimit);
         break;
     }
     case HasStructureProperty: {
         forNode(node).setType(SpecBoolean);
+        clobberWorld(node->origin.semantic, clobberLimit);
         break;
     }
     case HasIndexedProperty: {
@@ -2874,6 +2896,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
     case GetPropertyEnumerator: {
         forNode(node).setType(m_graph, SpecCell);
+        clobberWorld(node->origin.semantic, clobberLimit);
         break;
     }
     case GetEnumeratorStructurePname: {

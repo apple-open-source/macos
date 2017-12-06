@@ -1487,7 +1487,7 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloper(void)
 /*!
  @function SecPolicyCreateAppleSoftwareSigning
  @abstract Returns a policy object for verifying the Apple Software Signing certificate.
- @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
  pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.

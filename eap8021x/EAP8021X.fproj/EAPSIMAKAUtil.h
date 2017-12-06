@@ -315,14 +315,6 @@ EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);
 #define kEAPClientPropEAPSIMAKAAnonymousUserName		CFSTR("EAPSIMAKAAnonymousUserName") /* string */
 
 /*
- * Property: kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled
- * Purpose:
- * Statically configured flag that indicates that the identity protection using
- * encrypted IMSI is enabled.
- */
-#define kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled		CFSTR("EAPSIMAKAEncryptedIdentityEnabled") /* bool */
-
-/*
  * Property: kEAPClientPropEAPSIMAKAEncryptedUsername
  * Purpose:
  * Statically configured encrypted username to be used in AT_IDENTITY attributed.

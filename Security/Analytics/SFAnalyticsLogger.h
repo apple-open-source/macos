@@ -54,7 +54,7 @@
 // Things below are for utilities to drive and/or test the system
 
 - (NSString*)getSysdiagnoseDumpWithError:(NSError**)error;
-- (NSData*)getLoggingJSONWithError:(NSError**)error;
+- (NSData*)getLoggingJSON:(bool)pretty error:(NSError**)error;
 - (BOOL)forceUploadWithError:(NSError**)error;
 
 // --------------------------------

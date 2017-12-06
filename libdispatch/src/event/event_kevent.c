@@ -606,7 +606,9 @@ _dispatch_kq_poll(dispatch_wlh_t wlh, dispatch_kevent_t ke, int n,
 #endif
 
 retry:
-	if (wlh == DISPATCH_WLH_ANON) {
+	if (unlikely(wlh == NULL)) {
+		DISPATCH_INTERNAL_CRASH(wlh, "Invalid wlh");
+	} else if (wlh == DISPATCH_WLH_ANON) {
 		int kqfd = _dispatch_kq;
 #if DISPATCH_USE_KEVENT_QOS
 		if (_dispatch_kevent_workqueue_enabled) {

@@ -41,6 +41,7 @@ void TestGetTZTransition(void);
 void TestGetWindowsTimeZoneID(void);
 void TestGetTimeZoneIDByWindowsID(void);
 void TestClear(void);
+void TestPersianCalOverflow(void);
 void TestGetDayPeriods(); /* Apple-specific */
 
 void addCalTest(TestNode** root);
@@ -65,6 +66,7 @@ void addCalTest(TestNode** root)
     addTest(root, &TestGetWindowsTimeZoneID, "tsformat/ccaltst/TestGetWindowsTimeZoneID");
     addTest(root, &TestGetTimeZoneIDByWindowsID, "tsformat/ccaltst/TestGetTimeZoneIDByWindowsID");
     addTest(root, &TestClear, "tsformat/ccaltst/TestClear");
+    addTest(root, &TestPersianCalOverflow, "tsformat/ccaltst/TestPersianCalOverflow");
     addTest(root, &TestGetDayPeriods, "tsformat/ccaltst/TestGetDayPeriods"); /* Apple-specific */
 }
 
@@ -2505,6 +2507,37 @@ void TestClear() {
             }
             ucal_close(ucal);
         }
+    }
+}
+
+void TestPersianCalOverflow() {
+    const char * locale = "bs_Cyrl@calendar=persian";
+    UErrorCode status = U_ZERO_ERROR;
+    UCalendar * ucal = ucal_open(NULL, 0, locale, UCAL_DEFAULT, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("FAIL: ucal_open for locale %s, status %s\n", locale, u_errorName(status)); 
+    } else {
+        int32_t maxMonth = ucal_getLimit(ucal, UCAL_MONTH, UCAL_MAXIMUM, &status);
+        int32_t maxDayOfMonth = ucal_getLimit(ucal, UCAL_DATE, UCAL_MAXIMUM, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("FAIL: ucal_getLimit MONTH/DATE for locale %s, status %s\n", locale, u_errorName(status)); 
+        } else {
+            int32_t jd, month, dayOfMonth;
+            for (jd = 67023580; jd <= 67023584; jd++) { // year 178171, int32_t overflow if jd >= 67023582
+                status = U_ZERO_ERROR;
+                ucal_clear(ucal);
+                ucal_set(ucal, UCAL_JULIAN_DAY, jd);
+                month = ucal_get(ucal, UCAL_MONTH, &status);
+                dayOfMonth = ucal_get(ucal, UCAL_DATE, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("FAIL: ucal_get MONTH/DATE for locale %s, julianDay %d, status %s\n", locale, jd, u_errorName(status)); 
+                } else if (month > maxMonth || dayOfMonth > maxDayOfMonth) {
+                    log_err("FAIL: locale %s, julianDay %d; maxMonth %d, got month %d; maxDayOfMonth %d, got dayOfMonth %d\n",
+                            locale, jd, maxMonth, month, maxDayOfMonth, dayOfMonth); 
+                }
+            }
+        }
+        ucal_close(ucal);
     }
 }
 

@@ -42,7 +42,7 @@ PATHS= -DSSHDIR=\"$(sysconfdir)\" \
 
 CC=gcc
 LD=gcc
-CFLAGS=-g -O2 -Qunused-arguments -Wunknown-warning-option -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wsizeof-pointer-memaccess -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -D_FORTIFY_SOURCE=2 -ftrapv -fno-builtin-memset -fstack-protector-strong -fPIE 
+CFLAGS=-g -O2 -pipe -Qunused-arguments -Wunknown-warning-option -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wsizeof-pointer-memaccess -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -D_FORTIFY_SOURCE=2 -ftrapv -fno-builtin-memset -fstack-protector-strong -fPIE  
 CPPFLAGS=-I. -I$(srcdir)  -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/local/include/sshcrypto   $(PATHS) -DHAVE_CONFIG_H
 LIBS=-lcrypto -lbsm -lz  -lresolv
 K5LIBS=-dynamic -Wl,-search_paths_first -lkrb5
@@ -58,7 +58,7 @@ PERL=/usr/bin/perl
 SED=/usr/bin/sed
 ENT=
 XAUTH_PATH=xauth
-LDFLAGS=-L. -Lopenbsd-compat/  -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/local/lib/sshcrypto -pie
+LDFLAGS=-L. -Lopenbsd-compat/  -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/local/lib/sshcrypto -pie 
 EXEEXT=
 MANFMT=/usr/bin/nroff -mandoc
 
@@ -78,10 +78,10 @@ LIBOPENSSH_OBJS=\
 LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
 	authfd.o authfile.o bufaux.o bufbn.o bufec.o buffer.o \
 	canohost.o channels.o cipher.o cipher-aes.o cipher-aesctr.o \
-	cipher-bf1.o cipher-ctr.o cipher-3des1.o cleanup.o \
-	compat.o crc32.o deattack.o fatal.o hostfile.o \
-	log.o match.o md-sha256.o moduli.o nchan.o packet.o opacket.o \
-	readpass.o rsa.o ttymodes.o xmalloc.o addrmatch.o \
+	cipher-ctr.o cleanup.o \
+	compat.o crc32.o fatal.o hostfile.o \
+	log.o match.o moduli.o nchan.o packet.o opacket.o \
+	readpass.o ttymodes.o xmalloc.o addrmatch.o \
 	atomicio.o key.o dispatch.o mac.o uidswap.o uuencode.o misc.o utf8.o \
 	monitor_fdpass.o rijndael.o ssh-dss.o ssh-ecdsa.o ssh-rsa.o dh.o \
 	msg.o progressmeter.o dns.o entropy.o gss-genr.o umac.o umac128.o \
@@ -92,10 +92,10 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
 	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
 	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
 	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o \
-	platform-pledge.o platform-tracing.o
+	platform-pledge.o platform-tracing.o platform-misc.o
 
 SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
-	sshconnect.o sshconnect1.o sshconnect2.o mux.o
+	sshconnect.o sshconnect2.o mux.o
 
 SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o \
 	audit.o audit-bsm.o audit-linux.o platform.o \
@@ -228,26 +228,27 @@ umac128.o:	umac.c
 clean:	regressclean
 	rm -f *.o *.a $(TARGETS) logintest config.cache config.log
 	rm -f *.out core survey
+	rm -f regress/check-perm$(EXEEXT)
 	rm -f regress/unittests/test_helper/*.a
 	rm -f regress/unittests/test_helper/*.o
 	rm -f regress/unittests/sshbuf/*.o
-	rm -f regress/unittests/sshbuf/test_sshbuf
+	rm -f regress/unittests/sshbuf/test_sshbuf$(EXEEXT)
 	rm -f regress/unittests/sshkey/*.o
-	rm -f regress/unittests/sshkey/test_sshkey
+	rm -f regress/unittests/sshkey/test_sshkey$(EXEEXT)
 	rm -f regress/unittests/bitmap/*.o
-	rm -f regress/unittests/bitmap/test_bitmap
+	rm -f regress/unittests/bitmap/test_bitmap$(EXEEXT)
 	rm -f regress/unittests/conversion/*.o
-	rm -f regress/unittests/conversion/test_conversion
+	rm -f regress/unittests/conversion/test_conversion$(EXEEXT)
 	rm -f regress/unittests/hostkeys/*.o
-	rm -f regress/unittests/hostkeys/test_hostkeys
+	rm -f regress/unittests/hostkeys/test_hostkeys$(EXEEXT)
 	rm -f regress/unittests/kex/*.o
-	rm -f regress/unittests/kex/test_kex
+	rm -f regress/unittests/kex/test_kex$(EXEEXT)
 	rm -f regress/unittests/match/*.o
-	rm -f regress/unittests/match/test_match
+	rm -f regress/unittests/match/test_match$(EXEEXT)
 	rm -f regress/unittests/utf8/*.o
-	rm -f regress/unittests/utf8/test_utf8
+	rm -f regress/unittests/utf8/test_utf8$(EXEEXT)
 	rm -f regress/misc/kexfuzz/*.o
-	rm -f regress/misc/kexfuzz/kexfuzz
+	rm -f regress/misc/kexfuzz/kexfuzz$(EXEEXT)
 	(cd openbsd-compat && $(MAKE) clean)
 
 distclean:	regressclean

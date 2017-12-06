@@ -207,14 +207,41 @@ bool IOPCIDevice::attach( IOService * provider )
     // join the tree
 	reserved->pmState  = kIOPCIDeviceOnState;
 	reserved->pmActive = true;
-    provider->joinPMtree( this);
 
-#if 0
-    // clamp power on if this is a slot device
-    slotNameProperty = provider->getProperty ("AAPL,slot-name");
-    if (slotNameProperty != NULL)
-        changePowerStateToPriv (1);
-#endif
+    IOService       * powerProvider = provider;
+    IORegistryEntry * parent        = 0;
+    IORegistryEntry * child         = 0;
+    IOPCIDevice     * funcZero;
+    OSObject        * prop          = 0;
+    OSData          * data;
+    uint32_t          value         = 0;
+    if (space.s.functionNum) do
+    {
+        parent = copyParentEntry(gIODTPlane);
+        if (!parent)   break;
+        child = parent->copyChildEntry(gIODTPlane);
+        if (!child)    break;
+        funcZero = OSDynamicCast(IOPCIDevice, child);
+        if (!funcZero) break;
+        prop = funcZero->copyProperty(kIOPCIFunctionsDependentKey);
+        if (!prop && !strcmp("ANS2", funcZero->getName()))
+        {
+            value = true;
+			funcZero->setProperty(kIOPCIFunctionsDependentKey, &value, sizeof(value));
+        }
+        else if ((data = OSDynamicCast(OSData, prop)))
+        {
+            value = ((uint32_t *) data->getBytesNoCopy())[0];
+        }
+        if (value) powerProvider = funcZero;
+    }
+    while (false);
+
+    powerProvider->joinPMtree( this);
+
+    OSSafeReleaseNULL(prop);
+    OSSafeReleaseNULL(child);
+    OSSafeReleaseNULL(parent);
 
 	return (true);
 }

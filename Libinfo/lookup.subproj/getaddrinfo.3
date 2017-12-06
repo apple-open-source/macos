@@ -252,8 +252,37 @@ is defined as (
 |
 .Dv AI_ADDRCONFIG
 ).
+.It Dv AI_UNUSABLE
+To override the automatic
+.Dv AI_DEFAULT
+behavior that occurs when
+.Fa ai_flags
+is zero pass
+.Dv AI_UNUSABLE
+instead of zero.
+This suppresses the implicit setting of
+.Dv AI_V4MAPPED_CFG
+and
+.Dv AI_ADDRCONFIG ,
+thereby causing unusable addresses to be included in the results.
 .El
 .El
+.Pp
+If
+.Fa ai_flags
+is zero,
+.Fn getaddrinfo
+gives the
+.Dv AI_DEFAULT
+behavior (
+.Dv AI_V4MAPPED_CFG
+|
+.Dv AI_ADDRCONFIG
+). To override this default behavior, pass any nonzero value for
+.Fa ai_flags ,
+by setting any desired flag values, or setting
+.Dv AI_UNUSABLE
+if no other flags are desired.
 .Pp
 All other elements of the
 .Li addrinfo
@@ -272,7 +301,12 @@ with
 set to
 .Dv PF_UNSPEC
 and all other elements set to zero or
-.Dv NULL .
+.Dv NULL
+(which includes treating the
+.Fa ai_flags
+field as effectively zero, giving the automatic default
+.Dv AI_DEFAULT
+behavior).
 .Pp
 After a successful call to
 .Fn getaddrinfo ,

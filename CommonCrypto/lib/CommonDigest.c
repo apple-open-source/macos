@@ -82,6 +82,9 @@ const struct ccdigest_info *
 CCDigestGetDigestInfo(CCDigestAlgorithm algorithm) {
     cc_globals_t globals = _cc_globals();
     cc_dispatch_once(&globals->digest_info_init, NULL, init_globals);
+    if (algorithm>=diMax) {
+        return NULL;
+    }
     return globals->digest_info[algorithm];
 }
     

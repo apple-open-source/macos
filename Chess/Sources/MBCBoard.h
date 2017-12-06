@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoard.h
 	Contains:	Fundamental move and board classes.
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	ï¿½ 2002-2012 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -117,7 +117,9 @@ enum {
 	kBlackPromoSquare	= 0x72,
 	kBorderRegion		= 0x73,
 	kInHandSquare  		= 0x80,
-	kInvalidSquare 		= 0xFF
+	kInvalidSquare 		= 0xFF,
+    kSquareA8           = 56,
+    kBoardSquares       = 64
 };
 
 inline unsigned 	Row(MBCSquare square)		   

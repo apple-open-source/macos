@@ -21,12 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <Foundation/Foundation.h>
 
 #import "keychain/ckks/CKKSItem.h"
 #import "keychain/ckks/CKKSSIV.h"
 
-#if OCTAGON
+#import "keychain/ckks/proto/source/CKKSSerializedKey.h"
+#import "keychain/ckks/CKKSPeer.h"
 
 @interface CKKSKey : CKKSItem
 
@@ -124,6 +127,10 @@
 // Attempts to unwrap this key via unwrapping its wrapping keys via the key hierarchy.
 - (CKKSAESSIVKey*)unwrapViaKeyHierarchy: (NSError * __autoreleasing *) error;
 
+// On a self-wrapped key, determine if this AES-SIV key is the self-wrapped key.
+// If it is, save the key as this CKKSKey's unwrapped key.
+- (bool)trySelfWrappedKeyCandidate:(CKKSAESSIVKey*)candidate error:(NSError * __autoreleasing *) error;
+
 - (CKKSWrappedAESSIVKey*)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error;
 - (CKKSAESSIVKey*)unwrapAESKey: (CKKSWrappedAESSIVKey*) keyToUnwrap error: (NSError * __autoreleasing *) error;
 
@@ -133,6 +140,8 @@
 - (NSData*)encryptData: (NSData*) plaintext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error;
 - (NSData*)decryptData: (NSData*) ciphertext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error;
 
+- (NSData*)serializeAsProtobuf:(NSError* __autoreleasing *)error;
++ (CKKSKey*)loadFromProtobuf:(NSData*)data error:(NSError* __autoreleasing *)error;
 
 + (NSDictionary<NSString*,NSNumber*>*)countsByClass:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
 @end

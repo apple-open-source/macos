@@ -39,6 +39,7 @@
 #import "CKKSOutgoingQueueEntry.h"
 #import "CKKSItemEncrypter.h"
 #import "CKKSKey.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 
 @implementation CKKSOutgoingQueueEntry
@@ -84,7 +85,7 @@
             true) ? YES : NO;
 }
 
-+ (instancetype)withItem: (SecDbItemRef) item action: (NSString*) action ckks:(CKKSKeychainView*) ckks error: (NSError *   __autoreleasing *) error {
++ (instancetype)withItem:(SecDbItemRef)item action:(NSString*)action ckks:(CKKSKeychainView*)ckks error: (NSError * __autoreleasing *) error {
     CFErrorRef cferror = NULL;
     CKKSKey* key = nil;
     NSString* uuid = nil;
@@ -92,51 +93,64 @@
 
     NSInteger newGenerationCount = -1;
 
-
     NSMutableDictionary* objd = nil;
 
-    key = [ckks keyForItem: item error:error];
-    if(!key) {
-        return nil;
-    }
-
-    objd = (__bridge_transfer NSMutableDictionary*) SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &cferror);
-    if(!objd) {
-        SecTranslateError(error, cferror);
-        return nil;
-    }
-
-    // Object classes aren't in the item plist, set them specifically
-    [objd setObject: (__bridge NSString*) item->class->name forKey: (__bridge NSString*) kSecClass];
-
-    uuid = (__bridge_transfer NSString*) CFRetain(SecDbItemGetValue(item, &v10itemuuid, &cferror));
-    if(!uuid || cferror) {
-        SecTranslateError(error, cferror);
-        return nil;
-    }
-    if([uuid isKindOfClass:[NSNull class]]) {
-        NSError* localerror = [NSError errorWithDomain:@"securityd"
-                                                  code:CKKSNoUUIDOnItem
-                                              userInfo:@{NSLocalizedDescriptionKey: @"UUID not found in object"}];
-
-        secerror("ckksitem: couldn't fetch UUID: %@ %@", localerror, item);
+    NSError* keyError = nil;
+    key = [ckks keyForItem:item error:&keyError];
+    if(!key || keyError) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:keyError.code description:@"No key for item" underlying:keyError];
+        ckkserror("ckksitem", ckks, "no key for item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
         return nil;
     }
 
-    accessgroup = (__bridge_transfer NSString*) CFRetain(SecDbItemGetValue(item, &v6agrp, &cferror));
+    objd = (__bridge_transfer NSMutableDictionary*) SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &cferror);
+    if(!objd) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CFErrorGetCode(cferror) description:@"Couldn't create object plist" underlying:(__bridge_transfer NSError*)cferror];
+        ckkserror("ckksitem", ckks, "no plist: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    // Object classes aren't in the item plist, set them specifically
+    [objd setObject: (__bridge NSString*) item->class->name forKey: (__bridge NSString*) kSecClass];
+
+    uuid = (__bridge_transfer NSString*) CFRetainSafe(SecDbItemGetValue(item, &v10itemuuid, &cferror));
+    if(!uuid || cferror) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoUUIDOnItem description:@"No UUID for item" underlying:(__bridge_transfer NSError*)cferror];
+        ckkserror("ckksitem", ckks, "No UUID for item: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+    if([uuid isKindOfClass:[NSNull class]]) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoUUIDOnItem description:@"UUID not found in object" underlying:nil];
+        ckkserror("ckksitem", ckks, "couldn't fetch UUID: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    accessgroup = (__bridge_transfer NSString*) CFRetainSafe(SecDbItemGetValue(item, &v6agrp, &cferror));
     if(!accessgroup || cferror) {
-        SecTranslateError(error, cferror);
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CFErrorGetCode(cferror) description:@"accessgroup not found in object" underlying:(__bridge_transfer NSError*)cferror];
+        ckkserror("ckksitem", ckks, "couldn't fetch access group from item: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
         return nil;
     }
     if([accessgroup isKindOfClass:[NSNull class]]) {
         // That's okay; this is only used for rate limiting.
-        secerror("ckksitem: couldn't fetch accessgroup: %@", item);
+        ckkserror("ckksitem", ckks, "couldn't fetch accessgroup: %@", item);
         accessgroup = @"no-group";
     }
-
 
     CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:ckks.zoneID error:error];
 
@@ -165,7 +179,6 @@
         if([existingOQE.action isEqual: SecCKKSActionDelete] && [action isEqual:SecCKKSActionAdd]) {
             actualAction = SecCKKSActionModify;
         }
-
     }
 
     newGenerationCount = ckme ? ckme.item.generationCount : (NSInteger) 0; // TODO: this is wrong
@@ -192,13 +205,28 @@
                                   plaintextPCSPublicKey:pcsPublicKey
                              plaintextPCSPublicIdentity:pcsPublicIdentity];
 
+    if(!baseitem) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSItemCreationFailure description:@"Couldn't create an item" underlying:nil];
+        ckkserror("ckksitem", ckks, "couldn't create an item: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    NSError* encryptionError = nil;
     CKKSItem* encryptedItem = [CKKSItemEncrypter encryptCKKSItem:baseitem
                                                   dataDictionary:objd
                                                 updatingCKKSItem:ckme.item
                                                        parentkey:key
-                                                           error:error];
+                                                           error:&encryptionError];
 
-    if(!encryptedItem) {
+    if(!encryptedItem || encryptionError) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:encryptionError.code description:@"Couldn't encrypt item" underlying:encryptionError];
+        ckkserror("ckksitem", ckks, "couldn't encrypt item: %@ %@", localerror, item);
+        if(error) {
+            *error = localerror;
+        }
         return nil;
     }
 

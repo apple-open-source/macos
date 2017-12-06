@@ -92,6 +92,10 @@ OSStatus SecIdentityCopyPrivateKey(SecIdentityRef identity,
 
 SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator,
 	SecCertificateRef certificate, SecKeyRef privateKey) {
+    if (!certificate || CFGetTypeID(certificate) != SecCertificateGetTypeID() ||
+        !privateKey || CFGetTypeID(privateKey) != SecKeyGetTypeID()) {
+        return NULL;
+    }
     CFIndex size = sizeof(struct __SecIdentity);
     SecIdentityRef result = (SecIdentityRef)_CFRuntimeCreateInstance(
 		allocator, SecIdentityGetTypeID(), size - sizeof(CFRuntimeBase), 0);

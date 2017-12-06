@@ -26,6 +26,7 @@
  * - common definitions/routines for EAP-SIM and EAP-AKA
  */
 
+#include "EAPClientProperties.h"
 #include "EAPSIMAKAUtil.h"
 #include "EAPClientTypes.h"
 #include "SIMAccess.h"
@@ -612,67 +613,67 @@ EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_confi
     CFDataRef				encrypted_identity = NULL;
     CFStringRef				anonymous_username = NULL;
     CFStringRef				anonymous_identity = NULL;
+    CFBooleanRef 			b;
 
-    if (static_config) {
-	CFBooleanRef b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
-	if (b != NULL) {
-	    bool encryption_enabled = CFBooleanGetValue(b);
-	    if (encryption_enabled) {
-		CFStringRef realm = isA_CFString(CFDictionaryGetValue(properties,
-								      kEAPClientPropEAPSIMAKARealm));
-		encrypted_identity = isA_CFData(CFDictionaryGetValue(properties,
-								     kEAPClientPropEAPSIMAKAEncryptedUsername));
-		if (encrypted_identity == NULL) {
-		    return NULL;
-		}
-		CFRetain(encrypted_identity);
-		anonymous_username = isA_CFString(CFDictionaryGetValue(properties,
-									 kEAPClientPropEAPSIMAKAAnonymousUserName));
-		if (anonymous_username == NULL) {
-		    anonymous_username = CFStringCreateCopy(NULL, EAP_SIM_AKA_DEFAULT_ANONYM_USERNAME);
-		} else {
-		    CFRetain(anonymous_username);
-		}
-		if (realm != NULL) {
-		    anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
-							      anonymous_username, realm);
-		    my_CFRelease(&anonymous_username);
-		} else {
-		    anonymous_identity = anonymous_username;
-		}
-		goto done;
-	    }
-	}
+    b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
+    if (b != NULL && CFBooleanGetValue(b) == false) {
+	EAPLOG_FL(LOG_DEBUG, "The carrier does not support encrypted identity");
+	return NULL;
     }
-#if TARGET_OS_EMBEDDED
-	CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(kEAPTypeEAPAKA);
-	if (info == NULL) {
-	    return NULL;
-	}
-	/* encrypted_identity = "\0|<base64<encryption<IMSI>>>|<nai realm>" */
-	encrypted_identity = isA_CFData(CFDictionaryGetValue(info, kCTEncryptedIdentity));
+    if (static_config) {
+	CFStringRef realm = isA_CFString(CFDictionaryGetValue(properties,
+							      kEAPClientPropEAPSIMAKARealm));
+	encrypted_identity = isA_CFData(CFDictionaryGetValue(properties,
+							     kEAPClientPropEAPSIMAKAEncryptedUsername));
 	if (encrypted_identity == NULL) {
-	    my_CFRelease(&info);
 	    return NULL;
 	}
 	CFRetain(encrypted_identity);
-	anonymous_username = isA_CFString(CFDictionaryGetValue(info, kCTIdentityAnonymousUserName));
+	anonymous_username = isA_CFString(CFDictionaryGetValue(properties,
+							       kEAPClientPropEAPSIMAKAAnonymousUserName));
 	if (anonymous_username == NULL) {
 	    anonymous_username = CFStringCreateCopy(NULL, EAP_SIM_AKA_DEFAULT_ANONYM_USERNAME);
 	} else {
 	    CFRetain(anonymous_username);
 	}
-	CFStringRef realm = SIMCopyRealm();
 	if (realm != NULL) {
 	    anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
-						anonymous_username,
-						realm);
+							  anonymous_username, realm);
 	    my_CFRelease(&anonymous_username);
 	} else {
 	    anonymous_identity = anonymous_username;
 	}
-	my_CFRelease(&realm);
+	goto done;
+    }
+#if TARGET_OS_EMBEDDED
+    CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(kEAPTypeEAPAKA);
+    if (info == NULL) {
+	return NULL;
+    }
+    /* encrypted_identity = "\0|<base64<encryption<IMSI>>>|<nai realm>" */
+    encrypted_identity = isA_CFData(CFDictionaryGetValue(info, kCTEncryptedIdentity));
+    if (encrypted_identity == NULL) {
 	my_CFRelease(&info);
+	return NULL;
+    }
+    CFRetain(encrypted_identity);
+    anonymous_username = isA_CFString(CFDictionaryGetValue(info, kCTIdentityAnonymousUserName));
+    if (anonymous_username == NULL) {
+	anonymous_username = CFStringCreateCopy(NULL, EAP_SIM_AKA_DEFAULT_ANONYM_USERNAME);
+    } else {
+	CFRetain(anonymous_username);
+    }
+    CFStringRef realm = SIMCopyRealm();
+    if (realm != NULL) {
+	anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
+						      anonymous_username,
+						      realm);
+	my_CFRelease(&anonymous_username);
+    } else {
+	anonymous_identity = anonymous_username;
+    }
+    my_CFRelease(&realm);
+    my_CFRelease(&info);
 #endif /* TARGET_OS_EMBEDDED */
 
 done:

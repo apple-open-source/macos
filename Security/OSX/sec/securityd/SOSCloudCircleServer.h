@@ -194,6 +194,9 @@ bool SOSCCSendToPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error);
 XPC_RETURNS_RETAINED xpc_endpoint_t SOSCCCreateSOSEndpoint_server(CFErrorRef *error);
 
 void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivKey, CFErrorRef error));
+void SOSCCPerformWithOctagonEncryptionKey(void (^action)(SecKeyRef octagonPrivEncryptionKey, CFErrorRef error));
+void SOSCCPerformWithTrustedPeers(void (^action)(CFSetRef sosPeerInfoRefs, CFErrorRef error));
+
 void SOSCCResetOTRNegotiation_Server(CFStringRef peerid);
 void SOSCCPeerRateLimiterSendNextMessage_Server(CFStringRef peerid, CFStringRef accessGroup);
 

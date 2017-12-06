@@ -330,7 +330,7 @@ ucol_nextProcessed(UCollationElements *elems,
                    int32_t            *ixHigh,
                    UErrorCode         *status)
 {
-    return (UCollationPCE::UCollationPCE(elems)).nextProcessed(ixLow, ixHigh, status);
+    return (UCollationPCE(elems)).nextProcessed(ixLow, ixHigh, status);
 }
 
 
@@ -394,7 +394,7 @@ ucol_previousProcessed(UCollationElements *elems,
                    int32_t            *ixHigh,
                    UErrorCode         *status)
 {
-    return (UCollationPCE::UCollationPCE(elems)).previousProcessed(ixLow, ixHigh, status);
+    return (UCollationPCE(elems)).previousProcessed(ixLow, ixHigh, status);
 }
 
 U_NAMESPACE_BEGIN

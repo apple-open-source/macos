@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.27
+Version    = 2.4.28
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \

@@ -145,10 +145,13 @@
 
         NSString * sql = [[NSString alloc] initWithFormat: @"DELETE FROM %@%@;", table, whereClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
+            __block int whereObjectsSkipped = 0;
 
             [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
                 if([whereDict[key] class] != [CKKSSQLWhereObject class]) {
-                    SecDbBindObject(stmt, (int)(i+1), (__bridge CFStringRef) whereDict[key], &cferror);
+                    SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], &cferror);
+                } else {
+                    whereObjectsSkipped += 1;
                 }
             }];
 
@@ -195,9 +198,12 @@
 
         NSString * sql = [[NSString alloc] initWithFormat: @"SELECT %@ FROM %@%@%@%@%@;", columns, table, whereClause, groupByClause, orderByClause, limitClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
+            __block int whereObjectsSkipped = 0;
             [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
                 if([whereDict[key] class] != [CKKSSQLWhereObject class]) {
-                    SecDbBindObject(stmt, (int)(i+1), (__bridge CFStringRef) whereDict[key], &cferror);
+                    SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], &cferror);
+                } else {
+                    whereObjectsSkipped += 1;
                 }
             }];
 

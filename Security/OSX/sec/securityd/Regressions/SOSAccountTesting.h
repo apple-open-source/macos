@@ -927,6 +927,66 @@ static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfa
 }
 
 
+static inline bool SOSTestChangeAccountDeviceName(SOSAccount* account, CFStringRef name) {
+    bool retval = false;
+    CFMutableDictionaryRef mygestalt = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerGetGestalt(account.peerInfo));
+    require_quiet(mygestalt, retOut);
+    CFDictionarySetValue(mygestalt, kPIUserDefinedDeviceNameKey, name);
+    retval = [account.trust updateGestalt:account newGestalt:mygestalt];
+retOut:
+    CFReleaseNull(mygestalt);
+    return retval;
+}
+
+/*
+ * this simulates a piggy-back join at the account level
+ */
+
+static inline bool SOSTestJoinThroughPiggyBack(CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount* approver, SOSAccount* joiner, bool dropUserKey, int expectedCount, bool expectCleanup) {
+    // retval will return op failures, not count failures - we'll still report those from in here.
+    bool retval = false;
+    CFErrorRef error = NULL;
+
+    ok(SOSAccountAssertUserCredentialsAndUpdate(approver, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
+    CFReleaseNull(error);
+    // This makes sure the joiner sees the current key parameters
+    ProcessChangesUntilNoChange(changes, approver, joiner, NULL);
+    
+    SecKeyRef privKey = SOSAccountGetPrivateCredential(approver, &error);
+    ok(privKey, "got privkey from approver (%@)", error);
+    CFReleaseNull(error);
+
+    ok(SOSAccountTryUserPrivateKey(joiner, privKey, &error), "assert same credentials on joiner (%@)", error);
+    CFReleaseNull(error);
+    // This gives the joiner a chance to see the current circle - this is the account-level equivalent of the Flush added to stashAccountCredential
+    ProcessChangesUntilNoChange(changes, approver, joiner, NULL);
+
+    SOSPeerInfoRef joinerPI = SOSAccountCopyApplication(joiner, &error);
+    ok(joinerPI, "Joiner peerinfo available as application %@", error);
+    CFReleaseNull(error);
+
+    CFDataRef theBlob = SOSAccountCopyCircleJoiningBlob(approver, joinerPI, &error);
+    ok(theBlob, "Made a joining blob (%@)", error);
+    CFReleaseNull(error);
+    
+
+    bool joined = SOSAccountJoinWithCircleJoiningBlob(joiner, theBlob, kPiggyV1, &error);
+    ok(joined, "Joiner posted circle with itself in it (%@)", error);
+    CFReleaseNull(error);
+
+    CFReleaseNull(joinerPI);
+    CFReleaseNull(theBlob);
+
+    is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), 2, "updates");
+    
+    ok((retval = [joiner.trust isInCircle:NULL]), "Joiner is in");
+    
+    accounts_agree_internal("Successful join shows same circle view", joiner, approver, false);
+    is(countPeers(joiner), expectedCount, "There should be %d valid peers", expectedCount);
+    return retval;
+}
+
+
 static inline SOSAccount* SOSTestCreateAccountAsSerialClone(CFStringRef name, SOSPeerInfoDeviceClass devClass, CFStringRef serial, CFStringRef idsID) {
     return CreateAccountForLocalChangesWithStartingAttributes(name, CFSTR("TestSource"), devClass, serial, kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeIDSV2, idsID);
 }
@@ -941,17 +1001,6 @@ static inline bool SOSTestMakeGhostInCircle(CFStringRef name, SOSPeerInfoDeviceC
     if(!ghostAccount) return false;
     ok(retval = SOSTestJoinWithApproval(cfpassword, cfaccount, changes, approver, ghostAccount, DROP_USERKEY, expectedCount, true), "Ghost Joined Circle with expected result");
 retOut:
-    return retval;
-}
-
-static inline bool SOSTestChangeAccountDeviceName(SOSAccount* account, CFStringRef name) {
-    bool retval = false;
-    CFMutableDictionaryRef mygestalt = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerGetGestalt(account.peerInfo));
-    require_quiet(mygestalt, retOut);
-    CFDictionarySetValue(mygestalt, kPIUserDefinedDeviceNameKey, name);
-    retval = [account.trust updateGestalt:account newGestalt:mygestalt];
-retOut:
-    CFReleaseNull(mygestalt);
     return retval;
 }
 

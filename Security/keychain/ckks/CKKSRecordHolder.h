@@ -21,13 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
 
 #ifndef CKKSRecordHolder_h
 #define CKKSRecordHolder_h
-
-#if OCTAGON
 
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 #import <CloudKit/CloudKit.h>

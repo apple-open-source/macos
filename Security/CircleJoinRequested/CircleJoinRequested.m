@@ -60,6 +60,7 @@
 #include "utilities/debugging.h"
 #include "utilities/SecAKSWrappers.h"
 #include "utilities/SecCFWrappers.h"
+#include <utilities/SecXPCError.h>
 
 #import "CoreCDP/CDPFollowUpController.h"
 #import "CoreCDP/CDPFollowUpContext.h"
@@ -122,7 +123,11 @@ static void keybagDidUnlock()
     }
 
     SOSCCStatus circleStatus = SOSCCThisDeviceIsInCircle(&error);
-    if(_isAccountICDP && (circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false){
+    if (circleStatus == kSOSCCError && error && CFEqual(sSecXPCErrorDomain, CFErrorGetDomain(error))) {
+        secnotice("cjr", "unable to determine circle status due to xpc failure: %@", error);
+        return;
+    }
+    else if (_isAccountICDP && (circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
         NSError *localError = nil;
         CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
         CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
@@ -749,9 +754,19 @@ static bool processEvents()
 	CFErrorRef			error			 = NULL;
 	CFErrorRef			departError		 = NULL;
 	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircle(&error);
+    enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
+
+    // Error due to XPC failure does not provide information about the circle.
+    if (circleStatus == kSOSCCError && error && (CFEqual(sSecXPCErrorDomain, CFErrorGetDomain(error)))) {
+        secnotice("cjr", "XPC error while checking circle status: \"%@\", not processing events", error);
+        return true;
+    } else if (departureReason == kSOSDepartureReasonError && departError && (CFEqual(sSecXPCErrorDomain, CFErrorGetDomain(departError)))) {
+        secnotice("cjr", "XPC error while checking last departure reason: \"%@\", not processing events", departError);
+        return true;
+    }
+
 	NSDate				*nowish			 = [NSDate date];
 	PersistentState 	*state     		 = [PersistentState loadFromStorage];
-	enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
 	secnotice("cjr", "CircleStatus %d -> %d{%d} (s=%p)", state.lastCircleStatus, circleStatus, departureReason, state);
 
 	// Pending application reminder

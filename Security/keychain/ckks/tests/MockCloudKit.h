@@ -43,7 +43,6 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 +(FakeCKDatabase*) ckdb;
 @end
 
-
 @interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation>
 @property (nullable) NSError* subscriptionError;
 @property (nonatomic, nullable) NSMutableArray<CKSubscription *> *subscriptionsSaved;
@@ -54,6 +53,15 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 @interface FakeCKFetchRecordZoneChangesOperation : NSOperation <CKKSFetchRecordZoneChangesOperation>
 +(FakeCKDatabase*) ckdb;
+@property (nullable) void (^blockAfterFetch)();
+@end
+
+@interface FakeCKFetchRecordsOperation : NSBlockOperation <CKKSFetchRecordsOperation>
++ (FakeCKDatabase*)ckdb;
+@end
+
+@interface FakeCKQueryOperation : NSBlockOperation <CKKSQueryOperation>
++ (FakeCKDatabase*)ckdb;
 @end
 
 

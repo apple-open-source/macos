@@ -32,21 +32,24 @@
 #import "Analytics/SFAnalyticsLogger.h"
 #import <os/log.h>
 
-NSString* const CKKSAnalyticsAttributeRecoverableError = @"recoverableError";
-NSString* const CKKSAnalyticsAttributeZoneName = @"zone";
-NSString* const CKKSAnalyticsAttributeErrorDomain = @"errorDomain";
-NSString* const CKKSAnalyticsAttributeErrorCode = @"errorCode";
+static NSString* const CKKSAnalyticsAttributeRecoverableError = @"recoverableError";
+static NSString* const CKKSAnalyticsAttributeZoneName = @"zone";
+static NSString* const CKKSAnalyticsAttributeErrorDomain = @"errorDomain";
+static NSString* const CKKSAnalyticsAttributeErrorCode = @"errorCode";
 
-NSString* const CKKSAnalyticsHasTLKs = @"TLKs";
-NSString* const CKKSAnalyticsSyncedClassARecently = @"inSyncA";
-NSString* const CKKSAnalyticsSyncedClassCRecently = @"inSyncC";
-NSString* const CKKSAnalyticsIncomingQueueIsErrorFree = @"IQNOE";
-NSString* const CKKSAnalyticsOutgoingQueueIsErrorFree = @"OQNOE";
-NSString* const CKKSAnalyticsInSync = @"inSync";
+static NSString* const CKKSAnalyticsInCircle = @"inCircle";
+static NSString* const CKKSAnalyticsDeviceID = @"ckdeviceID";
+static NSString* const CKKSAnalyticsHasTLKs = @"TLKs";
+static NSString* const CKKSAnalyticsSyncedClassARecently = @"inSyncA";
+static NSString* const CKKSAnalyticsSyncedClassCRecently = @"inSyncC";
+static NSString* const CKKSAnalyticsIncomingQueueIsErrorFree = @"IQNOE";
+static NSString* const CKKSAnalyticsOutgoingQueueIsErrorFree = @"OQNOE";
+static NSString* const CKKSAnalyticsInSync = @"inSync";
 
 CKKSAnalyticsFailableEvent* const CKKSEventProcessIncomingQueueClassA = (CKKSAnalyticsFailableEvent*)@"CKKSEventProcessIncomingQueueClassA";
 CKKSAnalyticsFailableEvent* const CKKSEventProcessIncomingQueueClassC = (CKKSAnalyticsFailableEvent*)@"CKKSEventProcessIncomingQueueClassC";
 CKKSAnalyticsFailableEvent* const CKKSEventUploadChanges = (CKKSAnalyticsFailableEvent*)@"CKKSEventUploadChanges";
+CKKSAnalyticsFailableEvent* const CKKSEventStateError = (CKKSAnalyticsFailableEvent*)@"CKKSEventStateError";
 
 CKKSAnalyticsSignpostEvent* const CKKSEventPushNotificationReceived = (CKKSAnalyticsSignpostEvent*)@"CKKSEventPushNotificationReceived";
 CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue = (CKKSAnalyticsSignpostEvent*)@"CKKSEventItemAddedToOutgoingQueue";
@@ -70,24 +73,40 @@ CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue = (CKKSAnaly
     [self setDateProperty:[NSDate date] forKey:[NSString stringWithFormat:@"last_success_%@-%@", view.zoneName, event]];
 }
 
-- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view
+- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes
 {
-    NSDictionary* attributes = @{ CKKSAnalyticsAttributeRecoverableError : @(YES),
-                                  CKKSAnalyticsAttributeZoneName : view.zoneName,
-                                  CKKSAnalyticsAttributeErrorDomain : error.domain,
-                                  CKKSAnalyticsAttributeErrorCode : @(error.code) };
+    NSDictionary* eventAttributes = @{ CKKSAnalyticsAttributeRecoverableError : @(YES),
+                                       CKKSAnalyticsAttributeZoneName : view.zoneName,
+                                       CKKSAnalyticsAttributeErrorDomain : error.domain,
+                                       CKKSAnalyticsAttributeErrorCode : @(error.code) };
 
-    [super logSoftFailureForEventNamed:event withAttributes:attributes];
+    if (attributes) {
+        /* Don't allow caller to overwrite our attributes */
+        NSMutableDictionary *mergedAttributes = [attributes mutableCopy];
+        [mergedAttributes setValuesForKeysWithDictionary:eventAttributes];
+        eventAttributes = mergedAttributes;
+    }
+
+    [super logSoftFailureForEventNamed:event withAttributes:eventAttributes];
 }
 
-- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view
+- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes
 {
-    NSDictionary* attributes = @{ CKKSAnalyticsAttributeRecoverableError : @(NO),
-                                  CKKSAnalyticsAttributeZoneName : view.zoneName,
-                                  CKKSAnalyticsAttributeErrorDomain : error.domain,
-                                  CKKSAnalyticsAttributeErrorCode : @(error.code) };
+    if (error == nil)
+        return;
+    NSDictionary* eventAttributes = @{ CKKSAnalyticsAttributeRecoverableError : @(NO),
+                                       CKKSAnalyticsAttributeZoneName : view.zoneName,
+                                       CKKSAnalyticsAttributeErrorDomain : error.domain,
+                                       CKKSAnalyticsAttributeErrorCode : @(error.code) };
 
-    [self logHardFailureForEventNamed:event withAttributes:attributes];
+    if (attributes) {
+        /* Don't allow caller to overwrite our attributes */
+        NSMutableDictionary *mergedAttributes = [attributes mutableCopy];
+        [mergedAttributes setValuesForKeysWithDictionary:eventAttributes];
+        eventAttributes = mergedAttributes;
+    }
+
+    [self logHardFailureForEventNamed:event withAttributes:eventAttributes];
 }
 
 - (void)noteEvent:(CKKSAnalyticsSignpostEvent*)event inView:(CKKSKeychainView*)view
@@ -103,7 +122,14 @@ CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue = (CKKSAnaly
 - (NSDictionary*)extraValuesToUploadToServer
 {
     NSMutableDictionary* values = [NSMutableDictionary dictionary];
-    for (NSString* viewName in [CKKSViewManager viewList]) {
+    CKKSCKAccountStateTracker* accountTracker = [[CKKSViewManager manager] accountTracker];
+    BOOL inCircle = accountTracker && accountTracker.currentCircleStatus == kSOSCCInCircle;
+    values[CKKSAnalyticsInCircle] = @(inCircle);
+
+    NSString *ckdeviceID = accountTracker.ckdeviceID;
+    if (ckdeviceID)
+        values[CKKSAnalyticsDeviceID] = ckdeviceID;
+    for (NSString* viewName in [[CKKSViewManager manager] viewList]) {
         CKKSKeychainView* view = [CKKSViewManager findOrCreateView:viewName];
         NSDate* dateOfLastSyncClassA = [self dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:view];
         NSDate* dateOfLastSyncClassC = [self dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:view];
@@ -131,7 +157,7 @@ CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue = (CKKSAnaly
         values[incomingQueueIsErrorFreeKey] = @(incomingQueueIsErrorFree);
         values[outgoingQueueIsErrorFreeKey] = @(outgoingQueueIsErrorFree);
 
-        BOOL weThinkWeAreInSync = hasTLKs && syncedClassARecently && syncedClassCRecently && incomingQueueIsErrorFree && outgoingQueueIsErrorFree;
+        BOOL weThinkWeAreInSync = inCircle && hasTLKs && syncedClassARecently && syncedClassCRecently && incomingQueueIsErrorFree && outgoingQueueIsErrorFree;
         NSString* inSyncKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsInSync];
         values[inSyncKey] = @(weThinkWeAreInSync);
     }

@@ -48,6 +48,7 @@
 
 #include <corecrypto/ccder.h>
 #include <utilities/iCloudKeychainTrace.h>
+#include <utilities/SecADWrapper.h>
 
 #include "AssertMacros.h"
 
@@ -565,6 +566,7 @@ SOSCoderStatus SOSCoderUnwrap(SOSCoderRef coder, CFDataRef codedMessage, CFMutab
                     case errSecDecode:
                         CFStringAppend(action, CFSTR("resending dh"));
                         result = SOSCoderResendDH(coder, error);
+                        SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.restartotrnegotiation"), 1);
                         break;
                     default:
                         SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ Cannot negotiate session (%ld)"), clientId, (long)ppstatus);
@@ -591,6 +593,7 @@ SOSCoderStatus SOSCoderUnwrap(SOSCoderRef coder, CFDataRef codedMessage, CFMutab
             if(!SecOTRSGetIsReadyForMessages(coder->sessRef)) {
                 CFStringAppend(action, CFSTR("not ready for data; resending DH packet"));
 				SetCloudKeychainTraceValueForKey(kCloudKeychainNumberOfTimesSyncFailed, 1);
+                SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.restartotrnegotiation"), 1);
                 result = SOSCoderResendDH(coder, error);
             } else {
                 if (coder->waitingForDataPacket) {

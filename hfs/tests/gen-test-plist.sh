@@ -37,19 +37,19 @@ grep -l -E '^TEST\(' *.[cm] | xargs xcrun clang -E -D TEST=TEST \
 	grep -h -E 'TEST\(' >>"$DERIVED_FILE_DIR"/list-tests.c
 
 # Build an executable for the host platform
-env -i xcrun clang -x objective-c++ -I.. -c ../hfs-tests.mm \
+env -i xcrun -sdk macosx.internal clang -x objective-c++ -I.. -c ../hfs-tests.mm \
 	-o "$DERIVED_FILE_DIR"/hfs-tests.o -std=gnu++1y
 
-env -i xcrun clang -x objective-c -I.. -c ../disk-image.m \
+env -i xcrun -sdk macosx.internal clang -x objective-c -I.. -c ../disk-image.m \
 	-o "$DERIVED_FILE_DIR"/disk-image.o
 
-env -i xcrun clang -x c -I.. -c ../systemx.c \
+env -i xcrun -sdk macosx.internal clang -x c -I.. -c ../systemx.c \
 	-o "$DERIVED_FILE_DIR"/systemx.o
 
-env -i xcrun clang -x c -c "$DERIVED_FILE_DIR"/list-tests.c \
+env -i xcrun -sdk macosx.internal clang -x c -c "$DERIVED_FILE_DIR"/list-tests.c \
 	-o "$DERIVED_FILE_DIR"/list-tests.o
 
-env -i xcrun clang++ "$DERIVED_FILE_DIR"/hfs-tests.o \
+env -i xcrun -sdk macosx.internal clang++ "$DERIVED_FILE_DIR"/hfs-tests.o \
 	"$DERIVED_FILE_DIR"/disk-image.o "$DERIVED_FILE_DIR"/list-tests.o \
 	-o "$DERIVED_FILE_DIR"/list-tests "$DERIVED_FILE_DIR"/systemx.o \
 	-framework Foundation -lstdc++

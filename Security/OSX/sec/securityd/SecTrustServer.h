@@ -58,7 +58,7 @@ struct OpaqueSecPVC {
     SecTrustResultType result;
 };
 
-/* Completion callback.  You should call SecTrustSessionDestroy from this. */
+/* Completion callback. */
 typedef void(*SecPathBuilderCompleted)(const void *userData,
     SecCertificatePathRef chain, CFArrayRef details, CFDictionaryRef info,
     SecTrustResultType result);
@@ -89,6 +89,7 @@ CFAbsoluteTime SecPathBuilderGetVerifyTime(SecPathBuilderRef builder);
 CFIndex SecPathBuilderGetCertificateCount(SecPathBuilderRef builder);
 SecCertificateRef SecPathBuilderGetCertificateAtIndex(SecPathBuilderRef builder, CFIndex ix);
 CFArrayRef SecPathBuilderGetExceptions(SecPathBuilderRef builder);
+bool SecPathBuilderHasTemporalParentChecks(SecPathBuilderRef builder);
 
 /* Returns the isAnchored status of the path. The path builder sets isAnchored
  * based solely on whether the terminating cert has some sort of trust setting

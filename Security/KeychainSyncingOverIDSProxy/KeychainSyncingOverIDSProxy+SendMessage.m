@@ -39,6 +39,7 @@
 #import <os/activity.h>
 
 #include <utilities/SecAKSWrappers.h>
+#include <utilities/SecADWrapper.h>
 #include <utilities/SecCFRelease.h>
 #include <AssertMacros.h>
 
@@ -129,6 +130,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
 
 - (void) sendMessageToKVS: (NSDictionary<NSString*, NSDictionary*>*) encapsulatedKeychainMessage
 {
+    SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.kvsreroute"), 1);
     [encapsulatedKeychainMessage enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
         if ([key isKindOfClass: [NSString class]] && [obj isKindOfClass:[NSData class]]) {
             [self sendToKVS:key message:obj];
@@ -442,6 +444,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     if([encapsulatedKeychainMessage isKindOfClass:[NSDictionary class]]){
         secnotice("IDS Transport", "Encapsulated message: %@", encapsulatedKeychainMessage);
         [self sendMessageToKVS:encapsulatedKeychainMessage];
+
     }
 }
 

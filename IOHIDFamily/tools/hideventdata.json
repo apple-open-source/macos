@@ -3487,5 +3487,41 @@
       }
     ],
     "name" : "Brightness"
-  }
+  },
+  {
+    "base_fields" : [
+      {
+      "canonical_type" : "unsigned int",
+      "kind" : "value",
+      "type" : "uint32_t",
+      "name" : "size"
+      },
+      {
+      "canonical_type" : "unsigned int",
+      "kind" : "value",
+      "type" : "IOHIDEventType",
+      "name" : "type"
+      },
+      {
+      "canonical_type" : "unsigned int",
+      "kind" : "value",
+      "type" : "uint32_t",
+      "name" : "options"
+      },
+      {
+      "canonical_type" : "unsigned char",
+      "kind" : "value",
+      "type" : "uint8_t",
+      "name" : "depth"
+      },
+      {
+      "length" : 3,
+      "canonical_type" : "unsigned char",
+      "kind" : "array",
+      "type" : "uint8_t",
+      "name" : "reserved"
+      }
+    ],
+ "name" : "Collection"
+ }
 ]

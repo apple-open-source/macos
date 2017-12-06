@@ -111,6 +111,8 @@ const NXArchInfo        * gKernelArchInfo                   = NULL;  // do not f
 
 ExitStatus                sKextdExitStatus                  = kKextdExitOK;
 
+static AuthOptions_t      sKextdAuthenticationOptions       = {0};
+
 /*******************************************************************************
  * Static routines.
  ******************************************************************************/
@@ -203,9 +205,16 @@ int main(int argc, char * const * argv)
     setenv("KEXT_LOG_FILTER_USER", logSpecBuffer, /* overwrite */ 1);
 
 
-    /* Setup OSKext Authentication, using the default options.
+    /* Setup OSKext authentication options, starting with networking disabled
+     * and using the boot timer to enable it shortly after boot.
      */
-    _OSKextSetAuthenticationFunction(&authenticateKext, NULL);
+    sKextdAuthenticationOptions.allowNetwork = false;
+    sKextdAuthenticationOptions.isCacheLoad = false;
+    sKextdAuthenticationOptions.performFilesystemValidation = true;
+    sKextdAuthenticationOptions.performSignatureValidation = true;
+    sKextdAuthenticationOptions.requireSecureLocation = true;
+    sKextdAuthenticationOptions.respectSystemPolicy = true;
+    _OSKextSetAuthenticationFunction(&authenticateKext, &sKextdAuthenticationOptions);
     _OSKextSetStrictAuthentication(true);
 
     gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
@@ -1070,6 +1079,12 @@ void LoadLatestExcludeList()
                           CFSTR("Failed to load KextExcludeList: %d"), ret);
         return;
     }
+}
+
+void enableNetworkAuthentication(void)
+{
+    // Avoid using the network during boot - <rdar://35004679>
+    sKextdAuthenticationOptions.allowNetwork = true;
 }
 
 /*******************************************************************************

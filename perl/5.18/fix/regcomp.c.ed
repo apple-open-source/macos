@@ -1,0 +1,4 @@
+/p = RExC_parse;/a
+                        RExC_parse = parse_start;
+.
+w

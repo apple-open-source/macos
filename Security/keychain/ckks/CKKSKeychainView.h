@@ -51,6 +51,8 @@
 #import "keychain/ckks/CKKSZone.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/ckks/CKKSNotifier.h"
+#import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSTLKShare.h"
 
 #include "CKKS.h"
 
@@ -70,7 +72,9 @@
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
 
-@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver, CKKSChangeFetcherErrorOracle> {
+@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver,
+                                        CKKSChangeFetcherErrorOracle,
+                                        CKKSPeerUpdateListener> {
     CKKSZoneKeyState* _keyHierarchyState;
 }
 
@@ -109,6 +113,7 @@
 @property CKKSReencryptOutgoingItemsOperation*    lastReencryptOutgoingItemsOperation;
 @property CKKSScanLocalItemsOperation*            lastScanLocalItemsOperation;
 @property CKKSSynchronizeOperation*               lastSynchronizeOperation;
+@property CKKSResultOperation*                    lastFixupOperation;
 
 /* Used for testing: pause operation types by adding operations here */
 @property NSOperation* holdReencryptOutgoingItemsOperation;
@@ -117,12 +122,22 @@
 /* Trigger this to tell the whole machine that this view has changed */
 @property CKKSNearFutureScheduler* notifyViewChangedScheduler;
 
+// These are available when you're in a dispatchSyncWithAccountKeys call, but at no other time
+// These must be pre-fetched before you get on the CKKS queue, otherwise we end up with CKKS<->SQLite<->SOSAccountQueue deadlocks
+@property (nonatomic, readonly) CKKSSelves* currentSelfPeers;
+@property (nonatomic, readonly) NSError* currentSelfPeersError;
+@property (nonatomic, readonly) NSSet<id<CKKSPeer>>* currentTrustedPeers;
+@property (nonatomic, readonly) NSError* currentTrustedPeersError;
+
 - (instancetype)initWithContainer:     (CKContainer*) container
                              zoneName: (NSString*) zoneName
                        accountTracker:(CKKSCKAccountStateTracker*) accountTracker
                      lockStateTracker:(CKKSLockStateTracker*) lockStateTracker
                      savedTLKNotifier:(CKKSNearFutureScheduler*) savedTLKNotifier
+                         peerProvider:(id<CKKSPeerProvider>)peerProvider
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
+           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
     modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
       modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
                    apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass
@@ -157,7 +172,7 @@
 
 - (CKKSKey*) keyForItem: (SecDbItemRef) item error: (NSError * __autoreleasing *) error;
 
-- (bool)checkTLK: (CKKSKey*) proposedTLK error: (NSError * __autoreleasing *) error;
+- (bool)_onqueueWithAccountKeysCheckTLK: (CKKSKey*) proposedTLK error: (NSError * __autoreleasing *) error;
 
 /* Asynchronous kickoffs */
 
@@ -174,7 +189,9 @@
 
 // Schedules an operation to update this device's state record in CloudKit
 // If rateLimit is true, the operation will abort if it's updated the record in the past 3 days
-- (CKKSUpdateDeviceStateOperation*)updateDeviceState:(bool)rateLimit ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (CKKSUpdateDeviceStateOperation*)updateDeviceState:(bool)rateLimit
+                   waitForKeyHierarchyInitialization:(uint64_t)timeout
+                                    ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 - (CKKSSynchronizeOperation*) resyncWithCloud;
 
@@ -194,7 +211,7 @@
 // Use these helper methods to make sure those exist.
 - (void) dispatchAsync: (bool (^)(void)) block;
 - (void) dispatchSync: (bool (^)(void)) block;
-- (void)dispatchSyncWithAccountQueue:(bool (^)(void))block;
+- (void)dispatchSyncWithAccountKeys:(bool (^)(void))block;
 
 /* Synchronous operations which must be called from inside a dispatchAsync or dispatchSync block */
 
@@ -222,6 +239,14 @@
 
 - (bool) _onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync;
 - (bool) _onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
+
+// For this key, who doesn't yet have a CKKSTLKShare for it?
+// Note that we really want a record sharing the TLK to ourselves, so this function might return
+// a non-empty set even if all peers have the TLK: it wants us to make a record for ourself.
+- (NSSet<id<CKKSPeer>>*)_onqueueFindPeersMissingShare:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
+
+// For this key, share it to all trusted peers who don't have it yet
+- (NSSet<CKKSTLKShare*>*)_onqueueCreateMissingKeyShares:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
 
 - (bool)_onQueueUpdateLatestManifestWithError:(NSError**)error;
 

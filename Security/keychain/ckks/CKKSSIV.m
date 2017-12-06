@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <string.h>
 
@@ -33,6 +35,8 @@
 #include <CommonCrypto/CommonRandom.h>
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccmode_siv.h>
+
+#import "keychain/ckks/CloudKitCategories.h"
 
 @implementation CKKSBaseAESSIVKey
 - (instancetype)init {
@@ -190,6 +194,16 @@
 - (CKKSWrappedAESSIVKey*)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error {
     NSError* localerror = nil;
     bool success = false;
+
+    if(!keyToWrap) {
+        localerror = [NSError errorWithDomain:@"securityd"
+                                         code:errSecParam
+                                  description:@"No key given"];
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
 
     CKKSWrappedAESSIVKey* wrappedKey = nil;
     uint8_t buffer[CKKSWrappedKeySize] = {};
@@ -389,3 +403,5 @@ out:
 
 
 @end
+
+#endif // OCTAGON

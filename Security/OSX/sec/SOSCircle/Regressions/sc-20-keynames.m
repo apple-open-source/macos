@@ -48,8 +48,9 @@ static int kTestTestCount = 15;
 static void tests(void)
 {
     SecKeyRef publicKey = NULL;
-    SecKeyRef octagonPublicKey = NULL;
-   
+    SecKeyRef octagonSigningPublicKey = NULL;
+    SecKeyRef octagonEncryptionPublicKey = NULL;
+
     CFErrorRef error = NULL;
 
     SOSCircleRef circle = SOSCircleCreate(NULL, CFSTR("Test Circle"), &error);
@@ -65,7 +66,7 @@ static void tests(void)
     CFReleaseNull(circle_name);
     CFReleaseNull(circle_key);
     
-    SOSPeerInfoRef pi = SOSCreatePeerInfoFromName(CFSTR("Test Peer"), &publicKey, &octagonPublicKey, &error);
+    SOSPeerInfoRef pi = SOSCreatePeerInfoFromName(CFSTR("Test Peer"), &publicKey, &octagonSigningPublicKey, &octagonEncryptionPublicKey, &error);
     
     CFStringRef other_peer_id = CFSTR("OTHER PEER");
     
@@ -116,7 +117,8 @@ static void tests(void)
        SOSPeerInfoGetPeerID(pi), retirement_peer_id);
     
     CFReleaseNull(publicKey);
-    CFReleaseNull(octagonPublicKey);
+    CFReleaseNull(octagonSigningPublicKey);
+    CFReleaseNull(octagonEncryptionPublicKey);
     CFReleaseNull(circle);
     CFReleaseNull(error);
     CFReleaseNull(pi);

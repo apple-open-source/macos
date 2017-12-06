@@ -1010,7 +1010,11 @@ IOReturn IOHIDLibUserClient::getElements(uint32_t elementType, IOMemoryDescripto
                 if ( elementBufferSize )
                     *elementBufferSize = elementLength;
 
-                mem->writeBytes( 0, elementData, elementLength );
+                if (elementLength <= mem->getLength()) {
+                    mem->writeBytes( 0, elementData, elementLength );
+                } else {
+                    ret = kIOReturnBadArgument;
+                }
 
                 IOFree( elementData, allocationSize );
             }

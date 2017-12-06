@@ -830,7 +830,7 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
 
 /*!
     @function SecKeyGetBlockSize
-    @abstract Decrypt a block of ciphertext.
+    @abstract Returns block length of the key in bytes.
     @param key The key for which the block length is requested.
     @result The block length of the key in bytes.
     @discussion If for example key is an RSA key the value returned by

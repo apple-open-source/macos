@@ -9180,6 +9180,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -9190,7 +9191,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (
@@ -9214,6 +9215,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -9225,7 +9227,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (
@@ -9246,6 +9248,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -9256,7 +9259,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (
@@ -9277,6 +9280,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -9288,7 +9292,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (
@@ -10924,6 +10928,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -10934,7 +10939,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (
@@ -12349,6 +12354,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "IOHIDFamily/Info-IOHIDEventFastPathTestDriver.plist";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/IOHIDFamily;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventFastPathDriver;
@@ -12360,7 +12366,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
 				WARNING_CFLAGS = (

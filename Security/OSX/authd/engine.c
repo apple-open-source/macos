@@ -21,11 +21,14 @@ int checkpw_internal( const struct passwd *pw, const char* password );
 
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationTagsPriv.h>
+#include <Security/AuthorizationPriv.h>
 #include <Security/AuthorizationPlugin.h>
 #include <LocalAuthentication/LAPublicDefines.h>
 #include <LocalAuthentication/LAPrivateDefines.h>
 #include <sandbox.h>
 #include <coreauthd_spi.h>
+#include <ctkloginhelper.h>
+
 
 AUTHD_DEFINE_LOG
 
@@ -100,6 +103,7 @@ _engine_finalizer(CFTypeRef value)
     CFReleaseNull(engine->credentials);
     CFReleaseNull(engine->effectiveCredentials);
     CFReleaseNull(engine->authenticateRule);
+    CFReleaseNull(engine->la_context);
 }
 
 AUTH_TYPE_INSTANCE(engine,
@@ -417,17 +421,19 @@ _evaluate_builtin_mechanism(engine_t engine, mechanism_t mech)
 
 
 static bool
-_extract_password_from_la(engine_t engine, CFTypeRef la_context)
+_extract_password_from_la(engine_t engine)
 {
 	bool retval = false;
+
+	if (!engine->la_context) {
+		return retval;
+	}
+
 	// try to retrieve secret
-	CFDataRef passdata = LACopyCredential(la_context, kLACredentialTypeExtractablePasscode, NULL);
+	CFDataRef passdata = LACopyCredential(engine->la_context, kLACredentialTypeExtractablePasscode, NULL);
 	if (passdata) {
 		if (CFDataGetBytePtr(passdata)) {
 			auth_items_set_data(engine->context, kAuthorizationEnvironmentPassword, CFDataGetBytePtr(passdata), CFDataGetLength(passdata));
-		} else {
-			char nulChar = 0;
-			auth_items_set_data(engine->context, kAuthorizationEnvironmentPassword, &nulChar, 1);
 		}
 		CFRelease(passdata);
 	}
@@ -449,53 +455,63 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 	CFDictionaryRef la_result = NULL;
 
     CFIndex count = CFArrayGetCount(mechanisms);
-    for (CFIndex i = 0; i < count; i++) {
+	bool sheet_evaluation = false;
+	if (engine->la_context) {
+		int tmp = kLAOptionNotInteractive;
+		CFNumberRef key = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmp);
+		tmp = 1;
+		CFNumberRef value = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmp);
+		if (key && value) {
+			CFMutableDictionaryRef options = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(options, key, value);
+			la_result = LACopyResultOfPolicyEvaluation(engine->la_context, kLAPolicyDeviceOwnerAuthentication, options, NULL);
+			CFReleaseSafe(options);
+		}
+		CFReleaseSafe(key);
+		CFReleaseSafe(value);
+	}
+
+	for (CFIndex i = 0; i < count; i++) {
         mechanism_t mech = (mechanism_t)CFArrayGetValueAtIndex(mechanisms, i);
         
         if (mechanism_get_type(mech)) {
             os_log_debug(AUTHD_LOG, "engine: running builtin mechanism %{public}s (%li of %li)", mechanism_get_string(mech), i+1, count);
             result = _evaluate_builtin_mechanism(engine, mech);
         } else {
-			bool sheet_variant_used = false;
+			bool shoud_run_agent = true;     // evaluate comes from sheet -> we may not want to run standard SecurityAgent or authhost
 			if (engine->la_context) {
-
-				if (!la_result) {
-					int tmp = kLAOptionNotInteractive;
-					CFNumberRef key = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmp);
-					tmp = 1;
-					CFNumberRef value = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmp);
-					if (key && value) {
-						CFMutableDictionaryRef options = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-						CFDictionarySetValue(options, key, value);
-						la_result = LACopyResultOfPolicyEvaluation(engine->la_context, kLAPolicyDeviceOwnerAuthentication, options, NULL);
-						CFReleaseSafe(options);
-					}
-					CFReleaseSafe(key);
-					CFReleaseSafe(value);
-				}
-
 				// sheet variant in progress
 				if (strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0) {
-					// instead of running SecurityAgent, get uid from the authorization
-					os_log(AUTHD_LOG, "engine: running builtin sheet authenticate");
-					if (!la_result) {
-						result = kAuthorizationResultDeny; // no la_result => was evaluate did not pass
-					}
-					sheet_variant_used = true;
-				} else if (strcmp(mechanism_get_string(mech), "builtin:authenticate,privileged") == 0) {
-					os_log(AUTHD_LOG, "engine: running builtin sheet privileged authenticate");
-					if (!la_result) {
-						result = kAuthorizationResultDeny; // no la_result => was evaluate did not pass
+					// find out if sheet just provided credentials or did real authentication
+					// if password is provided or PAM service name exists, it means authd has to evaluate credentials
+					// otherwise we need to check la_result
+					if (auth_items_exist(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) || auth_items_exist(engine->context, kAuthorizationEnvironmentPassword)) {
+						// do not try to get credentials as it has been already passed by sheet
+						os_log(AUTHD_LOG, "engine: ingoring builtin sheet authenticate");
 					} else {
-						if (!_extract_password_from_la(engine, engine->la_context)) {
-							os_log_debug(AUTHD_LOG, "engine: cannot extract cred");
+						// sheet itself did the authenticate the user
+						os_log(AUTHD_LOG, "engine: running builtin sheet authenticate");
+						sheet_evaluation = true;
+						if (!la_result || TKGetSmartcardSetting(kTKEnforceSmartcard) != 0) {
+							result = kAuthorizationResultDeny; // no la_result => evaluate did not pass for sheet method. Enforced smartcard => no way to use sheet based evaluation
 						}
 					}
-					sheet_variant_used = true;
+					shoud_run_agent = false; // SecurityAgent should not be run for builtin:authenticate
+				} else if (strcmp(mechanism_get_string(mech), "builtin:authenticate,privileged") == 0) {
+					if (sheet_evaluation) {
+						os_log(AUTHD_LOG, "engine: running builtin sheet privileged authenticate");
+						shoud_run_agent = false;
+						if (!la_result || TKGetSmartcardSetting(kTKEnforceSmartcard) != 0) {  // should not get here under normal circumstances but we need to handle this case as well
+							result = kAuthorizationResultDeny; // no la_result => evaluate did not pass. Enforced smartcard => no way to use sheet based evaluation
+						}
+					} else {
+						// should_run_agent has to be set to true because we want authorizationhost to verify the credentials
+						os_log(AUTHD_LOG, "engine: running sheet privileged authenticate");
+					}
 				}
 			}
 
-			if (!sheet_variant_used) {
+			if (shoud_run_agent) {
 				agent_t agent = _get_agent(engine, mech, true, i == 0);
 				require_action(agent != NULL, done, result = kAuthorizationResultUndefined; os_log_error(AUTHD_LOG, "engine: error creating mechanism agent"));
 
@@ -632,6 +648,12 @@ _evaluate_authentication(engine_t engine, rule_t rule)
     require_action(CFArrayGetCount(mechanisms) > 0, done, os_log_debug(AUTHD_LOG, "engine: error no mechanisms found"));
     
     int64_t ruleTries = rule_get_tries(rule);
+
+	if (engine->la_context) {
+		ruleTries = 1;
+		os_log_debug(AUTHD_LOG, "Sheet authentication in progress, one try is enough");
+	}
+
     for (engine->tries = 0; engine->tries < ruleTries; engine->tries++) {
         
         auth_items_set_data(engine->hints, AGENT_HINT_RETRY_REASON, &engine->reason, sizeof(engine->reason));
@@ -697,11 +719,6 @@ _evaluate_authentication(engine_t engine, rule_t rule)
         } else if (status == errAuthorizationDenied) {
 			os_log_error(AUTHD_LOG, "engine: evaluate denied");
 			engine->reason = invalidPassphrase;
-			if (engine->la_context) {
-				// for sheet authorizations do not retry with sheet as there is no new sheet UI
-				CFReleaseNull(engine->la_context);
-				auth_items_remove(engine->context, AGENT_CONTEXT_UID);
-			}
         }
     }
     
@@ -709,8 +726,6 @@ _evaluate_authentication(engine_t engine, rule_t rule)
         engine->reason = tooManyTries;
         auth_items_set_data(engine->hints, AGENT_HINT_RETRY_REASON, &engine->reason, sizeof(engine->reason));
         auth_items_set_int(engine->hints, AGENT_HINT_TRIES, engine->tries);
-		// TODO: determine why evaluate_mechanism is run once again and possibly remove this call
-        _evaluate_mechanisms(engine, mechanisms);
         ccaudit_log(ccaudit, engine->currentRightName, NULL, 1113);
     }
     
@@ -1132,7 +1147,7 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
 #endif
 
     // Check if a credential was passed into the environment and we were asked to extend the rights
-    if (engine->flags & kAuthorizationFlagExtendRights) {
+    if (engine->flags & kAuthorizationFlagExtendRights && !(engine->flags & kAuthorizationFlagSheet)) {
         const char * user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
         const char * pass = auth_items_get_string(environment, kAuthorizationEnvironmentPassword);
 		const bool password_was_used = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) == nil; // AGENT_CONTEXT_AP_PAM_SERVICE_NAME in the context means alternative PAM was used
@@ -1205,11 +1220,8 @@ OSStatus engine_preauthorize(engine_t engine, auth_items_t credentials)
 
 	engine->flags = kAuthorizationFlagExtendRights;
 	engine->preauthorizing = true;
-	CFTypeRef la_context = engine_copy_context(engine, credentials);
-	if (la_context) {
-		_extract_password_from_la(engine, la_context);
-		CFRelease(la_context);
-	}
+    CFAssignRetained(engine->la_context, engine_copy_context(engine, credentials));
+	_extract_password_from_la(engine);
 
 	const char *user = auth_items_get_string(credentials, kAuthorizationEnvironmentUsername);
 	require(user, done);
@@ -1338,14 +1350,72 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     if (auth_rights_get_count(rights) > 0) {
         ccaudit_log(ccaudit, "begin evaluation", NULL, 0);
     }
-    
+
+	if (!auth_token_apple_signed(engine->auth)) {
+#ifdef NDEBUG
+		flags &= ~kAuthorizationFlagIgnorePasswordOnly;
+		flags &= ~kAuthorizationFlagSheet;
+#else
+		os_log_debug(AUTHD_LOG, "engine: in release mode, extra flags would be ommited as creator is not signed by Apple");
+#endif
+	}
+
     engine->flags = flags;
     
     if (environment) {
         _parse_environment(engine, environment);
         auth_items_copy(engine->hints, environment);
-		engine_acquire_sheet_data(engine);
     }
+
+	if (engine->flags & kAuthorizationFlagSheet) {
+		CFTypeRef extract_password_entitlement = auth_token_copy_entitlement_value(engine->auth, "com.apple.authorization.extract-password");
+		if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
+			save_password = true;
+			os_log_debug(AUTHD_LOG, "engine: authorization allowed to extract password");
+		} else {
+			os_log_debug(AUTHD_LOG, "engine: authorization NOT allowed to extract password");
+		}
+		CFReleaseSafe(extract_password_entitlement);
+
+		// TODO: Remove when all clients have adopted entitlement
+		if (!enforced_entitlement()) {
+			save_password = true;
+		}
+		const char *user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
+		require(user, done);
+
+		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
+		struct passwd *pwd = getpwnam(user);
+		require(pwd, done);
+		auth_items_set_int(engine->context, AGENT_CONTEXT_UID, pwd->pw_uid);
+
+		// move sheet-specific items from hints to context
+		const char *service = auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+		if (service) {
+			if (auth_items_exist(engine->hints, AGENT_CONTEXT_AP_USER_NAME)) {
+				auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_USER_NAME));
+				auth_items_remove(engine->hints, AGENT_CONTEXT_AP_USER_NAME);
+			} else {
+				auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, user);
+			}
+
+			auth_items_set_string(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, service);
+			auth_items_remove(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+		}
+
+		if (auth_items_exist(environment, AGENT_CONTEXT_AP_TOKEN)) {
+			size_t datalen = 0;
+			const void *data = auth_items_get_data(engine->hints, AGENT_CONTEXT_AP_TOKEN, &datalen);
+			if (data) {
+				auth_items_set_data(engine->context, AGENT_CONTEXT_AP_TOKEN, data, datalen);
+			}
+			auth_items_remove(engine->hints, AGENT_CONTEXT_AP_TOKEN);
+		}
+
+		engine_acquire_sheet_data(engine);
+		_extract_password_from_la(engine);
+		engine->preauthorizing = true;
+	}
 
 	auth_items_t decrypted_items = auth_items_create();
 	require_action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "engine: enable to create items"));
@@ -1357,6 +1427,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     engine->dismissed = false;
     auth_rights_clear(engine->grantedRights);
 
+	if (!(engine->flags & kAuthorizationFlagIgnorePasswordOnly))
 	{
 		// first check if any of rights uses rule with password-only set to true
 		// if so, set appropriate hint so SecurityAgent won't use alternate authentication methods like smartcard etc.
@@ -1377,6 +1448,8 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 			return true;
 		});
 		authdb_connection_release(&dbconn); // release db handle
+	} else {
+		os_log_info(AUTHD_LOG, "engine: password-only ignored");
 	}
 
 	if (password_only) {
@@ -1486,7 +1559,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     }
     
     os_log_debug(AUTHD_LOG, "engine: authorize result: %d", (int)status);
-    
+
+	if (engine->flags & kAuthorizationFlagSheet) {
+		engine->preauthorizing = false;
+	}
+
     if ((engine->flags & kAuthorizationFlagExtendRights) && !(engine->flags & kAuthorizationFlagDestroyRights)) {
         _cf_set_iterate(engine->credentials, ^bool(CFTypeRef value) {
             credential_t cred = (credential_t)value;
@@ -1727,20 +1804,14 @@ CFTypeRef engine_copy_context(engine_t engine, auth_items_t source)
 
 bool engine_acquire_sheet_data(engine_t engine)
 {
-	uid_t uid = auth_items_get_int(engine->hints, AGENT_CONTEXT_UID);
+	uid_t uid = auth_items_get_int(engine->context, AGENT_CONTEXT_UID);
 	if (!uid)
 		return false;
 
 	CFReleaseSafe(engine->la_context);
 	engine->la_context = engine_copy_context(engine, engine->hints);
 	if (engine->la_context) {
-		// copy UID to the context of the authorization
 		os_log_debug(AUTHD_LOG, "engine: Sheet user UID %d", uid);
-		auth_items_set_int(engine->context, AGENT_CONTEXT_UID, uid);
-		struct passwd *pwd = getpwuid(uid);
-		if (pwd) {
-			auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, pwd->pw_name);
-		}
 		return true;
 	} else {
 		// this is not real failure as no LA context in authorization context is very valid scenario

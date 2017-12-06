@@ -22,6 +22,7 @@
  */
 #import "CloudKitMockXCTest.h"
 #import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 
 @class CKKSKey;
@@ -29,6 +30,8 @@
 
 @interface ZoneKeys : CKKSCurrentKeySet
 @property CKKSKey* rolledTLK;
+
+- (instancetype)initLoadingRecordsFromZone:(FakeCKZone*)zone;
 @end
 
 /*
@@ -37,7 +40,12 @@
 
 @interface CloudKitKeychainSyncingMockXCTest : CloudKitMockXCTest
 
+@property CKKSControl* ckksControl;
+
 @property id mockCKKSKey;
+
+@property id<CKKSSelfPeer> currentSelfPeer;
+@property NSMutableSet<id<CKKSPeer>>* currentPeers;
 
 @property NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
 
@@ -51,6 +59,16 @@
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
 - (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
 - (NSMutableArray<NSData *>*) SOSPiggyICloudIdentities;
+
+- (void)putTLKShareInCloudKit:(CKKSKey*)key
+                         from:(CKKSSOSSelfPeer*)sharingPeer
+                           to:(id<CKKSPeer>)receivingPeer
+                       zoneID:(CKRecordZoneID*)zoneID;
+- (void)putTLKSharesInCloudKit:(CKKSKey*)key
+                          from:(CKKSSOSSelfPeer*)sharingPeer
+                        zoneID:(CKRecordZoneID*)zoneID;
+- (void)putSelfTLKSharesInCloudKit:(CKRecordZoneID*)zoneID;
+- (void)saveTLKSharesInLocalDatabase:(CKRecordZoneID*)zoneID;
 
 - (void)saveClassKeyMaterialToKeychain: (CKRecordZoneID*)zoneID;
 
@@ -99,4 +117,7 @@
 
 // Returns an expectation that someone will send an NSNotification that this view changed
 -(XCTestExpectation*)expectChangeForView:(NSString*)view;
+
+// Establish an assertion that CKKS will cause a server extension error soon.
+- (void)expectCKReceiveSyncKeyHierarchyError:(CKRecordZoneID*)zoneID;
 @end

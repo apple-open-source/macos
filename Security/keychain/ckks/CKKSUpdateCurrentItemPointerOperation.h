@@ -33,6 +33,7 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*) ckks
                           currentPointer:(NSString*)identifier
                              oldItemUUID:(NSString*)oldItemUUID
+                             oldItemHash:(NSData*)oldItemHash
                              newItemUUID:(NSString*)newItemUUID
                         ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end

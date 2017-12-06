@@ -80,7 +80,7 @@ extern NSString* const SecCKKSAPSNamedPort;
 
 /* Item CKRecords */
 extern NSString* const SecCKRecordItemType;
-extern NSString* const SecCKRecordVersionKey;
+extern NSString* const SecCKRecordHostOSVersionKey;
 extern NSString* const SecCKRecordEncryptionVersionKey;
 extern NSString* const SecCKRecordParentKeyRefKey;
 extern NSString* const SecCKRecordDataKey;
@@ -97,6 +97,20 @@ extern NSString* const SecCKRecordKeyClassKey;
 //extern NSString* const SecCKRecordWrappedKeyKey;
 //extern NSString* const SecCKRecordParentKeyRefKey;
 
+/* TLK Share CKRecord Keys */
+// These are a bit special; they can't use the record ID as information without parsing.
+extern NSString* const SecCKRecordTLKShareType;
+extern NSString* const SecCKRecordSenderPeerID;
+extern NSString* const SecCKRecordReceiverPeerID;
+extern NSString* const SecCKRecordReceiverPublicEncryptionKey;
+extern NSString* const SecCKRecordCurve;
+extern NSString* const SecCKRecordEpoch;
+extern NSString* const SecCKRecordPoisoned;
+extern NSString* const SecCKRecordSignature;
+extern NSString* const SecCKRecordVersion;
+//extern NSString* const SecCKRecordParentKeyRefKey; // reference to the key contained by this record
+//extern NSString* const SecCKRecordWrappedKeyKey;   // key material
+
 /* Current Key CKRecord Keys */
 extern NSString* const SecCKRecordCurrentKeyType;
 // The key class will be the record name.
@@ -105,7 +119,7 @@ extern NSString* const SecCKRecordCurrentKeyType;
 /* Current Item CKRecord Keys */
 extern NSString* const SecCKRecordCurrentItemType;
 extern NSString* const SecCKRecordItemRefKey;
-//extern NSString* const SecCKRecordVersionKey; <-- the OS version which last updated the record
+//extern NSString* const SecCKRecordHostOSVersionKey; <-- the OS version which last updated the record
 
 /* Device State CKRexord Keys */
 extern NSString* const SecCKRecordDeviceStateType;
@@ -157,6 +171,13 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateUnhealthy;
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateBadCurrentPointers;
 // Something has gone wrong creating new TLKs.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateNewTLKsFailed;
+// Something isn't quite right with the TLK shares.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares;
+// Something has gone wrong fixing TLK shares.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed;
+// The key hierarchy state machine needs to wait for the fixup operation to complete
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation;
+
 // Fatal error. Will not proceed unless fixed from outside class.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateError;
 // This CKKS instance has been cancelled.
@@ -178,6 +199,9 @@ extern NSString* const SecCKKSAggdViewKeyCount;
 extern NSString* const SecCKKSAggdItemReencryption;
 
 extern NSString* const SecCKKSUserDefaultsSuite;
+
+extern NSString* const CKKSErrorDomain;
+extern NSString* const CKKSServerExtensionErrorDomain;
 
 /* Queue limits: these should likely be configurable via plist */
 #define SecCKKSOutgoingQueueItemsAtOnce 100
@@ -211,6 +235,10 @@ bool SecCKKSEnforceManifests(void);
 bool SecCKKSEnableEnforceManifests(void);
 bool SecCKKSSetEnforceManifests(bool value);
 
+bool SecCKKSShareTLKs(void);
+bool SecCKKSEnableShareTLKs(void);
+bool SecCKKSSetShareTLKs(bool value);
+
 // Testing support
 bool SecCKKSTestsEnabled(void);
 bool SecCKKSTestsEnable(void);
@@ -232,7 +260,49 @@ SecServerCreateCKKSEndpoint(void);
 
 // TODO: handle errors better
 typedef CF_ENUM(CFIndex, CKKSErrorCode) {
+    CKKSNotLoggedIn = 10,
+    CKKSNoSuchView = 11,
+
+    CKKSRemoteItemChangePending = 12,
+    CKKSLocalItemChangePending = 13,
+    CKKSItemChanged = 14,
     CKKSNoUUIDOnItem = 15,
+    CKKSItemCreationFailure = 16,
+    CKKSInvalidKeyClass = 17,
+    CKKSKeyNotSelfWrapped = 18,
+    CKKSNoTrustedPeer = 19,
+    CKKSDataMismatch = 20,
+    CKKSProtobufFailure = 21,
+    CKKSNoSuchRecord = 22,
+    CKKSMissingTLKShare = 23,
+    CKKSNoPeersAvailable = 24,
+};
+
+// These errors are returned by the CKKS server extension.
+// Commented out codes here indicate that we don't currently handle them on the client side.
+typedef CF_ENUM(CFIndex, CKKSServerExtensionErrorCode) {
+    // Generic Errors
+    //CKKSServerMissingField = 1,
+    //CKKSServerMissingRecord = 2,
+    //CKKSServerUnexpectedFieldType = 3,
+    //CKKSServerUnexpectedRecordType = 4,
+    //CKKSServerUnepxectedRecordID = 5,
+
+    // Chain errors:
+    //CKKSServerMissingCurrentKeyPointer = 6,
+    //CKKSServerMissingCurrentKey = 7,
+    //CKKSServerUnexpectedSyncKeyClassInChain = 8,
+    CKKSServerUnexpectedSyncKeyInChain = 9,
+
+    // Item/Currentitem record errors:
+    //CKKSServerKeyrollingNotAllowed = 10,
+    //CKKSServerInvalidPublicIdentity = 11,
+    //CKKSServerPublicKeyMismatch = 12,
+    //CKKSServerServiceNumberMismatch = 13,
+    //CKKSServerUnknownServiceNumber = 14,
+    //CKKSServerEncverLessThanMinVal = 15,
+    //CKKSServerCannotModifyWasCurrent = 16,
+    //CKKSServerInvalidCurrentItem = 17,
 };
 
 #define SecTranslateError(nserrorptr, cferror) \

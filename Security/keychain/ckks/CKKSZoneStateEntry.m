@@ -36,17 +36,26 @@
 #import <CloudKit/CloudKit.h>
 #import "CKKSZoneStateEntry.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
+#import "keychain/ckks/CKKSFixups.h"
 
 
 @implementation CKKSZoneStateEntry
 
-- (instancetype) initWithCKZone: (NSString*) ckzone zoneCreated: (bool) ckzonecreated zoneSubscribed: (bool) ckzonesubscribed changeToken: (NSData*) changetoken lastFetch: (NSDate*) lastFetch encodedRateLimiter: (NSData*) encodedRateLimiter {
+- (instancetype)initWithCKZone:(NSString*)ckzone
+                   zoneCreated:(bool)ckzonecreated
+                zoneSubscribed:(bool)ckzonesubscribed
+                   changeToken:(NSData*)changetoken
+                     lastFetch:(NSDate*)lastFetch
+                     lastFixup:(CKKSFixup)lastFixup
+            encodedRateLimiter:(NSData*)encodedRateLimiter
+{
     if(self = [super init]) {
         _ckzone = ckzone;
         _ckzonecreated = ckzonecreated;
         _ckzonesubscribed = ckzonesubscribed;
         _encodedChangeToken = changetoken;
         _lastFetchTime = lastFetch;
+        _lastFixup = lastFixup;
 
         self.encodedRateLimiter = encodedRateLimiter;
     }
@@ -65,8 +74,9 @@
             self.ckzonesubscribed == obj.ckzonesubscribed &&
             ((self.encodedChangeToken == nil && obj.encodedChangeToken == nil) || [self.encodedChangeToken isEqual: obj.encodedChangeToken]) &&
             ((self.lastFetchTime == nil && obj.lastFetchTime == nil) || [self.lastFetchTime isEqualToDate: obj.lastFetchTime]) &&
-            ((self.rateLimiter == nil && obj.rateLimiter == nil) || [self.rateLimiter isEqual: obj.rateLimiter])
-           ) ? YES : NO;
+            ((self.rateLimiter == nil && obj.rateLimiter == nil) || [self.rateLimiter isEqual: obj.rateLimiter]) &&
+            self.lastFixup == obj.lastFixup &&
+            true) ? YES : NO;
 }
 
 + (instancetype) state: (NSString*) ckzone {
@@ -78,7 +88,13 @@
     }
 
     if(!ret) {
-        ret = [[CKKSZoneStateEntry alloc] initWithCKZone: ckzone zoneCreated: false zoneSubscribed: false changeToken: nil lastFetch:nil encodedRateLimiter: nil];
+        ret = [[CKKSZoneStateEntry alloc] initWithCKZone:ckzone
+                                             zoneCreated:false
+                                          zoneSubscribed:false
+                                             changeToken:nil
+                                               lastFetch:nil
+                                               lastFixup:CKKSCurrentFixupNumber
+                                      encodedRateLimiter:nil];
     }
     return ret;
 }
@@ -132,7 +148,7 @@
 }
 
 + (NSArray<NSString*>*) sqlColumns {
-    return @[@"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter"];
+    return @[@"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
@@ -147,7 +163,8 @@
          @"ckzonesubscribed": [NSNumber numberWithBool:self.ckzonesubscribed],
          @"changetoken": CKKSNilToNSNull([self.encodedChangeToken base64EncodedStringWithOptions:0]),
          @"lastfetch": CKKSNilToNSNull(self.lastFetchTime ? [dateFormat stringFromDate: self.lastFetchTime] : nil),
-         @"ratelimiter": CKKSNilToNSNull([self.encodedRateLimiter base64EncodedStringWithOptions:0])
+         @"ratelimiter": CKKSNilToNSNull([self.encodedRateLimiter base64EncodedStringWithOptions:0]),
+             @"lastFixup": [NSNumber numberWithLong:self.lastFixup],
              };
 }
 
@@ -161,6 +178,7 @@
                                                    [[NSData alloc] initWithBase64EncodedString: row[@"changetoken"] options:0] :
                                                    nil
                                             lastFetch: [row[@"lastfetch"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"lastfetch"]]
+                                            lastFixup:(CKKSFixup)[row[@"lastFixup"] integerValue]
                                    encodedRateLimiter: [row[@"ratelimiter"] isEqual: [NSNull null]] ? nil : [[NSData alloc] initWithBase64EncodedString: row[@"ratelimiter"] options:0]
             ];
 }

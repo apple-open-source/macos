@@ -27,57 +27,7 @@
 
 #import <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
-
-@class CKKSCondition;
-
-@interface NSOperation (CKKSUsefulPrintingOperation)
-- (NSString*)description;
-- (BOOL)isPending;
-
-// If op is nonnull, op becomes a dependency of this operation
-- (void)addNullableDependency: (NSOperation*) op;
-
-// Add all operations in this collection as dependencies, then add yourself to the collection
--(void)linearDependencies:(NSHashTable*)collection;
-
-// Insert yourself as high up the linearized list of dependencies as possible
--(void)linearDependenciesWithSelfFirst: (NSHashTable*) collection;
-@end
-
-@interface NSBlockOperation (CKKSUsefulConstructorOperation)
-+(instancetype)named: (NSString*)name withBlock: (void(^)(void)) block;
-@end
-
-
-#define CKKSResultErrorDomain @"CKKSResultOperationError"
-enum {
-    CKKSResultSubresultError = 1,
-    CKKSResultSubresultCancelled = 2,
-    CKKSResultTimedOut = 3,
-};
-
-@interface CKKSResultOperation : NSBlockOperation
-@property NSError* error;
-@property NSDate* finishDate;
-@property CKKSCondition* completionHandlerDidRunCondition;
-
-// Very similar to addDependency, but:
-//   if the dependent operation has an error or is canceled, cancel this operation
-- (void)addSuccessDependency: (CKKSResultOperation*) operation;
-
-// Call to check if you should run.
-// Note: all subclasses must call this if they'd like to comply with addSuccessDependency
-// Also sets your .error property to encapsulate the upstream error
-- (bool)allDependentsSuccessful;
-
-// Allows you to time out CKKSResultOperations: if they haven't started by now, they'll cancel themselves
-// and set their error to indicate the timeout
-- (instancetype)timeout:(dispatch_time_t)timeout;
-
-// Convenience constructor.
-+(instancetype)operationWithBlock:(void (^)(void))block;
-+(instancetype)named: (NSString*)name withBlock: (void(^)(void)) block;
-@end
+#import "keychain/ckks/CKKSResultOperation.h"
 
 @interface CKKSGroupOperation : CKKSResultOperation {
     BOOL executing;

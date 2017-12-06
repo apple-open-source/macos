@@ -24,7 +24,12 @@ return log; \
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
     if (_cf) { (CF) = NULL; CFRelease(_cf); } }
 #define CFRetainSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRetain(_cf); }
-    
+#define CFAssignRetained(VAR,CF) ({ \
+__typeof__(VAR) *const _pvar = &(VAR); \
+__typeof__(CF) _cf = (CF); \
+(*_pvar) = *_pvar ? (CFRelease(*_pvar), _cf) : _cf; \
+})
+
 #define xpc_release_safe(obj)  if (obj) { xpc_release(obj); obj = NULL; }
 #define free_safe(obj)  if (obj) { free(obj); obj = NULL; }
     

@@ -40,7 +40,8 @@ static void tests(void)
 {
     SecKeyRef signingKey = NULL;
     SecKeyRef octagonSigningKey = NULL;
-    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, &octagonSigningKey, NULL);
+    SecKeyRef octagonEncryptionKey = NULL;
+    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, &octagonSigningKey, &octagonEncryptionKey, NULL);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
     unsigned long count;
     
@@ -75,6 +76,7 @@ static void tests(void)
 errOut:
     CFReleaseNull(signingKey);
     CFReleaseNull(octagonSigningKey);
+    CFReleaseNull(octagonEncryptionKey);
     CFReleaseNull(fpi);
 }
 

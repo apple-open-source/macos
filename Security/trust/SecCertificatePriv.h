@@ -546,6 +546,17 @@ CSSM_RETURN SecDigestGetData(CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_
 bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verifyTime)
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
 
+/*!
+  @function SecCertificateCopyPublicKeySHA1DigestFromCertificateData
+  @abstract Returns the SHA1 hash of the public key of a certificate or NULL
+  @param allocator CFAllocator to allocate the certificate with.
+  @param der_certificate DER encoded X.509 certificate.
+  @result SHA1 hash of the public key of a certificate or NULL
+*/
+CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllocatorRef allocator,
+                                                                   CFDataRef der_certificate)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_13_2, __IPHONE_NA, __IPHONE_NA); // Likely incorrect.
+
 #endif /* SEC_OS_OSX */
 
 __END_DECLS

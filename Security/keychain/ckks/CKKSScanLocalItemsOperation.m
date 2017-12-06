@@ -65,7 +65,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountQueue: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksscan", ckks, "CKKSScanLocalItemsOperation cancelled, quitting");
             return false;
@@ -202,12 +202,12 @@
                         return;
                     }
 
-                    ckksnotice("ckksscan", ckks, "Syncing new item: %@ %@", oqe, itemToSave);
+                    ckksnotice("ckksscan", ckks, "Syncing new item: %@", oqe);
                     CFReleaseNull(itemToSave);
 
                     [oqe saveToDatabase: &error];
                     if(error) {
-                        ckkserror("ckksscan", ckks, "Need to upload %@ %@, but can't save to database: %@", item, oqe, error);
+                        ckkserror("ckksscan", ckks, "Need to upload %@, but can't save to database: %@", oqe, error);
                         self.error = error;
                         return;
                     }

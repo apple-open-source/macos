@@ -191,6 +191,13 @@
     self.mockFakeCKFetchRecordZoneChangesOperation = OCMClassMock([FakeCKFetchRecordZoneChangesOperation class]);
     OCMStub([self.mockFakeCKFetchRecordZoneChangesOperation ckdb]).andReturn(self.zones);
 
+    self.mockFakeCKFetchRecordsOperation = OCMClassMock([FakeCKFetchRecordsOperation class]);
+    OCMStub([self.mockFakeCKFetchRecordsOperation ckdb]).andReturn(self.zones);
+
+    self.mockFakeCKQueryOperation = OCMClassMock([FakeCKQueryOperation class]);
+    OCMStub([self.mockFakeCKQueryOperation ckdb]).andReturn(self.zones);
+
+
     OCMStub([self.mockDatabase addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
         __strong __typeof(self) strongSelf = weakSelf;
         BOOL matches = NO;
@@ -199,7 +206,38 @@
                 matches = YES;
 
                 FakeCKFetchRecordZoneChangesOperation *frzco = (FakeCKFetchRecordZoneChangesOperation *)obj;
+                [frzco addNullableDependency:strongSelf.ckFetchHoldOperation];
                 [strongSelf.operationQueue addOperation: frzco];
+            }
+        }
+        return matches;
+    }]]);
+
+    OCMStub([self.mockDatabase addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKFetchRecordsOperation class]]) {
+            if(strongSelf.silentFetchesAllowed) {
+                matches = YES;
+
+                FakeCKFetchRecordsOperation *ffro = (FakeCKFetchRecordsOperation *)obj;
+                [ffro addNullableDependency:strongSelf.ckFetchHoldOperation];
+                [strongSelf.operationQueue addOperation: ffro];
+            }
+        }
+        return matches;
+    }]]);
+
+    OCMStub([self.mockDatabase addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKQueryOperation class]]) {
+            if(strongSelf.silentFetchesAllowed) {
+                matches = YES;
+
+                FakeCKQueryOperation *fqo = (FakeCKQueryOperation *)obj;
+                [fqo addNullableDependency:strongSelf.ckFetchHoldOperation];
+                [strongSelf.operationQueue addOperation: fqo];
             }
         }
         return matches;
@@ -216,19 +254,26 @@
     }];
     self.ckksHoldOperation.name = @"ckks-hold";
 
-    self.mockCKKSViewManager = OCMClassMock([CKKSViewManager class]);
+    //self.mockCKKSViewManagerClass = OCMClassMock([CKKSViewManager class]);
+
+    // We don't want to use class mocks here, because they don't play well with partial mocks
+    self.mockCKKSViewManager = OCMPartialMock(
+        [[CKKSViewManager alloc] initWithContainerName:SecCKKSContainerName
+                                                usePCS:SecCKKSContainerUsePCS
+                  fetchRecordZoneChangesOperationClass:[FakeCKFetchRecordZoneChangesOperation class]
+                            fetchRecordsOperationClass:[FakeCKFetchRecordsOperation class]
+                                   queryOperationClass:[FakeCKQueryOperation class]
+                     modifySubscriptionsOperationClass:[FakeCKModifySubscriptionsOperation class]
+                       modifyRecordZonesOperationClass:[FakeCKModifyRecordZonesOperation class]
+                                    apsConnectionClass:[FakeAPSConnection class]
+                             nsnotificationCenterClass:[FakeNSNotificationCenter class]
+                                         notifierClass:[FakeCKKSNotifier class]
+                                             setupHold:self.ckksHoldOperation]);
+
     OCMStub([self.mockCKKSViewManager viewList]).andCall(self, @selector(managedViewList));
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
 
-    self.injectedManager = [[CKKSViewManager alloc] initWithContainerName:SecCKKSContainerName
-                                                                   usePCS:SecCKKSContainerUsePCS
-                                     fetchRecordZoneChangesOperationClass:[FakeCKFetchRecordZoneChangesOperation class]
-                                        modifySubscriptionsOperationClass:[FakeCKModifySubscriptionsOperation class]
-                                          modifyRecordZonesOperationClass:[FakeCKModifyRecordZonesOperation class]
-                                                       apsConnectionClass:[FakeAPSConnection class]
-                                                nsnotificationCenterClass:[FakeNSNotificationCenter class]
-                                                            notifierClass:[FakeCKKSNotifier class]
-                                                                setupHold:self.ckksHoldOperation];
+    self.injectedManager = self.mockCKKSViewManager;
 
     [CKKSViewManager resetManager:false setTo:self.injectedManager];
 
@@ -259,6 +304,10 @@
 }
 
 -(void)expectCKFetch {
+    [self expectCKFetchAndRunBeforeFinished: nil];
+}
+
+-(void)expectCKFetchAndRunBeforeFinished: (void (^)())blockAfterFetch {
     // Create an object for the block to retain and modify
     BoolHolder* runAlready = [[BoolHolder alloc] init];
 
@@ -274,7 +323,56 @@
             runAlready.state = true;
 
             FakeCKFetchRecordZoneChangesOperation *frzco = (FakeCKFetchRecordZoneChangesOperation *)obj;
+            frzco.blockAfterFetch = blockAfterFetch;
+            [frzco addNullableDependency: strongSelf.ckFetchHoldOperation];
             [strongSelf.operationQueue addOperation: frzco];
+        }
+        return matches;
+    }]];
+}
+
+-(void)expectCKFetchByRecordID {
+    // Create an object for the block to retain and modify
+    BoolHolder* runAlready = [[BoolHolder alloc] init];
+
+    __weak __typeof(self) weakSelf = self;
+    [[self.mockDatabase expect] addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        if(runAlready.state) {
+            return NO;
+        }
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKFetchRecordsOperation class]]) {
+            matches = YES;
+            runAlready.state = true;
+
+            FakeCKFetchRecordsOperation *ffro = (FakeCKFetchRecordsOperation *)obj;
+            [ffro addNullableDependency: strongSelf.ckFetchHoldOperation];
+            [strongSelf.operationQueue addOperation: ffro];
+        }
+        return matches;
+    }]];
+}
+
+
+-(void)expectCKFetchByQuery {
+    // Create an object for the block to retain and modify
+    BoolHolder* runAlready = [[BoolHolder alloc] init];
+
+    __weak __typeof(self) weakSelf = self;
+    [[self.mockDatabase expect] addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        if(runAlready.state) {
+            return NO;
+        }
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKQueryOperation class]]) {
+            matches = YES;
+            runAlready.state = true;
+
+            FakeCKQueryOperation *fqo = (FakeCKQueryOperation *)obj;
+            [fqo addNullableDependency: strongSelf.ckFetchHoldOperation];
+            [strongSelf.operationQueue addOperation: fqo];
         }
         return matches;
     }]];
@@ -304,6 +402,7 @@
 }
 
 -(void)holdCloudKitModifications {
+    XCTAssertFalse([self.ckModifyHoldOperation isPending], "Shouldn't already be a pending cloudkit modify hold operation");
     self.ckModifyHoldOperation = [NSBlockOperation blockOperationWithBlock:^{
         secnotice("ckks", "Released CloudKit modification hold.");
     }];
@@ -311,6 +410,18 @@
 -(void)releaseCloudKitModificationHold {
     if([self.ckModifyHoldOperation isPending]) {
         [self.operationQueue addOperation: self.ckModifyHoldOperation];
+    }
+}
+
+-(void)holdCloudKitFetches {
+    XCTAssertFalse([self.ckFetchHoldOperation isPending], "Shouldn't already be a pending cloudkit fetch hold operation");
+    self.ckFetchHoldOperation = [NSBlockOperation blockOperationWithBlock:^{
+        secnotice("ckks", "Released CloudKit fetch hold.");
+    }];
+}
+-(void)releaseCloudKitFetchHold {
+    if([self.ckFetchHoldOperation isPending]) {
+        [self.operationQueue addOperation: self.ckFetchHoldOperation];
     }
 }
 
@@ -365,11 +476,18 @@
 
 
 
-- (void)expectCKModifyKeyRecords: (NSUInteger) expectedNumberOfRecords currentKeyPointerRecords: (NSUInteger) expectedCurrentKeyRecords zoneID: (CKRecordZoneID*) zoneID {
+- (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
+        currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                 tlkShareRecords:(NSUInteger)expectedTLKShareRecords
+                          zoneID:(CKRecordZoneID*)zoneID {
     NSNumber* nkeys = [NSNumber numberWithUnsignedInteger: expectedNumberOfRecords];
     NSNumber* ncurrentkeys = [NSNumber numberWithUnsignedInteger: expectedCurrentKeyRecords];
+    NSNumber* ntlkshares = [NSNumber numberWithUnsignedInteger: expectedTLKShareRecords];
 
-    [self expectCKModifyRecords:@{SecCKRecordIntermediateKeyType: nkeys, SecCKRecordCurrentKeyType: ncurrentkeys}
+    [self expectCKModifyRecords:@{SecCKRecordIntermediateKeyType: nkeys,
+                                  SecCKRecordCurrentKeyType: ncurrentkeys,
+                                  SecCKRecordTLKShareType: ntlkshares,
+                                  }
         deletedRecordTypeCounts:nil
                          zoneID:zoneID
             checkModifiedRecord:nil
@@ -726,6 +844,7 @@
 
     if(SecCKKSIsEnabled()) {
         // Ensure we don't have any blocking operations
+        self.accountStatus = CKAccountStatusNoAccount;
         [self startCKKSSubsystem];
 
         [self waitForCKModifications];
@@ -742,15 +861,14 @@
     [self.injectedManager cancelPendingOperations];
     [CKKSViewManager resetManager:true setTo:nil];
     self.injectedManager = nil;
+    [self.mockCKKSViewManager stopMocking];
+    self.mockCKKSViewManager = nil;
 
     [self.mockAccountStateTracker stopMocking];
     self.mockAccountStateTracker = nil;
 
     [self.mockLockStateTracker stopMocking];
     self.mockLockStateTracker = nil;
-
-    [self.mockCKKSViewManager stopMocking];
-    self.mockCKKSViewManager = nil;
 
     [self.mockFakeCKModifyRecordZonesOperation stopMocking];
     self.mockFakeCKModifyRecordZonesOperation = nil;
@@ -760,6 +878,12 @@
 
     [self.mockFakeCKFetchRecordZoneChangesOperation stopMocking];
     self.mockFakeCKFetchRecordZoneChangesOperation = nil;
+
+    [self.mockFakeCKFetchRecordsOperation stopMocking];
+    self.mockFakeCKFetchRecordsOperation = nil;
+
+    [self.mockFakeCKQueryOperation stopMocking];
+    self.mockFakeCKQueryOperation = nil;
 
     [self.mockDatabase stopMocking];
     self.mockDatabase = nil;
@@ -787,6 +911,28 @@
     return key;
 }
 
+- (NSError*)ckInternalServerExtensionError:(NSInteger)code description:(NSString*)desc {
+    NSError* extensionError = [[CKPrettyError alloc] initWithDomain:@"CloudkitKeychainService"
+                                                               code:code
+                                                           userInfo:@{
+                                                                      CKErrorServerDescriptionKey: desc,
+                                                                      NSLocalizedDescriptionKey: desc,
+                                                                      }];
+    NSError* internalError = [[CKPrettyError alloc] initWithDomain:CKInternalErrorDomain
+                                                              code:CKErrorInternalPluginError
+                                                          userInfo:@{CKErrorServerDescriptionKey: desc,
+                                                                     NSLocalizedDescriptionKey: desc,
+                                                                     NSUnderlyingErrorKey: extensionError,
+                                                                     }];
+    NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                      code:CKErrorServerRejectedRequest
+                                                  userInfo:@{NSUnderlyingErrorKey: internalError,
+                                                             CKErrorServerDescriptionKey: desc,
+                                                             NSLocalizedDescriptionKey: desc,
+                                                             CKContainerIDKey: SecCKKSContainerName,
+                                                             }];
+    return error;
+}
 
 @end
 

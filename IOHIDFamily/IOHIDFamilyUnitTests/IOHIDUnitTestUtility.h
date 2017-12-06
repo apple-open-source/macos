@@ -33,6 +33,7 @@
 #define OS_TYPE_MAC(x) x
 #endif
 
+//#define CONDTIONAL_TEST_CASE(x) test ## x
 #define CONDTIONAL_TEST_CASE(x) x
 #define MAC_OS_ONLY_TEST_CASE(x) OS_TYPE_MAC(x)
 #define EMBEDDED_OS_ONLY_TEST_CASE(x) OS_TYPE_EMBEDDED(x)

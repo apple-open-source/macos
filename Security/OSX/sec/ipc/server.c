@@ -1080,6 +1080,12 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementRestoreKeychain, &error)) {
                         CFDataRef recovery_key = SecXPCDictionaryCopyData(event, kSecXPCKeyRecoveryPublicKey, &error);
+                        uint8_t zero = 0;
+                        CFDataRef nullData = CFDataCreate(kCFAllocatorDefault, &zero, 1); // token we send if we really wanted to send NULL
+                        if(CFEqual(recovery_key, nullData)) {
+                            CFReleaseNull(recovery_key);
+                        }
+                        CFReleaseNull(nullData);
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCRegisterRecoveryPublicKey_Server(recovery_key, &error));
                         CFReleaseNull(recovery_key);
                     }

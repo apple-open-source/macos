@@ -194,7 +194,10 @@
         _classA = _currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:_currentClassAPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
         _classC = _currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:_currentClassCPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
 
+        _tlkShares = [CKKSTLKShare allForUUID:_currentTLKPointer.currentKeyUUID zoneID:zoneID error:&error];
+
         _error = error;
+
     }
 
     return self;

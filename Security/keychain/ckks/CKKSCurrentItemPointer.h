@@ -46,6 +46,7 @@
 
 + (NSArray<CKKSCurrentItemPointer*>*)remoteItemPointers: (CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
 + (bool) deleteAll:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *) error;
++ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
 
 @end
 

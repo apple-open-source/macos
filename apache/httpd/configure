@@ -637,6 +637,8 @@ APR_BINDIR
 LOAD_ALL_MODULES
 ENABLED_DSO_MODULES
 DSO_MODULES
+ENABLED_MPM_MODULE
+MPM_MODULES
 INSTALL_PROG_FLAGS
 MK_IMPLIB
 SH_LIBTOOL
@@ -31659,10 +31661,10 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
-            DSO_MODULES="$DSO_MODULES mpm_event"
+            MPM_MODULES="$MPM_MODULES mpm_event"
             # add default MPM to LoadModule list
             if test event = $default_mpm; then
-                ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_event"
+                ENABLED_MPM_MODULE="mpm_event"
             fi
         fi
 
@@ -31742,10 +31744,10 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
-            DSO_MODULES="$DSO_MODULES mpm_prefork"
+            MPM_MODULES="$MPM_MODULES mpm_prefork"
             # add default MPM to LoadModule list
             if test prefork = $default_mpm; then
-                ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_prefork"
+                ENABLED_MPM_MODULE="mpm_prefork"
             fi
         fi
 
@@ -31814,10 +31816,10 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
-            DSO_MODULES="$DSO_MODULES mpm_winnt"
+            MPM_MODULES="$MPM_MODULES mpm_winnt"
             # add default MPM to LoadModule list
             if test winnt = $default_mpm; then
-                ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_winnt"
+                ENABLED_MPM_MODULE="mpm_winnt"
             fi
         fi
 
@@ -31886,10 +31888,10 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
-            DSO_MODULES="$DSO_MODULES mpm_worker"
+            MPM_MODULES="$MPM_MODULES mpm_worker"
             # add default MPM to LoadModule list
             if test worker = $default_mpm; then
-                ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_worker"
+                ENABLED_MPM_MODULE="mpm_worker"
             fi
         fi
 
@@ -34309,10 +34311,10 @@ DISTCLEAN_TARGETS = modules.mk
 static =
 shared = $libname
 EOF
-            DSO_MODULES="$DSO_MODULES mpm_mpmt_os2"
+            MPM_MODULES="$MPM_MODULES mpm_mpmt_os2"
             # add default MPM to LoadModule list
             if test mpmt_os2 = $default_mpm; then
-                ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},mpm_mpmt_os2"
+                ENABLED_MPM_MODULE="mpm_mpmt_os2"
             fi
         fi
 
@@ -36941,6 +36943,14 @@ $as_echo "$as_me: " >&6;}
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST INSTALL_PROG_FLAGS"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MPM_MODULES"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ENABLED_MPM_MODULE"
 
 
 

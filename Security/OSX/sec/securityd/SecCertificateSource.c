@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -578,7 +578,15 @@ void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source) {
 static bool SecCAIssuerCertificateSourceCopyParents(
                                                     SecCertificateSourceRef source, SecCertificateRef certificate,
                                                     void *context, SecCertificateSourceParents callback) {
-    return SecCAIssuerCopyParents(certificate, SecPathBuilderGetQueue((SecPathBuilderRef)context), context, callback);
+    /* Some expired certs have dead domains. Let's not check them. */
+    SecPathBuilderRef builder = (SecPathBuilderRef)context;
+    CFAbsoluteTime verifyDate = SecPathBuilderGetVerifyTime(builder);
+    if (SecPathBuilderHasTemporalParentChecks(builder) && !SecCertificateIsValid(certificate, verifyDate)) {
+        secinfo("async", "skipping CAIssuer fetch for expired %@", certificate);
+        callback(context, NULL);
+        return true;
+    }
+    return SecCAIssuerCopyParents(certificate, SecPathBuilderGetQueue(builder), context, callback);
 }
 
 static bool SecCAIssuerCertificateSourceContains(

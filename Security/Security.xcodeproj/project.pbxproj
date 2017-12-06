@@ -412,7 +412,6 @@
 			buildPhases = (
 			);
 			dependencies = (
-				DC71D9FD1D95BB440065FB93 /* PBXTargetDependency */,
 				DC71D9E11D95BAC40065FB93 /* PBXTargetDependency */,
 				DC5AC1341D835C2300CF422C /* PBXTargetDependency */,
 				DC178BF31D77ABE300B50D50 /* PBXTargetDependency */,
@@ -1110,6 +1109,7 @@
 		BE197F5C1911724900BA91D1 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE411314471B000DE34E /* UIKit.framework */; };
 		BE197F5E191173A800BA91D1 /* SWCViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = BE197F5D191173A800BA91D1 /* SWCViewController.m */; };
 		BE197F61191173F200BA91D1 /* entitlements.plist in Resources */ = {isa = PBXBuildFile; fileRef = BE197F60191173F200BA91D1 /* entitlements.plist */; };
+		BE1F74D31F609D460068FA64 /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E4F1D8085FC00865A7C /* SecFramework.c */; };
 		BE22FBC61EE0E8AB00893431 /* Monkey.m in Sources */ = {isa = PBXBuildFile; fileRef = BE22FBC51EE0E8AB00893431 /* Monkey.m */; };
 		BE22FBCE1EE1E26600893431 /* Keychain.m in Sources */ = {isa = PBXBuildFile; fileRef = BE22FBCD1EE1E26600893431 /* Keychain.m */; };
 		BE22FBD11EE2084100893431 /* Config.m in Sources */ = {isa = PBXBuildFile; fileRef = BE22FBD01EE2084100893431 /* Config.m */; };
@@ -1292,11 +1292,14 @@
 		D4D886C01CEB9F7200DC7583 /* ssl-policy-certs in Resources */ = {isa = PBXBuildFile; fileRef = D4D886BE1CEB9F3B00DC7583 /* ssl-policy-certs */; };
 		D4D886E91CEBDD2A00DC7583 /* nist-certs in Resources */ = {isa = PBXBuildFile; fileRef = D4D886E81CEBDD2A00DC7583 /* nist-certs */; };
 		D4D886EA1CEBDE0800DC7583 /* nist-certs in Resources */ = {isa = PBXBuildFile; fileRef = D4D886E81CEBDD2A00DC7583 /* nist-certs */; };
+		D4D96ED51F478BAF004B5F01 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
 		D4EC94FB1CEA482D0083E753 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */; };
 		D4EC94FE1CEA48760083E753 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */; };
 		D4FBBD621DD661A7004408F7 /* CMSEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D4FBBD601DD66196004408F7 /* CMSEncoder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D4FBBD631DD661AD004408F7 /* CMSDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D4FBBD611DD66196004408F7 /* CMSDecoder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DA30D6851DF8CA4100EC6B43 /* KeychainSyncAccountUpdater.m in Sources */ = {isa = PBXBuildFile; fileRef = DA30D6841DF8CA4100EC6B43 /* KeychainSyncAccountUpdater.m */; };
+		DAD3BD011F9830BB00DF29BA /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
+		DAD3BD021F9830BC00DF29BA /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
 		DC0067C11D87879D005AF8DB /* ucspServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DC6A82811D87734600418608 /* ucspServer.cpp */; };
 		DC0067C21D8787A4005AF8DB /* ucspNotifyReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DC6A82831D87734600418608 /* ucspNotifyReceiver.cpp */; };
 		DC0067D11D8788B7005AF8DB /* ucspClientC.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6A82801D87734600418608 /* ucspClientC.c */; };
@@ -1870,6 +1873,14 @@
 		DC0BCDB51D8C6A5B00070CB0 /* not_on_this_platorm.c in Sources */ = {isa = PBXBuildFile; fileRef = DC0BCDB41D8C6A5B00070CB0 /* not_on_this_platorm.c */; };
 		DC1002AF1D8E18870025549C /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DCD0677F1D8CDF19007602F1 /* libsecurity_codesigning.a */; };
 		DC1002D81D8E1A670025549C /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = 107226D10D91DB32003CF14F /* SecTask.h */; };
+		DC14478A1F5764C600236DB4 /* CKKSResultOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447881F5764C600236DB4 /* CKKSResultOperation.h */; };
+		DC14478B1F5764C600236DB4 /* CKKSResultOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447881F5764C600236DB4 /* CKKSResultOperation.h */; };
+		DC14478C1F5764C600236DB4 /* CKKSResultOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1447891F5764C600236DB4 /* CKKSResultOperation.m */; };
+		DC14478D1F5764C600236DB4 /* CKKSResultOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1447891F5764C600236DB4 /* CKKSResultOperation.m */; };
+		DC1447961F5766D200236DB4 /* NSOperationCategories.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447941F5766D200236DB4 /* NSOperationCategories.h */; };
+		DC1447971F5766D200236DB4 /* NSOperationCategories.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447941F5766D200236DB4 /* NSOperationCategories.h */; };
+		DC1447981F5766D200236DB4 /* NSOperationCategories.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1447951F5766D200236DB4 /* NSOperationCategories.m */; };
+		DC1447991F5766D200236DB4 /* NSOperationCategories.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1447951F5766D200236DB4 /* NSOperationCategories.m */; };
 		DC15F7661E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC15F7641E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h */; };
 		DC15F7671E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC15F7641E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h */; };
 		DC15F7681E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC15F7651E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m */; };
@@ -2162,7 +2173,6 @@
 		DC378B391DEFADB500A3DAFA /* CKKSZoneStateEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = DC378B371DEFADB500A3DAFA /* CKKSZoneStateEntry.m */; };
 		DC378B3C1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = DC378B3A1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.h */; };
 		DC378B3D1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = DC378B3B1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.m */; };
-		DC3832DA1DB7050900385F63 /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = DC3832C01DB6E69800385F63 /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		DC3A4B4B1D91E30400E46D4A /* sec_xdr.h in Headers */ = {isa = PBXBuildFile; fileRef = DC6A825A1D87732E00418608 /* sec_xdr.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DC3A4B531D91E8EB00E46D4A /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DCD06AB01D8E0D53007602F1 /* libsecurity_utilities.a */; };
 		DC3A4B641D91EADC00E46D4A /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DC3A4B621D91EAC500E46D4A /* main.cpp */; };
@@ -2225,7 +2235,7 @@
 		DC4DB1511E24692100CD6769 /* CKKSKey.h in Headers */ = {isa = PBXBuildFile; fileRef = DC4DB14E1E24692100CD6769 /* CKKSKey.h */; };
 		DC4DB1521E24692100CD6769 /* CKKSKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB14F1E24692100CD6769 /* CKKSKey.m */; };
 		DC4DB1531E24692100CD6769 /* CKKSKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB14F1E24692100CD6769 /* CKKSKey.m */; };
-		DC4DB15F1E2590B100CD6769 /* CKKSEncryptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB15E1E2590B100CD6769 /* CKKSEncryptionTests.m */; };
+		DC4DB15F1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB15E1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m */; };
 		DC4DB1691E26E99E00CD6769 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C441E2537CC007F95E5 /* ProtocolBuffer.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		DC4DB16A1E26E9F900CD6769 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C441E2537CC007F95E5 /* ProtocolBuffer.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		DC4EA5961E70A237008840B4 /* libsecurity.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DCC78EA91D8088E200865A7C /* libsecurity.a */; };
@@ -2510,22 +2520,6 @@
 		DC59EA051D91CA0A001BDDF5 /* DER_Encode.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F41D91CA0A001BDDF5 /* DER_Encode.c */; };
 		DC59EA0A1D91CA0A001BDDF5 /* DER_Digest.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F91D91CA0A001BDDF5 /* DER_Digest.c */; };
 		DC59EA0B1D91CA0A001BDDF5 /* oids.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9FA1D91CA0A001BDDF5 /* oids.c */; };
-		DC59EA2D1D91CA2C001BDDF5 /* libDERUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59EA261D91CA2C001BDDF5 /* libDERUtils.h */; };
-		DC59EA2E1D91CA2C001BDDF5 /* libDERUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA271D91CA2C001BDDF5 /* libDERUtils.c */; };
-		DC59EA2F1D91CA2C001BDDF5 /* fileIo.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA281D91CA2C001BDDF5 /* fileIo.c */; };
-		DC59EA301D91CA2C001BDDF5 /* fileIo.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59EA291D91CA2C001BDDF5 /* fileIo.h */; };
-		DC59EA311D91CA2C001BDDF5 /* printFields.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59EA2A1D91CA2C001BDDF5 /* printFields.h */; };
-		DC59EA321D91CA2C001BDDF5 /* printFields.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA2B1D91CA2C001BDDF5 /* printFields.c */; };
-		DC59EA4E1D91CACE001BDDF5 /* parseCert.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA491D91CACE001BDDF5 /* parseCert.c */; };
-		DC59EA501D91CAE3001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
-		DC59EA511D91CAE8001BDDF5 /* libDERUtils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59EA251D91CA15001BDDF5 /* libDERUtils.a */; };
-		DC59EA5A1D91CAF0001BDDF5 /* libDERUtils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59EA251D91CA15001BDDF5 /* libDERUtils.a */; };
-		DC59EA5B1D91CAF0001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
-		DC59EA611D91CAFD001BDDF5 /* parseCrl.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA4A1D91CACE001BDDF5 /* parseCrl.c */; };
-		DC59EA6B1D91CB9F001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
-		DC59EA711D91CBB9001BDDF5 /* DER_Ticket.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA461D91CACE001BDDF5 /* DER_Ticket.c */; };
-		DC59EA721D91CBBD001BDDF5 /* parseTicket.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59EA481D91CACE001BDDF5 /* parseTicket.c */; };
-		DC59EA741D91CBD0001BDDF5 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59EA731D91CBD0001BDDF5 /* libcrypto.dylib */; };
 		DC59EA771D91CC6D001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
 		DC59EA7B1D91CC9F001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
 		DC59EA7E1D91CCB2001BDDF5 /* libDER_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */; };
@@ -2870,21 +2864,11 @@
 		DC71D9D81D95BA6C0065FB93 /* secasn1d.c in Sources */ = {isa = PBXBuildFile; fileRef = DC88343A1D8A21AA00CE0ACA /* secasn1d.c */; };
 		DC71D9D91D95BA6C0065FB93 /* SecAsn1Coder.c in Sources */ = {isa = PBXBuildFile; fileRef = DC88340A1D8A21AA00CE0ACA /* SecAsn1Coder.c */; };
 		DC71D9DA1D95BA6C0065FB93 /* secasn1u.c in Sources */ = {isa = PBXBuildFile; fileRef = DC88343D1D8A21AA00CE0ACA /* secasn1u.c */; };
-		DC71D9E61D95BB0A0065FB93 /* oidsPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9FC1D91CA0A001BDDF5 /* oidsPriv.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9E71D95BB0A0065FB93 /* libDER.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F71D91CA0A001BDDF5 /* libDER.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9E81D95BB0A0065FB93 /* DER_Decode.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F31D91CA0A001BDDF5 /* DER_Decode.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9E91D95BB0A0065FB93 /* DER_Keys.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9EE1D91CA0A001BDDF5 /* DER_Keys.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9EA1D95BB0A0065FB93 /* DER_Encode.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F51D91CA0A001BDDF5 /* DER_Encode.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9EB1D95BB0A0065FB93 /* DER_Digest.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F81D91CA0A001BDDF5 /* DER_Digest.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9ED1D95BB0A0065FB93 /* asn1Types.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9EF1D91CA0A001BDDF5 /* asn1Types.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9EE1D95BB0A0065FB93 /* libDER_config.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F61D91CA0A001BDDF5 /* libDER_config.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9EF1D95BB0A0065FB93 /* DER_CertCrl.h in Headers */ = {isa = PBXBuildFile; fileRef = DC59E9F11D91CA0A001BDDF5 /* DER_CertCrl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DC71D9F11D95BB0A0065FB93 /* DER_Decode.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F21D91CA0A001BDDF5 /* DER_Decode.c */; };
-		DC71D9F21D95BB0A0065FB93 /* DER_Encode.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F41D91CA0A001BDDF5 /* DER_Encode.c */; };
-		DC71D9F31D95BB0A0065FB93 /* DER_Keys.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9ED1D91CA0A001BDDF5 /* DER_Keys.c */; };
-		DC71D9F41D95BB0A0065FB93 /* DER_Digest.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F91D91CA0A001BDDF5 /* DER_Digest.c */; };
-		DC71D9F51D95BB0A0065FB93 /* oids.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9FA1D91CA0A001BDDF5 /* oids.c */; };
-		DC71D9F61D95BB0A0065FB93 /* DER_CertCrl.c in Sources */ = {isa = PBXBuildFile; fileRef = DC59E9F01D91CA0A001BDDF5 /* DER_CertCrl.c */; };
+		DC7341F31F8447AB00AB9BDF /* CKKSTLKShare.h in Headers */ = {isa = PBXBuildFile; fileRef = DC7341F11F8447AB00AB9BDF /* CKKSTLKShare.h */; };
+		DC7341F41F8447AB00AB9BDF /* CKKSTLKShare.h in Headers */ = {isa = PBXBuildFile; fileRef = DC7341F11F8447AB00AB9BDF /* CKKSTLKShare.h */; };
+		DC7341F51F8447AB00AB9BDF /* CKKSTLKShare.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7341F21F8447AB00AB9BDF /* CKKSTLKShare.m */; };
+		DC7341F61F8447AB00AB9BDF /* CKKSTLKShare.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7341F21F8447AB00AB9BDF /* CKKSTLKShare.m */; };
+		DC7341FE1F84642C00AB9BDF /* CKKSTLKSharingEncryptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7341FD1F84642C00AB9BDF /* CKKSTLKSharingEncryptionTests.m */; };
 		DC762A9E1E57A86A00B03A2C /* CKKSRecordHolder.h in Headers */ = {isa = PBXBuildFile; fileRef = DC762A9C1E57A86A00B03A2C /* CKKSRecordHolder.h */; };
 		DC762A9F1E57A86A00B03A2C /* CKKSRecordHolder.h in Headers */ = {isa = PBXBuildFile; fileRef = DC762A9C1E57A86A00B03A2C /* CKKSRecordHolder.h */; };
 		DC762AA01E57A86A00B03A2C /* CKKSRecordHolder.m in Sources */ = {isa = PBXBuildFile; fileRef = DC762A9D1E57A86A00B03A2C /* CKKSRecordHolder.m */; };
@@ -2931,11 +2915,25 @@
 		DC963E801D95EBD1008A153E /* libsecurity_apple_csp.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = DCF784F91D88B63800E694BB /* libsecurity_apple_csp.txt */; };
 		DC963E821D95EC1C008A153E /* libsecurity_codesigning.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = DCD068CB1D8CDFFE007602F1 /* libsecurity_codesigning.plist */; };
 		DC963E841D95EC31008A153E /* libsecurity_codesigning.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = DCD068CC1D8CDFFE007602F1 /* libsecurity_codesigning.txt */; };
-		DC963EC51D95F52C008A153E /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1785421D778A7400B50D50 /* oids.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DC963EC61D95F646008A153E /* der_plist.h in Headers */ = {isa = PBXBuildFile; fileRef = 524492931AFD6D480043695A /* der_plist.h */; };
 		DC9A2C5F1EB3F557008FAC27 /* CKKSTests+Coalesce.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9A2C5E1EB3F556008FAC27 /* CKKSTests+Coalesce.m */; };
 		DC9A2C7F1EB40A76008FAC27 /* OCMock.framework in Embed OCMock */ = {isa = PBXBuildFile; fileRef = DC3502E81E02172C00BC0587 /* OCMock.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DC9C75161E4BCE1800F1CA0D /* CKKSOperationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C750F1E4BCC5100F1CA0D /* CKKSOperationTests.m */; };
+		DC9C95971F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C95951F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m */; };
+		DC9C95B41F79CFD1000D19E5 /* CKKSControl.h in Headers */ = {isa = PBXBuildFile; fileRef = DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */; };
+		DC9C95B51F79CFD1000D19E5 /* CKKSControl.h in Headers */ = {isa = PBXBuildFile; fileRef = DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */; };
+		DC9C95B61F79CFD1000D19E5 /* CKKSControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */; };
+		DC9C95B71F79CFD1000D19E5 /* CKKSControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */; };
+		DC9C95BD1F79DC5A000D19E5 /* CKKSControl.h in Headers */ = {isa = PBXBuildFile; fileRef = DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DC9C95BE1F79DC5F000D19E5 /* CKKSControl.h in Headers */ = {isa = PBXBuildFile; fileRef = DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DC9C95BF1F79DC88000D19E5 /* CKKSControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */; };
+		DC9C95C01F79DC89000D19E5 /* CKKSControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */; };
+		DC9C95C11F79DD4B000D19E5 /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
+		DC9C95C21F79DD4D000D19E5 /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
+		DC9FD3231F8587A500C8AAC8 /* CKKSSerializedKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = DC4D49D81F857728007AF2B8 /* CKKSSerializedKey.proto */; };
+		DC9FD32C1F85990A00C8AAC8 /* CKKSPeer.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9FD3291F8598F300C8AAC8 /* CKKSPeer.m */; };
+		DC9FD32D1F85990B00C8AAC8 /* CKKSPeer.m in Sources */ = {isa = PBXBuildFile; fileRef = DC9FD3291F8598F300C8AAC8 /* CKKSPeer.m */; };
+		DC9FD3361F86A34F00C8AAC8 /* CKKSSerializedKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = DC4D49D81F857728007AF2B8 /* CKKSSerializedKey.proto */; };
 		DCA4D1FF1E552DD50056214F /* CKKSCurrentKeyPointer.m in Sources */ = {isa = PBXBuildFile; fileRef = DCA4D1F41E5520550056214F /* CKKSCurrentKeyPointer.m */; };
 		DCA4D2001E552DD50056214F /* CKKSCurrentKeyPointer.m in Sources */ = {isa = PBXBuildFile; fileRef = DCA4D1F41E5520550056214F /* CKKSCurrentKeyPointer.m */; };
 		DCA4D2151E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DCA4D2131E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h */; };
@@ -2951,6 +2949,11 @@
 		DCA85B9A1E8D981100BA7241 /* client_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC844AEC1E81F315007AAB71 /* client_endpoint.m */; };
 		DCA85B9B1E8D981200BA7241 /* client_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC844AEC1E81F315007AAB71 /* client_endpoint.m */; };
 		DCAB14271E40039600C81511 /* libASN1_not_installed.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC8834081D8A218F00CE0ACA /* libASN1_not_installed.a */; };
+		DCAD9B441F8D939C00C5E2AE /* CKKSFixups.h in Headers */ = {isa = PBXBuildFile; fileRef = DCAD9B421F8D939C00C5E2AE /* CKKSFixups.h */; };
+		DCAD9B451F8D939C00C5E2AE /* CKKSFixups.h in Headers */ = {isa = PBXBuildFile; fileRef = DCAD9B421F8D939C00C5E2AE /* CKKSFixups.h */; };
+		DCAD9B461F8D939C00C5E2AE /* CKKSFixups.m in Sources */ = {isa = PBXBuildFile; fileRef = DCAD9B431F8D939C00C5E2AE /* CKKSFixups.m */; };
+		DCAD9B471F8D939C00C5E2AE /* CKKSFixups.m in Sources */ = {isa = PBXBuildFile; fileRef = DCAD9B431F8D939C00C5E2AE /* CKKSFixups.m */; };
+		DCAD9B491F8D95F200C5E2AE /* CloudKitKeychainSyncingFixupTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DCAD9B481F8D95F200C5E2AE /* CloudKitKeychainSyncingFixupTests.m */; };
 		DCB221501E8B08A5001598BC /* server_xpc.m in Sources */ = {isa = PBXBuildFile; fileRef = DCB2214A1E8B0861001598BC /* server_xpc.m */; };
 		DCB221511E8B08A6001598BC /* server_xpc.m in Sources */ = {isa = PBXBuildFile; fileRef = DCB2214A1E8B0861001598BC /* server_xpc.m */; };
 		DCB221531E8B08BC001598BC /* server_xpc.m in Sources */ = {isa = PBXBuildFile; fileRef = DCB2214A1E8B0861001598BC /* server_xpc.m */; };
@@ -3218,12 +3221,6 @@
 		DCB343851D8A32A20054D16E /* UnlockReferralItem.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342D21D8A32A20054D16E /* UnlockReferralItem.h */; };
 		DCB343861D8A32A20054D16E /* TrustSettingsUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DCB342D31D8A32A20054D16E /* TrustSettingsUtils.cpp */; };
 		DCB343871D8A32A20054D16E /* TrustSettingsUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342D41D8A32A20054D16E /* TrustSettingsUtils.h */; };
-		DCB343881D8A32A20054D16E /* SecCertificatePrivP.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342D51D8A32A20054D16E /* SecCertificatePrivP.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DCB343891D8A32A20054D16E /* SecBase64P.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB342D61D8A32A20054D16E /* SecBase64P.c */; };
-		DCB3438A1D8A32A20054D16E /* SecFrameworkP.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB342D71D8A32A20054D16E /* SecFrameworkP.c */; };
-		DCB3438B1D8A32A20054D16E /* SecCertificateP.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB342D81D8A32A20054D16E /* SecCertificateP.c */; };
-		DCB3438C1D8A32A20054D16E /* SecCertificateP.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342D91D8A32A20054D16E /* SecCertificateP.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DCB3438D1D8A32A20054D16E /* SecCertificateInternalP.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342DA1D8A32A20054D16E /* SecCertificateInternalP.h */; };
 		DCB3438E1D8A32A20054D16E /* tsaDERUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB342DC1D8A32A20054D16E /* tsaDERUtilities.c */; };
 		DCB3438F1D8A32A20054D16E /* tsaDERUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB342DD1D8A32A20054D16E /* tsaDERUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DCB343901D8A32A20054D16E /* TokenLogin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DCB342DE1D8A32A20054D16E /* TokenLogin.cpp */; };
@@ -3327,6 +3324,11 @@
 		DCBDB3BC1E57CA7A00B61300 /* CKKSViewManager.h in Headers */ = {isa = PBXBuildFile; fileRef = DCBDB3B91E57CA7A00B61300 /* CKKSViewManager.h */; };
 		DCBDB3BD1E57CA7A00B61300 /* CKKSViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBDB3BA1E57CA7A00B61300 /* CKKSViewManager.m */; };
 		DCBDB3BE1E57CA7A00B61300 /* CKKSViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBDB3BA1E57CA7A00B61300 /* CKKSViewManager.m */; };
+		DCBF2F7D1F90084D00ED0CA4 /* CKKSTLKSharingTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBF2F7C1F90084D00ED0CA4 /* CKKSTLKSharingTests.m */; };
+		DCBF2F851F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DCBF2F831F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h */; };
+		DCBF2F861F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DCBF2F831F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h */; };
+		DCBF2F871F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBF2F841F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m */; };
+		DCBF2F881F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBF2F841F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m */; };
 		DCC093791D80B02100F984E4 /* SecOnOSX.h in Headers */ = {isa = PBXBuildFile; fileRef = DCC78E671D8085FC00865A7C /* SecOnOSX.h */; };
 		DCC0937A1D80B07200F984E4 /* SecOTRSessionPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4AF7FFFC15AFB73800B9D400 /* SecOTRSessionPriv.h */; };
 		DCC0937B1D80B07B00F984E4 /* SecOTRSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4AF7FFFB15AFB73800B9D400 /* SecOTRSession.h */; };
@@ -4447,8 +4449,6 @@
 		DCF789481D88D17C00E694BB /* AppleX509TPBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DCF789471D88D17C00E694BB /* AppleX509TPBuiltin.cpp */; };
 		DCF7A8A01F04502400CABE89 /* CKKSControlProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = DCF7A89F1F04502300CABE89 /* CKKSControlProtocol.h */; };
 		DCF7A8A11F04502400CABE89 /* CKKSControlProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = DCF7A89F1F04502300CABE89 /* CKKSControlProtocol.h */; };
-		DCF7A8A31F0450EB00CABE89 /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
-		DCF7A8A41F0450EB00CABE89 /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
 		DCF7A8A51F0451AC00CABE89 /* CKKSControlProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCF7A8A21F0450EB00CABE89 /* CKKSControlProtocol.m */; };
 		DCFAEDCF1D999859005187E4 /* SOSAccountGhost.m in Sources */ = {isa = PBXBuildFile; fileRef = DCFAEDC81D999851005187E4 /* SOSAccountGhost.m */; };
 		DCFAEDD21D99991F005187E4 /* secd-668-ghosts.m in Sources */ = {isa = PBXBuildFile; fileRef = DCFAEDD11D9998DD005187E4 /* secd-668-ghosts.m */; };
@@ -4663,6 +4663,7 @@
 		F667EC611E96E9E700203D5C /* authdtests.m in Sources */ = {isa = PBXBuildFile; fileRef = F6A0971F1E953ABD00B1E7D6 /* authdtests.m */; };
 		F667EC621E96EAD200203D5C /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = F667EC551E96E94800203D5C /* main.m */; };
 		F667EC631E96EDC500203D5C /* libregressionBase.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC0BCBFD1D8C648C00070CB0 /* libregressionBase.a */; };
+		F682C1D41F4486F700F1B029 /* libctkloginhelper.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F682C1CE1F4486F600F1B029 /* libctkloginhelper.a */; };
 		F6AF96681E646CAF00917214 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		F93C493B1AB8FF530047E01A /* ckcdiagnose.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		F964772C1E5832540019E4EB /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DCD0678E1D8CDF7E007602F1 /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4679,6 +4680,30 @@
 				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).$(CURRENT_ARCH).exp",
 			);
 			script = "#!/bin/sh\n\nfor file in ${HEADER_SEARCH_PATHS[@]} ; do\nHEADER_SEARCH_OPTIONS=\"${HEADER_SEARCH_OPTIONS} -I${file}\"\ndone\n\nxcrun clang -E -Xpreprocessor -P -x c -arch ${CURRENT_ARCH} ${HEADER_SEARCH_OPTIONS} ${OTHER_INPUT_FILE_FLAGS} ${INPUT_FILE_PATH} -o ${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.${CURRENT_ARCH}.exp\n";
+		};
+		DC9FD3201F85818000C8AAC8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.proto";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(INPUT_FILE_DIR)/source/${INPUT_FILE_BASE}.h",
+				"$(INPUT_FILE_DIR)/source/${INPUT_FILE_BASE}.m",
+			);
+			script = "set -x\n\nmkdir -p ${INPUT_FILE_DIR}/source\nprotocompiler --arc --strict --emitDeprecated=NO --generics=YES --outputDir ${INPUT_FILE_DIR}/source --proto ${INPUT_FILE_DIR}/${INPUT_FILE_NAME}\n";
+		};
+		DC9FD3221F85877000C8AAC8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.proto";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(INPUT_FILE_DIR)/source/${INPUT_FILE_BASE}.h",
+				"$(INPUT_FILE_DIR)/source/${INPUT_FILE_BASE}.m",
+			);
+			script = "set -x\n\nmkdir -p ${INPUT_FILE_DIR}/source\nprotocompiler --arc --strict --emitDeprecated=NO --generics=YES --outputDir ${INPUT_FILE_DIR}/source --proto ${INPUT_FILE_DIR}/${INPUT_FILE_NAME}\n";
 		};
 		E7B006FF170B56E700B27966 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -6003,41 +6028,6 @@
 			remoteGlobalIDString = 79DC33610D4E6EEA0039E4BC;
 			remoteInfo = libCMS;
 		};
-		DC59EA401D91CAAA001BDDF5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC59E9AC1D91C9DC001BDDF5;
-			remoteInfo = DER;
-		};
-		DC59EA421D91CAAE001BDDF5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC59EA0E1D91CA15001BDDF5;
-			remoteInfo = DERUtils;
-		};
-		DC59EA541D91CAF0001BDDF5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC59EA0E1D91CA15001BDDF5;
-			remoteInfo = DERUtils;
-		};
-		DC59EA561D91CAF0001BDDF5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC59E9AC1D91C9DC001BDDF5;
-			remoteInfo = DER;
-		};
-		DC59EA661D91CB9F001BDDF5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC59E9AC1D91C9DC001BDDF5;
-			remoteInfo = DER;
-		};
 		DC59EA751D91CC5E001BDDF5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
@@ -6562,13 +6552,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = DC71D99F1D95BA6C0065FB93;
 			remoteInfo = ASN1;
-		};
-		DC71D9FC1D95BB440065FB93 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DC71D9E41D95BB0A0065FB93;
-			remoteInfo = DER;
 		};
 		DC71DA021D95BDEA0065FB93 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -7978,33 +7961,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				DC3A4B691D91EB1F00E46D4A /* com.apple.CodeSigningHelper.sb in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		DC59EA351D91CA82001BDDF5 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		DC59EA5C1D91CAF0001BDDF5 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		DC59EA6C1D91CB9F001BDDF5 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -9617,6 +9573,10 @@
 		DC0BCD551D8C697100070CB0 /* su-40-secdb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "su-40-secdb.c"; sourceTree = "<group>"; };
 		DC0BCD561D8C697100070CB0 /* su-41-secdb-stress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "su-41-secdb-stress.c"; sourceTree = "<group>"; };
 		DC0BCDB41D8C6A5B00070CB0 /* not_on_this_platorm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = not_on_this_platorm.c; sourceTree = "<group>"; };
+		DC1447881F5764C600236DB4 /* CKKSResultOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSResultOperation.h; sourceTree = "<group>"; };
+		DC1447891F5764C600236DB4 /* CKKSResultOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSResultOperation.m; sourceTree = "<group>"; };
+		DC1447941F5766D200236DB4 /* NSOperationCategories.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSOperationCategories.h; sourceTree = "<group>"; };
+		DC1447951F5766D200236DB4 /* NSOperationCategories.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NSOperationCategories.m; sourceTree = "<group>"; };
 		DC15F7641E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSHealKeyHierarchyOperation.h; sourceTree = "<group>"; };
 		DC15F7651E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSHealKeyHierarchyOperation.m; sourceTree = "<group>"; };
 		DC15F79B1E68EAD5003B9A40 /* CKKSTests+API.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "CKKSTests+API.m"; sourceTree = "<group>"; };
@@ -9868,9 +9828,10 @@
 		DC4269031E82EDAC002B7110 /* SecItem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecItem.m; sourceTree = "<group>"; };
 		DC4269061E82FBDF002B7110 /* server_security_helpers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = server_security_helpers.c; sourceTree = "<group>"; };
 		DC4269071E82FBDF002B7110 /* server_security_helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = server_security_helpers.h; sourceTree = "<group>"; };
+		DC4D49D81F857728007AF2B8 /* CKKSSerializedKey.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = CKKSSerializedKey.proto; sourceTree = "<group>"; };
 		DC4DB14E1E24692100CD6769 /* CKKSKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSKey.h; sourceTree = "<group>"; };
 		DC4DB14F1E24692100CD6769 /* CKKSKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSKey.m; sourceTree = "<group>"; };
-		DC4DB15E1E2590B100CD6769 /* CKKSEncryptionTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSEncryptionTests.m; sourceTree = "<group>"; };
+		DC4DB15E1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSAESSIVEncryptionTests.m; sourceTree = "<group>"; };
 		DC5225091E402D8B0021640A /* PlatformLibraries.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = PlatformLibraries.xcconfig; path = xcconfig/PlatformLibraries.xcconfig; sourceTree = "<group>"; };
 		DC52E7C21D80BC8000B0A59C /* libsecurityd_ios.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurityd_ios.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC52E8C61D80C25800B0A59C /* libSecureObjectSyncServer.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libSecureObjectSyncServer.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -9920,22 +9881,6 @@
 		DC59E9F91D91CA0A001BDDF5 /* DER_Digest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DER_Digest.c; sourceTree = "<group>"; };
 		DC59E9FA1D91CA0A001BDDF5 /* oids.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = oids.c; sourceTree = "<group>"; };
 		DC59E9FC1D91CA0A001BDDF5 /* oidsPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = oidsPriv.h; sourceTree = "<group>"; };
-		DC59EA251D91CA15001BDDF5 /* libDERUtils.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDERUtils.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC59EA261D91CA2C001BDDF5 /* libDERUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libDERUtils.h; sourceTree = "<group>"; };
-		DC59EA271D91CA2C001BDDF5 /* libDERUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libDERUtils.c; sourceTree = "<group>"; };
-		DC59EA281D91CA2C001BDDF5 /* fileIo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fileIo.c; sourceTree = "<group>"; };
-		DC59EA291D91CA2C001BDDF5 /* fileIo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fileIo.h; sourceTree = "<group>"; };
-		DC59EA2A1D91CA2C001BDDF5 /* printFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = printFields.h; sourceTree = "<group>"; };
-		DC59EA2B1D91CA2C001BDDF5 /* printFields.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = printFields.c; sourceTree = "<group>"; };
-		DC59EA371D91CA82001BDDF5 /* parseCert */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseCert; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC59EA451D91CACE001BDDF5 /* AppleMobilePersonalizedTicket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleMobilePersonalizedTicket.h; sourceTree = "<group>"; };
-		DC59EA461D91CACE001BDDF5 /* DER_Ticket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DER_Ticket.c; sourceTree = "<group>"; };
-		DC59EA471D91CACE001BDDF5 /* DER_Ticket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DER_Ticket.h; sourceTree = "<group>"; };
-		DC59EA481D91CACE001BDDF5 /* parseTicket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseTicket.c; sourceTree = "<group>"; };
-		DC59EA491D91CACE001BDDF5 /* parseCert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseCert.c; sourceTree = "<group>"; };
-		DC59EA4A1D91CACE001BDDF5 /* parseCrl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseCrl.c; sourceTree = "<group>"; };
-		DC59EA601D91CAF0001BDDF5 /* parseCrl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseCrl; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC59EA701D91CB9F001BDDF5 /* parseTicket */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseTicket; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC59EA731D91CBD0001BDDF5 /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = usr/lib/libcrypto.dylib; sourceTree = SDKROOT; };
 		DC5ABD781D832D5800CF422C /* srCdsaUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = srCdsaUtils.cpp; sourceTree = "<group>"; };
 		DC5ABD791D832D5800CF422C /* srCdsaUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = srCdsaUtils.h; sourceTree = "<group>"; };
@@ -10176,7 +10121,9 @@
 		DC6ACC401E81DF9400125DC5 /* server_endpoint.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = server_endpoint.m; sourceTree = "<group>"; };
 		DC71D8DD1D94CF3C0065FB93 /* lib_ios_shim.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = lib_ios_shim.xcconfig; path = xcconfig/lib_ios_shim.xcconfig; sourceTree = "<group>"; };
 		DC71D9DF1D95BA6C0065FB93 /* libASN1.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libASN1.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC71D9FB1D95BB0A0065FB93 /* libDER.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDER.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC7341F11F8447AB00AB9BDF /* CKKSTLKShare.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSTLKShare.h; sourceTree = "<group>"; };
+		DC7341F21F8447AB00AB9BDF /* CKKSTLKShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSTLKShare.m; sourceTree = "<group>"; };
+		DC7341FD1F84642C00AB9BDF /* CKKSTLKSharingEncryptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSTLKSharingEncryptionTests.m; sourceTree = "<group>"; };
 		DC762A9C1E57A86A00B03A2C /* CKKSRecordHolder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSRecordHolder.h; sourceTree = "<group>"; };
 		DC762A9D1E57A86A00B03A2C /* CKKSRecordHolder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSRecordHolder.m; sourceTree = "<group>"; };
 		DC797E131DD3F88300CC9E42 /* CKKSSQLDatabaseObject.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSSQLDatabaseObject.m; sourceTree = "<group>"; };
@@ -10251,13 +10198,23 @@
 		DC9B7AE41DCBF604004E9385 /* CKKSOutgoingQueueEntry.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSOutgoingQueueEntry.m; sourceTree = "<group>"; };
 		DC9B7AE61DCBF651004E9385 /* CKKSOutgoingQueueEntry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSOutgoingQueueEntry.h; sourceTree = "<group>"; };
 		DC9C750F1E4BCC5100F1CA0D /* CKKSOperationTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSOperationTests.m; sourceTree = "<group>"; };
+		DC9C95951F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSServerValidationRecoveryTests.m; sourceTree = "<group>"; };
+		DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSControl.h; sourceTree = "<group>"; };
+		DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSControl.m; sourceTree = "<group>"; };
 		DC9EBA231DEE36FE00D0F733 /* ApplePushService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplePushService.framework; path = System/Library/PrivateFrameworks/ApplePushService.framework; sourceTree = SDKROOT; };
 		DC9EBA2F1DEE651500D0F733 /* Info-macOS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-macOS.plist"; sourceTree = "<group>"; };
 		DC9EBA311DEE768000D0F733 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
+		DC9FD3261F858D3E00C8AAC8 /* CKKSSerializedKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSSerializedKey.m; sourceTree = "<group>"; };
+		DC9FD3271F858D3F00C8AAC8 /* CKKSSerializedKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSSerializedKey.h; sourceTree = "<group>"; };
+		DC9FD3281F8598F300C8AAC8 /* CKKSPeer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSPeer.h; sourceTree = "<group>"; };
+		DC9FD3291F8598F300C8AAC8 /* CKKSPeer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSPeer.m; sourceTree = "<group>"; };
 		DCA4D1F31E5520550056214F /* CKKSCurrentKeyPointer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSCurrentKeyPointer.h; sourceTree = "<group>"; };
 		DCA4D1F41E5520550056214F /* CKKSCurrentKeyPointer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSCurrentKeyPointer.m; sourceTree = "<group>"; };
 		DCA4D2131E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSReencryptOutgoingItemsOperation.h; sourceTree = "<group>"; };
 		DCA4D2141E5684220056214F /* CKKSReencryptOutgoingItemsOperation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSReencryptOutgoingItemsOperation.m; sourceTree = "<group>"; };
+		DCAD9B421F8D939C00C5E2AE /* CKKSFixups.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSFixups.h; sourceTree = "<group>"; };
+		DCAD9B431F8D939C00C5E2AE /* CKKSFixups.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSFixups.m; sourceTree = "<group>"; };
+		DCAD9B481F8D95F200C5E2AE /* CloudKitKeychainSyncingFixupTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CloudKitKeychainSyncingFixupTests.m; sourceTree = "<group>"; };
 		DCB2214A1E8B0861001598BC /* server_xpc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = server_xpc.m; sourceTree = "<group>"; };
 		DCB2215B1E8B098D001598BC /* server_endpoint.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = server_endpoint.h; sourceTree = "<group>"; };
 		DCB3406D1D8A24DF0054D16E /* libsecurity_authorization.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_authorization.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -10530,12 +10487,6 @@
 		DCB342D21D8A32A20054D16E /* UnlockReferralItem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UnlockReferralItem.h; sourceTree = "<group>"; };
 		DCB342D31D8A32A20054D16E /* TrustSettingsUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustSettingsUtils.cpp; sourceTree = "<group>"; };
 		DCB342D41D8A32A20054D16E /* TrustSettingsUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustSettingsUtils.h; sourceTree = "<group>"; };
-		DCB342D51D8A32A20054D16E /* SecCertificatePrivP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificatePrivP.h; sourceTree = "<group>"; };
-		DCB342D61D8A32A20054D16E /* SecBase64P.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecBase64P.c; sourceTree = "<group>"; };
-		DCB342D71D8A32A20054D16E /* SecFrameworkP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecFrameworkP.c; sourceTree = "<group>"; };
-		DCB342D81D8A32A20054D16E /* SecCertificateP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = SecCertificateP.c; sourceTree = "<group>"; };
-		DCB342D91D8A32A20054D16E /* SecCertificateP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateP.h; sourceTree = "<group>"; };
-		DCB342DA1D8A32A20054D16E /* SecCertificateInternalP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternalP.h; sourceTree = "<group>"; };
 		DCB342DB1D8A32A20054D16E /* generateErrStrings.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = generateErrStrings.pl; sourceTree = "<group>"; };
 		DCB342DC1D8A32A20054D16E /* tsaDERUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaDERUtilities.c; sourceTree = "<group>"; };
 		DCB342DD1D8A32A20054D16E /* tsaDERUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaDERUtilities.h; sourceTree = "<group>"; };
@@ -10622,6 +10573,9 @@
 		DCBDB3B11E57C67500B61300 /* CKKSKeychainView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSKeychainView.m; sourceTree = "<group>"; };
 		DCBDB3B91E57CA7A00B61300 /* CKKSViewManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSViewManager.h; sourceTree = "<group>"; };
 		DCBDB3BA1E57CA7A00B61300 /* CKKSViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSViewManager.m; sourceTree = "<group>"; };
+		DCBF2F7C1F90084D00ED0CA4 /* CKKSTLKSharingTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSTLKSharingTests.m; sourceTree = "<group>"; };
+		DCBF2F831F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSHealTLKSharesOperation.h; sourceTree = "<group>"; };
+		DCBF2F841F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSHealTLKSharesOperation.m; sourceTree = "<group>"; };
 		DCC0800D1CFF7903005C35C8 /* CSSMOID.exp-in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "CSSMOID.exp-in"; sourceTree = "<group>"; };
 		DCC78C371D8085D800865A7C /* ios6_1_keychain_2_db.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ios6_1_keychain_2_db.h; sourceTree = "<group>"; };
 		DCC78C381D8085D800865A7C /* ios8-inet-keychain-2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ios8-inet-keychain-2.h"; sourceTree = "<group>"; };
@@ -11916,7 +11870,6 @@
 		EB10557A1E14DF640003C309 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		EB108F121E6CE48B003B0456 /* KCParing.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = KCParing.plist; path = Tests/KCParing.plist; sourceTree = "<group>"; };
 		EB108F411E6CE4D2003B0456 /* KCPairingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KCPairingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		EB27FF0B1E402C8000EC9E3A /* ckksctl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ckksctl.h; sourceTree = "<group>"; };
 		EB27FF0C1E402C8000EC9E3A /* ckksctl.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ckksctl.m; sourceTree = "<group>"; };
 		EB27FF111E402CD300EC9E3A /* ckksctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ckksctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB27FF2F1E408CC900EC9E3A /* ckksctl-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "ckksctl-Entitlements.plist"; sourceTree = "<group>"; };
@@ -11972,10 +11925,12 @@
 		EBF3747F1DC057FE0065D840 /* security-sysdiagnose.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = "security-sysdiagnose.1"; sourceTree = "<group>"; };
 		EBF3749A1DC064200065D840 /* SecADWrapper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = SecADWrapper.c; path = src/SecADWrapper.c; sourceTree = "<group>"; };
 		EBF3749B1DC064200065D840 /* SecADWrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SecADWrapper.h; path = src/SecADWrapper.h; sourceTree = "<group>"; };
+		EBF9AE171F536D0300FECBF7 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Version.xcconfig; path = xcconfig/Version.xcconfig; sourceTree = "<group>"; };
 		F619D71D1ED70BB0005B5F46 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OSX/authorizationdump/main.m; sourceTree = "<group>"; };
 		F621D07F1ED6DCE7000EA569 /* authorizationdump */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = authorizationdump; sourceTree = BUILT_PRODUCTS_DIR; };
 		F667EC551E96E94800203D5C /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OSX/authd/tests/main.m; sourceTree = "<group>"; };
 		F667EC601E96E9B100203D5C /* authdtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = authdtest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F682C1CE1F4486F600F1B029 /* libctkloginhelper.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkloginhelper.a; path = usr/local/lib/libctkloginhelper.a; sourceTree = SDKROOT; };
 		F6A0971E1E953A1500B1E7D6 /* authdtestlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = authdtestlist.h; path = OSX/authd/tests/authdtestlist.h; sourceTree = "<group>"; };
 		F6A0971F1E953ABD00B1E7D6 /* authdtests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = authdtests.m; path = OSX/authd/tests/authdtests.m; sourceTree = "<group>"; };
 		F6A3CB0D1E7062BA00E7821F /* authd-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "authd-Entitlements.plist"; path = "OSX/authd/authd-Entitlements.plist"; sourceTree = "<group>"; };
@@ -12702,6 +12657,7 @@
 			files = (
 				CD9F2AFB1DF24BAF00AD3577 /* Foundation.framework in Frameworks */,
 				DCD22D4B1D8CBF54001C9B81 /* libASN1_not_installed.a in Frameworks */,
+				D4D96ED51F478BAF004B5F01 /* libDER_not_installed.a in Frameworks */,
 				DC00AB6F1D821C3400513D74 /* libSecItemShimOSX.a in Frameworks */,
 				DC00AB701D821C3800513D74 /* libSecOtrOSX.a in Frameworks */,
 				DC00AB6B1D821C1A00513D74 /* libSecTrustOSX.a in Frameworks */,
@@ -12921,40 +12877,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DC59EA211D91CA15001BDDF5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA341D91CA82001BDDF5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA511D91CAE8001BDDF5 /* libDERUtils.a in Frameworks */,
-				DC59EA501D91CAE3001BDDF5 /* libDER_not_installed.a in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA591D91CAF0001BDDF5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA5A1D91CAF0001BDDF5 /* libDERUtils.a in Frameworks */,
-				DC59EA5B1D91CAF0001BDDF5 /* libDER_not_installed.a in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA691D91CB9F001BDDF5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA741D91CBD0001BDDF5 /* libcrypto.dylib in Frameworks */,
-				DC59EA6B1D91CB9F001BDDF5 /* libDER_not_installed.a in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DC5ABDC21D832DAB00CF422C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -13072,13 +12994,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		DC71D9DB1D95BA6C0065FB93 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC71D9F71D95BB0A0065FB93 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -13342,6 +13257,7 @@
 				DCE4E8C61D7F354700AFB96E /* CoreFoundation.framework in Frameworks */,
 				DCE4E8C51D7F354300AFB96E /* IOKit.framework in Frameworks */,
 				F6AF96681E646CAF00917214 /* libcoreauthd_client.a in Frameworks */,
+				F682C1D41F4486F700F1B029 /* libctkloginhelper.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -13914,13 +13830,8 @@
 				DCD06A741D8CE2D5007602F1 /* gkunpack */,
 				DCD06AB01D8E0D53007602F1 /* libsecurity_utilities.a */,
 				DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */,
-				DC59EA251D91CA15001BDDF5 /* libDERUtils.a */,
-				DC59EA371D91CA82001BDDF5 /* parseCert */,
-				DC59EA601D91CAF0001BDDF5 /* parseCrl */,
-				DC59EA701D91CB9F001BDDF5 /* parseTicket */,
 				DC3A4B581D91E9FB00E46D4A /* com.apple.CodeSigningHelper.xpc */,
 				DC71D9DF1D95BA6C0065FB93 /* libASN1.a */,
-				DC71D9FB1D95BB0A0065FB93 /* libDER.a */,
 				EBF374721DC055580065D840 /* security-sysdiagnose */,
 				DA30D6761DF8C8FB00EC6B43 /* KeychainSyncAccountUpdater.bundle */,
 				DCD8A1991E09EE0F00E4FA0A /* libSecureObjectSyncFramework.a */,
@@ -15729,10 +15640,13 @@
 				DC15F79B1E68EAD5003B9A40 /* CKKSTests+API.m */,
 				DC6593C91ED8DA9200C19462 /* CKKSTests+CurrentPointerAPI.m */,
 				DC9A2C5E1EB3F556008FAC27 /* CKKSTests+Coalesce.m */,
+				DCAD9B481F8D95F200C5E2AE /* CloudKitKeychainSyncingFixupTests.m */,
+				DCBF2F7C1F90084D00ED0CA4 /* CKKSTLKSharingTests.m */,
 				DC08D1CB1E64FCC5006237DA /* CKKSSOSTests.m */,
 				DC9C750F1E4BCC5100F1CA0D /* CKKSOperationTests.m */,
 				DC222C891E089BAE00B09171 /* CKKSSQLTests.m */,
-				DC4DB15E1E2590B100CD6769 /* CKKSEncryptionTests.m */,
+				DC4DB15E1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m */,
+				DC7341FD1F84642C00AB9BDF /* CKKSTLKSharingEncryptionTests.m */,
 				6C34462F1E24F6BE00F9522B /* CKKSRateLimiterTests.m */,
 				DCD6C4B61EC5319600414FEE /* CKKSNearFutureSchedulerTests.m */,
 				DCFE1C3C1F17EFB5007640C8 /* CKKSConditionTests.m */,
@@ -15747,6 +15661,7 @@
 				6C588D791EAA149F00D7E322 /* RateLimiterTests.m */,
 				4723C9D11F1531970082882F /* CKKSLoggerTests.m */,
 				DCE7F2081F21726500DDB0F7 /* CKKSAPSReceiverTests.m */,
+				DC9C95951F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m */,
 			);
 			name = "Tests (Local)";
 			path = tests;
@@ -15850,7 +15765,6 @@
 			isa = PBXGroup;
 			children = (
 				DC59E9FD1D91CA0A001BDDF5 /* libDER */,
-				DC59EA2C1D91CA2C001BDDF5 /* libDERUtils */,
 			);
 			name = DER;
 			sourceTree = "<group>";
@@ -15878,34 +15792,6 @@
 			);
 			name = libDER;
 			path = OSX/libsecurity_keychain/libDER/libDER;
-			sourceTree = "<group>";
-		};
-		DC59EA2C1D91CA2C001BDDF5 /* libDERUtils */ = {
-			isa = PBXGroup;
-			children = (
-				DC59EA261D91CA2C001BDDF5 /* libDERUtils.h */,
-				DC59EA271D91CA2C001BDDF5 /* libDERUtils.c */,
-				DC59EA281D91CA2C001BDDF5 /* fileIo.c */,
-				DC59EA291D91CA2C001BDDF5 /* fileIo.h */,
-				DC59EA2A1D91CA2C001BDDF5 /* printFields.h */,
-				DC59EA2B1D91CA2C001BDDF5 /* printFields.c */,
-			);
-			name = libDERUtils;
-			path = OSX/libsecurity_keychain/libDER/libDERUtils;
-			sourceTree = "<group>";
-		};
-		DC59EA4B1D91CACE001BDDF5 /* libDER */ = {
-			isa = PBXGroup;
-			children = (
-				DC59EA451D91CACE001BDDF5 /* AppleMobilePersonalizedTicket.h */,
-				DC59EA461D91CACE001BDDF5 /* DER_Ticket.c */,
-				DC59EA471D91CACE001BDDF5 /* DER_Ticket.h */,
-				DC59EA481D91CACE001BDDF5 /* parseTicket.c */,
-				DC59EA491D91CACE001BDDF5 /* parseCert.c */,
-				DC59EA4A1D91CACE001BDDF5 /* parseCrl.c */,
-			);
-			name = libDER;
-			path = OSX/libsecurity_keychain/libDER/Tests;
 			sourceTree = "<group>";
 		};
 		DC5ABD281D832D4C00CF422C /* SecurityTool macOS */ = {
@@ -16331,7 +16217,6 @@
 				F667EC541E96E8C800203D5C /* authdtests */,
 				EB1055641E14DB370003C309 /* secfuzzer */,
 				DC0BCBD81D8C646700070CB0 /* regressionBase */,
-				DC59EA4B1D91CACE001BDDF5 /* libDER */,
 				DC0BCCB81D8C68F000070CB0 /* utilitiesRegressions */,
 				DC0BC5CD1D8B72FE00070CB0 /* test-checkpw */,
 				DC610AB81D7910E5002223DE /* gk_reset_check */,
@@ -16594,6 +16479,7 @@
 		DC9B7AD31DCBF336004E9385 /* CloudKit Syncing */ = {
 			isa = PBXGroup;
 			children = (
+				DC9FD3161F857FF800C8AAC8 /* Protocol Buffers */,
 				DCD662F21E3294DE00188186 /* CloudKit Support */,
 				DCFE1C311F17ECC3007640C8 /* dispatch Support */,
 				DCD662EB1E32946000188186 /* Sync Objects */,
@@ -16608,15 +16494,39 @@
 				DCBDB3BA1E57CA7A00B61300 /* CKKSViewManager.m */,
 				DCBDB3B01E57C67500B61300 /* CKKSKeychainView.h */,
 				DCBDB3B11E57C67500B61300 /* CKKSKeychainView.m */,
+				DC9FD3281F8598F300C8AAC8 /* CKKSPeer.h */,
+				DC9FD3291F8598F300C8AAC8 /* CKKSPeer.m */,
 				DC1ED8C01DD51890002BDCFA /* CKKSItemEncrypter.h */,
 				DC1ED8BA1DD51883002BDCFA /* CKKSItemEncrypter.m */,
 				6CC185971E24E87D009657D8 /* CKKSRateLimiter.h */,
 				6CC185981E24E87D009657D8 /* CKKSRateLimiter.m */,
 				6CA2B9431E9F9F5700C43444 /* RateLimiter.h */,
 				6CC7F5B31E9F99EE0014AE63 /* RateLimiter.m */,
+				DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */,
+				DC9C95B31F79CFD1000D19E5 /* CKKSControl.m */,
 			);
 			name = "CloudKit Syncing";
 			path = ckks;
+			sourceTree = "<group>";
+		};
+		DC9FD3161F857FF800C8AAC8 /* Protocol Buffers */ = {
+			isa = PBXGroup;
+			children = (
+				DC9FD3251F858BAD00C8AAC8 /* derived source */,
+				DC4D49D81F857728007AF2B8 /* CKKSSerializedKey.proto */,
+			);
+			name = "Protocol Buffers";
+			path = proto;
+			sourceTree = "<group>";
+		};
+		DC9FD3251F858BAD00C8AAC8 /* derived source */ = {
+			isa = PBXGroup;
+			children = (
+				DC9FD3271F858D3F00C8AAC8 /* CKKSSerializedKey.h */,
+				DC9FD3261F858D3E00C8AAC8 /* CKKSSerializedKey.m */,
+			);
+			name = "derived source";
+			path = source;
 			sourceTree = "<group>";
 		};
 		DCA4D2121E5651950056214F /* Tests (Live CloudKit) */ = {
@@ -16640,6 +16550,10 @@
 				DC207EB71ED4EAB600D46873 /* CKKSLockStateTracker.m */,
 				DCCD88E61E42622200F5AA71 /* CKKSGroupOperation.h */,
 				DCCD88E71E42622200F5AA71 /* CKKSGroupOperation.m */,
+				DC1447881F5764C600236DB4 /* CKKSResultOperation.h */,
+				DC1447891F5764C600236DB4 /* CKKSResultOperation.m */,
+				DC1447941F5766D200236DB4 /* NSOperationCategories.h */,
+				DC1447951F5766D200236DB4 /* NSOperationCategories.m */,
 			);
 			name = Helpers;
 			sourceTree = "<group>";
@@ -17053,12 +16967,6 @@
 				DCB342D21D8A32A20054D16E /* UnlockReferralItem.h */,
 				DCB342D31D8A32A20054D16E /* TrustSettingsUtils.cpp */,
 				DCB342D41D8A32A20054D16E /* TrustSettingsUtils.h */,
-				DCB342D51D8A32A20054D16E /* SecCertificatePrivP.h */,
-				DCB342D61D8A32A20054D16E /* SecBase64P.c */,
-				DCB342D71D8A32A20054D16E /* SecFrameworkP.c */,
-				DCB342D81D8A32A20054D16E /* SecCertificateP.c */,
-				DCB342D91D8A32A20054D16E /* SecCertificateP.h */,
-				DCB342DA1D8A32A20054D16E /* SecCertificateInternalP.h */,
 				DCB342DB1D8A32A20054D16E /* generateErrStrings.pl */,
 				DCB342DC1D8A32A20054D16E /* tsaDERUtilities.c */,
 				DCB342DD1D8A32A20054D16E /* tsaDERUtilities.h */,
@@ -18423,6 +18331,8 @@
 				DCEA5D541E2826DB0089CF55 /* CKKSSIV.m */,
 				DCE278DB1ED789EF0083B485 /* CKKSCurrentItemPointer.h */,
 				DCE278DC1ED789EF0083B485 /* CKKSCurrentItemPointer.m */,
+				DC7341F11F8447AB00AB9BDF /* CKKSTLKShare.h */,
+				DC7341F21F8447AB00AB9BDF /* CKKSTLKShare.m */,
 			);
 			name = "Sync Objects";
 			sourceTree = "<group>";
@@ -18439,6 +18349,8 @@
 				DC15F7651E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m */,
 				DCD662F31E329B6800188186 /* CKKSNewTLKOperation.h */,
 				DCD662F41E329B6800188186 /* CKKSNewTLKOperation.m */,
+				DCBF2F831F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h */,
+				DCBF2F841F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m */,
 				DC7A17EB1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.h */,
 				DC7A17EC1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m */,
 				DCA4D2131E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h */,
@@ -18451,6 +18363,8 @@
 				DCE278E71ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m */,
 				DCFE1C4F1F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.h */,
 				DCFE1C501F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.m */,
+				DCAD9B421F8D939C00C5E2AE /* CKKSFixups.h */,
+				DCAD9B431F8D939C00C5E2AE /* CKKSFixups.m */,
 			);
 			name = Operations;
 			sourceTree = "<group>";
@@ -19488,6 +19402,7 @@
 		E7FCBE401314471B000DE34E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F682C1CE1F4486F600F1B029 /* libctkloginhelper.a */,
 				5EAFA4CD1EF16059002DC188 /* LocalAuthentication.framework */,
 				D41D36701EB14D87007FA978 /* libDiagnosticMessagesClient.tbd */,
 				D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */,
@@ -19608,7 +19523,6 @@
 		EB27FF051E402C3C00EC9E3A /* ckksctl */ = {
 			isa = PBXGroup;
 			children = (
-				EB27FF0B1E402C8000EC9E3A /* ckksctl.h */,
 				EB27FF0C1E402C8000EC9E3A /* ckksctl.m */,
 				EB27FF2F1E408CC900EC9E3A /* ckksctl-Entitlements.plist */,
 			);
@@ -19629,6 +19543,7 @@
 				D47C56AF1DCA841D00E18518 /* lib_ios_x64_shim.xcconfig */,
 				DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */,
 				BE8351D41EC0EEDD00ACD5FD /* framework_requiring_modern_objc_runtime.xcconfig */,
+				EBF9AE171F536D0300FECBF7 /* Version.xcconfig */,
 			);
 			name = xcconfig;
 			sourceTree = "<group>";
@@ -19865,6 +19780,7 @@
 				724340BA1ED3FEC800F8F566 /* SecSMIME.h in Headers */,
 				22A23B3E1E3AAC9800C41830 /* SecRequirement.h in Headers */,
 				22A23B3F1E3AAC9800C41830 /* SecCodeHost.h in Headers */,
+				DC9C95BE1F79DC5F000D19E5 /* CKKSControl.h in Headers */,
 				DC3C7AB61D838C2D00F6A832 /* SecAsn1Types.h in Headers */,
 				DC3C73551D837B2C00F6A832 /* SOSPeerInfoPriv.h in Headers */,
 				7901791912D51F7200CA4D44 /* SecCmsContentInfo.h in Headers */,
@@ -20505,6 +20421,7 @@
 			files = (
 				4723C9CB1F152ECF0082882F /* SFSQLiteStatement.h in Headers */,
 				4723C9C31F152EB60082882F /* SFObjCType.h in Headers */,
+				DC9C95BD1F79DC5A000D19E5 /* CKKSControl.h in Headers */,
 				DC3C73561D837B9B00F6A832 /* SOSPeerInfoPriv.h in Headers */,
 				EB6928C61D9C9C6F00062A18 /* SecRecoveryKey.h in Headers */,
 				4723C9DD1F1540CE0082882F /* SFAnalyticsLogger.h in Headers */,
@@ -20521,6 +20438,7 @@
 				DC2C5F5E1F0EB97E00FEBDA7 /* CKKSNotifier.h in Headers */,
 				DC5BB4FF1E0C98320010F836 /* CKKSOutgoingQueueOperation.h in Headers */,
 				DC222C651E034D1F00B09171 /* SOSChangeTracker.h in Headers */,
+				DC14478B1F5764C600236DB4 /* CKKSResultOperation.h in Headers */,
 				DCFE1C521F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.h in Headers */,
 				DCBDB3BC1E57CA7A00B61300 /* CKKSViewManager.h in Headers */,
 				DC762A9F1E57A86A00B03A2C /* CKKSRecordHolder.h in Headers */,
@@ -20537,12 +20455,15 @@
 				DCFE1C281F17E455007640C8 /* CKKSDeviceStateEntry.h in Headers */,
 				DCFB12C61E95A4C000510F5F /* CKKSCKAccountStateTracker.h in Headers */,
 				DC222C6B1E034D1F00B09171 /* SecItemDataSource.h in Headers */,
+				DC7341F41F8447AB00AB9BDF /* CKKSTLKShare.h in Headers */,
 				DC18F7701E43E116006B8B43 /* CKKSFetchAllRecordZoneChangesOperation.h in Headers */,
 				DC222C6C1E034D1F00B09171 /* CKKSIncomingQueueEntry.h in Headers */,
 				DC9082C71EA027DC00D0C1C5 /* CKKSZoneChangeFetcher.h in Headers */,
 				DCA4D2161E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h in Headers */,
 				DC222C6D1E034D1F00B09171 /* SecItemDb.h in Headers */,
 				DC222C6E1E034D1F00B09171 /* SecItemSchema.h in Headers */,
+				DCAD9B451F8D939C00C5E2AE /* CKKSFixups.h in Headers */,
+				DC9C95B51F79CFD1000D19E5 /* CKKSControl.h in Headers */,
 				DC222C6F1E034D1F00B09171 /* SecKeybagSupport.h in Headers */,
 				DC222C701E034D1F00B09171 /* iCloudTrace.h in Headers */,
 				DCEA5D861E2F14810089CF55 /* CKKSAPSReceiver.h in Headers */,
@@ -20551,8 +20472,10 @@
 				DCCD88E91E42622200F5AA71 /* CKKSGroupOperation.h in Headers */,
 				DC15F7671E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h in Headers */,
 				DCD6C4B31EC5302500414FEE /* CKKSNearFutureScheduler.h in Headers */,
+				DCBF2F861F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h in Headers */,
 				DCE278E91ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.h in Headers */,
 				DCD662F61E329B6800188186 /* CKKSNewTLKOperation.h in Headers */,
+				DC1447971F5766D200236DB4 /* NSOperationCategories.h in Headers */,
 				DC4DB1511E24692100CD6769 /* CKKSKey.h in Headers */,
 				DCE278DE1ED789EF0083B485 /* CKKSCurrentItemPointer.h in Headers */,
 				DC222C731E034D1F00B09171 /* CKKSItem.h in Headers */,
@@ -20569,6 +20492,7 @@
 				DC2C5F5D1F0EB97E00FEBDA7 /* CKKSNotifier.h in Headers */,
 				DCCD88E81E42622200F5AA71 /* CKKSGroupOperation.h in Headers */,
 				6CC1859E1E24E8EB009657D8 /* CKKSRateLimiter.h in Headers */,
+				DC14478A1F5764C600236DB4 /* CKKSResultOperation.h in Headers */,
 				DCFE1C511F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.h in Headers */,
 				DCBDB3BB1E57CA7A00B61300 /* CKKSViewManager.h in Headers */,
 				DC762A9E1E57A86A00B03A2C /* CKKSRecordHolder.h in Headers */,
@@ -20585,12 +20509,15 @@
 				DCFE1C271F17E455007640C8 /* CKKSDeviceStateEntry.h in Headers */,
 				DCFB12C51E95A4C000510F5F /* CKKSCKAccountStateTracker.h in Headers */,
 				DC378B381DEFADB500A3DAFA /* CKKSZoneStateEntry.h in Headers */,
+				DC7341F31F8447AB00AB9BDF /* CKKSTLKShare.h in Headers */,
 				DC52E7E71D80BE8100B0A59C /* SecItemDataSource.h in Headers */,
 				DC18F76F1E43E116006B8B43 /* CKKSFetchAllRecordZoneChangesOperation.h in Headers */,
 				DC9082C61EA027DB00D0C1C5 /* CKKSZoneChangeFetcher.h in Headers */,
 				DCA4D2151E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h in Headers */,
 				DC378B3C1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.h in Headers */,
 				DC52E7E61D80BE7B00B0A59C /* SecItemDb.h in Headers */,
+				DCAD9B441F8D939C00C5E2AE /* CKKSFixups.h in Headers */,
+				DC9C95B41F79CFD1000D19E5 /* CKKSControl.h in Headers */,
 				DC52E7EA1D80BE9500B0A59C /* SecItemSchema.h in Headers */,
 				DC52E7E91D80BE8D00B0A59C /* SecKeybagSupport.h in Headers */,
 				DCD662F51E329B6800188186 /* CKKSNewTLKOperation.h in Headers */,
@@ -20599,8 +20526,10 @@
 				DC6D2C931DD2836500BE372D /* CKKSOutgoingQueueEntry.h in Headers */,
 				DC15F7661E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h in Headers */,
 				DCD6C4B21EC5302500414FEE /* CKKSNearFutureScheduler.h in Headers */,
+				DCBF2F851F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.h in Headers */,
 				DCE278E81ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.h in Headers */,
 				DCEA5D851E2F14810089CF55 /* CKKSAPSReceiver.h in Headers */,
+				DC1447961F5766D200236DB4 /* NSOperationCategories.h in Headers */,
 				DC4DB1501E24692100CD6769 /* CKKSKey.h in Headers */,
 				DCE278DD1ED789EF0083B485 /* CKKSCurrentItemPointer.h in Headers */,
 				DCEA5D551E2826DB0089CF55 /* CKKSSIV.h in Headers */,
@@ -20726,16 +20655,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA0F1D91CA15001BDDF5 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA311D91CA2C001BDDF5 /* printFields.h in Headers */,
-				DC59EA2D1D91CA2C001BDDF5 /* libDERUtils.h in Headers */,
-				DC59EA301D91CA2C001BDDF5 /* fileIo.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -20893,24 +20812,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DC71D9E51D95BB0A0065FB93 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC3832DA1DB7050900385F63 /* module.modulemap in Headers */,
-				DC71D9E61D95BB0A0065FB93 /* oidsPriv.h in Headers */,
-				DC71D9E71D95BB0A0065FB93 /* libDER.h in Headers */,
-				DC71D9E81D95BB0A0065FB93 /* DER_Decode.h in Headers */,
-				DC71D9E91D95BB0A0065FB93 /* DER_Keys.h in Headers */,
-				DC71D9EA1D95BB0A0065FB93 /* DER_Encode.h in Headers */,
-				DC963EC51D95F52C008A153E /* oids.h in Headers */,
-				DC71D9EB1D95BB0A0065FB93 /* DER_Digest.h in Headers */,
-				DC71D9ED1D95BB0A0065FB93 /* asn1Types.h in Headers */,
-				DC71D9EE1D95BB0A0065FB93 /* libDER_config.h in Headers */,
-				DC71D9EF1D95BB0A0065FB93 /* DER_CertCrl.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DC8834021D8A218F00CE0ACA /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -21041,8 +20942,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCB3438F1D8A32A20054D16E /* tsaDERUtilities.h in Headers */,
-				DCB3438C1D8A32A20054D16E /* SecCertificateP.h in Headers */,
-				DCB343881D8A32A20054D16E /* SecCertificatePrivP.h in Headers */,
 				DCB343651D8A32A20054D16E /* TrustSettings.h in Headers */,
 				DCB343831D8A32A20054D16E /* TrustStore.h in Headers */,
 				DCB343941D8A32A20054D16E /* SecExternalRep.h in Headers */,
@@ -21086,7 +20985,6 @@
 				DCB343851D8A32A20054D16E /* UnlockReferralItem.h in Headers */,
 				DCB343A41D8A32A20054D16E /* SecNetscapeTemplates.h in Headers */,
 				DCB343481D8A32A20054D16E /* Globals.h in Headers */,
-				DCB3438D1D8A32A20054D16E /* SecCertificateInternalP.h in Headers */,
 				DCB3437F1D8A32A20054D16E /* TrustAdditions.h in Headers */,
 				DCB3436D1D8A32A20054D16E /* cssmdatetime.h in Headers */,
 				DCB343711D8A32A20054D16E /* DLDBListCFPref.h in Headers */,
@@ -23018,6 +22916,7 @@
 				6C0B0C481E2537E2007F95E5 /* CopyFiles */,
 			);
 			buildRules = (
+				DC9FD3221F85877000C8AAC8 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -23080,6 +22979,7 @@
 				6C0B0C4A1E253840007F95E5 /* CopyFiles */,
 			);
 			buildRules = (
+				DC9FD3201F85818000C8AAC8 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -23331,79 +23231,6 @@
 			productReference = DC59E9EC1D91C9DC001BDDF5 /* libDER_not_installed.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		DC59EA0E1D91CA15001BDDF5 /* DERUtils */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DC59EA221D91CA15001BDDF5 /* Build configuration list for PBXNativeTarget "DERUtils" */;
-			buildPhases = (
-				DC59EA0F1D91CA15001BDDF5 /* Headers */,
-				DC59EA1A1D91CA15001BDDF5 /* Sources */,
-				DC59EA211D91CA15001BDDF5 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = DERUtils;
-			productName = libsecurityd_client_macos;
-			productReference = DC59EA251D91CA15001BDDF5 /* libDERUtils.a */;
-			productType = "com.apple.product-type.library.static";
-		};
-		DC59EA361D91CA82001BDDF5 /* parseCert */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DC59EA3B1D91CA82001BDDF5 /* Build configuration list for PBXNativeTarget "parseCert" */;
-			buildPhases = (
-				DC59EA331D91CA82001BDDF5 /* Sources */,
-				DC59EA341D91CA82001BDDF5 /* Frameworks */,
-				DC59EA351D91CA82001BDDF5 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				DC59EA431D91CAAE001BDDF5 /* PBXTargetDependency */,
-				DC59EA411D91CAAA001BDDF5 /* PBXTargetDependency */,
-			);
-			name = parseCert;
-			productName = parseCert;
-			productReference = DC59EA371D91CA82001BDDF5 /* parseCert */;
-			productType = "com.apple.product-type.tool";
-		};
-		DC59EA521D91CAF0001BDDF5 /* parseCrl */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DC59EA5D1D91CAF0001BDDF5 /* Build configuration list for PBXNativeTarget "parseCrl" */;
-			buildPhases = (
-				DC59EA571D91CAF0001BDDF5 /* Sources */,
-				DC59EA591D91CAF0001BDDF5 /* Frameworks */,
-				DC59EA5C1D91CAF0001BDDF5 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				DC59EA531D91CAF0001BDDF5 /* PBXTargetDependency */,
-				DC59EA551D91CAF0001BDDF5 /* PBXTargetDependency */,
-			);
-			name = parseCrl;
-			productName = parseCert;
-			productReference = DC59EA601D91CAF0001BDDF5 /* parseCrl */;
-			productType = "com.apple.product-type.tool";
-		};
-		DC59EA621D91CB9F001BDDF5 /* parseTicket */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DC59EA6D1D91CB9F001BDDF5 /* Build configuration list for PBXNativeTarget "parseTicket" */;
-			buildPhases = (
-				DC59EA671D91CB9F001BDDF5 /* Sources */,
-				DC59EA691D91CB9F001BDDF5 /* Frameworks */,
-				DC59EA6C1D91CB9F001BDDF5 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				DC59EA651D91CB9F001BDDF5 /* PBXTargetDependency */,
-			);
-			name = parseTicket;
-			productName = parseCert;
-			productReference = DC59EA701D91CB9F001BDDF5 /* parseTicket */;
-			productType = "com.apple.product-type.tool";
-		};
 		DC5ABDC41D832DAB00CF422C /* securitytool_macos */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DC5ABDC91D832DAB00CF422C /* Build configuration list for PBXNativeTarget "securitytool_macos" */;
@@ -23560,24 +23387,6 @@
 			name = ASN1;
 			productName = libsecurityd_client_macos;
 			productReference = DC71D9DF1D95BA6C0065FB93 /* libASN1.a */;
-			productType = "com.apple.product-type.library.static";
-		};
-		DC71D9E41D95BB0A0065FB93 /* DER */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DC71D9F81D95BB0A0065FB93 /* Build configuration list for PBXNativeTarget "DER" */;
-			buildPhases = (
-				DC71DA001D95BD320065FB93 /* Why is this here? */,
-				DC71D9E51D95BB0A0065FB93 /* Headers */,
-				DC71D9F01D95BB0A0065FB93 /* Sources */,
-				DC71D9F71D95BB0A0065FB93 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = DER;
-			productName = libsecurityd_client_macos;
-			productReference = DC71D9FB1D95BB0A0065FB93 /* libDER.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		DC8834011D8A218F00CE0ACA /* ASN1_not_installed */ = {
@@ -24619,10 +24428,6 @@
 						CreatedOnToolsVersion = 8.0;
 						ProvisioningStyle = Automatic;
 					};
-					DC59EA361D91CA82001BDDF5 = {
-						CreatedOnToolsVersion = 8.0;
-						ProvisioningStyle = Automatic;
-					};
 					DC5ABDC41D832DAB00CF422C = {
 						CreatedOnToolsVersion = 8.0;
 						DevelopmentTeam = XPSUQMMH5W;
@@ -24853,8 +24658,6 @@
 				DC8834011D8A218F00CE0ACA /* ASN1_not_installed */,
 				DC71D99F1D95BA6C0065FB93 /* ASN1 */,
 				DC59E9AC1D91C9DC001BDDF5 /* DER_not_installed */,
-				DC71D9E41D95BB0A0065FB93 /* DER */,
-				DC59EA0E1D91CA15001BDDF5 /* DERUtils */,
 				DCF782BA1D88B44300E694BB /* ==== macOS Libraries ====== */,
 				DCF7830A1D88B4DE00E694BB /* security_apple_csp */,
 				DCF785021D88B95500E694BB /* security_apple_cspdl */,
@@ -24933,9 +24736,6 @@
 				7913B1FF0D172B3900601FE9 /* sslServer */,
 				4C9DE9D11181AC4800CF5C27 /* sslEcdsa */,
 				4CE5A54C09C796E100D27A3F /* sslViewer */,
-				DC59EA361D91CA82001BDDF5 /* parseCert */,
-				DC59EA521D91CAF0001BDDF5 /* parseCrl */,
-				DC59EA621D91CB9F001BDDF5 /* parseTicket */,
 				DC0BC5C51D8B72E700070CB0 /* test-checkpw */,
 				DC0BC5D51D8B73B000070CB0 /* perf-checkpw */,
 				6C98082C1E788AEB00E70590 /* CKKSCloudKitTests_mac */,
@@ -25643,22 +25443,6 @@
 			shellScript = "# The build system requires that we don't install these headers and .as in multiple phases.\n# This target will not install anything, so feel free to depend on it whenever you use it.\n\n# If you make changes to this target, please make them to ASN1 as well.";
 			showEnvVarsInLog = 0;
 		};
-		DC71DA001D95BD320065FB93 /* Why is this here? */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/OSX/libsecurity_keychain/libDER/libDER/libDER.h",
-			);
-			name = "Why is this here?";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "# The build system requires that we don't install these headers and .as in multiple phases. This target will install libDER (as needed per platform).\n\n# If you make changes to this target, please make them to DER_not_installed as well.";
-			showEnvVarsInLog = 0;
-		};
 		DC71DA011D95BD670065FB93 /* Why is this here? */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -25965,7 +25749,9 @@
 			files = (
 				220179E91E3BF03200EFB6F3 /* dummy.cpp in Sources */,
 				4723C9CC1F152ED30082882F /* SFSQLiteStatement.m in Sources */,
+				DC9C95C11F79DD4B000D19E5 /* CKKSControlProtocol.m in Sources */,
 				DCA85B931E8D97E400BA7241 /* client.c in Sources */,
+				DC9C95BF1F79DC88000D19E5 /* CKKSControl.m in Sources */,
 				18F7F67914D77F4400F88A12 /* NtlmGenerator.c in Sources */,
 				0CD8CB051ECA50780076F37F /* SOSPeerOTRTimer.m in Sources */,
 				DCA85B981E8D980A00BA7241 /* client_endpoint.m in Sources */,
@@ -26735,9 +26521,11 @@
 				DC1789A51D779E3B00B50D50 /* dummy.cpp in Sources */,
 				4723C9C51F152EBC0082882F /* SFObjCType.m in Sources */,
 				4723C9CD1F152ED40082882F /* SFSQLiteStatement.m in Sources */,
+				DC9C95C01F79DC89000D19E5 /* CKKSControl.m in Sources */,
 				4723C9E11F1540CE0082882F /* SFAnalyticsLogger.m in Sources */,
 				B61577E81F20151C004A3930 /* SecPaddingConfigurations.c in Sources */,
 				DC1789A21D779DF400B50D50 /* SecBreadcrumb.c in Sources */,
+				DC9C95C21F79DD4D000D19E5 /* CKKSControlProtocol.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -26745,6 +26533,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DC9FD3231F8587A500C8AAC8 /* CKKSSerializedKey.proto in Sources */,
 				DC222C3A1E034D1F00B09171 /* CKKSItemEncrypter.m in Sources */,
 				DC7A17F01E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m in Sources */,
 				DCEA5D581E2826DB0089CF55 /* CKKSSIV.m in Sources */,
@@ -26773,33 +26562,40 @@
 				DC15F7691E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m in Sources */,
 				DC222C461E034D1F00B09171 /* SecItemDb.c in Sources */,
 				DC222C471E034D1F00B09171 /* SecItemSchema.c in Sources */,
+				DC9FD32D1F85990B00C8AAC8 /* CKKSPeer.m in Sources */,
 				DCEA5D881E2F14810089CF55 /* CKKSAPSReceiver.m in Sources */,
 				DC2C5F611F0EB97E00FEBDA7 /* CKKSNotifier.m in Sources */,
 				DC222C481E034D1F00B09171 /* SecItemServer.c in Sources */,
+				DC9C95B71F79CFD1000D19E5 /* CKKSControl.m in Sources */,
 				DC18F7721E43E116006B8B43 /* CKKSFetchAllRecordZoneChangesOperation.m in Sources */,
 				DC222C491E034D1F00B09171 /* SecKeybagSupport.c in Sources */,
 				DC1DA6691E4555D80094CE7F /* CKKSScanLocalItemsOperation.m in Sources */,
 				6C8CC3B41E2F913D009025C5 /* AWDKeychainCKKSRateLimiterOverload.m in Sources */,
 				DC222C4A1E034D1F00B09171 /* SecLogSettingsServer.m in Sources */,
+				DC14478D1F5764C600236DB4 /* CKKSResultOperation.m in Sources */,
 				479DA1781EBBA8D30065C98F /* CKKSManifest.m in Sources */,
 				DCD662F81E329B6800188186 /* CKKSNewTLKOperation.m in Sources */,
 				DC222C4D1E034D1F00B09171 /* CKKSOutgoingQueueEntry.m in Sources */,
+				DCBF2F881F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m in Sources */,
 				DC222C4E1E034D1F00B09171 /* CKKS.m in Sources */,
 				DC762AA11E57A86A00B03A2C /* CKKSRecordHolder.m in Sources */,
 				DC222C501E034D1F00B09171 /* SecOTRRemote.m in Sources */,
 				479108BA1EE879F9008CEFA0 /* CKKSAnalyticsLogger.m in Sources */,
+				DC1447991F5766D200236DB4 /* NSOperationCategories.m in Sources */,
 				DC222C511E034D1F00B09171 /* CKKSItem.m in Sources */,
 				DCBDB3BE1E57CA7A00B61300 /* CKKSViewManager.m in Sources */,
 				DCFE1C2A1F17E455007640C8 /* CKKSDeviceStateEntry.m in Sources */,
+				DCAD9B471F8D939C00C5E2AE /* CKKSFixups.m in Sources */,
 				DCA4D2181E5684220056214F /* CKKSReencryptOutgoingItemsOperation.m in Sources */,
 				DCE278EB1ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m in Sources */,
 				DC222C541E034D1F00B09171 /* CKKSSQLDatabaseObject.m in Sources */,
 				DCEA5D981E3015840089CF55 /* CKKSZone.m in Sources */,
 				DCB837381ED5045100015C07 /* CKKSLockStateTracker.m in Sources */,
-				DCF7A8A41F0450EB00CABE89 /* CKKSControlProtocol.m in Sources */,
+				DAD3BD021F9830BC00DF29BA /* CKKSControlProtocol.m in Sources */,
 				DC4DB1531E24692100CD6769 /* CKKSKey.m in Sources */,
 				DC9082C51EA0277700D0C1C5 /* CKKSZoneChangeFetcher.m in Sources */,
 				DC222C571E034D1F00B09171 /* SecuritydXPC.c in Sources */,
+				DC7341F61F8447AB00AB9BDF /* CKKSTLKShare.m in Sources */,
 				6C8CC3B51E2F913D009025C5 /* AWDKeychainCKKSRateLimiterTopWriters.m in Sources */,
 				DCBDB3B81E57C82300B61300 /* CKKSKeychainView.m in Sources */,
 				DC222C5A1E034D1F00B09171 /* iCloudTrace.c in Sources */,
@@ -26828,14 +26624,16 @@
 				DC08D1C41E64FA8C006237DA /* CloudKitKeychainSyncingMockXCTest.m in Sources */,
 				47E553741EDF674700749715 /* CKKSManifestTests.m in Sources */,
 				6C588D7F1EAA14AA00D7E322 /* RateLimiterTests.m in Sources */,
-				DC4DB15F1E2590B100CD6769 /* CKKSEncryptionTests.m in Sources */,
+				DC4DB15F1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m in Sources */,
 				DC3502E71E0214C800BC0587 /* MockCloudKit.m in Sources */,
 				DC6593D11ED8DAB900C19462 /* CKKSTests+CurrentPointerAPI.m in Sources */,
 				DCA85B9A1E8D981100BA7241 /* client_endpoint.m in Sources */,
+				DCAD9B491F8D95F200C5E2AE /* CloudKitKeychainSyncingFixupTests.m in Sources */,
 				DC9A2C5F1EB3F557008FAC27 /* CKKSTests+Coalesce.m in Sources */,
 				DC222C8A1E089BAE00B09171 /* CKKSSQLTests.m in Sources */,
 				DC15F79C1E68EAD5003B9A40 /* CKKSTests+API.m in Sources */,
 				4723C9D41F1531A30082882F /* CKKSLoggerTests.m in Sources */,
+				DCBF2F7D1F90084D00ED0CA4 /* CKKSTLKSharingTests.m in Sources */,
 				DC3502B81E0208BE00BC0587 /* CKKSTests.m in Sources */,
 				6C3446301E24F6BE00F9522B /* CKKSRateLimiterTests.m in Sources */,
 				DCA85B961E8D980100BA7241 /* client.c in Sources */,
@@ -26849,6 +26647,8 @@
 				DC4268FE1E820371002B7110 /* server_endpoint.m in Sources */,
 				DCFE1C3D1F17EFB5007640C8 /* CKKSConditionTests.m in Sources */,
 				DCCD33C91E3FE95900AA4AD1 /* spi.c in Sources */,
+				DC9C95971F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m in Sources */,
+				DC7341FE1F84642C00AB9BDF /* CKKSTLKSharingEncryptionTests.m in Sources */,
 				DC5F35AC1EE0F27900900966 /* server_entitlement_helpers.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -26865,6 +26665,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DC9FD3361F86A34F00C8AAC8 /* CKKSSerializedKey.proto in Sources */,
 				DC797E1A1DD3F9A400CC9E42 /* CKKSSQLDatabaseObject.m in Sources */,
 				6CC1859F1E24E8EB009657D8 /* CKKSRateLimiter.m in Sources */,
 				DCFB12C71E95A4C000510F5F /* CKKSCKAccountStateTracker.m in Sources */,
@@ -26888,6 +26689,7 @@
 				DCD6C4B41EC5302500414FEE /* CKKSNearFutureScheduler.m in Sources */,
 				DC378B2F1DEF9E0E00A3DAFA /* CKKSMirrorEntry.m in Sources */,
 				DC94BCCC1F10448600E07CEB /* CloudKitCategories.m in Sources */,
+				DC9FD32C1F85990A00C8AAC8 /* CKKSPeer.m in Sources */,
 				DC1ED8C61DD55476002BDCFA /* CKKS.m in Sources */,
 				DCB5D93D1E4A9A3400BE22AB /* CKKSSynchronizeOperation.m in Sources */,
 				DC762AA01E57A86A00B03A2C /* CKKSRecordHolder.m in Sources */,
@@ -26896,30 +26698,36 @@
 				DC18F7711E43E116006B8B43 /* CKKSFetchAllRecordZoneChangesOperation.m in Sources */,
 				DC2C5F601F0EB97E00FEBDA7 /* CKKSNotifier.m in Sources */,
 				DC52E7CF1D80BCFD00B0A59C /* SOSEngine.c in Sources */,
+				DC9C95B61F79CFD1000D19E5 /* CKKSControl.m in Sources */,
 				DC4DB1521E24692100CD6769 /* CKKSKey.m in Sources */,
 				DCBDB3BD1E57CA7A00B61300 /* CKKSViewManager.m in Sources */,
 				DC52E7C41D80BCAD00B0A59C /* SecDbItem.c in Sources */,
 				DC52E7D31D80BD1800B0A59C /* SecDbKeychainItem.c in Sources */,
 				DC52E7CC1D80BCDF00B0A59C /* SecDbQuery.c in Sources */,
+				DC14478C1F5764C600236DB4 /* CKKSResultOperation.m in Sources */,
 				479DA1721EBBA8D10065C98F /* CKKSManifest.m in Sources */,
 				DC52E7CB1D80BCD800B0A59C /* SecItemBackupServer.c in Sources */,
 				DC52E7CD1D80BCE700B0A59C /* SecItemDataSource.c in Sources */,
+				DCBF2F871F913EF000ED0CA4 /* CKKSHealTLKSharesOperation.m in Sources */,
 				DC52E7DE1D80BD7F00B0A59C /* SecItemDb.c in Sources */,
 				DC52E7E01D80BD8D00B0A59C /* SecItemSchema.c in Sources */,
 				DC52E7D71D80BD2D00B0A59C /* SecItemServer.c in Sources */,
 				479108B91EE879F9008CEFA0 /* CKKSAnalyticsLogger.m in Sources */,
+				DC1447981F5766D200236DB4 /* NSOperationCategories.m in Sources */,
 				DCD8A0CF1E09EA1800E4FA0A /* SecKeybagSupport.c in Sources */,
 				DC52E7E11D80BD9300B0A59C /* SecLogSettingsServer.m in Sources */,
 				DCFE1C291F17E455007640C8 /* CKKSDeviceStateEntry.m in Sources */,
+				DCAD9B461F8D939C00C5E2AE /* CKKSFixups.m in Sources */,
 				6C8CC3AC1E2F913C009025C5 /* AWDKeychainCKKSRateLimiterOverload.m in Sources */,
 				DC52E7DC1D80BD4F00B0A59C /* SecOTRRemote.m in Sources */,
 				DCE278EA1ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m in Sources */,
 				DCD662F71E329B6800188186 /* CKKSNewTLKOperation.m in Sources */,
 				DCB837321ED5045000015C07 /* CKKSLockStateTracker.m in Sources */,
-				DCF7A8A31F0450EB00CABE89 /* CKKSControlProtocol.m in Sources */,
+				DAD3BD011F9830BB00DF29BA /* CKKSControlProtocol.m in Sources */,
 				DCBDB3B71E57C82300B61300 /* CKKSKeychainView.m in Sources */,
 				DC52E7D61D80BD2800B0A59C /* SecuritydXPC.c in Sources */,
 				DC7A17EF1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m in Sources */,
+				DC7341F51F8447AB00AB9BDF /* CKKSTLKShare.m in Sources */,
 				DCA4D2171E5684220056214F /* CKKSReencryptOutgoingItemsOperation.m in Sources */,
 				5269658D1E6A154700627F9D /* SecBackupKeybagEntry.m in Sources */,
 				DC52E7D41D80BD1D00B0A59C /* iCloudTrace.c in Sources */,
@@ -27312,41 +27120,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DC59EA1A1D91CA15001BDDF5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA2F1D91CA2C001BDDF5 /* fileIo.c in Sources */,
-				DC59EA321D91CA2C001BDDF5 /* printFields.c in Sources */,
-				DC59EA2E1D91CA2C001BDDF5 /* libDERUtils.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA331D91CA82001BDDF5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA4E1D91CACE001BDDF5 /* parseCert.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA571D91CAF0001BDDF5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA611D91CAFD001BDDF5 /* parseCrl.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DC59EA671D91CB9F001BDDF5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC59EA721D91CBBD001BDDF5 /* parseTicket.c in Sources */,
-				DC59EA711D91CBB9001BDDF5 /* DER_Ticket.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DC5ABDC11D832DAB00CF422C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -27530,19 +27303,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DC71D9F01D95BB0A0065FB93 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DC71D9F11D95BB0A0065FB93 /* DER_Decode.c in Sources */,
-				DC71D9F21D95BB0A0065FB93 /* DER_Encode.c in Sources */,
-				DC71D9F31D95BB0A0065FB93 /* DER_Keys.c in Sources */,
-				DC71D9F41D95BB0A0065FB93 /* DER_Digest.c in Sources */,
-				DC71D9F51D95BB0A0065FB93 /* oids.c in Sources */,
-				DC71D9F61D95BB0A0065FB93 /* DER_CertCrl.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DC8834031D8A218F00CE0ACA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -27710,15 +27470,12 @@
 				DCB342FA1D8A32A20054D16E /* SecACL.cpp in Sources */,
 				DCB342F91D8A32A20054D16E /* SecAccess.cpp in Sources */,
 				DCB342FB1D8A32A20054D16E /* SecBase.cpp in Sources */,
-				DCB343891D8A32A20054D16E /* SecBase64P.c in Sources */,
 				DCB3435B1D8A32A20054D16E /* SecCFTypes.cpp in Sources */,
 				DCB342FD1D8A32A20054D16E /* SecCertificate.cpp in Sources */,
 				DCB342FE1D8A32A20054D16E /* SecCertificateBundle.cpp in Sources */,
-				DCB3438B1D8A32A20054D16E /* SecCertificateP.c in Sources */,
 				DCB343921D8A32A20054D16E /* SecExport.cpp in Sources */,
 				DCB343931D8A32A20054D16E /* SecExternalRep.cpp in Sources */,
 				DCB343371D8A32A20054D16E /* SecFDERecoveryAsymmetricCrypto.cpp in Sources */,
-				DCB3438A1D8A32A20054D16E /* SecFrameworkP.c in Sources */,
 				DCB343001D8A32A20054D16E /* SecIdentity.cpp in Sources */,
 				DCB343011D8A32A20054D16E /* SecIdentitySearch.cpp in Sources */,
 				DCB343951D8A32A20054D16E /* SecImport.cpp in Sources */,
@@ -28052,6 +27809,7 @@
 				BEEB47DA1EA189F5004AA5C6 /* SecTrustStatusCodes.c in Sources */,
 				DCD66DBE1D82053700DB1393 /* SecBase64.c in Sources */,
 				DCD66DBD1D82053100DB1393 /* SecCertificatePath.c in Sources */,
+				BE1F74D31F609D460068FA64 /* SecFramework.c in Sources */,
 				DCD66DB61D82050900DB1393 /* SecKey.c in Sources */,
 				DCD66DBC1D82052B00DB1393 /* SecKeyAdaptors.c in Sources */,
 				DCD66DBB1D82052700DB1393 /* SecPolicy.c in Sources */,
@@ -29529,31 +29287,6 @@
 			name = libCMS;
 			targetProxy = DC59E9A81D91C7CC001BDDF5 /* PBXContainerItemProxy */;
 		};
-		DC59EA411D91CAAA001BDDF5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC59E9AC1D91C9DC001BDDF5 /* DER_not_installed */;
-			targetProxy = DC59EA401D91CAAA001BDDF5 /* PBXContainerItemProxy */;
-		};
-		DC59EA431D91CAAE001BDDF5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC59EA0E1D91CA15001BDDF5 /* DERUtils */;
-			targetProxy = DC59EA421D91CAAE001BDDF5 /* PBXContainerItemProxy */;
-		};
-		DC59EA531D91CAF0001BDDF5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC59EA0E1D91CA15001BDDF5 /* DERUtils */;
-			targetProxy = DC59EA541D91CAF0001BDDF5 /* PBXContainerItemProxy */;
-		};
-		DC59EA551D91CAF0001BDDF5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC59E9AC1D91C9DC001BDDF5 /* DER_not_installed */;
-			targetProxy = DC59EA561D91CAF0001BDDF5 /* PBXContainerItemProxy */;
-		};
-		DC59EA651D91CB9F001BDDF5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC59E9AC1D91C9DC001BDDF5 /* DER_not_installed */;
-			targetProxy = DC59EA661D91CB9F001BDDF5 /* PBXContainerItemProxy */;
-		};
 		DC59EA761D91CC5E001BDDF5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DC59E9AC1D91C9DC001BDDF5 /* DER_not_installed */;
@@ -29908,11 +29641,6 @@
 			isa = PBXTargetDependency;
 			target = DC71D99F1D95BA6C0065FB93 /* ASN1 */;
 			targetProxy = DC71D9E21D95BAD50065FB93 /* PBXContainerItemProxy */;
-		};
-		DC71D9FD1D95BB440065FB93 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DC71D9E41D95BB0A0065FB93 /* DER */;
-			targetProxy = DC71D9FC1D95BB440065FB93 /* PBXContainerItemProxy */;
 		};
 		DC71DA031D95BDEA0065FB93 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -32264,7 +31992,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/keychain/ckks/tests/testrunner/KeychainEntitledTestRunner-Entitlements.plist";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -32293,7 +32020,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/keychain/ckks/tests/testrunner/KeychainEntitledTestRunner-Entitlements.plist";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -33155,7 +32881,6 @@
 				INFOPLIST_FILE = keychain/trust/TrustedPeersTests/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.TrustedPeersTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				VALID_ARCHS = "armv6 armv7 arm64 x86_64 x86_64h";
 			};
 			name = Debug;
 		};
@@ -33165,7 +32890,6 @@
 				INFOPLIST_FILE = keychain/trust/TrustedPeersTests/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.TrustedPeersTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				VALID_ARCHS = "armv6 armv7 arm64 x86_64 x86_64h";
 			};
 			name = Release;
 		};
@@ -34408,10 +34132,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -34422,7 +34142,6 @@
 					"-Wl,-upward_framework,Foundation",
 					"$(OTHER_LDFLAGS_APPLEIDAUTHSUPPORT)",
 				);
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -34445,10 +34164,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"NDEBUG=1",
-					"$(inherited)",
-				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -34459,7 +34174,6 @@
 					"-Wl,-upward_framework,Foundation",
 					"$(OTHER_LDFLAGS_APPLEIDAUTHSUPPORT)",
 				);
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -35400,140 +35114,6 @@
 			};
 			name = Release;
 		};
-		DC59EA231D91CA15001BDDF5 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_asn1;
-				SKIP_INSTALL = NO;
-			};
-			name = Debug;
-		};
-		DC59EA241D91CA15001BDDF5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_asn1;
-				SKIP_INSTALL = NO;
-			};
-			name = Release;
-		};
-		DC59EA3C1D91CA82001BDDF5 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		DC59EA3D1D91CA82001BDDF5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
-		DC59EA5E1D91CAF0001BDDF5 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		DC59EA5F1D91CAF0001BDDF5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
-		DC59EA6E1D91CB9F001BDDF5 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		DC59EA6F1D91CB9F001BDDF5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
 		DC5ABDCA1D832DAB00CF422C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -36152,50 +35732,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_asn1;
-			};
-			name = Release;
-		};
-		DC71D9F91D95BB0A0065FB93 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D47C56FB1DCA8F4900E18518 /* all_arches.xcconfig */;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				DEFINES_MODULE = YES;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GENERATE_TEXT_BASED_STUBS = NO;
-				INLINE_PRIVATE_FRAMEWORKS = NO;
-				MODULEMAP_FILE = OSX/libsecurity_keychain/libDER/libDER/module.modulemap;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_MODULE_NAME = libDER;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_libDER/libDER;
-				SKIP_INSTALL = YES;
-				"SKIP_INSTALL[sdk=macosx*]" = NO;
-				SUPPORTS_TEXT_BASED_API = NO;
-			};
-			name = Debug;
-		};
-		DC71D9FA1D95BB0A0065FB93 /* Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D47C56FB1DCA8F4900E18518 /* all_arches.xcconfig */;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				DEFINES_MODULE = YES;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GENERATE_TEXT_BASED_STUBS = NO;
-				INLINE_PRIVATE_FRAMEWORKS = NO;
-				MODULEMAP_FILE = OSX/libsecurity_keychain/libDER/libDER/module.modulemap;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_MODULE_NAME = libDER;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_libDER/libDER;
-				SKIP_INSTALL = YES;
-				"SKIP_INSTALL[sdk=macosx*]" = NO;
-				SUPPORTS_TEXT_BASED_API = NO;
 			};
 			name = Release;
 		};
@@ -41511,42 +41047,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DC59EA221D91CA15001BDDF5 /* Build configuration list for PBXNativeTarget "DERUtils" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DC59EA231D91CA15001BDDF5 /* Debug */,
-				DC59EA241D91CA15001BDDF5 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DC59EA3B1D91CA82001BDDF5 /* Build configuration list for PBXNativeTarget "parseCert" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DC59EA3C1D91CA82001BDDF5 /* Debug */,
-				DC59EA3D1D91CA82001BDDF5 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DC59EA5D1D91CAF0001BDDF5 /* Build configuration list for PBXNativeTarget "parseCrl" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DC59EA5E1D91CAF0001BDDF5 /* Debug */,
-				DC59EA5F1D91CAF0001BDDF5 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DC59EA6D1D91CB9F001BDDF5 /* Build configuration list for PBXNativeTarget "parseTicket" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DC59EA6E1D91CB9F001BDDF5 /* Debug */,
-				DC59EA6F1D91CB9F001BDDF5 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		DC5ABDC91D832DAB00CF422C /* Build configuration list for PBXNativeTarget "securitytool_macos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -41660,15 +41160,6 @@
 			buildConfigurations = (
 				DC71D9DD1D95BA6C0065FB93 /* Debug */,
 				DC71D9DE1D95BA6C0065FB93 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DC71D9F81D95BB0A0065FB93 /* Build configuration list for PBXNativeTarget "DER" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DC71D9F91D95BB0A0065FB93 /* Debug */,
-				DC71D9FA1D95BB0A0065FB93 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -110,6 +110,10 @@
     return [self allWhere: @{@"state":  SecCKKSProcessedStateRemote, @"ckzone":zoneID.zoneName} error:error];
 }
 
++ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
+    return [self allWhere: @{@"ckzone":zoneID.zoneName} error:error];
+}
+
 + (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
     bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{@"ckzone":zoneID.zoneName} connection:nil error: error];
 
@@ -132,7 +136,7 @@
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
-    return @{@"identifier": self.identifier, @"ckzone":self.zoneID.zoneName, @"currentItemUUID": CKKSNilToNSNull(self.currentItemUUID), @"state":self.state};
+    return @{@"identifier": self.identifier, @"ckzone":self.zoneID.zoneName, @"state":self.state};
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {

@@ -21,12 +21,14 @@
 
 
 __unused static SOSFullPeerInfoRef SOSNSFullPeerInfoCreate(NSDictionary* gestalt,
-                                                  NSData* backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey,
-                                                  NSError**error)
+                                                           NSData* backupKey, SecKeyRef signingKey,
+                                                           SecKeyRef octagonSigningKey,
+                                                           SecKeyRef octagonEncryptionKey,
+                                                           NSError**error)
 {
     CFErrorRef errorRef = NULL;
 
-    SOSFullPeerInfoRef result = SOSFullPeerInfoCreate(NULL, (__bridge CFDictionaryRef) gestalt, (__bridge CFDataRef) backupKey, signingKey, octagonSigningKey, &errorRef);
+    SOSFullPeerInfoRef result = SOSFullPeerInfoCreate(NULL, (__bridge CFDictionaryRef) gestalt, (__bridge CFDataRef) backupKey, signingKey, octagonSigningKey, octagonEncryptionKey, &errorRef);
 
     if (errorRef && error) {
         *error = (__bridge_transfer NSError*) errorRef;
@@ -51,24 +53,6 @@ static SecKeyRef GenerateFullECKey_internal(int keySize,  NSError** error)
 
 static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     return GenerateFullECKey_internal(keySize, error);
-}
-
-
-__unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, NSError** error)
-{
-    if (outSigningKey == NULL || outOctagonSigningKey == NULL)
-        return NULL;
-
-    *outSigningKey = GenerateFullECKey(256, error);
-    if (*outSigningKey == NULL)
-        return NULL;
-    
-    *outOctagonSigningKey = GenerateFullECKey(384, error);
-    if (*outOctagonSigningKey == NULL) {
-        return NULL;
-    }
-
-    return SOSNSFullPeerInfoCreate(@{(__bridge NSString*)kPIUserDefinedDeviceNameKey:name}, nil, *outSigningKey, *outOctagonSigningKey, error);
 }
 
 
@@ -120,8 +104,9 @@ __unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name,
 
     SecKeyRef signingKey = GenerateFullECKey(256, NULL);
     SecKeyRef octagonSigningKey = GenerateFullECKey(384, NULL);
+    SecKeyRef octagonEncryptionKey = GenerateFullECKey(384, NULL);
 
-    self.peerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, NULL);
+    self.peerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, octagonEncryptionKey, NULL);
 
     if (self.peerInfo == NULL)
         return nil;

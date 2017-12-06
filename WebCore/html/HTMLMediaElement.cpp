@@ -441,12 +441,16 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_haveVisibleTextTrack(false)
     , m_processingPreferenceChange(false)
 #endif
-    , m_mediaSession(std::make_unique<MediaElementSession>(*this))
 {
     allMediaElements().add(this);
 
     LOG(Media, "HTMLMediaElement::HTMLMediaElement(%p)", this);
     setHasCustomStyleResolveCallbacks();
+}
+
+void HTMLMediaElement::finishInitialization()
+{
+    m_mediaSession = std::make_unique<MediaElementSession>(*this);
 
     m_mediaSession->addBehaviorRestriction(MediaElementSession::RequireUserGestureForFullscreen);
     m_mediaSession->addBehaviorRestriction(MediaElementSession::RequirePageConsentToLoadMedia);
@@ -456,6 +460,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     m_mediaSession->addBehaviorRestriction(MediaElementSession::RequireUserGestureToControlControlsManager);
     m_mediaSession->addBehaviorRestriction(MediaElementSession::RequirePlaybackToControlControlsManager);
 
+    auto& document = this->document();
     auto* page = document.page();
 
     if (document.settings().invisibleAutoplayNotPermitted())
@@ -515,6 +520,8 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
 #if USE(AUDIO_SESSION) && PLATFORM(MAC)
     AudioSession::sharedSession().addMutedStateObserver(this);
 #endif
+
+    mediaSession().clientWillBeginAutoplaying();
 }
 
 HTMLMediaElement::~HTMLMediaElement()
@@ -583,6 +590,7 @@ HTMLMediaElement::~HTMLMediaElement()
     m_updatePlaybackControlsManagerQueue.close();
     m_playbackControlsManagerBehaviorRestrictionsQueue.close();
     m_resourceSelectionTaskQueue.close();
+    m_visibilityChangeTaskQueue.close();
 
     m_completelyLoaded = true;
 
@@ -2308,11 +2316,12 @@ void HTMLMediaElement::mediaPlayerReadyStateChanged(MediaPlayer*)
 SuccessOr<MediaPlaybackDenialReason> HTMLMediaElement::canTransitionFromAutoplayToPlay() const
 {
     if (isAutoplaying()
-     && mediaSession().autoplayPermitted()
-     && paused()
-     && autoplay()
-     && !pausedForUserInteraction()
-     && !document().isSandboxed(SandboxAutomaticFeatures))
+        && mediaSession().autoplayPermitted()
+        && paused()
+        && autoplay()
+        && !pausedForUserInteraction()
+        && !document().isSandboxed(SandboxAutomaticFeatures)
+        && m_readyState == HAVE_ENOUGH_DATA)
         return mediaSession().playbackPermitted(*this);
 
     RELEASE_LOG(Media, "HTMLMediaElement::canTransitionFromAutoplayToPlay - page consent required");
@@ -3374,10 +3383,18 @@ ExceptionOr<void> HTMLMediaElement::setVolume(double volume)
     if (m_volume == volume)
         return { };
 
+    if (volume && processingUserGestureForMedia())
+        removeBehaviorsRestrictionsAfterFirstUserGesture(MediaElementSession::AllRestrictions & ~MediaElementSession::RequireUserGestureToControlControlsManager);
+
     m_volume = volume;
     m_volumeInitialized = true;
     updateVolume();
     scheduleEvent(eventNames().volumechangeEvent);
+
+    if (isPlaying() && !m_mediaSession->playbackPermitted(*this)) {
+        pauseInternal();
+        setPlaybackWithoutUserGesture(PlaybackWithoutUserGesture::Prevented);
+    }
 #endif
     return { };
 }
@@ -6739,14 +6756,15 @@ RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality()
     DOMWindow* domWindow = document().domWindow();
     double timestamp = domWindow ? 1000 * domWindow->nowTimestamp() : 0;
 
-    if (!m_player)
+    auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt;
+    if (!metrics)
         return VideoPlaybackQuality::create(timestamp, 0, 0, 0, 0);
 
     return VideoPlaybackQuality::create(timestamp,
-        m_droppedVideoFrames + m_player->totalVideoFrames(),
-        m_droppedVideoFrames + m_player->droppedVideoFrames(),
-        m_player->corruptedVideoFrames(),
-        m_player->totalFrameDelay().toDouble());
+        metrics.value().totalVideoFrames + m_droppedVideoFrames,
+        metrics.value().droppedVideoFrames + m_droppedVideoFrames,
+        metrics.value().corruptedVideoFrames,
+        metrics.value().totalFrameDelay);
 }
 #endif
 
@@ -7464,8 +7482,10 @@ bool HTMLMediaElement::isVideoTooSmallForInlinePlayback()
 
 void HTMLMediaElement::isVisibleInViewportChanged()
 {
-    updateShouldAutoplay();
-    scheduleUpdatePlaybackControlsManager();
+    m_visibilityChangeTaskQueue.enqueueTask([this] {
+        updateShouldAutoplay();
+        scheduleUpdatePlaybackControlsManager();
+    });
 }
 
 void HTMLMediaElement::updateShouldAutoplay()

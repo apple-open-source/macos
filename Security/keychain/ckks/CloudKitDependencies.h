@@ -87,6 +87,43 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CKFetchRecordZoneChangesOperation () <CKKSFetchRecordZoneChangesOperation>;
 @end
 
+/* CKFetchRecordsOperation */
+@protocol CKKSFetchRecordsOperation <NSObject>
++ (instancetype)alloc;
+- (instancetype)init;
+- (instancetype)initWithRecordIDs:(NSArray<CKRecordID *> *)recordIDs;
+
+@property (nonatomic, copy, nullable) NSArray<CKRecordID *> *recordIDs;
+@property (nonatomic, copy, nullable) NSArray<NSString *> *desiredKeys;
+@property (nonatomic, copy, nullable) void (^perRecordProgressBlock)(CKRecordID *recordID, double progress);
+@property (nonatomic, copy, nullable) void (^perRecordCompletionBlock)(CKRecord * _Nullable record, CKRecordID * _Nullable recordID, NSError * _Nullable error);
+@property (nonatomic, copy, nullable) void (^fetchRecordsCompletionBlock)(NSDictionary<CKRecordID * , CKRecord *> * _Nullable recordsByRecordID, NSError * _Nullable operationError);
+@end
+
+@interface CKFetchRecordsOperation () <CKKSFetchRecordsOperation>
+@end
+
+/* CKQueryOperation */
+
+@protocol CKKSQueryOperation <NSObject>
++ (instancetype)alloc;
+- (instancetype)initWithQuery:(CKQuery *)query;
+//Not implemented: - (instancetype)initWithCursor:(CKQueryCursor *)cursor;
+
+@property (nonatomic, copy, nullable) CKQuery *query;
+@property (nonatomic, copy, nullable) CKQueryCursor *cursor;
+
+@property (nonatomic, copy, nullable) CKRecordZoneID *zoneID;
+@property (nonatomic, assign) NSUInteger resultsLimit;
+@property (nonatomic, copy, nullable) NSArray<NSString *> *desiredKeys;
+
+@property (nonatomic, copy, nullable) void (^recordFetchedBlock)(CKRecord *record);
+@property (nonatomic, copy, nullable) void (^queryCompletionBlock)(CKQueryCursor * _Nullable cursor, NSError * _Nullable operationError);
+@end
+
+@interface CKQueryOperation () <CKKSQueryOperation>
+@end
+
 /* APSConnection */
 @protocol CKKSAPSConnection <NSObject>
 + (instancetype)alloc;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,7 +91,6 @@ SecCertificateGetBasicConstraints(SecCertificateRef certificate);
    any. */
 CFArrayRef SecCertificateGetPermittedSubtrees(SecCertificateRef certificate);
 
-
 /* Returns array of CFDataRefs containing the generalNames that are
    Excluded Subtree Name Constraints for this certificate if it has
    any. */
@@ -124,6 +123,9 @@ const DERAlgorithmId *SecCertificateGetPublicKeyAlgorithm(
 
 /* Return the raw public key data for certificate.  */
 const DERItem *SecCertificateGetPublicKeyData(SecCertificateRef certificate);
+
+/* Return legacy property values for use by SecCertificateCopyValues. */
+CFArrayRef SecCertificateCopyLegacyProperties(SecCertificateRef certificate);
 
 // MARK: -
 // MARK: Certificate Operations

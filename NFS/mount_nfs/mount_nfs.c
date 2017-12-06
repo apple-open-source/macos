@@ -1649,6 +1649,7 @@ config_read(struct nfs_conf_client *conf)
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
+	int valid_num, valid_bool;
 	long val;
 
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
@@ -1657,6 +1658,9 @@ config_read(struct nfs_conf_client *conf)
 		return (1);
 	}
 	for (; (line = fparseln(f, &len, &linenum, NULL, 0)); free(line)) {
+		valid_bool = 0;
+		valid_num = 0;
+
 		if (len <= 0)
 			continue;
 		/* trim trailing whitespace */
@@ -1676,48 +1680,77 @@ config_read(struct nfs_conf_client *conf)
 			do { value++; } while (isspace(*value));
 
 		/* all client keys start with "nfs.client." */
-		if (strncmp(key, "nfs.client.", 11)) {
+		if (strncmp(key, "nfs.client.", 11) && strncmp(key, "verbose", 8)) {
 			if (verbose > 1)
 				printf("%4ld %s=%s\n", linenum, key, value ? value : "");
 			continue;
 		}
-		val = !value ? 1 : strtol(value, NULL, 0);
+
+		if (!value) {
+			val = 1;
+			valid_bool = 1;
+		} else {
+			char *eptr;
+
+			valid_num = 1;
+			val = strtol(value, &eptr, 0);
+			if (*eptr) {
+				if (strncasecmp(value, "on", 3) == 0 ||
+				    strncasecmp(value, "true", 5) == 0) {
+					valid_bool = 1;
+					val = 1;
+				} else if (strncasecmp(value, "off", 4) == 0 ||
+				    strncasecmp(value, "false", 6) == 0) {
+					valid_bool = 1;
+					val = 0;
+				}
+			}
+		}
+		if (valid_num && (val == 1 || val == 0))
+			valid_bool = 1;
 		if (verbose)
 			printf("%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", val);
 
-		if (!strcmp(key, "nfs.client.access_cache_timeout")) {
-			if (value && val)
+		if (!strcmp(key, "verbose")) {
+			if (valid_bool || valid_num)
+				verbose = val;
+		} else if (!strcmp(key, "nfs.client.access_cache_timeout")) {
+			if (valid_num && val >= 0)
 				conf->access_cache_timeout = val;
 		} else if (!strcmp(key, "nfs.client.access_for_getattr")) {
-			conf->access_for_getattr = val;
+			if (valid_num && val >= 0)
+				conf->access_for_getattr = val;
 		} else if (!strcmp(key, "nfs.client.allow_async")) {
-			conf->allow_async = val;
+			if (valid_bool)
+				conf->allow_async = val;
 		} else if (!strcmp(key, "nfs.client.callback_port")) {
-			if (value && val)
+			if (valid_num && val > 0)
 				conf->callback_port = val;
 		} else if (!strcmp(key, "nfs.client.initialdowndelay")) {
-			conf->initialdowndelay = val;
+			if (valid_num && val > 0)
+				conf->initialdowndelay = val;
 		} else if (!strcmp(key, "nfs.client.iosize")) {
-			if (value && val)
+			if (valid_num && val > 0) //xxx minsize?
 				conf->iosize = val;
 		} else if (!strcmp(key, "nfs.client.mount.options")) {
 			handle_mntopts(value);
 		} else if (!strcmp(key, "nfs.client.nextdowndelay")) {
-			conf->nextdowndelay = val;
+			if (valid_num && val > 0)
+				conf->nextdowndelay = val;
 		} else if (!strcmp(key, "nfs.client.nfsiod_thread_max")) {
-			if (value)
+			if (valid_num && val > 0)
 				conf->nfsiod_thread_max = val;
 		} else if (!strcmp(key, "nfs.client.statfs_rate_limit")) {
-			if (value && val)
+			if (valid_num && val >= 0)
 				conf->statfs_rate_limit = val;
 		} else if (!strcmp(key, "nfs.client.is_mobile")) {
-			if (value && val)
+			if (valid_bool)
 				conf->is_mobile = val;
 		} else if (!strcmp(key, "nfs.client.squishy_flags")) {
 			if (value && val)
 				conf->squishy_flags = val;
 		} else if (!strcmp(key, "nfs.client.root_steals_gss_context")) {
-			if (value && val)
+			if (valid_bool)
 				conf->root_steals_gss_context = val;
 		} else if (!strcmp(key, "nfs.client.default_nfs4domain")) {
 			if (value) {
@@ -1822,7 +1855,6 @@ mobile_client()
 
 	return strnstr(model, "Book", len) != NULL;
 }
-
 
 void
 config_sysctl(void)

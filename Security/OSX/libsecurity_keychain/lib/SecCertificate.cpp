@@ -45,8 +45,6 @@
 #include <sys/param.h>
 #include <syslog.h>
 #include "CertificateValues.h"
-#include "SecCertificateP.h"
-#include "SecCertificatePrivP.h"
 
 #include "AppleBaselineEscrowCertificates.h"
 
@@ -992,3 +990,20 @@ bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verify
      */
 	return SecCertificateIsValid(certificate, verifyTime);
 }
+
+/* OS X only */
+CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllocatorRef allocator,
+                                                                   CFDataRef der_certificate)
+{
+    CFDataRef result = NULL;
+    SecCertificateRef iosCertRef = SecCertificateCreateWithData(allocator, der_certificate);
+    if (NULL == iosCertRef)
+    {
+        return result;
+    }
+
+    result = SecCertificateCopyPublicKeySHA1Digest(iosCertRef);
+    CFRelease(iosCertRef);
+    return result;
+}
+

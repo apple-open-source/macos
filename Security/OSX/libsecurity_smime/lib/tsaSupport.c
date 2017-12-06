@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,12 +41,11 @@
 #include "tsaTemplates.h"
 #include <Security/SecAsn1Coder.h>
 #include <AssertMacros.h>
+#include <Security/SecBasePriv.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecImportExport.h>
 #include <Security/SecCertificatePriv.h>
-#include <security_keychain/SecCertificateP.h>
-#include <security_keychain/SecCertificatePrivP.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecDispatchRelease.h>
 
@@ -879,36 +878,29 @@ xit:
     return result;
 }
 
-static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo *tstInfo, CSSM_DATA **signingCerts, CFAbsoluteTime *timestampTime)
+static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo *tstInfo, SecCertificateRef signerCert, CFAbsoluteTime *timestampTime)
 {
     // See <rdar://problem/11077708> Properly handle revocation information of timestamping certificate
     OSStatus result = paramErr;
     CFAbsoluteTime genTime = 0;
     char timeStr[32] = {0,};
-    SecCertificateRef signingCertificate = NULL;
 
-    require(tstInfo && signingCerts && (tstInfo->genTime.Length < 16), xit);
-
-    // Find the leaf signingCert
-    require_noerr(result = SecCertificateCreateFromData(*signingCerts,
-        CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &signingCertificate), xit);
+    require(tstInfo && signerCert && (tstInfo->genTime.Length < 16), xit);;
 
     memcpy(timeStr, tstInfo->genTime.Data, tstInfo->genTime.Length);
     timeStr[tstInfo->genTime.Length] = 0;
     require_noerr(convertGeneralizedTimeToCFAbsoluteTime(timeStr, &genTime), xit);
-    if (SecCertificateIsValidX(signingCertificate, genTime)) // iOS?
+    if (SecCertificateIsValidX(signerCert, genTime)) // iOS?
         result = noErr;
     else
         result = errSecTimestampInvalid;
     if (timestampTime)
         *timestampTime = genTime;
 xit:
-    if (signingCertificate)
-        CFReleaseNull(signingCertificate);
     return result;
 }
 
-static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, CSSM_DATA **signingCerts, SecAsn1TSATSTInfo *tstInfo, CFAbsoluteTime *timestampTime, uint64_t expectedNonce)
+static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, SecCertificateRef signerCert, SecAsn1TSATSTInfo *tstInfo, CFAbsoluteTime *timestampTime, uint64_t expectedNonce)
 {
     OSStatus status = paramErr;
     SecAsn1CoderRef coder = NULL;
@@ -930,7 +922,7 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, CSSM_DATA **signingCe
         require_action(expectedNonce==nonce, xit, status = errSecTimestampRejection);
     }
 
-    status = SecTSAValidateTimestamp(tstInfo, signingCerts, timestampTime);
+    status = SecTSAValidateTimestamp(tstInfo, signerCert, timestampTime);
     dtprintf("SecTSAValidateTimestamp result: %ld\n", (long)status);
 
 xit:
@@ -1190,13 +1182,10 @@ static const char *cfabsoluteTimeToString(CFAbsoluteTime abstime)
 
 static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
 {
-    OSStatus status = noErr;
+    SecCertificateRef tsaLeaf = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL);
 
-    if (!signerinfo->timestampCertList || (CFArrayGetCount(signerinfo->timestampCertList) == 0))
+    if (!tsaLeaf)
         return SecCmsVSSigningCertNotFound;
-
-    SecCertificateRef tsaLeaf = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->timestampCertList, 0);
-    require_action(tsaLeaf, xit, status = errSecCertificateCannotOperate);
 
     signerinfo->tsaLeafNotBefore = SecCertificateNotValidBefore(tsaLeaf); /* Start date for Timestamp Authority leaf */
     signerinfo->tsaLeafNotAfter = SecCertificateNotValidAfter(tsaLeaf);   /* Expiration date for Timestamp Authority leaf */
@@ -1209,15 +1198,7 @@ static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
         free((void *)nbefore);free((void *)nafter);
     }
 
-/*
-		if(at < nb)
-			status = errSecCertificateNotValidYet;
-		else if (at > na)
-			status = errSecCertificateExpired;
-*/
-
-xit:
-    return status;
+    return errSecSuccess;
 }
 
 /*
@@ -1387,7 +1368,8 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
         case SEC_OID_PKCS9_ID_CT_TSTInfo:
         {
             SecAsn1TSATSTInfo tstInfo = {{0},};
-            result = verifyTSTInfo(contentInfo->rawContent, signingCerts, &tstInfo, &signerinfo->timestampTime, expectedNonce);
+            SecCertificateRef signerCert = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL);
+            result = verifyTSTInfo(contentInfo->rawContent, signerCert, &tstInfo, &signerinfo->timestampTime, expectedNonce);
             if (signerinfo->timestampTime)
             {
                 const char *tstamp = cfabsoluteTimeToString(signerinfo->timestampTime);

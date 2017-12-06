@@ -75,7 +75,7 @@
                     return;
                 }
 
-                [strongCKKS dispatchSyncWithAccountQueue:^bool{
+                [strongCKKS dispatchSyncWithAccountKeys:^bool{
                     strongCKKS.latestManifest = [CKKSManifest latestTrustedManifestForZone:strongCKKS.zoneName error:&error];
                     if (error) {
                         strongSelf.error = error;
@@ -310,7 +310,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountQueue: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
             return false;

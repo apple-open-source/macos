@@ -532,6 +532,38 @@ int crlCheckCachePath()
 	return mkpath_np((char*)gCrlPath, 0755);
 }
 
+/*
+ * Check whether the caller can access the network. Currently, this applies
+ * only to applications running under App Sandbox.
+ */
+bool callerHasNetworkEntitlement(
+		audit_token_t auditToken)
+{
+	bool result = true; /* until proven otherwise */
+	SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
+	if(task != NULL) {
+		CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
+				CFSTR("com.apple.security.app-sandbox"),
+				NULL);
+		if(appSandboxValue != NULL) {
+			if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
+				CFTypeRef networkClientValue = SecTaskCopyValueForEntitlement(task,
+						CFSTR("com.apple.security.network.client"),
+						NULL);
+				if(networkClientValue != NULL) {
+					result = (!CFEqual(kCFBooleanFalse, networkClientValue));
+					CFRelease(networkClientValue);
+				} else {
+					result = false;
+				}
+			}
+			CFRelease(appSandboxValue);
+		}
+		CFRelease(task);
+	}
+	return result;
+}
+
 
 #pragma mark ----- Mig-referenced OCSP routines -----
 
@@ -588,6 +620,12 @@ kern_return_t ocsp_server_ocspdFetch (
 
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
+
+	if(!callerHasNetworkEntitlement(auditToken)) {
+		/* client can't access network */
+		krtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+		goto errOut;
+	}
 
 	/* This may need to be threaded, one thread per request */
 	for(unsigned dex=0; dex<numRequests; dex++) {
@@ -661,38 +699,6 @@ void passDataToCaller(
 	*outData    = srcData.Data;
 	*outDataCnt = (unsigned int)srcData.Length;
 	MachPlusPlus::MachServer::active().releaseWhenDone(alloc, srcData.Data);
-}
-
-/*
- * Check whether the caller can access the network. Currently, this applies
- * only to applications running under App Sandbox.
- */
-bool callerHasNetworkEntitlement(
-		audit_token_t auditToken)
-{
-	bool result = true; /* until proven otherwise */
-	SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
-	if(task != NULL) {
-		CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
-				CFSTR("com.apple.security.app-sandbox"),
-				NULL);
-		if(appSandboxValue != NULL) {
-			if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
-				CFTypeRef networkClientValue = SecTaskCopyValueForEntitlement(task,
-						CFSTR("com.apple.security.network.client"),
-						NULL);
-				if(networkClientValue != NULL) {
-					result = (!CFEqual(kCFBooleanFalse, networkClientValue));
-					CFRelease(networkClientValue);
-				} else {
-					result = false;
-				}
-			}
-			CFRelease(appSandboxValue);
-		}
-		CFRelease(task);
-	}
-	return result;
 }
 
 

@@ -1591,14 +1591,22 @@ IOReturn IOEthernetController::setGPTPPresent(bool gPTPPresent)
 {
 	IOReturn result = kIOReturnSuccess;
 	
-	setProperty("gPTPPresent", gPTPPresent);
-	
-	if(gPTPPresent)
+	if(_reserved)
 	{
-		registerService();
+		if(gPTPPresent != _reserved->fgPTPPresent)
+		{
+			setProperty("gPTPPresent", gPTPPresent);
+			
+			if(gPTPPresent)
+			{
+				registerService();
+			}
+			
+			messageClients(kIOMessageServicePropertyChange);
+			
+			_reserved->fgPTPPresent = gPTPPresent;
+		}
 	}
-	
-	messageClients(kIOMessageServicePropertyChange);
 	
 	return result;
 }

@@ -2354,6 +2354,8 @@ _getaddrinfo_internal(const char *nodename, const char *servname, const struct a
 		flags = hints->ai_flags;
 	}
 
+	if (flags == 0) flags = AI_DEFAULT;
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s %s %u %u %u 0x%08x %s\n", __func__, nodename, servname, family, socktype, protocol, flags, (interface == NULL) ? "" : interface);
 #endif
@@ -2630,6 +2632,8 @@ _getaddrinfo_interface_async_call(const char *nodename, const char *servname, co
 		protocol = hints->ai_protocol;
 		flags = hints->ai_flags;
 	}
+
+	if (flags == 0) flags = AI_DEFAULT;
 
 #ifdef CALL_TRACE
 	fprintf(stderr, ">> %s %s %s %u %u %u 0x%08x\n", __func__, nodename, servname, family, socktype, protocol, flags);

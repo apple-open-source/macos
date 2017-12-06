@@ -482,7 +482,10 @@ static int testDigests(DigestVector *dv) {
 static size_t testsPerVector = 242;
 
 int CommonDigest(int __unused argc, char *const * __unused argv) {
-	plan_tests((int) (dvLen*testsPerVector));
+	plan_tests((int) (dvLen*testsPerVector+2));
+    
+    is(CCDigestGetOutputSize(20),(size_t)kCCUnimplemented, "Out of bound by one");
+    is(CCDigestGetOutputSize(500),(size_t)kCCUnimplemented, "Out of bound by a lot");
     
     for(size_t testcase = 0; testcase < dvLen; testcase++) {
         // diag("Test %lu\n", testcase + 1);

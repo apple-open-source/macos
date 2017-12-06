@@ -683,6 +683,23 @@ SecPathVerifyStatus SecCertificatePathVCVerify(SecCertificatePathVCRef certifica
     return kSecPathVerifySuccess;
 }
 
+/* Is the the issuer of the last cert a subject of a previous cert in the chain.See <rdar://33136765>. */
+bool SecCertificatePathVCIsCycleInGraph(SecCertificatePathVCRef path) {
+    bool isCircle = false;
+    CFDataRef issuer = SecCertificateGetNormalizedIssuerContent(SecCertificatePathVCGetRoot(path));
+    if (!issuer) { return isCircle; }
+    CFIndex ix = path->count - 2;
+    for (; ix >= 0; ix--) {
+        SecCertificateVCRef cvc = path->certificates[ix];
+        CFDataRef subject = SecCertificateGetNormalizedSubjectContent(cvc->certificate);
+        if (subject && CFEqual(issuer, subject)) {
+            isCircle = true;
+            break;
+        }
+    }
+    return isCircle;
+}
+
 bool SecCertificatePathVCIsValid(SecCertificatePathVCRef certificatePath, CFAbsoluteTime verifyTime) {
     __block bool result = true;
     SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {

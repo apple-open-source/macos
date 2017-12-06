@@ -598,8 +598,8 @@ size_t _dispatch_objc_debug(dispatch_object_t dou, char* buf, size_t bufsiz);
 		_ref_cnt; \
 	})
 
-#define _os_atomic_refcnt_add2o(o, m, n) \
-		_os_atomic_refcnt_perform2o(o, m, add, n, relaxed)
+#define _os_atomic_refcnt_add_orig2o(o, m, n) \
+		_os_atomic_refcnt_perform2o(o, m, add_orig, n, relaxed)
 
 #define _os_atomic_refcnt_sub2o(o, m, n) \
 		_os_atomic_refcnt_perform2o(o, m, sub, n, release)
@@ -611,9 +611,9 @@ size_t _dispatch_objc_debug(dispatch_object_t dou, char* buf, size_t bufsiz);
 /*
  * Higher level _os_object_{x,}refcnt_* actions
  *
- * _os_atomic_{x,}refcnt_inc(o):
+ * _os_atomic_{x,}refcnt_inc_orig(o):
  *   increment the external (resp. internal) refcount and
- *   returns the new refcount value
+ *   returns the old refcount value
  *
  * _os_atomic_{x,}refcnt_dec(o):
  *   decrement the external (resp. internal) refcount and
@@ -624,8 +624,8 @@ size_t _dispatch_objc_debug(dispatch_object_t dou, char* buf, size_t bufsiz);
  *   (resp. internal) refcount
  *
  */
-#define _os_object_xrefcnt_inc(o) \
-		_os_atomic_refcnt_add2o(o, os_obj_xref_cnt, 1)
+#define _os_object_xrefcnt_inc_orig(o) \
+		_os_atomic_refcnt_add_orig2o(o, os_obj_xref_cnt, 1)
 
 #define _os_object_xrefcnt_dec(o) \
 		_os_atomic_refcnt_sub2o(o, os_obj_xref_cnt, 1)
@@ -633,8 +633,8 @@ size_t _dispatch_objc_debug(dispatch_object_t dou, char* buf, size_t bufsiz);
 #define _os_object_xrefcnt_dispose_barrier(o) \
 		_os_atomic_refcnt_dispose_barrier2o(o, os_obj_xref_cnt)
 
-#define _os_object_refcnt_add(o, n) \
-		_os_atomic_refcnt_add2o(o, os_obj_ref_cnt, n)
+#define _os_object_refcnt_add_orig(o, n) \
+		_os_atomic_refcnt_add_orig2o(o, os_obj_ref_cnt, n)
 
 #define _os_object_refcnt_sub(o, n) \
 		_os_atomic_refcnt_sub2o(o, os_obj_ref_cnt, n)

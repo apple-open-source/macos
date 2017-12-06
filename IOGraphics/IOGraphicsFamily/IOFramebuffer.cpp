@@ -331,6 +331,46 @@ GTrace                      * gGTrace = NULL;
 bool                        gbGTraceInitialized = false;
 static uint8_t              gDiagnosticsRunning;  // OSBitOrAtomic8 target
 
+/*
+ BAP - FIXME
+ RADAR 34840148 - CD Assert NUM of NUM framebuffers clone
+ Report the number of framebuffers opened/dead/API errors/busy Counts.
+ To be removed when investigation is complete.
+ */
+#define RADAR_34840148              34840148
+
+#if RADAR_34840148
+const OSSymbol *                    gIOGLER_ID = NULL;
+const OSSymbol *                    gIOGLER_Busy0 = NULL;
+const OSSymbol *                    gIOGLER_Wrangler = NULL;
+const OSSymbol *                    gIOGLER_Busy1 = NULL;
+const OSSymbol *                    gIOGLER_Controller = NULL;
+const OSSymbol *                    gIOGLER_Dead = NULL;
+const OSSymbol *                    gIOGLER_DepOpen = NULL;
+const OSSymbol *                    gIOGLER_PostOpen = NULL;
+const OSSymbol *                    gIOGLER_Online = NULL;
+#define kNumber_Of_LER_Keys         9
+#if 0
+#define LER_LOG(_fmt, vargs...)     do {kprintf("LER: %s:%d - " _fmt, __FUNCTION__, __LINE__, ## vargs); IOSleep(10);}while(0)
+#else
+#define LER_LOG(_fmt, vargs...)
+#endif
+inline void setLERValue(OSDictionary * dict, const OSSymbol * key, const uint64_t value, unsigned int line)
+{
+    bool bSet = false;
+    if (dict && key) {
+        const OSNumber * num = OSNumber::withNumber( value, 64 );
+        if (num)
+        {
+            bSet = dict->setObject(key, num);
+        }
+        OSSafeReleaseNULL(num);
+    }
+    LER_LOG("%s = setLERValue(%u) did set %#llx (%s)\n", bSet ? "true" : "false", line, value, key->getCStringNoCopy());
+}
+#else /*RADAR_34840148*/
+#define LER_LOG(_fmt, vargs...)
+#endif /*RADAR_34840148*/
 
 #define kIOFBGetSensorValueKey  "getSensorValue"
 
@@ -445,6 +485,11 @@ public:
 
     // Both System and Controller work loops
     void startAsync(uint32_t asyncWork);
+
+#if RADAR_34840148
+    const OSSymbol *    fLERSym;
+    void publishLER(IOService * provider, OSDictionary * dict);
+#endif /*RADAR_34840148*/
 };
 
 struct IOFBInterruptRegister
@@ -1312,9 +1357,62 @@ bool IOFBController::init(IOFramebuffer *fb)
         }
     }
 
+#if RADAR_34840148
+    if (!gIOGLER_ID) {
+        gIOGLER_ID          = OSSymbol::withCStringNoCopy("IOGraphics_LER_ID");
+        gIOGLER_Busy0       = OSSymbol::withCStringNoCopy("IOGraphics_LER_Busy_0");
+        gIOGLER_Wrangler    = OSSymbol::withCStringNoCopy("IOGraphics_LER_Wrangler");
+        gIOGLER_Busy1       = OSSymbol::withCStringNoCopy("IOGraphics_LER_Busy_1");
+        gIOGLER_Controller  = OSSymbol::withCStringNoCopy("IOGraphics_LER_Controller");
+        gIOGLER_Dead        = OSSymbol::withCStringNoCopy("IOGraphics_LER_Dead");
+        gIOGLER_DepOpen     = OSSymbol::withCStringNoCopy("IOGraphics_LER_DepOpen");
+        gIOGLER_PostOpen    = OSSymbol::withCStringNoCopy("IOGraphics_LER_PostOpen");
+        gIOGLER_Online      = OSSymbol::withCStringNoCopy("IOGraphics_LER_Online");
+    }
+#endif /*RADAR_34840148*/
+
     IOFBC_END(init,true,0,0);
     return true;
 }
+
+#if RADAR_34840148
+void IOFBController::publishLER(IOService * provider, OSDictionary * dict)
+{
+    if (!fLERSym) {
+        fLERSym = OSSymbol::withCStringNoCopy("AAPL,IOGraphics_LER");
+    }
+
+    if (!fLERSym) {
+        LER_LOG("Sym is null!\n");
+        return;
+    }
+
+    if (!dict) {
+        LER_LOG("dict is null!\n");
+        return;
+    }
+
+    if (!provider) {
+        LER_LOG("provider is NULL!\n");
+        return;
+    }
+
+    LER_LOG("provider %#llx\n", (uint64_t)provider);
+
+    OSDictionary * osd = OSDynamicCast(OSDictionary, provider->getProperty(fLERSym));
+    if (osd) {
+        LER_LOG("dict property exists!\n");
+        LER_LOG("fict retain count: %u\n", osd->getRetainCount());
+        LER_LOG("sym retain count: %u\n", fLERSym->getRetainCount());
+    } else {
+        LER_LOG("dict property set\n");
+        LER_LOG("dict retain count: %u\n", dict->getRetainCount());
+        LER_LOG("sym retain count: %u\n", fLERSym->getRetainCount());
+        provider->setProperty(fLERSym, dict);
+    }
+}
+#endif /*RADAR_34840148*/
+
 
 void IOFBController::unhookFB(IOFramebuffer *fb)
 {
@@ -1357,6 +1455,10 @@ void IOFBController::free()
         IODelete(fDGPUName, char, fDGPUNameLen);
         fDGPUName = NULL;
     }
+
+#if RADAR_34840148
+    OSSafeReleaseNULL(fLERSym);
+#endif /*RADAR_34840148*/
 
     IOFBC_END(free,0,0,0);
 }
@@ -4704,7 +4806,28 @@ bool IOFramebuffer::start( IOService * provider )
         while (false);
     }
 
+#if RADAR_34840148
+    OSNumber * num = OSNumber::withNumber(mach_continuous_time(), 64);
+    if (num) {
+        setProperty("AAPL,IOGraphics_LER_RegTag_0", num);
+        num->release();
+    }
+    num = OSNumber::withNumber(getBusyState(), 64);
+    if (num) {
+        setProperty("AAPL,IOGraphics_LER_Busy_2", num);
+        num->release();
+    }
+#endif /*RADAR_34840148*/
+
     registerService();
+
+#if RADAR_34840148
+    num = OSNumber::withNumber(mach_continuous_time(), 64);
+    if (num) {
+        setProperty("AAPL,IOGraphics_LER_RegTag_1", num);
+        num->release();
+    }
+#endif /*RADAR_34840148*/
 
     IOFB_END(start,true,0,0);
     return (true);
@@ -6184,7 +6307,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
         if (fFrameBuffer)
         {
             // No fVramMap?!?  Don't attempt to fill the screen.
-            if (fVramMap)
+            if (fVramMap && kIOWSAA_Hibernate != __private->wsaaState)
             {
                 // If the map length is below the current resolution, handle the error
                 IOByteCount frameBufferLength = fVramMap->getLength();
@@ -8508,6 +8631,9 @@ IOReturn IOFramebuffer::open( void )
     OSObject *          obj;
     bool                newController;
     unsigned            i;
+#if RADAR_34840148
+    OSDictionary *      iofbLerDict = NULL;
+#endif /*RADAR_34840148*/
 
     if (!gIOFBSystemWorkLoop) panic("gIOFBSystemWorkLoop");
     IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
@@ -8521,6 +8647,18 @@ IOReturn IOFramebuffer::open( void )
             continue;
         }
 
+#if RADAR_34840148
+        iofbLerDict = OSDictionary::withCapacity(kNumber_Of_LER_Keys);
+        if (!iofbLerDict) {
+            LER_LOG("OSDictionary Failed!!\n");
+        } else {
+            LER_LOG("Dict %#llx\n", (uint64_t)iofbLerDict);
+        }
+
+        setLERValue(iofbLerDict, gIOGLER_ID, getRegistryEntryID(), __LINE__);
+        setLERValue(iofbLerDict, gIOGLER_Busy0, getBusyState(), __LINE__);
+#endif /*RADAR_34840148*/
+
         if (!gIOFBServerInit) IOFramebuffer::initialize();
 
         if (!gAllFramebuffers
@@ -8530,6 +8668,10 @@ IOReturn IOFramebuffer::open( void )
          || !IODisplayWrangler::serverStart())
         {
             err = kIOReturnVMError;
+#if RADAR_34840148
+            setLERValue(iofbLerDict, gIOGLER_Wrangler, err, __LINE__);
+            LER_LOG("kIOReturnVMError exit\n");
+#endif /*RADAR_34840148*/
             continue;
         }
 
@@ -8682,11 +8824,24 @@ IOReturn IOFramebuffer::open( void )
 		if (!AbsoluteTime_to_scalar(&__private->controller->fInitTime))
 			AbsoluteTime_to_scalar(&__private->controller->fInitTime) = mach_absolute_time();
 
+#if RADAR_34840148
+        setLERValue(iofbLerDict, gIOGLER_Busy1, getBusyState(), __LINE__);
+#endif /*RADAR_34840148*/
+
         FB_START(enableController,0,__LINE__,0);
         err = enableController();
         FB_END(enableController,err,__LINE__,0);
+
+#if RADAR_34840148
+        setLERValue(iofbLerDict, gIOGLER_Controller, err, __LINE__);
+#endif /*RADAR_34840148*/
+
         if (kIOReturnSuccess != err)  // Vendor controller had a problem
         {
+#if RADAR_34840148
+            setLERValue(iofbLerDict, gIOGLER_Dead, getRegistryEntryID(), __LINE__);
+#endif /*RADAR_34840148*/
+
             dead = true;
             if (nextDependent)
             {
@@ -8695,6 +8850,7 @@ IOReturn IOFramebuffer::open( void )
             }
             deliverDisplayModeDidChangeNotification();
 			FBUNLOCK(this);
+            LER_LOG("enableController error exit\n");
             continue;
         }
 
@@ -8889,6 +9045,21 @@ IOReturn IOFramebuffer::open( void )
         if ((unsigned) -1 != ii) gStartedFramebuffers->removeObject(ii);
         gAllFramebuffers->setObject(this);
 
+#if RADAR_34840148
+        uint64_t successCount = 0;
+        uint64_t openCount = 0;
+        if (openAllDependents)
+        {
+            next = this;
+            while ((next = next->getNextDependent()) && (next != this))
+            {
+                openCount++;
+                if (kIOReturnSuccess == next->open()) {
+                    successCount++;
+                }
+            }
+        }
+#else /*RADAR_34840148*/
         if (openAllDependents)
         {
             next = this;
@@ -8897,6 +9068,12 @@ IOReturn IOFramebuffer::open( void )
                 next->open();
             }
         }
+#endif /*RADAR_34840148*/
+
+#if RADAR_34840148
+        setLERValue(iofbLerDict, gIOGLER_DepOpen, (successCount << 32) | openCount, __LINE__);
+        setLERValue(iofbLerDict, gIOGLER_Online, nowOnline, __LINE__);
+#endif /*RADAR_34840148*/
 
         if (nowOnline)
         {
@@ -8910,6 +9087,24 @@ IOReturn IOFramebuffer::open( void )
             dpUpdateConnect();
         }
 
+#if RADAR_34840148
+        successCount = 0;
+        openCount = 0;
+        if (openAllDependents)
+        {
+            next = this;
+            do
+            {
+                openCount++;
+                if (kIOReturnSuccess == next->postOpen()) {
+                    successCount++;
+                }
+            }
+            while ((next = next->getNextDependent()) && (next != this));
+        }
+
+        setLERValue(iofbLerDict, gIOGLER_PostOpen, (successCount << 32) | openCount, __LINE__);
+#else /*RADAR_34840148*/
         if (openAllDependents)
         {
             next = this;
@@ -8919,6 +9114,7 @@ IOReturn IOFramebuffer::open( void )
             }
             while ((next = next->getNextDependent()) && (next != this));
         }
+#endif /*RADAR_34840148*/
 
 		FBUNLOCK(this);
 
@@ -8927,6 +9123,15 @@ IOReturn IOFramebuffer::open( void )
             gIOFBOpenGLMask);
     }
     while (false);
+
+#if RADAR_34840148
+    if (__private->controller) {
+        __private->controller->publishLER(this, iofbLerDict);
+        OSSafeReleaseNULL(iofbLerDict);
+    } else {
+        LER_LOG("No controller!!\n");
+    }
+#endif /*RADAR_34840148*/
 
 	if (__private->controller)
 	{
@@ -10471,6 +10676,7 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
 {
     IOFB_START(setWSAAAttribute,attribute,value,0);
     IOReturn    err = kIOReturnSuccess;
+    const auto oldwsaa = __private->wsaaState; (void) oldwsaa;
 
     // <rdar://problem/24449391> J94 Fuji- color screen on external while rebooting with MST display attached
     /* Discussion:
@@ -10478,7 +10684,7 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
      to issue a flip from the scanout buffer back to the IOFramebuffer owned framebuffer, thus preventing the
      teardown of a scanout buffer that is in active use since the flip was deferred due to kIOWSAA_From_Accelerated.
      */
-    switch (value & (~(kIOWSAA_Transactional | kIOWSAA_Reserved)))
+    switch (value & kIOWSAA_StateMask)
     {
         case kIOWSAA_To_Accelerated:
         case kIOWSAA_From_Accelerated:
@@ -10550,11 +10756,11 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
 
             break;
         }
-        case kIOWSAA_DeferStart:
-        case kIOWSAA_DeferEnd:
-        case kIOWSAA_DriverOpen:
+            /* case kIOWSAA_DeferStart: */
+            /* case kIOWSAA_DeferEnd: */
             /* case kIOWSAA_Transactional: */
             /* case kIOWSAA_Reserved: */
+        case kIOWSAA_DriverOpen:
         default:
         {
             // These attributes require no action be sent to the vendor driver.
@@ -10562,6 +10768,8 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
         }
     }
 
+    DEBG1(thisName, "(0x%x) 0x%x was 0x%x ret %x\n",
+          value, __private->wsaaState, oldwsaa, err);
     IOFB_END(setWSAAAttribute,err,0,0);
     return (err);
 }
@@ -12014,6 +12222,11 @@ void IOFramebuffer::deliverGroupNotification( int32_t targetIndex, IOSelect even
     uintptr_t               * partC = (uintptr_t *)&nameBuf[sizeof(uintptr_t)*2];
     uintptr_t               * partB = (uintptr_t *)&nameBuf[sizeof(uintptr_t)*1];
     uintptr_t               * partA = (uintptr_t *)&nameBuf[0];
+
+    if (!fFBNotifications) {
+        IOFB_END(deliverGroupNotification,-1,__LINE__,0);
+        return;
+    }
 
     D(NOTIFICATIONS, thisName, " Group: %#x, Mask: %#x, Forward: %s\n", targetIndex, eventMask, bForward ? "true" : "false" );
 

@@ -131,6 +131,7 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     SOSAccountSyncablePeersBlock changeBlock);
 
 -(bool) ensureFactoryCircles;
+-(void) ensureOctagonPeerKeys;
 
 -(void) flattenToSaveBlock;
 

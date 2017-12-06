@@ -598,7 +598,7 @@ public:
     @discussion IOFramebuffer subclasses must implement this method to return information in the IOPixelInformation structure for the display mode with the passed ID, depth index and aperture. The aperture utilized by the system is always kIOFBSystemAperture. Drivers may define alternative apertures, being a view of the framebuffer in a different pixel format from the default.
     @param displayMode A display mode ID previously returned by getDisplayModes().
     @param depth An index from zero to the value of the maxDepthIndex field from the IODisplayModeInformation structure (inclusive).
-    @param info Pointer to a structure of type IOPixelInformation to be filled out by the driver. IOPixelInformation is documented in IOGraphicsTypes.h.
+    @param pixelInfo Pointer to a structure of type IOPixelInformation to be filled out by the driver. IOPixelInformation is documented in IOGraphicsTypes.h.
     @result an IOReturn code. A return other than kIOReturnSuccess will prevent the system from using the device.
 */
 

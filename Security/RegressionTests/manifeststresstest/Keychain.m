@@ -158,7 +158,7 @@ static NSString *kService = @"manifeststresstest";
         return @{};
     }
     if (status != errSecSuccess) {
-        printf("Error reading items to verify: %d\n", status);
+        printf("Error reading items to verify: %d\n", (int)status);
         exit(1);
     }
     NSArray *arr = CFBridgingRelease(result);

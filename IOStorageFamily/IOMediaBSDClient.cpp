@@ -31,6 +31,7 @@
 #include <sys/stat.h>                        // (S_ISBLK, ...)
 #include <sys/systm.h>                       // (DEV_BSIZE, ...)
 #include <sys/kdebug.h>                      // (FSDBG_CODE, ...)
+#include <libkern/OSMalloc.h>
 #include <IOKit/assert.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -65,6 +66,7 @@ const UInt32 kAnchorsMaxCount    = kMinorsMaxCount;
 #define kMsgNoLocation "%s: No location is found for media \"%s\".\n", getName()
 
 #define MAX_PROVISION_EXTENTS_COUNT (PAGE_SIZE/sizeof(IOStorageProvisionExtent))
+#define MAX_UNMAP_EXTENTS_COUNT     8
 
 extern "C"
 {
@@ -249,6 +251,7 @@ protected:
     IOLock *              _assertionLock;
     AbsoluteTime          _assertionTime;
 #endif /* !TARGET_OS_EMBEDDED */
+    OSMallocTag           _iostorageMallocTag;
 ///w:stop
 
 public:
@@ -281,6 +284,7 @@ public:
     void                  lockAssertion();
     void                  unlockAssertion();
 #endif /* !TARGET_OS_EMBEDDED */
+    OSMallocTag           getIOStorageMallocTag();
 ///w:stop
 };
 
@@ -1839,11 +1843,19 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // This ioctl asks that the media object delete unused data.
             //
 
+            // Dynamic allocation
             IOStorageExtent * extents;
+            
+            // Stack allocation
+            IOStorageExtent   extentsArray [ MAX_UNMAP_EXTENTS_COUNT ];
+            
+            uint32_t          extentsNumBytesTotal  = 0;
+            uint32_t          extentsNumBytesLoop   = 0;
             dk_unmap_64_t     request;
             dk_unmap_32_t *   request32;
             dk_unmap_64_t *   request64;
             IOReturn          status;
+            OSMallocTag       iostorageTag          = gIOMediaBSDClientGlobals.getIOStorageMallocTag();
 
             assert(sizeof(dk_extent_t) == sizeof(IOStorageExtent));
 
@@ -1868,47 +1880,112 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // Delete unused data from the media.
 
             if ( request.extents == 0 )  { error = EINVAL;  break; }
-
-            extents = IONew(IOStorageExtent, request.extentsCount);
-
-            if ( extents == 0 )  { error = ENOMEM;  break; }
-
-            if ( proc == kernproc )
+            
+            // Calculate number of bytes to allocate.
+            // Check unsigned wraparound
+            
+            if ( request.extentsCount > UINT32_MAX / ( uint32_t ) sizeof ( IOStorageExtent ) )
             {
-                bcopy( /* src */ (void *) request.extents,
-                       /* dst */ extents,
-                       /* n   */ request.extentsCount * sizeof(IOStorageExtent) );
+                error = EOVERFLOW;
+                break;
             }
             else
             {
-                error = copyin( /* uaddr */ request.extents,
-                                /* kaddr */ extents,
-                                /* len   */ request.extentsCount * sizeof(IOStorageExtent) );
+                extentsNumBytesTotal = ( uint32_t ) ( request.extentsCount * sizeof ( IOStorageExtent ) );
             }
+            
+            // Set extents to the stack allocated array initially.
+            extents             = extentsArray;
+            extentsNumBytesLoop = extentsNumBytesTotal;
 
-            if ( error == 0 )
+            if ( request.extentsCount > MAX_UNMAP_EXTENTS_COUNT )
             {
+            
+                // Attempt to allocate the extents.
+                extents = ( IOStorageExtent * ) OSMalloc_noblock ( extentsNumBytesTotal, iostorageTag );
 
-                if ( kdebug_enable )
+                if ( extents == 0 )
                 {
-                    uint32_t        i;
-
-                    for ( i = 0; i < request.extentsCount; i++ )
-                    {
-                        KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 1) | DBG_FUNC_NONE, dev,
-                            extents[i].byteStart / minor->bdevBlockSize, extents[i].byteCount, 0, 0);
-                    }
+                    
+                    // Set back to the stack allocated array. We will send multiple unmaps
+                    // down to the device driver. We set the "loop bytes" to be equal to the
+                    // size of our stack allocated array (or the size of the extents passed in).
+                    extents = extentsArray;
+                    extentsNumBytesLoop = MAX_UNMAP_EXTENTS_COUNT * sizeof ( IOStorageExtent );
 
                 }
-                status = minor->media->unmap( /* client       */ minor->client,
-                                              /* extents      */ extents,
-                                              /* extentsCount */ request.extentsCount,
-                                              /* options      */ request.options );
+                
+            }
+                
+            while ( extentsNumBytesTotal > 0 )
+            {
+                
+                uint32_t extentsCount = extentsNumBytesLoop / sizeof ( IOStorageExtent );
+                
+                // bzero the trim extents for good measure.
+                bzero ( extents, extentsNumBytesLoop );
+                
+                if ( proc == kernproc )
+                {
+                    bcopy( /* src */ (void *) request.extents,
+                          /* dst */ extents,
+                          /* n   */ extentsNumBytesLoop );
+                }
+                else
+                {
+                    error = copyin( /* uaddr */ request.extents,
+                                   /* kaddr */ extents,
+                                   /* len   */ extentsNumBytesLoop );
+                }
+                
+                if ( error == 0 )
+                {
+                    
+                    if ( kdebug_enable )
+                    {
+                        
+                        uint32_t        i;
+                        
+                        for ( i = 0; i < extentsCount; i++ )
+                        {
+                            KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 1) | DBG_FUNC_NONE, dev,
+                                                  extents[i].byteStart / minor->bdevBlockSize, extents[i].byteCount, 0, 0);
+                        }
+                        
+                    }
+                    status = minor->media->unmap( /* client       */ minor->client,
+                                                 /* extents      */ extents,
+                                                 /* extentsCount */ extentsCount,
+                                                 /* options      */ request.options );
+                    
+                    error = minor->media->errnoFromReturn(status);
+                    if ( error )
+                    {
+                        break;
+                    }
+                    
+                }
+                else
+                {
+                    // Couldn't copyin.
+                    break;
+                }
 
-                error = minor->media->errnoFromReturn(status);
+                // Recalculate total extents left
+                extentsNumBytesTotal -= extentsNumBytesLoop;
+                
+                // Increment extents pointer by "processed" extents
+                request.extents += extentsNumBytesLoop;
+                
+                // Set loop counter to correct value for next iteration
+                extentsNumBytesLoop = min ( extentsNumBytesLoop, extentsNumBytesTotal );
+                
             }
 
-            IODelete(extents, IOStorageExtent, request.extentsCount);
+            if ( extents != extentsArray )
+            {
+                OSFree ( ( void * ) extents, request.extentsCount * sizeof ( IOStorageExtent ), iostorageTag );
+            }
 
         } break;
 
@@ -3749,6 +3826,8 @@ IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
     _assertionID   = kIOPMUndefinedDriverAssertionID;
     _assertionLock = IOLockAlloc();
 #endif /* !TARGET_OS_EMBEDDED */
+    // Alloc tag before bdevsw and cdevsw hook-ups.
+    _iostorageMallocTag = OSMalloc_Tagalloc ( "com.apple.iokit.iostoragefamily", 0 );
 ///w:stop
 }
 
@@ -3771,6 +3850,8 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
 
     if ( _minors )                      delete _minors;
     if ( _anchors )                     delete _anchors;
+    if ( _iostorageMallocTag )          OSMalloc_Tagfree(_iostorageMallocTag);
+    _iostorageMallocTag = NULL;
 }
 
 AnchorTable * IOMediaBSDClientGlobals::getAnchors()
@@ -3825,7 +3906,8 @@ bool IOMediaBSDClientGlobals::isValid()
 #endif /* !TARGET_OS_EMBEDDED */
 ///w:stop
            ( _openLock                   ) &&
-           ( _stateLock                  );
+           ( _stateLock                  ) &&
+           ( _iostorageMallocTag         );
 }
 
 void IOMediaBSDClientGlobals::lockOpen()
@@ -3862,6 +3944,11 @@ void IOMediaBSDClientGlobals::unlockState()
     //
 
     IOLockUnlock(_stateLock);
+}
+
+OSMallocTag IOMediaBSDClientGlobals::getIOStorageMallocTag()
+{
+    return _iostorageMallocTag;
 }
 ///w:start
 #if !TARGET_OS_EMBEDDED

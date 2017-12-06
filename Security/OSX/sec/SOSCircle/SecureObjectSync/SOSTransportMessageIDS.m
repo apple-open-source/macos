@@ -21,6 +21,7 @@
 #include <SOSCircle/CKBridge/SOSCloudKeychainClient.h>
 #include <SOSCircle/CKBridge/SOSCloudKeychainConstants.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
+#include <utilities/SecADWrapper.h>
 #import "Security/SecureObjectSync/SOSAccountTrustClassic.h"
 
 #define IDS "IDS transport"
@@ -235,7 +236,8 @@ static bool sendToPeer(SOSMessageIDS* transport, bool shouldUseAckModel, CFStrin
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
 
     secnotice("IDS Transport", "Starting");
-    
+    SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.sendids"), 1);
+
     SOSCloudKeychainSendIDSMessage(messagetoSend, deviceID, ourPeerID, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [transport SOSTransportMessageIDSGetFragmentationPreference:transport], ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
         success = (sync_error == NULL);
         if (sync_error && error) {

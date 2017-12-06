@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
@@ -29,8 +31,6 @@
 
 #ifndef CKKSItem_h
 #define CKKSItem_h
-
-#if OCTAGON
 
 #import <CloudKit/CloudKit.h>
 

@@ -70,7 +70,7 @@
     }
 
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
-    [ckks dispatchSync: ^bool{
+    [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksheal", ckks, "CKKSHealKeyHierarchyOperation cancelled, quitting");
             return false;
@@ -96,6 +96,7 @@
         //   1. Current key pointers are nil.
         //   2. Keys do not exist in local keychain (but TLK does)
         //   3. Keys do not exist in local keychain (including TLK)
+        //   4. Class A or Class C keys do not wrap immediately to top TLK.
         //
 
         if(keyset.currentTLKPointer && keyset.currentClassAPointer && keyset.currentClassCPointer &&
@@ -125,7 +126,8 @@
 
 
         if(keyset.currentTLKPointer.currentKeyUUID == nil || keyset.currentClassAPointer.currentKeyUUID == nil || keyset.currentClassCPointer.currentKeyUUID == nil ||
-           keyset.tlk == nil || keyset.classA == nil || keyset.classC == nil) {
+           keyset.tlk == nil || keyset.classA == nil || keyset.classC == nil ||
+           ![keyset.classA.parentKeyUUID isEqualToString: keyset.tlk.uuid] || ![keyset.classC.parentKeyUUID isEqualToString: keyset.tlk.uuid]) {
 
             // The records exist, but are broken. Point them at something reasonable.
             NSArray<CKKSKey*>* keys = [CKKSKey allKeys:ckks.zoneID error:&error];
@@ -152,7 +154,7 @@
                 }
             }
 
-            if(![ckks checkTLK: newTLK error: &error]) {
+            if(![ckks _onqueueWithAccountKeysCheckTLK: newTLK error: &error]) {
                 // Was this error "I've never seen that TLK before in my life"? If so, enter the "wait for TLK sync" state.
                 if(error && [error.domain isEqualToString: @"securityd"] && error.code == errSecItemNotFound) {
                     ckksnotice("ckksheal", ckks, "Received a TLK which we don't have in the local keychain(%@). Entering waitfortlk.", newTLK);
@@ -182,20 +184,32 @@
             }
 
             // We have our new TLK.
-            keyset.currentTLKPointer.currentKeyUUID = newTLK.uuid;
-            changedCurrentTLK = true;
+            if(![keyset.currentTLKPointer.currentKeyUUID isEqualToString: newTLK.uuid]) {
+                // And it's even actually new!
+                keyset.tlk = newTLK;
+                keyset.currentTLKPointer.currentKeyUUID = newTLK.uuid;
+                changedCurrentTLK = true;
+            }
 
             // Find some class A and class C keys directly under this one.
             for(CKKSKey* key in keys) {
                 if([key.parentKeyUUID isEqualToString: newTLK.uuid]) {
-                    if((keyset.currentClassAPointer.currentKeyUUID == nil || keyset.classA == nil) &&
-                       [key.keyclass isEqualToString: SecCKKSKeyClassA]) {
+                    if([key.keyclass isEqualToString: SecCKKSKeyClassA] &&
+                           (keyset.currentClassAPointer.currentKeyUUID == nil ||
+                            ![keyset.classA.parentKeyUUID isEqualToString: newTLK.uuid] ||
+                            keyset.classA == nil)
+                       ) {
+                        keyset.classA = key;
                         keyset.currentClassAPointer.currentKeyUUID = key.uuid;
                         changedCurrentClassA = true;
                     }
 
-                    if((keyset.currentClassCPointer.currentKeyUUID == nil || keyset.classC == nil) &&
-                       [key.keyclass isEqualToString: SecCKKSKeyClassC]) {
+                    if([key.keyclass isEqualToString: SecCKKSKeyClassC] &&
+                            (keyset.currentClassCPointer.currentKeyUUID == nil ||
+                             ![keyset.classC.parentKeyUUID isEqualToString: newTLK.uuid] ||
+                             keyset.classC == nil)
+                       ) {
+                        keyset.classC = key;
                         keyset.currentClassCPointer.currentKeyUUID = key.uuid;
                         changedCurrentClassC = true;
                     }
@@ -248,6 +262,21 @@
                 [recordsToSave addObject: [keyset.currentClassCPointer CKRecordWithZoneID: ckks.zoneID]];
             }
 
+            // We've selected a new TLK. Compute any TLKShares that should go along with it.
+            NSSet<CKKSTLKShare*>* tlkShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
+                                                                             error:&error];
+            if(error) {
+                ckkserror("ckksshare", ckks, "Unable to create TLK shares for new tlk: %@", error);
+                return false;
+            }
+
+            for(CKKSTLKShare* share in tlkShares) {
+                CKRecord* record = [share CKRecordWithZoneID:ckks.zoneID];
+                [recordsToSave addObject: record];
+            }
+
+            // Kick off the CKOperation
+
             ckksinfo("ckksheal", ckks, "Saving new keys %@ to cloudkit %@", recordsToSave, ckks.database);
 
             // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
@@ -255,6 +284,11 @@
             [self dependOnBeforeGroupFinished: self.cloudkitModifyOperationFinished];
 
             CKModifyRecordsOperation* modifyRecordsOp = nil;
+
+            NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
+            for(CKRecord* record in recordsToSave) {
+                attemptedRecords[record.recordID] = record;
+            }
 
             // Get the CloudKit operation ready...
             modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
@@ -319,6 +353,11 @@
                         [keyset.currentClassAPointer saveToDatabase: &localerror];
                         [keyset.currentClassCPointer saveToDatabase: &localerror];
 
+                        // save all the TLKShares, too
+                        for(CKKSTLKShare* share in tlkShares) {
+                            [share saveToDatabase:&localerror];
+                        }
+
                         if(localerror != nil) {
                             ckkserror("ckksheal", strongCKKS, "couldn't save new key hierarchy to database; this is very bad: %@", localerror);
                             [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: localerror];
@@ -331,6 +370,7 @@
                     } else {
                         // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
                         ckkserror("ckksheal", strongCKKS, "couldn't save new key hierarchy to CloudKit: %@", error);
+                        [strongCKKS _onqueueCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
                         [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateNewTLKsFailed withError: nil];
                     }
                     return true;

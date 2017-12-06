@@ -108,6 +108,8 @@ enum {
 
 SecPathVerifyStatus SecCertificatePathVCVerify(SecCertificatePathVCRef certificatePath);
 
+bool SecCertificatePathVCIsCycleInGraph(SecCertificatePathVCRef path);
+
 bool SecCertificatePathVCIsValid(SecCertificatePathVCRef certificatePath, CFAbsoluteTime verifyTime);
 
 bool SecCertificatePathVCHasWeakHash(SecCertificatePathVCRef certificatePath);

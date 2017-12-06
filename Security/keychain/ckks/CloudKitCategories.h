@@ -25,6 +25,7 @@
 
 #import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
 
 @interface CKOperationGroup (CKKS)
 +(instancetype) CKKSGroupWithName:(NSString*)name;
@@ -32,10 +33,19 @@
 
 @interface NSError (CKKS)
 
+// More useful constructor
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description;
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description underlying:(NSError*)underlying;
+
 // Returns true if this is a CloudKit error where
 // 1) An atomic write failed
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
 -(bool) ckksIsCKErrorRecordChangedError;
+@end
+
+// Ensure we don't print addresses
+@interface CKAccountInfo (CKKS)
+-(NSString*)description;
 @end
 
 #endif // OCTAGON

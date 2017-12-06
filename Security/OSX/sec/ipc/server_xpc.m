@@ -27,6 +27,16 @@
 #include <ipc/server_security_helpers.h>
 #include <ipc/server_endpoint.h>
 
+#if OCTAGON
+#include <CloudKit/CloudKit_Private.h>
+// If your callbacks might pass back a CK error, you should use the XPCSanitizeError() spi on all branches at this layer.
+// Otherwise, XPC might crash on the other side if they haven't linked CloudKit.framework.
+#define XPCSanitizeError CKXPCSuitableError
+#else
+// This is a no-op: XPCSanitizeError(error) turns into (error)
+#define XPCSanitizeError
+#endif // OCTAGON
+
 #include <Security/SecEntitlements.h>
 #include <Security/SecItemPriv.h>
 #include <securityd/SecItemServer.h>
@@ -39,8 +49,13 @@
 
 - (void) SecItemAddAndNotifyOnSync:(NSDictionary*) attributes
                       syncCallback:(id<SecuritydXPCCallbackProtocol>) callback
-                          complete:(void (^) (NSDictionary* opDictResult, NSArray* opArrayResult, NSError* operror)) complete
+                          complete:(void (^) (NSDictionary* opDictResult, NSArray* opArrayResult, NSError* operror))xpcComplete
 {
+    // The calling client might not handle CK types well. Sanitize!
+    void (^complete)(NSDictionary*, NSArray*, NSError*) = ^(NSDictionary* opDictResult, NSArray* opArrayResult, NSError* operror){
+        xpcComplete(opDictResult, opArrayResult, XPCSanitizeError(operror));
+    };
+
     CFErrorRef cferror = NULL;
     if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
         SecError(errSecNotAvailable, &cferror, CFSTR("SecItemAddAndNotifyOnSync: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
@@ -96,9 +111,14 @@
                                      viewHint:(NSString* _Nonnull)viewHint
                       oldCurrentItemReference:(NSData* _Nullable)oldCurrentItemPersistentRef
                            oldCurrentItemHash:(NSData* _Nullable)oldItemSHA1
-                                     complete:(void (^) (NSError* _Nullable operror)) complete
+                                     complete:(void (^) (NSError* _Nullable operror))xpcComplete
 {
 #if OCTAGON
+    // The calling client might not handle CK types well. Sanitize!
+    void (^complete)(NSError*) = ^(NSError* error){
+        xpcComplete(XPCSanitizeError(error));
+    };
+
     __block CFErrorRef cferror = NULL;
     if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
         SecError(errSecNotAvailable, &cferror, CFSTR("SecItemSetCurrentItemAcrossAllDevices: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
@@ -133,7 +153,7 @@
                                            1,
                                            &cferror);
         if(cferror) {
-            secerror("couldn't create query: %@", cferror);
+            secerror("couldn't create query for new item pref: %@", cferror);
             return false;
         }
 
@@ -141,10 +161,12 @@
             newItem = CFRetainSafe(item);
         })) {
             query_destroy(q, NULL);
+            secerror("couldn't run query for new item pref: %@", cferror);
             return false;
         }
 
         if(!query_destroy(q, &cferror)) {
+            secerror("couldn't destroy query for new item pref: %@", cferror);
             return false;
         };
 
@@ -165,10 +187,12 @@
                 oldItem = CFRetainSafe(item);
             })) {
                 query_destroy(q, NULL);
+                secerror("couldn't run query for old item pref: %@", cferror);
                 return false;
             }
 
             if(!query_destroy(q, &cferror)) {
+                secerror("couldn't destroy query for old item pref: %@", cferror);
                 return false;
             };
         }
@@ -199,7 +223,7 @@
     }
     CFReleaseNull(cferror);
 #else // ! OCTAGON
-    complete([NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemSetCurrentItemAcrossAllDevices not implemented on this platform"}]);
+    xpcComplete([NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemSetCurrentItemAcrossAllDevices not implemented on this platform"}]);
 #endif // OCTAGON
 }
 
@@ -207,9 +231,14 @@
                                     identifier:(NSString*)identifier
                                       viewHint:(NSString*)viewHint
                                fetchCloudValue:(bool)fetchCloudValue
-                                      complete:(void (^) (NSData* persistentref, NSError* operror)) complete
+                                      complete:(void (^) (NSData* persistentref, NSError* operror))xpcComplete
 {
 #if OCTAGON
+    // The calling client might not handle CK types well. Sanitize!
+    void (^complete)(NSData*, NSError*) = ^(NSData* persistentref, NSError* error){
+        xpcComplete(persistentref, XPCSanitizeError(error));
+    };
+
     CFErrorRef cferror = NULL;
     if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
         SecError(errSecNotAvailable, &cferror, CFSTR("SecItemFetchCurrentItemAcrossAllDevices: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
@@ -238,34 +267,42 @@
                                             fetchCloudValue:fetchCloudValue
                                                    complete:^(NSString* uuid, NSError* error) {
                                                        if(error || !uuid) {
+                                                           secnotice("ckkscurrent", "CKKS didn't find a current item for (%@,%@): %@ %@", accessGroup, identifier, uuid, error);
                                                            complete(NULL, error);
                                                            return;
                                                        }
 
                                                        // Find the persisent ref and return it.
+                                                       secnotice("ckkscurrent", "CKKS believes current item UUID for (%@,%@) is %@. Looking up persistent ref...", accessGroup, identifier, uuid);
                                                        [self findItemPersistentRefByUUID:uuid complete:complete];
                                                    }];
 #else // ! OCTAGON
-    complete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemFetchCurrentItemAcrossAllDevices not implemented on this platform"}]);
+    xpcComplete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemFetchCurrentItemAcrossAllDevices not implemented on this platform"}]);
 #endif // OCTAGON
 }
 
 -(void)findItemPersistentRefByUUID:(NSString*)uuid
-                          complete:(void (^) (NSData* persistentref, NSError* operror)) complete
+                          complete:(void (^) (NSData* persistentref, NSError* operror))xpcComplete
 {
+    // The calling client might not handle CK types well. Sanitize!
+    void (^complete)(NSData*, NSError*) = ^(NSData* persistentref, NSError* error){
+        xpcComplete(persistentref, XPCSanitizeError(error));
+    };
+
     CFErrorRef cferror = NULL;
     CFTypeRef result = NULL;
 
     // Must query per-class, so:
     const SecDbSchema *newSchema = current_schema();
     for (const SecDbClass *const *class = newSchema->classes; *class != NULL; class++) {
-        CFReleaseNull(result);
-        CFReleaseNull(cferror);
-
         if(!((*class)->itemclass)) {
             //Don't try to search non-item 'classes'
             continue;
         }
+
+        // Now that we're in an item class, reset any errSecItemNotFound errors from the last item class
+        CFReleaseNull(result);
+        CFReleaseNull(cferror);
 
         _SecItemCopyMatching((__bridge CFDictionaryRef) @{
                                                           (__bridge NSString*) kSecClass: (__bridge NSString*) (*class)->name,
@@ -286,6 +323,12 @@
             // Found the persistent ref! Quit searching.
             break;
         }
+    }
+
+    if(result && !cferror) {
+        secnotice("ckkscurrent", "Found current item for (%@)", uuid);
+    } else {
+        secerror("ckkscurrent: No current item for (%@): %@ %@", uuid, result, cferror);
     }
 
     complete((__bridge NSData*) result, (__bridge NSError*) cferror);

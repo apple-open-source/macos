@@ -410,11 +410,30 @@
 
     [self waitForExpectations:@[keychainChanged] timeout:1];
 
-    // Check that the record is where we expect it in CloudKit
+    // And a second item
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
+                          checkItem: [self checkPCSFieldsBlock:self.keychainZoneID
+                                          PCSServiceIdentifier:(NSNumber *)servIdentifier
+                                                  PCSPublicKey:publicKey
+                                             PCSPublicIdentity:publicIdentity]];
+    result = [self pcsAddItem:@"testaccount2"
+                         data:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding]
+            serviceIdentifier:(NSNumber*)servIdentifier
+                    publicKey:(NSData*)publicKey
+               publicIdentity:(NSData*)publicIdentity
+                expectingSync:true];
+    XCTAssertNotNil(result, "Received result from adding item");
+    NSData* persistentRef2 = result[(id)kSecValuePersistentRef];
+
+    // Check that the records are where we expect them in CloudKit
     [self waitForCKModifications];
     CKRecordID* pcsItemRecordID = [[CKRecordID alloc] initWithRecordName: @"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
     CKRecord* record = self.keychainZone.currentDatabase[pcsItemRecordID];
     XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
+
+    CKRecordID* pcsItemRecordID2 = [[CKRecordID alloc] initWithRecordName: @"3AB8E78D-75AF-CFEF-F833-FA3E3E90978A" zoneID:self.keychainZoneID];
+    CKRecord* record2 = self.keychainZone.currentDatabase[pcsItemRecordID2];
+    XCTAssertNotNil(record2, "Found 2nd record in CloudKit at expected UUID");
 
     // Still no current pointer.
     [self fetchCurrentPointerExpectingError:false];
@@ -437,8 +456,26 @@
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     [self waitForExpectations:@[keychainChanged] timeout:1];
-
     [self fetchCurrentPointer:false persistentRef:persistentRef];
+
+    // And again!
+    CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                    currentItemUUID:pcsItemRecordID2.recordName
+                                                                              state:SecCKKSProcessedStateRemote
+                                                                             zoneID:self.keychainZoneID
+                                                                    encodedCKRecord:nil];
+    [self.keychainZone addToZone: [cip2 CKRecordWithZoneID:self.keychainZoneID]];
+    CKRecordID* currentPointerRecordID2 = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.keychainZoneID];
+    CKRecord* currentPointerRecord2 = self.keychainZone.currentDatabase[currentPointerRecordID2];
+    XCTAssertNotNil(currentPointerRecord2, "Found record in CloudKit at expected UUID");
+
+    keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
+
+    [self.keychainView notifyZoneChange:nil];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+
+    [self waitForExpectations:@[keychainChanged] timeout:1];
+    [self fetchCurrentPointer:false persistentRef:persistentRef2];
 
     SecResetLocalSecuritydXPCFakeEntitlements();
 }
@@ -741,6 +778,129 @@
                                           });
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
+    [self waitForExpectationsWithTimeout:8.0 handler:nil];
+
+    SecResetLocalSecuritydXPCFakeEntitlements();
+}
+
+- (void)testPCSCurrentRecoverFromDanglingPointer {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSWriteCurrentItemPointers, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    // Let things shake themselves out.
+    [self.keychainView waitForKeyHierarchyReadiness];
+
+    // Ensure there's no current pointer
+    [self fetchCurrentPointerExpectingError:false];
+
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
+                          checkItem: [self checkPCSFieldsBlock:self.keychainZoneID
+                                          PCSServiceIdentifier:(NSNumber *)servIdentifier
+                                                  PCSPublicKey:publicKey
+                                             PCSPublicIdentity:publicIdentity]];
+
+    NSDictionary* result = [self pcsAddItem:@"testaccount"
+                                       data:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding]
+                          serviceIdentifier:(NSNumber*)servIdentifier
+                                  publicKey:(NSData*)publicKey
+                             publicIdentity:(NSData*)publicIdentity
+                              expectingSync:true];
+    XCTAssertNotNil(result, "Received result from adding item");
+
+    // Check that the record is where we expect it in CloudKit
+    [self waitForCKModifications];
+    CKRecordID* pcsItemRecordID = [[CKRecordID alloc] initWithRecordName: @"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
+    CKRecord* record = self.keychainZone.currentDatabase[pcsItemRecordID];
+    XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
+
+    NSData* persistentRef = result[(id)kSecValuePersistentRef];
+    NSData* sha1 = result[(id)kSecAttrSHA1];
+
+    [self expectCKModifyRecords:@{SecCKRecordCurrentItemType: [NSNumber numberWithUnsignedInteger: 1]}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord:nil
+           runAfterModification:nil];
+
+    // Set the 'current' pointer.
+    XCTestExpectation* setCurrentExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    // Ensure that setting the current pointer sends a notification
+    SecItemSetCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
+                                          (__bridge CFStringRef)@"pcsservice",
+                                          (__bridge CFStringRef)@"keychain",
+                                          (__bridge CFDataRef)persistentRef,
+                                          (__bridge CFDataRef)sha1, NULL, NULL, ^ (CFErrorRef cferror) {
+                                              NSError* error = (__bridge NSError*)cferror;
+                                              XCTAssertNil(error, "No error setting current item");
+                                              [setCurrentExpectation fulfill];
+                                          });
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    [self waitForExpectationsWithTimeout:8.0 handler:nil];
+
+    // Delete the keychain item
+    [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
+    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef)@{
+                                                                            (id)kSecClass : (id)kSecClassGenericPassword,
+                                                                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                                                            (id)kSecAttrAccount:@"testaccount",
+                                                                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                                                            }), "Should receive no error deleting item");
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    // Now, fetch the current pointer: we should get an error
+    [self fetchCurrentPointerExpectingError:false];
+
+    // Setting the current item pointer again, using a NULL old value, should work.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
+                          checkItem: [self checkPCSFieldsBlock:self.keychainZoneID
+                                          PCSServiceIdentifier:(NSNumber *)servIdentifier
+                                                  PCSPublicKey:publicKey
+                                             PCSPublicIdentity:publicIdentity]];
+
+    result = [self pcsAddItem:@"testaccount2"
+                         data:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding]
+            serviceIdentifier:(NSNumber*)servIdentifier
+                    publicKey:(NSData*)publicKey
+               publicIdentity:(NSData*)publicIdentity
+                expectingSync:true];
+    XCTAssertNotNil(result, "Should have result from adding item2");
+
+    persistentRef = result[(id)kSecValuePersistentRef];
+    sha1 = result[(id)kSecAttrSHA1];
+
+    [self expectCKModifyRecords:@{SecCKRecordCurrentItemType: [NSNumber numberWithUnsignedInteger: 1]}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord:nil
+           runAfterModification:nil];
+
+    // Set the 'current' pointer.
+    setCurrentExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    // Ensure that setting the current pointer sends a notification
+    SecItemSetCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
+                                          (__bridge CFStringRef)@"pcsservice",
+                                          (__bridge CFStringRef)@"keychain",
+                                          (__bridge CFDataRef)persistentRef,
+                                          (__bridge CFDataRef)sha1, NULL, NULL, ^ (CFErrorRef cferror) {
+                                              NSError* error = (__bridge NSError*)cferror;
+                                              XCTAssertNil(error, "No error setting current item");
+                                              [setCurrentExpectation fulfill];
+                                          });
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 
     SecResetLocalSecuritydXPCFakeEntitlements();

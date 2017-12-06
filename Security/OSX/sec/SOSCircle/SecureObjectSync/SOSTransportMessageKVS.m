@@ -3,6 +3,7 @@
 #import <Security/SecureObjectSync/SOSTransportMessageKVS.h>
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecADWrapper.h>
 #include <SOSInternal.h>
 #include <AssertMacros.h>
 #include <SOSCloudKeychainClient.h>
@@ -75,6 +76,8 @@ fail:
 }
 
 static bool SOSTransportMessageKVSUpdateKVS(SOSMessageKVS* transport, CFDictionaryRef changes, CFErrorRef *error){
+
+    SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.sendkvs"), 1);
 
     CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef block_error) {
         if (block_error) {

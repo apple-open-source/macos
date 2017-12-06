@@ -21,13 +21,18 @@
 #ifndef __FIREHOSE_INLINE_INTERNAL__
 #define __FIREHOSE_INLINE_INTERNAL__
 
+#ifndef _os_atomic_basetypeof
+#define _os_atomic_basetypeof(p) \
+		typeof(atomic_load_explicit(_os_atomic_c11_atomic(p), memory_order_relaxed))
+#endif
+
 #define firehose_atomic_maxv2o(p, f, v, o, m) \
 		os_atomic_rmw_loop2o(p, f, *(o), (v), m, { \
 			if (*(o) >= (v)) os_atomic_rmw_loop_give_up(break); \
 		})
 
 #define firehose_atomic_max2o(p, f, v, m)   ({ \
-		typeof((p)->f) _old; \
+		_os_atomic_basetypeof(&(p)->f) _old; \
 		firehose_atomic_maxv2o(p, f, v, &_old, m); \
 	})
 

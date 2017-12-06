@@ -147,7 +147,7 @@ bool isDVDWithElToritoWithUEFIBootableOS (BLContextPtr inContext, const char* in
 
 
 int BLAPFSCreatePhysicalStoreBSDsFromVolumeBSD(BLContextPtr context, const char *volBSD, CFArrayRef *physBSDs);
-int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize);
+int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize, bool readOnly);
 int UnmountPrebootVolume(BLContextPtr context, char *mntPoint);
 
 

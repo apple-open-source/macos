@@ -37,6 +37,20 @@
 
 @implementation NSError (CKKS)
 
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description {
+    return [NSError errorWithDomain:domain code:code description:description underlying:nil];
+}
+
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description underlying:(NSError*)underlying {
+    // Obj-C throws a fit if there's nulls in dictionaries, so we can't use a dictionary literal here.
+    // Use the null-assignment semantics of NSMutableDictionary to make a dictionary either with either, both, or neither key.
+    NSMutableDictionary* mut = [[NSMutableDictionary alloc] init];
+    mut[NSLocalizedDescriptionKey] = description;
+    mut[NSUnderlyingErrorKey] = underlying;
+
+    return [NSError errorWithDomain:domain code:code userInfo:mut];
+}
+
 -(bool) ckksIsCKErrorRecordChangedError {
     NSDictionary<CKRecordID*,NSError*>* partialErrors = self.userInfo[CKPartialErrorsByItemIDKey];
     if([self.domain isEqualToString:CKErrorDomain] && self.code == CKErrorPartialFailure && partialErrors) {
@@ -54,6 +68,15 @@
     return false;
 }
 
+@end
+
+@implementation CKAccountInfo (CKKS)
+// Ugly, and might break if CloudKit changes how they print objects. Sorry, CloudKit!
+- (NSString*)description {
+    NSString* ckprop = [self CKPropertiesDescription];
+    NSString* description =  [NSString stringWithFormat: @"<CKAccountInfo: %@>", ckprop];
+    return description;
+}
 @end
 
 #endif //OCTAGON

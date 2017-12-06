@@ -363,6 +363,9 @@ bool Editor::canCopy() const
 
 bool Editor::canPaste() const
 {
+    if (m_frame.mainFrame().loader().shouldSuppressTextInputFromEditing())
+        return false;
+
     return canEdit();
 }
 
@@ -616,7 +619,7 @@ bool Editor::tryDHTMLPaste()
 
 bool Editor::shouldInsertText(const String& text, Range* range, EditorInsertAction action) const
 {
-    if (m_frame.mainFrame().loader().shouldSuppressKeyboardInput() && action == EditorInsertAction::Typed)
+    if (m_frame.mainFrame().loader().shouldSuppressTextInputFromEditing() && action == EditorInsertAction::Typed)
         return false;
 
     return client() && client()->shouldInsertText(text, range, action);
@@ -2112,6 +2115,8 @@ String Editor::misspelledWordAtCaretOrRange(Node* clickedNode) const
     VisibleSelection wordSelection(selection.base());
     wordSelection.expandUsingGranularity(WordGranularity);
     RefPtr<Range> wordRange = wordSelection.toNormalizedRange();
+    if (!wordRange)
+        return String();
 
     // In compliance with GTK+ applications, additionally allow to provide suggestions when the current
     // selection exactly match the word selection.

@@ -10,8 +10,7 @@
 #import <err.h>
 
 #import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSControlProtocol.h"
-#import "ckksctl.h"
+#import "keychain/ckks/CKKSControl.h"
 
 #include "lib/SecArgParse.h"
 
@@ -89,48 +88,35 @@ static void print_entry(id k, id v, int ind)
     }
 }
 
-@interface CKKSControl ()
-@property NSXPCConnection *connection;
+@interface CKKSControlCLI : NSObject
+@property CKKSControl* control;
 @end
 
-@implementation CKKSControl
+@implementation CKKSControlCLI
 
-- (instancetype) initWithEndpoint:(xpc_endpoint_t)endpoint
-{
-    if ((self = [super init]) == NULL)
-        return NULL;
-
-    NSXPCInterface *interface = CKKSSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(CKKSControlProtocol)]);
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
-
-    [listenerEndpoint _setEndpoint:endpoint];
-
-    self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
-    if (self.connection == NULL)
-        return NULL;
-
-    self.connection.remoteObjectInterface = interface;
-
-    [self.connection resume];
-
+- (instancetype) initWithCKKSControl:(CKKSControl*)control {
+    if ((self = [super init])) {
+        _control = control;
+    }
 
     return self;
 }
 
-- (NSDictionary<NSString *, id> *)printPerformanceCounters
+- (NSDictionary<NSString *, id> *)fetchPerformanceCounters
 {
     NSMutableDictionary *perfDict = [[NSMutableDictionary alloc] init];
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        perfDict[@"error"] = [error description];
-        dispatch_semaphore_signal(sema);
+    [self.control rpcPerformanceCounters:^(NSDictionary<NSString *,NSNumber *> * counters, NSError * error) {
+        if(error) {
+            perfDict[@"error"] = [error description];
+        }
 
-    }] performanceCounters:^(NSDictionary <NSString *, NSNumber *> *counters){
         [counters enumerateKeysAndObjectsUsingBlock:^(NSString * key, NSNumber * obj, BOOL *stop) {
             perfDict[key] = obj;
         }];
+
         dispatch_semaphore_signal(sema);
     }];
 
@@ -147,18 +133,15 @@ static void print_entry(id k, id v, int ind)
     printf("Beginning local reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }]  rpcResetLocal:view reply:^(NSError* result){
-        if(result == NULL) {
-            printf("reset complete.\n");
-        } else {
-            printf("reset error: %s\n", [[result description] UTF8String]);
-        }
-        dispatch_semaphore_signal(sema);
-    }];
+    [self.control rpcResetLocal:view
+                          reply:^(NSError *error) {
+                              if(error == NULL) {
+                                  printf("reset complete.\n");
+                              } else {
+                                  nsprintf(@"reset error: %@\n", error);
+                              }
+                              dispatch_semaphore_signal(sema);
+                          }];
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
@@ -171,15 +154,11 @@ static void print_entry(id k, id v, int ind)
     printf("Beginning CloudKit reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }]  rpcResetCloudKit:view reply:^(NSError* result){
-        if(result == NULL) {
+    [self.control rpcResetCloudKit:view reply:^(NSError* error){
+        if(error == NULL) {
             printf("CloudKit Reset complete.\n");
         } else {
-            printf("Reset error: %s\n", [[result description] UTF8String]);
+            nsprintf(@"Reset error: %@\n", error);
         }
         dispatch_semaphore_signal(sema);
     }];
@@ -195,15 +174,11 @@ static void print_entry(id k, id v, int ind)
     printf("Beginning resync for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }]  rpcResync:view reply:^(NSError* result){
-        if(result == NULL) {
+    [self.control rpcResync:view reply:^(NSError* error){
+        if(error == NULL) {
             printf("resync success.\n");
         } else {
-            printf("resync errored: %s\n", [[result description] UTF8String]);
+            nsprintf(@"resync errored: %@\n", error);
         }
         dispatch_semaphore_signal(sema);
     }];
@@ -219,10 +194,7 @@ static void print_entry(id k, id v, int ind)
     printf("Getting analytics sysdiagnose....\n");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-    }] rpcGetAnalyticsSysdiagnoseWithReply:^(NSString* sysdiagnose, NSError* error) {
+    [self.control rpcGetAnalyticsSysdiagnoseWithReply:^(NSString* sysdiagnose, NSError* error) {
         if (sysdiagnose && !error) {
             nsprintf(@"Analytics sysdiagnose:\n\n%@", sysdiagnose);
         }
@@ -243,10 +215,7 @@ static void print_entry(id k, id v, int ind)
     printf("Getting analytics json....\n");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-    }] rpcGetAnalyticsJSONWithReply:^(NSData* json, NSError* error) {
+    [self.control rpcGetAnalyticsJSONWithReply:^(NSData* json, NSError* error) {
         if (json && !error) {
             nsprintf(@"Analytics JSON:\n\n%@", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
         }
@@ -267,10 +236,7 @@ static void print_entry(id k, id v, int ind)
     printf("Uploading....\n");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-    }] rpcForceUploadAnalyticsWithReply:^(BOOL success, NSError* error) {
+    [self.control rpcForceUploadAnalyticsWithReply:^(BOOL success, NSError* error) {
         if (success) {
             nsprintf(@"successfully uploaded analytics data");
         }
@@ -286,21 +252,17 @@ static void print_entry(id k, id v, int ind)
     }
 }
 
-- (NSDictionary<NSString *, id> *)status: (NSString*) view {
+- (NSDictionary<NSString *, id> *)fetchStatus: (NSString*) view {
     NSMutableDictionary *status = [[NSMutableDictionary alloc] init];
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        status[@"error"] = [error description];
-        dispatch_semaphore_signal(sema);
-
-    }]  rpcStatus: view reply: ^(NSArray<NSDictionary*>* result, NSError* error) {
+    [self.control rpcStatus: view reply: ^(NSArray<NSDictionary*>* result, NSError* error) {
         if(error) {
             status[@"error"] = [error description];
         }
 
-        if(result.count == 0u) {
+        if(result.count <= 1u) {
             printf("No CKKS views are active.\n");
         }
 
@@ -318,27 +280,48 @@ static void print_entry(id k, id v, int ind)
     return status;
 }
 
-- (void)status_custom: (NSString*) view {
+- (void)printHumanReadableStatus: (NSString*) view {
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }]  rpcStatus: view reply: ^(NSArray<NSDictionary*>* result, NSError* error) {
+    [self.control rpcStatus: view reply: ^(NSArray<NSDictionary*>* result, NSError* error) {
         if(error) {
             printf("ERROR FETCHING STATUS: %s\n", [[error description] UTF8String]);
         }
 
-        if(result.count == 0u) {
+#define pop(d, key) ({ id x = d[key]; d[key] = nil; x; })
+
+        // First result is always global state
+        // Ideally, this would come in another parameter, but we can't change the protocol until
+        // <rdar://problem/33583242> CKKS: remove PCS's use of CKKSControlProtocol
+        NSMutableDictionary* global = [result[0] mutableCopy];
+        if(global) {
+            NSString* selfPeers = pop(global, @"selfPeers");
+            NSString* selfPeersError = pop(global, @"selfPeersError");
+            NSArray* trustedPeers = pop(global, @"trustedPeers");
+            NSString* trustedPeersError = pop(global, @"trustedPeersError");
+
+            printf("================================================================================\n\n");
+            printf("Global state:\n\n");
+            printf("Current self:         %s\n", [[selfPeers description] UTF8String]);
+            if(![selfPeersError isEqual: [NSNull null]]) {
+                printf("Self Peers Error:     %s\n", [[selfPeersError description] UTF8String]);
+            }
+            printf("Trusted peers:        %s\n", [[trustedPeers description] UTF8String]);
+            if(![trustedPeersError isEqual: [NSNull null]]) {
+                printf("Trusted Peers Error:  %s\n", [[trustedPeersError description] UTF8String]);
+            }
+            printf("\n");
+        }
+
+        NSArray* remainingViews = result.count > 1 ? [result subarrayWithRange:NSMakeRange(1, result.count-1)] : @[];
+
+        if(remainingViews.count == 0u) {
             printf("No CKKS views are active.\n");
         }
 
-        for(NSDictionary* viewStatus in result) {
+        for(NSDictionary* viewStatus in remainingViews) {
             NSMutableDictionary* status = [viewStatus mutableCopy];
-
-    #define pop(d, key) ({ id x = d[key]; d[key] = nil; x; })
 
             NSString* viewName = pop(status,@"view");
             NSString* accountStatus = pop(status,@"ckaccountstatus");
@@ -364,6 +347,8 @@ static void print_entry(id k, id v, int ind)
             NSDictionary* keys = pop(status,@"keys");
             NSDictionary* ckmirror = pop(status,@"ckmirror");
             NSArray* devicestates = pop(status, @"devicestates");
+            NSArray* tlkshares = pop(status, @"tlkshares");
+
 
             NSString* zoneSetupOperation                  = pop(status,@"zoneSetupOperation");
             NSString* viewSetupOperation                  = pop(status,@"viewSetupOperation");
@@ -408,6 +393,8 @@ static void print_entry(id k, id v, int ind)
             printf("Current ClassA:       %s\n", [currentClassA isEqual: [NSNull null]] ? "null" : [currentClassA UTF8String]);
             printf("Current ClassC:       %s\n", [currentClassC isEqual: [NSNull null]] ? "null" : [currentClassC UTF8String]);
 
+            printf("TLK shares:           %s\n", [[tlkshares description] UTF8String]);
+
             printf("Outgoing Queue counts: %s\n", [[oqe description] UTF8String]);
             printf("Incoming Queue counts: %s\n", [[iqe description] UTF8String]);
             printf("Key counts: %s\n", [[keys description] UTF8String]);
@@ -446,11 +433,7 @@ static void print_entry(id k, id v, int ind)
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }] rpcFetchAndProcessChanges:view reply:^(NSError* error) {
+    [self.control rpcFetchAndProcessChanges:view reply:^(NSError* error) {
         if(error) {
             printf("Error fetching: %s\n", [[error description] UTF8String]);
         } else {
@@ -470,11 +453,7 @@ static void print_entry(id k, id v, int ind)
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
-        printf("\n\nError talking with daemon: %s\n", [[error description] UTF8String]);
-        dispatch_semaphore_signal(sema);
-
-    }] rpcPushOutgoingChanges:view reply:^(NSError* error) {
+    [self.control rpcPushOutgoingChanges:view reply:^(NSError* error) {
         if(error) {
             printf("Error pushing: %s\n", [[error description] UTF8String]);
         } else {
@@ -539,41 +518,39 @@ int main(int argc, char **argv)
     }
 
     @autoreleasepool {
-        xpc_endpoint_t endpoint = NULL;
+        NSError* error = nil;
 
-        CFErrorRef cferror = NULL;
-        endpoint = _SecSecuritydCopyCKKSEndpoint(&cferror);
-        if (endpoint == NULL) {
-            CFStringRef errorstr = NULL;
-
-            if(cferror) {
-                errorstr = CFErrorCopyDescription(cferror);
-            }
-
-            errx(1, "no CKKSControl endpoint available: %s", errorstr ? CFStringGetCStringPtr(errorstr, kCFStringEncodingUTF8) : "unknown error");
+        CKKSControl* rpc = [CKKSControl controlObject:&error];
+        if(error || !rpc) {
+            errx(1, "no CKKSControl failed: %s", [[error description] UTF8String]);
         }
 
-        CKKSControl *ctl = [[CKKSControl alloc] initWithEndpoint:endpoint];
-        if (ctl == NULL) {
-            errx(1, "failed to create CKKSControl object");
-        }
+        CKKSControlCLI* ctl = [[CKKSControlCLI alloc] initWithCKKSControl:rpc];
 
         NSString* view = viewArg ? [NSString stringWithCString: viewArg encoding: NSUTF8StringEncoding] : nil;
 
-        if(status || perfCounters) {
+        if(status) {
+            // Complicated logic, but you can choose any combination of (json, perfcounters) that you like.
             NSMutableDictionary *statusDict = [[NSMutableDictionary alloc] init];
-            statusDict[@"performance"] = [ctl printPerformanceCounters];
-            if (!json) {
-                print_result(statusDict, false);
-                if (status) {
-                    [ctl status_custom:view];
-                }
-            } else {
-                if (status) {
-                    statusDict[@"status"] = [ctl status:view];
-                }
-                print_result(statusDict, true);
+            if(perfCounters) {
+                statusDict[@"performance"] = [ctl fetchPerformanceCounters];
             }
+            if (json) {
+                statusDict[@"status"] = [ctl fetchStatus:view];
+            }
+            if(json || perfCounters) {
+               print_result(statusDict, true);
+                printf("\n");
+            }
+
+            if(!json) {
+                [ctl printHumanReadableStatus:view];
+            }
+        } else if(perfCounters) {
+            NSMutableDictionary *statusDict = [[NSMutableDictionary alloc] init];
+            statusDict[@"performance"] = [ctl fetchPerformanceCounters];
+            print_result(statusDict, false);
+
         } else if(fetch) {
             [ctl fetch:view];
         } else if(push) {

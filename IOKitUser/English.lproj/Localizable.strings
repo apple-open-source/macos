@@ -49,8 +49,6 @@
 /* Text for excluded kexts alert */
 "Some system extensions are not compatible with this version of OS X and can’t be used:" = "Some system extensions are not compatible with this version of macOS and can’t be used:";
 
-"The system extension \"" = "The system extension “";
-
 "\" is not compatible with this version of OS X and can’t be used." = "” is not compatible with this version of macOS and can’t be used.";
 
 "Please contact the developer for updated software." = "Please contact the developer for updated software.";

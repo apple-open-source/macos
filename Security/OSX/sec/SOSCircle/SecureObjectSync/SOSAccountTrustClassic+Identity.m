@@ -62,22 +62,99 @@
     return SOSFullPeerInfoCopyFullPeerInfo(self.fullPeerInfo);
 }
 
+- (SecKeyRef)randomPermanentFullECKey:(int)keysize name:(NSString *)name error:(CFErrorRef*)cferror
+{
+    return GeneratePermanentFullECKey(keysize, (__bridge CFStringRef)name, cferror);
+}
+
+- (void)ensureOctagonPeerKeys:(SOSKVSCircleStorageTransport*)circleTransport
+{
+    NSString* octagonKeyName;
+    SecKeyRef publicKey;
+
+    bool changedSelf = false;
+
+    CFErrorRef copyError = NULL;
+    publicKey = SOSFullPeerInfoCopyOctagonSigningKey(self.fullPeerInfo, &copyError);
+    if(copyError) {
+        secerror("circleChange: Error fetching Octagon signing key: %@", copyError);
+        CFReleaseNull(copyError);
+    }
+
+    if (publicKey == NULL) {
+        octagonKeyName = [NSString stringWithFormat:@"Octagon Peer Signing ID for %@", SOSCircleGetName(self.trustedCircle)];
+        CFErrorRef cferror = NULL;
+        SecKeyRef octagonSigningFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
+        if(cferror || !octagonSigningFullKey) {
+            secerror("circleChange: Error upgrading Octagon signing key: %@", cferror);
+        } else {
+            SOSFullPeerInfoUpdateOctagonSigningKey(self.fullPeerInfo, octagonSigningFullKey, &cferror);
+            if(cferror) {
+                secerror("circleChange: Error upgrading Octagon signing key: %@", cferror);
+            }
+            changedSelf = true;
+        }
+
+        CFReleaseNull(cferror);
+        CFReleaseNull(octagonSigningFullKey);
+    }
+    CFReleaseNull(publicKey);
+
+    CFReleaseNull(copyError);
+    publicKey = SOSFullPeerInfoCopyOctagonEncryptionKey(self.fullPeerInfo, &copyError);
+    if(copyError) {
+        secerror("circleChange: Error fetching Octagon encryption key: %@", copyError);
+        CFReleaseNull(copyError);
+    }
+
+    if (publicKey == NULL) {
+        octagonKeyName = [NSString stringWithFormat:@"Octagon Peer Encryption ID for %@", SOSCircleGetName(self.trustedCircle)];
+        CFErrorRef cferror = NULL;
+        SecKeyRef octagonEncryptionFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
+        if(cferror || !octagonEncryptionFullKey) {
+            secerror("circleChange: Error upgrading Octagon encryption key: %@", cferror);
+        } else {
+
+            SOSFullPeerInfoUpdateOctagonEncryptionKey(self.fullPeerInfo, octagonEncryptionFullKey, &cferror);
+            if(cferror) {
+                secerror("circleChange: Error upgrading Octagon encryption key: %@", cferror);
+            }
+            changedSelf = true;
+        }
+
+        CFReleaseNull(cferror);
+        CFReleaseNull(octagonEncryptionFullKey);
+    }
+    CFReleaseNull(publicKey);
+
+    if(changedSelf) {
+        [self modifyCircle:circleTransport err:NULL action:^bool (SOSCircleRef circle_to_change) {
+            return SOSCircleUpdatePeerInfo(circle_to_change, SOSFullPeerInfoGetPeerInfo(self.fullPeerInfo));
+        }];
+    }
+}
+
 -(bool) ensureFullPeerAvailable:(CFDictionaryRef)gestalt deviceID:(CFStringRef)deviceID backupKey:(CFDataRef)backup err:(CFErrorRef *) error
 {
     require_action_quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("Don't have circle")));
     
     if (self.fullPeerInfo == NULL) {
+        NSString* octagonKeyName;
         CFStringRef keyName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("ID for %@-%@"), SOSPeerGestaltGetName(gestalt), SOSCircleGetName(self.trustedCircle));
-        SecKeyRef full_key = GeneratePermanentFullECKey(256, keyName, error);
+        SecKeyRef full_key = [self randomPermanentFullECKey:256 name:(__bridge NSString *)keyName error:NULL];
         
-        NSString* octagonKeyName = [@"Octagon " stringByAppendingString:(__bridge NSString*)keyName];
-        SecKeyRef octagonFullKey = GeneratePermanentFullECKey(384, (__bridge CFStringRef)octagonKeyName, error);
-        
-        if (full_key && octagonFullKey) {
+        octagonKeyName = [@"Octagon Peer Signing " stringByAppendingString:(__bridge NSString*)keyName];
+        SecKeyRef octagonSigningFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:NULL];
+
+        octagonKeyName = [@"Octagon Peer Encryption " stringByAppendingString:(__bridge NSString*)keyName];
+        SecKeyRef octagonEncryptionFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:NULL];
+
+        if (full_key && octagonSigningFullKey && octagonEncryptionFullKey) {
             CFSetRef initialViews = SOSViewCopyViewSet(kViewSetInitial);
             
             self.fullPeerInfo = nil;
-            self.fullPeerInfo = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, gestalt, backup, initialViews, full_key,octagonFullKey, error);
+            self.fullPeerInfo = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, gestalt, backup, initialViews, full_key, octagonSigningFullKey, octagonEncryptionFullKey, error);
+
             CFDictionaryRef v2dictionaryTestUpdates = [self getValueFromExpansion:kSOSTestV2Settings err:NULL];
             if(v2dictionaryTestUpdates) SOSFullPeerInfoUpdateV2Dictionary(self.fullPeerInfo, v2dictionaryTestUpdates, NULL);
             CFReleaseNull(initialViews);
@@ -103,7 +180,10 @@
             secerror("No full_key: %@:", error ? *error : NULL);
             
         }
-        
+
+        CFReleaseNull(full_key);
+        CFReleaseNull(octagonSigningFullKey);
+        CFReleaseNull(octagonEncryptionFullKey);
         CFReleaseNull(keyName);
     }
     

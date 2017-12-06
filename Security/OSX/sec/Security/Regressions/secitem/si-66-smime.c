@@ -2840,6 +2840,7 @@ static void test_sign_no_priv(void) {
 #else
     ok(cmsg = SecCmsMessageCreate(NULL), "create message");
 #endif
+    require(cmsg, out);
     ok(sigd = SecCmsSignedDataCreate(cmsg), "create signed message");
     ok(cinfo = SecCmsMessageGetContentInfo(cmsg), "get content info");
 #if TARGET_OS_IPHONE
@@ -2856,6 +2857,7 @@ static void test_sign_no_priv(void) {
     is(SecCmsSignerInfoCreate(cmsg, signer, SEC_OID_SHA1), NULL, "set up signer with no private key");
 #endif
 
+out:
     CFReleaseNull(cert);
     CFReleaseNull(publicKey);
     CFReleaseNull(privateKey);

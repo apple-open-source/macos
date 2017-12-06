@@ -453,6 +453,20 @@ dispatch_source_set_registration_handler_f(dispatch_source_t ds,
 #pragma mark -
 #pragma mark dispatch_source_invoke
 
+bool
+_dispatch_source_will_reenable_kevent_4NW(dispatch_source_t ds)
+{
+	uint64_t dq_state = os_atomic_load2o(ds, dq_state, relaxed);
+	dispatch_queue_flags_t dqf = _dispatch_queue_atomic_flags(ds->_as_dq);
+
+	if (unlikely(!_dq_state_drain_locked_by_self(dq_state))) {
+		DISPATCH_CLIENT_CRASH(0, "_dispatch_source_will_reenable_kevent_4NW "
+				"not called from within the event handler");
+	}
+
+	return _dispatch_unote_needs_rearm(ds->ds_refs) && !(dqf & DSF_ARMED);
+}
+
 static void
 _dispatch_source_registration_callout(dispatch_source_t ds, dispatch_queue_t cq,
 		dispatch_invoke_flags_t flags)

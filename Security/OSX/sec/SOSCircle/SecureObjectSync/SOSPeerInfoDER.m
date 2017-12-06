@@ -116,8 +116,8 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     pubKey = SOSPeerInfoCopyPubKey(pi, error);
     require_quiet(pubKey, fail);
     
-    pi->id = SOSCopyIDOfKey(pubKey, error);
-    require_quiet(pi->id, fail);
+    pi->peerID = SOSCopyIDOfKey(pubKey, error);
+    require_quiet(pi->peerID, fail);
     
     if(pi->version >= 2) SOSPeerInfoExpandV2Data(pi, error);
     

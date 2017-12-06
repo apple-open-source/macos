@@ -1,3 +1,494 @@
+2017-10-29  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r224135. rdar://problem/35143359
+
+    2017-10-27  Daniel Bates  <dabates@apple.com>
+
+            Attempt to fix the Apple El Capitan build following <https://trac.webkit.org/changeset/224134>
+            (https://bugs.webkit.org/show_bug.cgi?id=178919)
+
+            Move definition of NetworkLoad::isAllowedToAskUserForCredentials() outside of USE(NETWORK_SESSION)-guarded section.
+
+            * NetworkProcess/NetworkLoad.cpp:
+            (WebKit::NetworkLoad::isAllowedToAskUserForCredentials const):
+
+2017-10-29  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r224134. rdar://problem/35143359
+
+    2017-10-27  Daniel Bates  <dabates@apple.com>
+
+            Only allow non-mixed content protected subresources to ask for credentials
+            https://bugs.webkit.org/show_bug.cgi?id=178919
+            <rdar://problem/35015245>
+
+            Reviewed by Alex Christensen.
+
+            Only allow non-mixed content protected subresources to ask for credentials. It is not meaningful
+            to allow protected mixed-content subresources to ask for credentials.
+
+            * NetworkProcess/Downloads/PendingDownload.cpp:
+            (WebKit::PendingDownload::PendingDownload): Initialize m_isAllowedToAskUserForCredentials based on
+            the specified resource load parameters or NetworkLoad object.
+            * NetworkProcess/Downloads/PendingDownload.h: Add override for NetworkLoadClient::isAllowedToAskUserForCredentials().
+            * NetworkProcess/NetworkLoad.cpp:
+            (WebKit::NetworkLoad::isAllowedToAskUserForCredentials const): Added.
+            (WebKit::NetworkLoad::completeAuthenticationChallenge): Ask NetworkLoadClient whether the load is
+            allowed to prompt for credentials.
+            (WebKit::NetworkLoad::didReceiveAuthenticationChallenge): Ditto.
+            * NetworkProcess/NetworkLoad.h:
+            * NetworkProcess/NetworkLoadClient.h:
+            * NetworkProcess/NetworkResourceLoader.cpp:
+            (WebKit::NetworkResourceLoader::NetworkResourceLoader): Initialize m_isAllowedToAskUserForCredentials
+            based on the specified resource load parameters.
+            (WebKit::NetworkResourceLoader::willSendRedirectedRequest): We do not support prompting for credentials
+            for synchronous loads.
+            (WebKit::NetworkResourceLoader::continueWillSendRequest): Modified to take an argument as to whether the
+            load is allowed to ask the user for credentials and updates state.
+            * NetworkProcess/NetworkResourceLoader.h:
+            * NetworkProcess/NetworkResourceLoader.messages.in: Modified message ContinueWillSendRequest to take a
+            boolean as to whether the load is allowed to ask the user for credentials.
+            * NetworkProcess/PreconnectTask.h: Override NetworkLoadClient::isAllowedToAskUserForCredentials()
+            such that we never ask for credentials. This matches our current behavior.
+            * NetworkProcess/cache/NetworkCacheSpeculativeLoad.h: Ditto.
+            * WebProcess/Network/WebResourceLoader.cpp:
+            (WebKit::WebResourceLoader::willSendRequest): Query ResourceLoader as to whether the load is allowed to
+            ask the user for credentials and pass this state to NetworkResourceLoader.
+
+2017-10-27  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222004. rdar://problem/35225406
+
+    2017-09-13  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Consider phoneticName when encoding ContactFields
+            https://bugs.webkit.org/show_bug.cgi?id=176885
+            <rdar://problem/34176419>
+
+            Reviewed by Tim Horton.
+
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            (IPC::ArgumentCoder<ApplePaySessionPaymentRequest::ContactFields>::encode):
+            (IPC::ArgumentCoder<ApplePaySessionPaymentRequest::ContactFields>::decode):
+
+2017-10-27  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221233. rdar://problem/35228663
+
+    2017-08-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS WK2] Web process crashes after changing selection to the end of the document when speaking a selection
+            https://bugs.webkit.org/show_bug.cgi?id=176011
+            <rdar://problem/32614095>
+
+            Reviewed by Ryosuke Niwa.
+
+            Adds an SPI hook to test accessibility codepaths when speaking selected content. This patch does some minor
+            refactoring by introducing _accessibilityRetrieveRectsAtSelectionOffset:withText:completionHandler:, which takes
+            and invokes a completion handler block. The existing _accessibilityRetrieveRectsAtSelectionOffset:withText:
+            method simply turns around and calls the former variant with `nil` as a completion handler.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _accessibilityRetrieveRectsAtSelectionOffset:withText:completionHandler:]):
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _accessibilityRetrieveRectsAtSelectionOffset:withText:]):
+            (-[WKContentView _accessibilityRetrieveRectsAtSelectionOffset:withText:completionHandler:]):
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::visiblePositionForPositionWithOffset): Deleted.
+
+2017-10-27  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223993. rdar://problem/34771415
+
+    2017-10-25  Per Arne Vollan  <pvollan@apple.com>
+
+            Network process crash under WebKit::AuthenticationManager::rejectProtectionSpaceAndContinueForSingleChallenge.
+            https://bugs.webkit.org/show_bug.cgi?id=160234
+            rdar://problem/30675510
+
+            Reviewed by Geoffrey Garen.
+
+            An exception is raised because we call the method rejectProtectionSpaceAndContinueWithChallenge on the CFNetwork
+            challenge sender, which does not implement this optional method. The methods on the authentication challenge
+            sender are deprecated when network session is used, so we should not call them in that case.
+
+            * Shared/Authentication/AuthenticationManager.cpp:
+            (WebKit::AuthenticationManager::useCredentialForSingleChallenge):
+            (WebKit::AuthenticationManager::continueWithoutCredentialForSingleChallenge):
+            (WebKit::AuthenticationManager::cancelSingleChallenge):
+            (WebKit::AuthenticationManager::performDefaultHandlingForSingleChallenge):
+            (WebKit::AuthenticationManager::rejectProtectionSpaceAndContinueForSingleChallenge):
+            * Shared/Authentication/cocoa/AuthenticationManagerCocoa.mm:
+            (WebKit::AuthenticationManager::receivedCredential):
+            (WebKit::AuthenticationManager::receivedRequestToContinueWithoutCredential):
+            (WebKit::AuthenticationManager::receivedCancellation):
+            (WebKit::AuthenticationManager::receivedRequestToPerformDefaultHandling):
+            (WebKit::AuthenticationManager::receivedChallengeRejection):
+            * Shared/Authentication/soup/AuthenticationManagerSoup.cpp:
+
+2017-10-20  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223708. rdar://problem/34771406
+
+    2017-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Expand r209943 to suppress paste during provisional navigation as well
+            https://bugs.webkit.org/show_bug.cgi?id=178429
+            <rdar://problem/33952830>
+
+            Reviewed by Dean Jackson.
+
+            * Shared/WebPreferencesDefinitions.h:
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetShouldSuppressKeyboardInputDuringProvisionalNavigation):
+            (WKPreferencesGetShouldSuppressKeyboardInputDuringProvisionalNavigation):
+            * UIProcess/API/Cocoa/WKPreferences.mm:
+            (-[WKPreferences _shouldSuppressKeyboardInputDuringProvisionalNavigation]):
+            (-[WKPreferences _setShouldSuppressKeyboardInputDuringProvisionalNavigation:]):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences):
+            Adjust to the changed preference name, except at the SPI level.
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223565. rdar://problem/35041490
+
+    2017-10-17  John Wilander  <wilander@apple.com>
+
+            Add and remove cookie partition accordingly in intermediary redirect requests
+            https://bugs.webkit.org/show_bug.cgi?id=178369
+            <rdar://problem/34467603>
+
+            Reviewed by Brent Fulgham.
+
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+            (WebKit::shouldChangePartition):
+                Convenience function. Comment documents the logic.
+            (WebKit::NetworkDataTaskCocoa::willPerformHTTPRedirection):
+                Now adds and removes cookie partition based on the
+                redirect-to URL's domain.
+            * WebProcess/InjectedBundle/API/c/WKBundle.cpp:
+            (WKBundleResourceLoadStatisticsNotifyObserver):
+                Test infrastructure.
+            * WebProcess/InjectedBundle/API/c/WKBundlePrivate.h:
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223253. rdar://problem/35077489
+
+    2017-10-12  John Wilander  <wilander@apple.com>
+
+            ResourceLoadObserver::logFrameNavigation() should use redirectResponse.url()
+            https://bugs.webkit.org/show_bug.cgi?id=175257
+            <rdar://problem/33359866>
+
+            Reviewed by Brent Fulgham.
+
+            * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+            (-[WKWebsiteDataStore _resourceLoadStatisticsIsRegisteredAsSubFrameUnder:topFrameHost:completionHandler:]):
+            (-[WKWebsiteDataStore _resourceLoadStatisticsIsRegisteredAsRedirectingTo:hostRedirectedTo:completionHandler:]):
+                Test infrastructure.
+            * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
+            * UIProcess/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::WebResourceLoadStatisticsStore::isRegisteredAsSubFrameUnder):
+            (WebKit::WebResourceLoadStatisticsStore::isRegisteredAsRedirectingTo):
+                Test infrastructure.
+            * UIProcess/WebResourceLoadStatisticsStore.h:
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223451. rdar://problem/34985194
+
+    2017-10-12  Matt Rajca  <mrajca@apple.com>
+
+            Add API support for quirk that lets an arbitrary click allow auto-play.
+            https://bugs.webkit.org/show_bug.cgi?id=178227
+
+            Reviewed by Alex Christensen.
+
+            Instead of hardcoding sites in WebCore, let API clients control which websites opt into the quirk that lets
+            an arbitrary click allow auto-play via website policies.
+
+            * Shared/WebsitePolicies.h:
+            * UIProcess/API/C/WKWebsitePolicies.cpp:
+            (WKWebsitePoliciesSetAllowedAutoplayQuirks):
+            (WKWebsitePoliciesGetAllowedAutoplayQuirks):
+            * UIProcess/API/C/WKWebsitePolicies.h:
+            * UIProcess/API/Cocoa/_WKWebsitePolicies.h:
+            * UIProcess/API/Cocoa/_WKWebsitePolicies.mm:
+            (-[_WKWebsitePolicies setAllowedAutoplayQuirks:]):
+            (-[_WKWebsitePolicies allowedAutoplayQuirks]):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::applyToDocumentLoader):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updateWebsitePolicies):
+
+2017-10-19  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223436. rdar://problem/35061711
+
+    2017-10-16  Chris Dumez  <cdumez@apple.com>
+
+            Log using differential privacy domains where the WebContent process crashes
+            https://bugs.webkit.org/show_bug.cgi?id=178346
+            <rdar://problem/33293830>
+
+            Reviewed by Alex Christensen.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::reload):
+            (WebKit::WebPageProxy::currentURL const):
+            (WebKit::WebPageProxy::processDidTerminate):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::didClose):
+
+2017-10-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223580. rdar://problem/34958773
+
+    2017-10-16  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Add subLocality and subAdministrativeArea to ApplePayPaymentContact and ApplePayError
+            https://bugs.webkit.org/show_bug.cgi?id=178191
+            <rdar://problem/34906367>
+
+            Reviewed by Tim Horton.
+
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            (WebKit::toNSError):
+
+2017-10-11  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/34920294
+
+    Apply patch. rdar://problem/34920294
+
+    2017-10-11  Youenn Fablet  <youenn@apple.com>
+
+            rtc::PacketOptions should have its own IPC encoding/decoding routines
+            https://bugs.webkit.org/show_bug.cgi?id=177812
+
+            Reviewed by Alex Christensen.
+
+            Replacing rtc::PacketOptions IPC encoding/decoding from passing the structure as individual parameters to the structure as a parameter.
+            Introducing WebKit::RTCPacketOptions as a wrapper around it for which encode/decode routines are added.
+            Updating code using rtc::PacketOptions accordingly.
+
+            * NetworkProcess/webrtc/NetworkRTCSocket.cpp:
+            (WebKit::NetworkRTCSocket::sendTo):
+            * NetworkProcess/webrtc/NetworkRTCSocket.h:
+            * NetworkProcess/webrtc/NetworkRTCSocket.messages.in:
+            * Platform/IPC/Decoder.cpp:
+            (IPC::Decoder::operator>>):
+            (IPC::Decoder::decode):
+            * Platform/IPC/Decoder.h:
+            * Platform/IPC/Encoder.cpp:
+            (IPC::Encoder::encode):
+            * Platform/IPC/Encoder.h:
+            * Shared/RTCPacketOptions.cpp: Added.
+            (WebKit::RTCPacketOptions::encode const):
+            (WebKit::RTCPacketOptions::decode):
+            * Shared/RTCPacketOptions.h: Added.
+            * WebKit.xcodeproj/project.pbxproj:
+            * WebProcess/Network/webrtc/LibWebRTCSocket.cpp:
+            (WebKit::LibWebRTCSocket::SendTo):
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222826. rdar://problem/34792131
+
+    2017-10-03  Brent Fulgham  <bfulgham@apple.com>
+
+            Correct nullptr dereference during shutdown
+            https://bugs.webkit.org/show_bug.cgi?id=177845
+            <rdar://problem/33651405>
+
+            Reviewed by Chris Dumez.
+
+            It looks like the ResourceLoadStatisticsPersistentStorage destructor is calling code that attempts
+            to use member variables in its owning class (WebResourceLoadStatisticsStore). Since these may have
+            already been destroyed, they are in an invalid state when accessed.
+
+            * UIProcess/ResourceLoadStatisticsPersistentStorage.cpp:
+            (WebKit::ResourceLoadStatisticsPersistentStorage::~ResourceLoadStatisticsPersistentStorage): Do not call
+            finishAllPendingWorkSynchronously() in the destructor, since it relies on the m_memoryStore to be
+            a reference to completely valid object.
+            * UIProcess/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::WebResourceLoadStatisticsStore::~WebResourceLoadStatisticsStore): Instead, call
+            'finishAllPendingWorkSynchronously' here, when the object is still in a known valid state.
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r223084. rdar://problem/34857469
+
+    2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+            Apply patch. rdar://problem/34857459
+
+        Apply patch. rdar://problem/34857459
+
+        2017-10-06  Alex Christensen  <achristensen@webkit.org>
+
+                REGRESSION(r214201): WebProcess hangs during policy decisions
+                https://bugs.webkit.org/show_bug.cgi?id=177411
+                <rdar://problem/34815986>
+
+                Original patch reviewed by Geoffrey Garen, this is a modification that doesn't change Mac.
+
+                This is like r222431 which allows the WebProcess to not be hung.  This fixes the desired bug on iOS
+                but without changing Mac, which depends on the ability to asynchronously call the completion handlers.
+
+                This change applies to the safari-604-branch.
+
+                * UIProcess/WebPageProxy.cpp:
+                (WebKit::WebPageProxy::receivedPolicyDecision):
+                (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+                (WebKit::WebPageProxy::decidePolicyForResponseSync):
+                * UIProcess/WebPageProxy.h:
+                * UIProcess/WebPageProxy.messages.in:
+                * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+                (WebKit::WebFrameLoaderClient::applyToDocumentLoader):
+                (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+                (WebKit::WebFrameLoaderClient::dispatchWillSubmitForm):
+                * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+                * WebProcess/WebPage/WebFrame.cpp:
+                (WebKit::WebFrame::setUpPolicyListener):
+                (WebKit::WebFrame::invalidatePolicyListener):
+                (WebKit::WebFrame::didReceivePolicyDecision):
+                * WebProcess/WebPage/WebFrame.h:
+                * WebProcess/WebPage/WebPage.cpp:
+                (WebKit::WebPage::didReceivePolicyDecision):
+                * WebProcess/WebPage/WebPage.h:
+                * WebProcess/WebPage/WebPage.messages.in:
+
+2017-10-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r222478. rdar://problem/34771020
+
+    2017-09-25  Youenn Fablet  <youenn@apple.com>
+
+            WebRTC video does not resume receiving when switching back to Safari 11 on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=175472
+            <rdar://problem/33860863>
+
+            Reviewed by Darin Adler.
+
+            Notifying LibWebRTC of backgrounding/foregrouding.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::applicationDidEnterBackground):
+            (WebKit::WebPage::applicationWillEnterForeground):
+
+2017-10-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220412. rdar://problem/34771061
+
+    2017-08-08  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Clear web processes' state on history removal
+            https://bugs.webkit.org/show_bug.cgi?id=175271
+            <rdar://problem/33756560>
+
+            Reviewed by Chris Dumez.
+
+            https://bugs.webkit.org/show_bug.cgi?id=175090 introduced state
+            in the web process and that state needs to be cleared when the
+            UI process' statistics are cleared as part of history removal.
+
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::clearResourceLoadStatistics):
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::removeData):
+            (WebKit::WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses):
+            * UIProcess/WebsiteData/WebsiteDataStore.h:
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::clearResourceLoadStatistics):
+            * WebProcess/WebProcess.h:
+            * WebProcess/WebProcess.messages.in:
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221036. rdar://problem/34771044
+
+    2017-08-22  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (High Sierra): PDFPlugin won't render PostScript Files
+            https://bugs.webkit.org/show_bug.cgi?id=175840
+            <rdar://problem/33877923>
+
+            Reviewed by Brent Fulgham.
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+            Add a sandbox exception for the PostScript conversion process.
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220302. rdar://problem/34770803
+
+    2017-08-04  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Report user interaction immediately, but only when needed
+            https://bugs.webkit.org/show_bug.cgi?id=175090
+            <rdar://problem/33685546>
+
+            Reviewed by Chris Dumez.
+
+            * WebProcess/InjectedBundle/API/c/WKBundle.cpp:
+            (WKBundleClearResourceLoadStatistics):
+                Test infrastructure. Ends up calling
+                WebCore::ResourceLoadObserver::clearState().
+            * WebProcess/InjectedBundle/API/c/WKBundlePrivate.h:
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220718. rdar://problem/34771041
+
+    2017-08-14  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Add support for phonetic contact names
+            https://bugs.webkit.org/show_bug.cgi?id=175537
+            <rdar://problem/32002644>
+
+            Reviewed by Tim Horton.
+
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm: Soft-linked PKContactFieldPhoneticName.
+            (WebKit::toPKContactFields): Added code to append PKContactFieldPhoneticName to result if
+            contactFields.phoneticName is true.
+            (WebKit::toNSError): Specified PKContactFieldPhoneticName as the contact field for
+            PaymentError::ContactField::PhoneticName.
+
+2017-10-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220496. rdar://problem/34770816
+
+    2017-08-09  Jeremy Jones  <jeremyj@apple.com>
+
+            Use MPAVRoutingController instead of deprecated versions.
+            https://bugs.webkit.org/show_bug.cgi?id=175063
+            rdar://problem/33301230
+
+            Reviewed by Tim Horton.
+
+            Remove dependence on deprecated classes MPAVRoutingSheet and MPAudioVideoRoutingPopoverController.
+
+            * UIProcess/ios/forms/WKAirPlayRoutePicker.h:
+            * UIProcess/ios/forms/WKAirPlayRoutePicker.mm:
+            (-[WKAirPlayRoutePicker dealloc]):
+            (-[WKAirPlayRoutePicker show:fromRect:]):
+            (-[WKAirPlayRoutePicker popoverControllerDidDismissPopover:]): Deleted.
+            (-[WKAirPlayRoutePicker _presentAirPlayPopoverAnimated:fromRect:]): Deleted.
+            (-[WKAirPlayRoutePicker _windowWillRotate:]): Deleted.
+            (-[WKAirPlayRoutePicker _windowDidRotate:]): Deleted.
+            (-[WKAirPlayRoutePicker _dismissAirPlayRoutePickerIPad]): Deleted.
+            (-[WKAirPlayRoutePicker showAirPlayPickerIPad:fromRect:]): Deleted.
+            (-[WKAirPlayRoutePicker showAirPlayPickerIPhone:]): Deleted.
+
 2017-10-05  Matthew Hanson  <matthew_hanson@apple.com>
 
         Revert r222431. rdar://problem/34826998

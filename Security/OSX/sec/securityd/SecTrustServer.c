@@ -75,6 +75,7 @@
 #endif
 
 #define MAX_CHAIN_LENGTH  15
+#define MAX_NUM_CHAINS    100
 #define ACCEPT_PATH_SCORE 10000000
 
 /* Forward declaration for use in SecCertificateSource. */
@@ -449,6 +450,20 @@ CFAbsoluteTime SecPathBuilderGetVerifyTime(SecPathBuilderRef builder) {
     return builder->verifyTime;
 }
 
+bool SecPathBuilderHasTemporalParentChecks(SecPathBuilderRef builder) {
+    __block bool validIntermediates = false;
+    SecPathBuilderForEachPVC(builder, ^(SecPVCRef pvc, bool *stop) {
+        CFArrayForEach(pvc->policies, ^(const void *value) {
+            SecPolicyRef policy = (SecPolicyRef)value;
+            if (CFDictionaryContainsKey(policy->_options, kSecPolicyCheckValidIntermediates)) {
+                validIntermediates = true;
+                *stop = true;
+            }
+        });
+    });
+    return validIntermediates;
+}
+
 CFIndex SecPathBuilderGetCertificateCount(SecPathBuilderRef builder) {
     return SecCertificatePathVCGetCount(builder->path);
 }
@@ -658,9 +673,21 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
             secdebug("trust", "Adding candidate %@", path);
 			CFArrayAppendValue(builder->candidatePaths, path);
 		}
-        /* The path is not partial if the last cert is self-signed. */
-        if ((SecCertificatePathVCSelfSignedIndex(path) >= 0) &&
-            (SecCertificatePathVCSelfSignedIndex(path) == SecCertificatePathVCGetCount(path)-1)) {
+        /* The path is not partial if the last cert is self-signed.
+         * The path is also not partial if the issuer of the last cert was the subject
+         * of a previous cert in the chain, indicating a cycle in the graph. See <rdar://33136765>. */
+        if (((SecCertificatePathVCSelfSignedIndex(path) >= 0) &&
+            (SecCertificatePathVCSelfSignedIndex(path) == SecCertificatePathVCGetCount(path)-1)) ||
+            SecCertificatePathVCIsCycleInGraph(path)) {
+            if (!builder->considerRejected) {
+                secdebug("trust", "Adding non-partial non-anchored reject %@", path);
+                CFArrayAppendValue(builder->rejectedPaths, path);
+            } else {
+                /* This path was previously rejected as unanchored non-partial, but now that
+                 * we're considering rejected paths, this is a candidate. */
+                secdebug("trust", "Adding non-partial non-anchored candidate %@", path);
+                CFArrayAppendValue(builder->candidatePaths, path);
+            }
             return false;
         }
 	}
@@ -887,7 +914,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
                directly.
                FIXME we might not want to consider partial paths that
                are subsets of other partial paths, or not consider them
-               at all if we already have an anchored reject. */
+               at all if we already have an (unpreferred) accept or anchored reject */
             if (!builder->considerRejected) {
                 builder->considerRejected = true;
                 secdebug("trust", "considering rejected paths");
@@ -917,6 +944,14 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
         --builder->partialIX;
         SecPathBuilderSetPath(builder, partial);
         builder->state = SecPathBuilderValidatePath;
+        return true;
+    }
+
+    /* Don't try to extend partials anymore if we already have too many chains. */
+    if (CFSetGetCount(builder->allPaths) > MAX_NUM_CHAINS) {
+        secnotice("trust", "not building any more paths, already have %" PRIdCFIndex,
+                  CFSetGetCount(builder->allPaths));
+        builder->partialIX = -1;
         return true;
     }
 

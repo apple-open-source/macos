@@ -169,11 +169,6 @@
     dispatch_semaphore_t finishedSema = dispatch_semaphore_create(0);
 
     SOSCCStatus circleStatus = [CKKSCKAccountStateTracker getCircleStatus];
-    if(circleStatus == kSOSCCError) {
-        dispatch_semaphore_signal(finishedSema);
-        return finishedSema;
-    }
-
     dispatch_sync(self.queue, ^{
         self.firstSOSCircleFetch = true;
 
@@ -260,6 +255,7 @@
         }];
     } else {
         // Not in-circle, reset circle ID
+        secnotice("ckksaccount", "out of circle(%d): resetting peer ID", sosccstatus);
         self.accountCirclePeerID = nil;
         self.accountCirclePeerIDError = nil;
         self.accountCirclePeerIDInitialized = [[CKKSCondition alloc] init];

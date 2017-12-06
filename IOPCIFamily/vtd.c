@@ -2285,7 +2285,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 	if (next == space->free_head[isLarge])
 	{
 	    uint64_t deadline;
-	    clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+	    clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	    while (true)
 	    {
 			checkFree(space, isLarge);
@@ -2476,7 +2476,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 
 	IOSimpleLockUnlock(fHWLock);
 
-	clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+	clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	while (true)
 	{
 		for (unitIdx = 0, ok = true; ok && (unit = units[unitIdx]); unitIdx++)
@@ -2534,7 +2534,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 
 	IOSimpleLockUnlock(fHWLock);
 
-	clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+	clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	while (true)
 	{
 		for (unitIdx = 0, ok = true; ok && (unit = units[unitIdx]); unitIdx++)

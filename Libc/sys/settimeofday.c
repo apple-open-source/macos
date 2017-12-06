@@ -43,10 +43,12 @@ settimeofday(const struct timeval *tp, const struct timezone *tzp)
 	int ret = __settimeofday(tp, tzp);
 	if (ret == 0) notify_post(kNotifyClockSet);
 
-	char *msg = NULL;
-	asprintf(&msg, "settimeofday({%#lx,%#x}) == %d", tp->tv_sec, tp->tv_usec, ret);
-	_simple_asl_log(ASL_LEVEL_NOTICE, "com.apple.settimeofday", msg);
-	free(msg);
+	if (tp) {
+		char *msg = NULL;
+		asprintf(&msg, "settimeofday({%#lx,%#x}) == %d", tp->tv_sec, tp->tv_usec, ret);
+		_simple_asl_log(ASL_LEVEL_NOTICE, "com.apple.settimeofday", msg);
+		free(msg);
+	}
 
 	return ret;
 }

@@ -71,7 +71,7 @@ enum {
     kSOSCCNotInCircle       = 1,
     kSOSCCRequestPending    = 2,
     kSOSCCCircleAbsent      = 3,
-    kSOSCCError             = -1,
+    kSOSCCError             = -1,   // unable to determine circle status, inspect CFError to find out why
 };
 
 typedef int SOSCCStatus;
@@ -82,6 +82,7 @@ extern const char * kSOSCCInitialSyncChangedNotification;
 extern const char * kSOSCCHoldLockForInitialSync;
 extern const char * kSOSCCPeerAvailable;
 extern const char * kSOSCCRecoveryKeyChanged;
+extern const char * kSOSCCCircleOctagonKeysChangedNotification;
 
 /*!
  @function SOSCCSetUserCredentials
@@ -557,6 +558,7 @@ extern const CFStringRef kCKKSViewEngram;
 extern const CFStringRef kCKKSViewManatee;
 extern const CFStringRef kCKKSViewAutoUnlock;
 extern const CFStringRef kCKKSViewHealth;
+extern const CFStringRef kCKKSViewApplePay;
 
 
 /*!

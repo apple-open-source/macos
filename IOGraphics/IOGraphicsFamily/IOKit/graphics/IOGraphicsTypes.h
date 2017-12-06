@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     56
+#define IOGRAPHICSTYPES_REV     60
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -308,6 +308,7 @@ enum {
 
 // values for kIOWindowServerActiveAttribute
 enum {
+    // States
     kIOWSAA_Unaccelerated       = 0,    // CPU rendering/access only, no GPU access
     kIOWSAA_Accelerated         = 1,    // GPU rendering/access only, no CPU mappings
     kIOWSAA_From_Accelerated    = 2,    // Transitioning from GPU to CPU
@@ -315,10 +316,13 @@ enum {
     kIOWSAA_Sleep               = 4,
     kIOWSAA_Hibernate           = kIOWSAA_Sleep,
     kIOWSAA_DriverOpen          = 5,    // Reserved
+    kIOWSAA_StateMask           = 0xF,
+    // Bits
     kIOWSAA_Transactional       = 0x10,  // If this bit is present, transition is to/from transactional operation model.
     // These attributes are internal
     kIOWSAA_DeferStart          = 0x100,
     kIOWSAA_DeferEnd            = 0x200,
+    kIOWSAA_NonConsoleDevice    = 0x400,    // If present, associated FB is non-console.  See ERS for further details.
     kIOWSAA_Reserved            = 0xF0000000
 };
 

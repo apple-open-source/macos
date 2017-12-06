@@ -87,13 +87,14 @@ badHierarchy:
 
 
 
-int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize)
+int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize, bool readOnly)
 {
     int		ret;
     char    vartmpLoc[MAXPATHLEN];
     char	fulldevpath[MNAMELEN];
-    char	*newargv[10];
+    char	*newargv[11];
     char    *installEnv;
+	int		i;
     
     installEnv = getenv("__OSINSTALL_ENVIRONMENT");
     if (installEnv && (atoi(installEnv) > 0 || strcasecmp(installEnv, "yes") == 0 || strcasecmp(installEnv, "true") == 0)) {
@@ -123,9 +124,11 @@ int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint
     newargv[4] = "perm";
     newargv[5] = "-o";
     newargv[6] = "nobrowse";
-    newargv[7] = fulldevpath;
-    newargv[8] = mntPoint;
-    newargv[9] = NULL;
+	i = 7;
+	if (readOnly) newargv[i++] = "-r";
+    newargv[i++] = fulldevpath;
+    newargv[i++] = mntPoint;
+    newargv[i] = NULL;
     
     
     contextprintf(context, kBLLogLevelVerbose, "Executing \"%s\"\n", "/sbin/mount");

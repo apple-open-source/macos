@@ -375,6 +375,11 @@ const CFStringRef kSOSAccountDebugScope = CFSTR("Scope");
     return SOSAccountInflateTransports(self, (__bridge CFStringRef) circle_name, NULL);
 }
 
+-(void)ensureOctagonPeerKeys
+{
+    [self.trust ensureOctagonPeerKeys:self.circle_transport];
+}
+
 -(id) initWithGestalt:(CFDictionaryRef)newGestalt factory:(SOSDataSourceFactoryRef)f
 {
     self = [super init];
@@ -652,6 +657,15 @@ static bool Flush(CFErrorRef *error) {
         CFReleaseNull(accountPrivateKey);
         complete(true, NULL);
     }];
+    
+    // This makes getting the private key the same as Asserting the password - we read all the other things
+    // that we just expressed interest in.
+    CFErrorRef error = NULL;
+    if (!Flush(&error)) {
+        secnotice("pairing", "failed final flush: %@", error ? error : NULL);
+        return;
+    }
+    CFReleaseNull(error);
 }
 
 - (void)myPeerInfo:(void (^)(NSData *, NSError *))complete

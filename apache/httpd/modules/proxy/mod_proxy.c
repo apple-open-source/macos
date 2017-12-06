@@ -103,7 +103,8 @@ static const char *set_worker_param(apr_pool_t *p,
         /* Normalized load factor. Used with BalancerMember,
          * it is a number between 1 and 100.
          */
-        ival = atoi(val);
+        double fval = atof(val);
+        ival = fval * 100.0;
         if (ival < 1 || ival > 100)
             return "LoadFactor must be a number between 1..100";
         worker->s->lbfactor = ival;
@@ -1268,10 +1269,11 @@ static int proxy_handler(request_rec *r)
 
     if (DECLINED == access_status) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(01144)
-                      "No protocol handler was valid for the URL %s. "
+                      "No protocol handler was valid for the URL %s " 
+                      "(scheme '%s'). "
                       "If you are using a DSO version of mod_proxy, make sure "
                       "the proxy submodules are included in the configuration "
-                      "using LoadModule.", r->uri);
+                      "using LoadModule.", r->uri, scheme);
         access_status = HTTP_INTERNAL_SERVER_ERROR;
         goto cleanup;
     }
@@ -1451,6 +1453,7 @@ static void *create_proxy_dir_config(apr_pool_t *p, char *dummy)
     new->error_override = 0;
     new->error_override_set = 0;
     new->add_forwarded_headers = 1;
+    new->add_forwarded_headers_set = 0;
 
     return (void *) new;
 }
@@ -1482,7 +1485,12 @@ static void *merge_proxy_dir_config(apr_pool_t *p, void *basev, void *addv)
     new->error_override_set = add->error_override_set || base->error_override_set;
     new->alias = (add->alias_set == 0) ? base->alias : add->alias;
     new->alias_set = add->alias_set || base->alias_set;
-    new->add_forwarded_headers = add->add_forwarded_headers;
+    new->add_forwarded_headers =
+        (add->add_forwarded_headers_set == 0) ? base->add_forwarded_headers
+        : add->add_forwarded_headers;
+    new->add_forwarded_headers_set = add->add_forwarded_headers_set
+        || base->add_forwarded_headers_set;
+    
     return new;
 }
 
@@ -1970,6 +1978,7 @@ static const char *
 {
    proxy_dir_conf *conf = dconf;
    conf->add_forwarded_headers = flag;
+   conf->add_forwarded_headers_set = 1;
    return NULL;
 }
 static const char *
@@ -2677,7 +2686,7 @@ static int proxy_status_hook(request_rec *r, int flags)
                 ap_rvputs(r, ap_proxy_parse_wstatus(r->pool, *worker), NULL);
                 ap_rvputs(r, "</td><td>", (*worker)->s->route, NULL);
                 ap_rvputs(r, "</td><td>", (*worker)->s->redirect, NULL);
-                ap_rprintf(r, "</td><td>%d</td>", (*worker)->s->lbfactor);
+                ap_rprintf(r, "</td><td>%.2f</td>", (float)((*worker)->s->lbfactor)/100.0);
                 ap_rprintf(r, "<td>%d</td>", (*worker)->s->lbset);
                 ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td><td>",
                            (*worker)->s->elected);

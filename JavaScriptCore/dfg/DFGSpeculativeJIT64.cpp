@@ -4620,6 +4620,22 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
         
+    case CheckStructureOrEmpty: {
+        SpeculateCellOperand cell(this, node->child1());
+        GPRReg cellGPR = cell.gpr();
+        MacroAssembler::Jump isEmpty;
+        if (m_interpreter.forNode(node->child1()).m_type & SpecEmpty)
+            isEmpty = m_jit.branchTest64(MacroAssembler::Zero, cellGPR);
+
+        emitStructureCheck(node, cellGPR, InvalidGPRReg);
+
+        if (isEmpty.isSet())
+            isEmpty.link(&m_jit);
+
+        noResult(node);
+        break;
+    }
+
     case CheckStructure: {
         compileCheckStructure(node);
         break;
@@ -5400,6 +5416,13 @@ void SpeculativeJIT::compile(Node* node)
             JITCompiler::selectScratchGPR(GPRInfo::returnValueGPR, argumentsGPR);
         
         m_jit.add32(TrustedImm32(1), GPRInfo::returnValueGPR, argCountIncludingThisGPR);
+
+        speculationCheck(
+            VarargsOverflow, JSValueSource(), Edge(), m_jit.branch32(
+                MacroAssembler::Above,
+                GPRInfo::returnValueGPR,
+                argCountIncludingThisGPR));
+
         speculationCheck(
             VarargsOverflow, JSValueSource(), Edge(), m_jit.branch32(
                 MacroAssembler::Above,

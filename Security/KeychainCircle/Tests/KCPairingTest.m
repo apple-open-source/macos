@@ -50,6 +50,7 @@
 @property (assign) SecKeyRef accountPublicKey;
 @property (assign) SecKeyRef deviceKey;
 @property (assign) SecKeyRef octagonSigningKey;
+@property (assign) SecKeyRef octagonEncryptionKey;
 @property (assign) SOSCircleRef circle;
 @property (assign) SOSFullPeerInfoRef fullPeerInfo;
 @property (assign) bool application;
@@ -90,6 +91,13 @@
         }
         CFReleaseNull(publicKey);
 
+        if(SecKeyGeneratePair((__bridge CFDictionaryRef)octagonParameters, &publicKey, &_octagonEncryptionKey) != 0) {
+            NSLog(@"failed to create octagon signing key");
+            return nil;
+        }
+        CFReleaseNull(publicKey);
+
+
         _circle = (SOSCircleRef)CFRetain(circle);
 
         CFErrorRef error = NULL;
@@ -98,7 +106,7 @@
             @"ComputerName" : @"name",
         };
 
-        _fullPeerInfo = SOSFullPeerInfoCreate(NULL, gestalt, NULL, _deviceKey, _octagonSigningKey, &error);
+        _fullPeerInfo = SOSFullPeerInfoCreate(NULL, gestalt, NULL, _deviceKey, _octagonSigningKey, _octagonEncryptionKey, &error);
         CFReleaseNull(error);
 
         if (randomAccountKey) {
@@ -137,6 +145,10 @@
     if (_octagonSigningKey) {
         SecItemDelete((__bridge CFTypeRef)@{ (__bridge id)kSecValueRef : (__bridge id)_octagonSigningKey });
         CFReleaseNull(_octagonSigningKey);
+    }
+    if (_octagonEncryptionKey) {
+        SecItemDelete((__bridge CFTypeRef)@{ (__bridge id)kSecValueRef : (__bridge id)_octagonEncryptionKey });
+        CFReleaseNull(_octagonEncryptionKey);
     }
     CFReleaseNull(_circle);
     CFReleaseNull(_fullPeerInfo);
