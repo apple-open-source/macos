@@ -74,7 +74,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     // Tear down the CKKS object
-    [self.keychainView cancelAllOperations];
+    [self.keychainView halt];
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
     [self.keychainView waitForKeyHierarchyReadiness];
@@ -122,7 +122,7 @@
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // Tear down the CKKS object
-    [self.keychainView cancelAllOperations];
+    [self.keychainView halt];
 
     [self.keychainView dispatchSync: ^bool {
         // Edit the zone state entry to have no fixups
@@ -151,9 +151,7 @@
 
     self.silentFetchesAllowed = false;
     [self expectCKFetchByRecordID];
-    if(SecCKKSShareTLKs()) {
-        [self expectCKFetchByQuery]; // and one for the TLKShare fixup
-    }
+    [self expectCKFetchByQuery]; // and one for the TLKShare fixup
 
     // Change one of the CIPs while CKKS is offline
     cip2.currentItemUUID = @"changed-by-cloudkit";
@@ -209,7 +207,6 @@
 }
 
 - (void)testFixupFetchAllTLKShareRecords {
-    SecCKKSSetShareTLKs(true);
     // In <rdar://problem/34901306> CKKSTLK: TLKShare CloudKit upload/download on TLK change, trust set addition,
     // we added the TLKShare CKRecord type. Upgrading devices must fetch all such records when they come online for the first time.
 
@@ -223,7 +220,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     // Tear down the CKKS object
-    [self.keychainView cancelAllOperations];
+    [self.keychainView halt];
     [self setFixupNumber:CKKSFixupRefetchCurrentItemPointers ckks:self.keychainView];
 
     // Also, create a TLK share record that CKKS should find
@@ -256,9 +253,9 @@
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:500*NSEC_PER_SEC], "Key state should become waitforfixup");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:8*NSEC_PER_SEC], "Key state should become waitforfixup");
     [self releaseCloudKitFetchHold];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:500*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should become ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
@@ -273,8 +270,84 @@
         XCTAssertNotNil(localshare, "Should be able to find a new TLKShare record in database");
         return true;
     }];
+}
 
-    SecCKKSSetShareTLKs(false);
+- (void)testFixupLocalReload {
+    // In <rdar://problem/35540228> Server Generated CloudKit "Manatee Identity Lost"
+    // items could be deleted from the local keychain after CKKS believed they were already synced, and therefore wouldn't resync
+
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    [self addGenericPassword: @"data" account: @"first"];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    // Add another record to mock up early CKKS record saving
+    __block CKRecordID* secondRecordID = nil;
+    CKKSCondition* secondRecordIDFilled = [[CKKSCondition alloc] init];
+    [self addGenericPassword: @"data" account: @"second"];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID checkItem:^BOOL(CKRecord * _Nonnull record) {
+        secondRecordID = record.recordID;
+        [secondRecordIDFilled fulfill];
+        return TRUE;
+    }];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+    XCTAssertNotNil(secondRecordID, "Should have filled in secondRecordID");
+    XCTAssertEqual(0, [secondRecordIDFilled wait:8*NSEC_PER_SEC], "Should have filled in secondRecordID within enough time");
+
+    // Tear down the CKKS object
+    [self.keychainView halt];
+    [self setFixupNumber:CKKSFixupFetchTLKShares ckks:self.keychainView];
+
+    // Delete items from keychain
+    [self deleteGenericPassword:@"first"];
+
+    // Corrupt the second item's CKMirror entry to only contain system fields in the CKRecord portion (to emulate early CKKS behavior)
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:secondRecordID.recordName zoneID:self.keychainZoneID error:&error];
+        XCTAssertNil(error, "Should have no error pulling second CKKSMirrorEntry from database");
+
+        NSMutableData* data = [NSMutableData data];
+        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+        [ckme.item.storedCKRecord encodeSystemFieldsWithCoder:archiver];
+        [archiver finishEncoding];
+        ckme.item.encodedCKRecord = data;
+
+        [ckme saveToDatabase:&error];
+        XCTAssertNil(error, "No error saving system-fielded CKME back to database");
+        return true;
+    }];
+
+    // Now, restart CKKS, but place a hold on the fixup operation
+    self.silentFetchesAllowed = false;
+    self.accountStatus = CKAccountStatusCouldNotDetermine;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    self.keychainView.holdFixupOperation = [CKKSResultOperation named:@"hold-fixup" withBlock:^{}];
+
+    self.accountStatus = CKAccountStatusAvailable;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:8*NSEC_PER_SEC], "Key state should become waitforfixup");
+    [self.operationQueue addOperation: self.keychainView.holdFixupOperation];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should become ready");
+
+    [self.keychainView.lastFixupOperation waitUntilFinished];
+    XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    // And the item should be back!
+    [self checkGenericPassword: @"data" account: @"first"];
 }
 
 @end

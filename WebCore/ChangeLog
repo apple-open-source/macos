@@ -1,6 +1,171 @@
+2018-01-05  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r226457. rdar://problem/36323985
+
+    2018-01-05  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            SVGAnimatedListPropertyTearOff::synchronizeWrappersIfNeeded() should do nothing if the property is not animating
+            https://bugs.webkit.org/show_bug.cgi?id=181316
+            <rdar://problem/36147545>
+
+            Reviewed by Simon Fraser.
+
+            This is a speculative change to fix a crash which appeared after r226065.
+            The crash is very intermittent and sometimes very hard to reproduce. The
+            basic code analysis did not show how this crash can even happen.
+
+            * svg/SVGAnimatedTypeAnimator.h:
+            (WebCore::SVGAnimatedTypeAnimator::resetFromBaseValues): For SVG property
+            with two values, e.g. <SVGAngleValue, SVGMarkerOrientType>,  we need to
+            detach the wrappers of the animated property if the animated values are
+            going to change. This is similar to what we did in resetFromBaseValue().
+
+            * svg/properties/SVGAnimatedListPropertyTearOff.h:
+            (WebCore::SVGAnimatedListPropertyTearOff::synchronizeWrappersIfNeeded):
+
+2017-12-18  Jason Marcell  <jmarcell@apple.com>
+
+         Apply patch. rdar://problem/36257607
+
+    Reduce the precision of "high" resolution time to 1ms
+    https://bugs.webkit.org/show_bug.cgi?id=180910
+    <rdar://problem/36085943>
+    
+    Reviewed by Saam Barati.
+    
+    Add a flaky test expectation to imported/w3c/web-platform-tests/workers/worker-performance.worker.html
+    due to a test bug. The test fix is tracked in https://github.com/w3c/web-platform-tests/pull/8711
+    
+    * TestExpectations:
+
+    2017-12-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Reduce the precision of "high" resolution time to 1ms
+            https://bugs.webkit.org/show_bug.cgi?id=180910
+            <rdar://problem/36085943>
+
+            Reviewed by Saam Barati.
+
+            Reduced the high prevision time's resolution to 1ms, the same precision as Date.now().
+
+            Also fixed the bug in fillRTCStats that we weren't reducing the time resolution in RTCStats dictionaries.
+
+            * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+            (WebCore::fillRTCStats):
+            * page/Performance.cpp:
+            (WebCore::Performance::reduceTimeResolution):
+
+2017-12-18  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r226065. rdar://problem/36080413
+
+    2017-12-18  Zalan Bujtas  <zalan@apple.com>
+
+            [SVG] Detach list wrappers before resetting the base value.
+            https://bugs.webkit.org/show_bug.cgi?id=180912
+            <rdar://problem/36017970>
+
+            Reviewed by Simon Fraser.
+
+            Before resetting the animation value (and destroying the assigned SVG object -SVGLengthValue in this case),
+            we need to check if there's an associated tear off wrapper for the said SVG object and make a copy of it.
+            This is currently done in the wrong order through animValDidChange.
+
+            Test: svg/animations/crash-when-animation-is-running-while-getting-value.html
+
+            * svg/SVGAnimatedTypeAnimator.h:
+            (WebCore::SVGAnimatedTypeAnimator::resetFromBaseValue):
+            * svg/properties/SVGAnimatedPropertyTearOff.h:
+            * svg/properties/SVGAnimatedStaticPropertyTearOff.h:
+            (WebCore::SVGAnimatedStaticPropertyTearOff::synchronizeWrappersIfNeeded):
+
+2017-12-18  Jason Marcell  <jmarcell@apple.com>
+
+        Revert r225497. rdar://problem/36112729
+
+2017-12-06  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r225497. rdar://problem/34604139
+
+    2017-12-04  Zalan Bujtas  <zalan@apple.com>
+
+            REGRESSION (r211531): Text flow changes and overlaps other text after double-click selecting paragraph
+            https://bugs.webkit.org/show_bug.cgi?id=180377
+            <rdar://problem/34337967>
+
+            Reviewed by Antti Koivisto.
+
+            Take floats into account when computing the available width for a certain vertical position.
+
+            Test: fast/block/float/simple-line-layout-float-shrink-line.html
+
+            * rendering/SimpleLineLayout.cpp:
+            (WebCore::SimpleLineLayout::updateLineConstrains):
+
+2017-12-05  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r225528. rdar://problem/35838154
+
+    2017-12-05  Alex Christensen  <achristensen@webkit.org>
+
+            Fix non-unified build after r225381
+            https://bugs.webkit.org/show_bug.cgi?id=180434
+
+            Reviewed by Keith Miller.
+
+            * loader/ResourceTimingInformation.cpp:
+            FrameLoader.h is included in other files that are combined with this file in unified builds,
+            but we need to merge r225381 to a branch that doesn't use unified builds.  This build failure
+            would've come up randomly in the future when we add files, too.
+
+2017-12-04  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r225381. rdar://problem/35838154
+
+    2017-11-30  Alex Christensen  <achristensen@webkit.org>
+
+            Extra PerformanceEntryList entry after iframe navigation
+            https://bugs.webkit.org/show_bug.cgi?id=178433
+
+            Reviewed by Joseph Pecoraro.
+
+            Test: http/tests/security/PerformanceEntryList-parent-only-first-navigation.html
+
+            When an iframe is loaded, its main resource load should be reported to the parent frame's PerformanceEntryList.
+            Subsequent main resource loads should not.
+
+            * loader/FrameLoader.h:
+            (WebCore::FrameLoader::shouldReportResourceTimingToParentFrame):
+            * loader/ResourceTimingInformation.cpp:
+            (WebCore::ResourceTimingInformation::addResourceTiming):
+
+2017-11-30  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r225141. rdar://problem/35732184
+
+    2017-11-24  Antti Koivisto  <antti@apple.com>
+
+            Style resolution spin due to calc() values always comparing inequal (seen on arstechnica.com)
+            https://bugs.webkit.org/show_bug.cgi?id=179982
+            <rdar://problem/35677991>
+
+            Reviewed by Darin Adler.
+
+            Test: transitions/transition-with-calc-spin.html
+
+            Something like calc(100% - 10px) would compare inequal to itself. This causes the implicit animation engine think that
+            there is a new target value after style resolution and restart the transition. Starting the transition triggers another style
+            resolution on zero duration timer and so on.
+
+            * platform/CalculationValue.cpp:
+            (WebCore::operator==):
+            * platform/CalculationValue.h:
+
+            Deep compare the child vectors.
+
 2017-11-03  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r224405. rdar://problem/35296404
+        Cherry-pick r224405. rdar://problem/35339758
 
     2017-11-03  Ryosuke Niwa  <rniwa@webkit.org>
 
@@ -37,9 +202,9 @@
             * dom/Node.h:
             * dom/NodeFilter.h:
 
-2017-11-03  Jason Marcell  <jmarcell@apple.com>
+2017-11-22  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r224398. rdar://problem/35329684
+        Cherry-pick r224398. rdar://problem/35329715
 
     2017-11-03  Daniel Bates  <dabates@apple.com>
 

@@ -21,8 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef CKKSResultOperation_h
-#define CKKSResultOperation_h
+#if OCTAGON
 
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
@@ -44,7 +43,7 @@ enum {
 
 // Very similar to addDependency, but:
 //   if the dependent operation has an error or is canceled, cancel this operation
-- (void)addSuccessDependency: (CKKSResultOperation*) operation;
+- (void)addSuccessDependency:(CKKSResultOperation*)operation;
 - (void)addNullableSuccessDependency:(CKKSResultOperation*)operation;
 
 // Call to check if you should run.
@@ -57,16 +56,17 @@ enum {
 - (instancetype)timeout:(dispatch_time_t)timeout;
 
 // Convenience constructor.
-+(instancetype)operationWithBlock:(void (^)(void))block;
-+(instancetype)named: (NSString*)name withBlock: (void(^)(void)) block;
++ (instancetype)operationWithBlock:(void (^)(void))block;
++ (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* op))block;
 
 // Determine if all these operations were successful, and set this operation's result if not.
-- (bool)allSuccessful: (NSArray<CKKSResultOperation*>*) operations;
+- (bool)allSuccessful:(NSArray<CKKSResultOperation*>*)operations;
 
 // Call this to prevent the timeout on this operation from occuring.
 // Upon return, either this operation is cancelled, or the timeout will never fire.
--(void)invalidateTimeout;
+- (void)invalidateTimeout;
 @end
 
-#endif // CKKSResultOperation_h
+#endif // OCTAGON
 

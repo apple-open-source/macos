@@ -26,13 +26,14 @@
 #import <Foundation/Foundation.h>
 #import <SecurityFoundation/SFKey.h>
 
+NS_ASSUME_NONNULL_BEGIN
 
 // ==== Peer protocols ====
 
 @protocol CKKSPeer <NSObject>
 @property (readonly) NSString* peerID;
-@property (readonly) SFECPublicKey* publicEncryptionKey;
-@property (readonly) SFECPublicKey* publicSigningKey;
+@property (nullable, readonly) SFECPublicKey* publicEncryptionKey;
+@property (nullable, readonly) SFECPublicKey* publicSigningKey;
 
 // Not exactly isEqual, since this only compares peerID
 - (bool)matchesPeer:(id<CKKSPeer>)peer;
@@ -47,8 +48,8 @@
 
 @interface CKKSSelves : NSObject
 @property id<CKKSSelfPeer> currentSelf;
-@property NSSet<id<CKKSSelfPeer>>* allSelves;
-- (instancetype)initWithCurrent:(id<CKKSSelfPeer>)selfPeer allSelves:(NSSet<id<CKKSSelfPeer>>*)allSelves;
+@property (nullable) NSSet<id<CKKSSelfPeer>>* allSelves;
+- (instancetype)initWithCurrent:(id<CKKSSelfPeer>)selfPeer allSelves:(NSSet<id<CKKSSelfPeer>>* _Nullable)allSelves;
 @end
 
 // ==== Peer handler protocols ====
@@ -56,8 +57,8 @@
 @protocol CKKSPeerUpdateListener;
 
 @protocol CKKSPeerProvider <NSObject>
-- (CKKSSelves*)fetchSelfPeers:(NSError* __autoreleasing *)error;
-- (NSSet<id<CKKSPeer>>*)fetchTrustedPeers:(NSError* __autoreleasing *)error;
+- (CKKSSelves* _Nullable)fetchSelfPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
+- (NSSet<id<CKKSPeer>>* _Nullable)fetchTrustedPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
 // Trusted peers should include self peers
 
 - (void)registerForPeerChangeUpdates:(id<CKKSPeerUpdateListener>)listener;
@@ -69,16 +70,15 @@
 - (void)trustedPeerSetChanged;
 @end
 
-
 // These should be replaced by Octagon peers, when those exist
 @interface CKKSSOSPeer : NSObject <CKKSPeer>
 @property (readonly) NSString* peerID;
-@property (readonly) SFECPublicKey* publicEncryptionKey;
-@property (readonly) SFECPublicKey* publicSigningKey;
+@property (nullable, readonly) SFECPublicKey* publicEncryptionKey;
+@property (nullable, readonly) SFECPublicKey* publicSigningKey;
 
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
-              encryptionPublicKey:(SFECPublicKey*)encryptionKey
-                 signingPublicKey:(SFECPublicKey*)signingKey;
+              encryptionPublicKey:(SFECPublicKey* _Nullable)encryptionKey
+                 signingPublicKey:(SFECPublicKey* _Nullable)signingKey;
 @end
 
 @interface CKKSSOSSelfPeer : NSObject <CKKSPeer, CKKSSelfPeer>
@@ -94,4 +94,5 @@
                        signingKey:(SFECKeyPair*)signingKey;
 @end
 
-#endif // OCTAGON
+NS_ASSUME_NONNULL_END
+#endif  // OCTAGON

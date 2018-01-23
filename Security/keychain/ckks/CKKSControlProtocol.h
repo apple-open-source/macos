@@ -28,6 +28,7 @@
 - (void)rpcResetLocal:    (NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcResetCloudKit: (NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
+- (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply;
 - (void)rpcStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;

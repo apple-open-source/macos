@@ -178,26 +178,26 @@
 
     key = [share recoverTLK:self.remotePeer trustedPeers:[NSSet set] error:&error];
     XCTAssertNil(key, "No key should have been extracted when no trusted peers exist");
-    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key");
+    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key with no trusted peers");
     error = nil;
 
     key = [share recoverTLK:self.remotePeer2 trustedPeers:peers error:&error];
     XCTAssertNil(key, "No key should have been extracted when using the wrong key");
-    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key");
+    XCTAssertNotNil(error, "Should have produced an error when failing to extract with the wrong key");
     error = nil;
 
     CKKSTLKShare* shareSignature = [share copy];
     shareSignature.signature = [NSMutableData dataWithLength:shareSignature.signature.length];
     key = [shareSignature recoverTLK:self.remotePeer trustedPeers:peers error:&error];
     XCTAssertNil(key, "No key should have been extracted when signature fails to verify");
-    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key");
+    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key with an invalid signature");
     error = nil;
 
     CKKSTLKShare* shareUUID = [share copy];
     shareUUID.tlkUUID = [[NSUUID UUID] UUIDString];
     key = [shareUUID recoverTLK:self.remotePeer trustedPeers:peers error:&error];
     XCTAssertNil(key, "No key should have been extracted when uuid has changed");
-    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key");
+    XCTAssertNotNil(error, "Should have produced an error when failing to extract a key after uuid has changed");
     error = nil;
 }
 
@@ -282,16 +282,11 @@
     [share2 saveToDatabase:&error];
     XCTAssertNil(error, "No error saving share2 to database");
 
-    /*
-     * DISABLE FOR NOW:
-     *  a bad rebase made the implementation of this function not be avilable
-     *  yet
     CKKSTLKShare* loadedShare2 = [CKKSTLKShare tryFromDatabaseFromCKRecordID:record.recordID error:&error];
     XCTAssertNil(error, "No error loading loadedShare2 from database");
     XCTAssertNotNil(loadedShare2, "Should have received a CKKSTLKShare from the database");
 
     XCTAssert([loadedShare2 verifySignature:loadedShare2.signature verifyingPeer:self.localPeer error:&error], "Signature with extra data should verify after save/load");
-    */
 }
 
 @end

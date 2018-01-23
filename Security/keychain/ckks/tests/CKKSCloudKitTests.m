@@ -44,7 +44,6 @@
 @interface CKKSCloudKitTests : XCTestCase
 
 @property NSOperationQueue *operationQueue;
-@property NSBlockOperation *ckksHoldOperation;
 @property CKContainer *container;
 @property CKDatabase *database;
 @property CKKSKeychainView *kcv;
@@ -83,10 +82,6 @@
     SecCKKSTestSetDisableSOS(true);
 
     self.operationQueue = [NSOperationQueue new];
-    self.ckksHoldOperation = [NSBlockOperation new];
-    [self.ckksHoldOperation addExecutionBlock:^{
-        secnotice("ckks", "CKKS testing hold released");
-    }];
 
     CKKSViewManager* manager = [[CKKSViewManager alloc] initWithContainerName:containerName
                                                                        usePCS:SecCKKSContainerUsePCS
@@ -97,8 +92,7 @@
                                               modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
                                                            apsConnectionClass:[APSConnection class]
                                                     nsnotificationCenterClass:[NSNotificationCenter class]
-                                                                notifierClass:[FakeCKKSNotifier class]
-                                                                    setupHold:self.ckksHoldOperation];
+                                                                notifierClass:[FakeCKKSNotifier class]];
     [CKKSViewManager resetManager:false setTo:manager];
 
     // Make a new fake keychain
@@ -116,7 +110,6 @@
     self.zoneName = @"keychain";
     self.zoneID = [[CKRecordZoneID alloc] initWithZoneName:self.zoneName ownerName:CKCurrentUserDefaultName];
     self.kcv = [[CKKSViewManager manager] findOrCreateView:@"keychain"];
-    [self.kcv.zoneSetupOperation addDependency: self.ckksHoldOperation];
 }
 
 - (void)tearDown {
@@ -153,10 +146,7 @@
 }
 
 - (void)startCKKSSubsystem {
-    if(self.ckksHoldOperation) {
-        [self.operationQueue addOperation: self.ckksHoldOperation];
-        self.ckksHoldOperation = nil;
-    }
+    // TODO: we removed this mechanism, but haven't tested to see if these tests still succeed
 }
 
 - (NSMutableDictionary *)fetchLocalItems {

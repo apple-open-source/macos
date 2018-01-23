@@ -24,9 +24,10 @@
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
-
 @class CKKSKeychainView;
 #import "keychain/ckks/CKKSGroupOperation.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSFetchAllRecordZoneChangesOperation : CKKSGroupOperation
 
@@ -34,18 +35,19 @@
 //  Fetching everything currently in CloudKit and comparing to local copy
 @property bool resync;
 
-@property (weak) CKKSKeychainView* ckks;
+@property (nullable, weak) CKKSKeychainView* ckks;
 @property CKRecordZoneID* zoneID;
 
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* modifications;
 @property NSMutableDictionary<CKRecordID*, NSString*>* deletions;
 
-@property CKServerChangeToken* serverChangeToken;
+@property (nullable) CKServerChangeToken* serverChangeToken;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
 
+NS_ASSUME_NONNULL_END
 
 #endif

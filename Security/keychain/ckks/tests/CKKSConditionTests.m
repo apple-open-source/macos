@@ -80,4 +80,18 @@
     [self waitForExpectations: @[expectation] timeout:0.5];
 }
 
+-(void)testConditionChain {
+    CKKSCondition* chained = [[CKKSCondition alloc] init];
+    CKKSCondition* c = [[CKKSCondition alloc] initToChain: chained];
+
+    XCTAssertNotEqual(0, [chained wait:50*NSEC_PER_MSEC], "waiting on chained condition without fulfilling times out");
+    XCTAssertNotEqual(0, [c       wait:50*NSEC_PER_MSEC], "waiting on condition without fulfilling times out");
+
+    [c fulfill];
+    XCTAssertEqual(0, [c       wait:100*NSEC_PER_MSEC], "first wait after fulfill succeeds");
+    XCTAssertEqual(0, [chained wait:100*NSEC_PER_MSEC], "first chained wait after fulfill succeeds");
+    XCTAssertEqual(0, [c       wait:100*NSEC_PER_MSEC], "second wait after fulfill succeeds");
+    XCTAssertEqual(0, [chained wait:100*NSEC_PER_MSEC], "second chained wait after fulfill succeeds");
+}
+
 @end

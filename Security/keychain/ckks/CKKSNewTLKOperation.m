@@ -89,6 +89,29 @@
 
         ckks.lastNewTLKOperation = self;
 
+        if(ckks.currentSelfPeersError) {
+            if([ckks.lockStateTracker isLockedError: ckks.currentSelfPeersError]) {
+                ckkserror("ckksshare", ckks, "Can't create new TLKs: keychain is locked so self peers are unavailable: %@", ckks.currentSelfPeersError);
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
+            } else {
+                ckkserror("ckkstlk", ckks, "Couldn't create new TLKs because self peers aren't available: %@", ckks.currentSelfPeersError);
+                [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateNewTLKsFailed withError: ckks.currentSelfPeersError];
+            }
+            self.error = ckks.currentSelfPeersError;
+            return false;
+        }
+        if(ckks.currentTrustedPeersError) {
+            if([ckks.lockStateTracker isLockedError: ckks.currentTrustedPeersError]) {
+                ckkserror("ckksshare", ckks, "Can't create new TLKs: keychain is locked so trusted peers are unavailable: %@", ckks.currentTrustedPeersError);
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
+            } else {
+                ckkserror("ckkstlk", ckks, "Couldn't create new TLKs because trusted peers aren't available: %@", ckks.currentTrustedPeersError);
+                [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateNewTLKsFailed withError: ckks.currentTrustedPeersError];
+            }
+            self.error = ckks.currentTrustedPeersError;
+            return false;
+        }
+
         NSError* error = nil;
 
         ckksinfo("ckkstlk", ckks, "Generating new TLK");
@@ -207,14 +230,12 @@
 
         // Generate the TLK sharing records for all trusted peers
         NSMutableSet<CKKSTLKShare*>* tlkShares = [NSMutableSet set];
-        if(SecCKKSShareTLKs()) {
-            for(id<CKKSPeer> trustedPeer in ckks.currentTrustedPeers) {
-                ckksnotice("ckkstlk", ckks, "Generating TLK(%@) share for %@", newTLK, trustedPeer);
-                CKKSTLKShare* share = [CKKSTLKShare share:newTLK as:ckks.currentSelfPeers.currentSelf to:trustedPeer epoch:-1 poisoned:0 error:&error];
+        for(id<CKKSPeer> trustedPeer in ckks.currentTrustedPeers) {
+            ckksnotice("ckkstlk", ckks, "Generating TLK(%@) share for %@", newTLK, trustedPeer);
+            CKKSTLKShare* share = [CKKSTLKShare share:newTLK as:ckks.currentSelfPeers.currentSelf to:trustedPeer epoch:-1 poisoned:0 error:&error];
 
-                [tlkShares addObject:share];
-                [recordsToSave addObject: [share CKRecordWithZoneID: ckks.zoneID]];
-            }
+            [tlkShares addObject:share];
+            [recordsToSave addObject: [share CKRecordWithZoneID: ckks.zoneID]];
         }
 
         // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete

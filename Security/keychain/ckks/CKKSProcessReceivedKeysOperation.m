@@ -145,7 +145,13 @@
             } else {
                 // Otherwise, something has gone horribly wrong. enter error state.
                 ckkserror("ckkskey", ckks, "CKKS claims %@ is not a valid TLK: %@", tlk, error);
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:[NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit", NSUnderlyingErrorKey: error}]];
+                NSError* newError = nil;
+                if(error) {
+                    newError = [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit", NSUnderlyingErrorKey: error}];
+                } else {
+                    newError = [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit (unknown error)"}];
+                }
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:newError];
                 return true;
             }
         }

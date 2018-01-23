@@ -33,6 +33,7 @@
 #include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
 
+#include <sys/sysctl.h>
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
@@ -199,11 +200,35 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     NSString* platform = "unknown";
 #warning No PLATFORM defined; why?
 #endif
-    NSString* osversion = [[NSProcessInfo processInfo]operatingSystemVersionString];
 
-    // subtly improve osversion (but it's okay if that does nothing)
-    NSString* finalversion = [platform stringByAppendingString: [osversion stringByReplacingOccurrencesOfString:@"Version" withString:@""]];
-    record[SecCKRecordHostOSVersionKey] = finalversion;
+    NSString* osversion = nil;
+
+    // If we can get the build information from sysctl, use it.
+    char release[256];
+    size_t releasesize = sizeof(release);
+    bool haveSysctlInfo = true;
+    haveSysctlInfo &= (0 == sysctlbyname("kern.osrelease", release, &releasesize, NULL, 0));
+
+    char version[256];
+    size_t versionsize = sizeof(version);
+    haveSysctlInfo &= (0 == sysctlbyname("kern.osversion", version, &versionsize, NULL, 0));
+
+    if(haveSysctlInfo) {
+        // Null-terminate for extra safety
+        release[sizeof(release)-1] = '\0';
+        version[sizeof(version)-1] = '\0';
+        osversion = [NSString stringWithFormat:@"%s (%s)", release, version];
+    }
+
+    if(!osversion) {
+        //  Otherwise, use the not-really-supported fallback.
+        osversion = [[NSProcessInfo processInfo] operatingSystemVersionString];
+
+        // subtly improve osversion (but it's okay if that does nothing)
+        osversion = [osversion stringByReplacingOccurrencesOfString:@"Version" withString:@""];
+    }
+
+     record[SecCKRecordHostOSVersionKey] = [NSString stringWithFormat:@"%@ %@", platform, osversion];
 }
 
 - (CKRecord*) updateCKRecord: (CKRecord*) record zoneID: (CKRecordZoneID*) zoneID {
@@ -478,11 +503,11 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 
 @implementation CKKSSQLDatabaseObject (CKKSZoneExtras)
 
-+ (NSArray<NSString*>*) allUUIDs:  (NSError * __autoreleasing *) error {
++ (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
     __block NSMutableArray* uuids = [[NSMutableArray alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [self sqlTable]
-                                        where: nil
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
                                       columns: @[@"UUID"]
                                       groupBy: nil
                                       orderBy:nil

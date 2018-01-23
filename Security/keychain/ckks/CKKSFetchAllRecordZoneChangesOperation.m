@@ -33,12 +33,14 @@
 #import "keychain/ckks/CKKSMirrorEntry.h"
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSManifestLeafRecord.h"
+#import "CKKSPowerCollection.h"
 #include <securityd/SecItemServer.h>
 
 
 @interface CKKSFetchAllRecordZoneChangesOperation()
 @property CKDatabaseOperation<CKKSFetchRecordZoneChangesOperation>* fetchRecordZoneChangesOperation;
 @property CKOperationGroup* ckoperationGroup;
+@property (assign) NSUInteger fetchedItems;
 @end
 
 @implementation CKKSFetchAllRecordZoneChangesOperation
@@ -91,7 +93,7 @@
         }
     }
 
-    if (![ckks _onQueueUpdateLatestManifestWithError:&error]) {
+    if (![ckks _onqueueUpdateLatestManifestWithError:&error]) {
         self.error = error;
         ckkserror("ckksfetch", ckks, "failed to get latest manifest");
     }
@@ -117,16 +119,20 @@
     NSError* error = nil;
     if(self.resync) {
         ckksnotice("ckksresync", ckks, "Comparing local UUIDs against the CloudKit list");
-        NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs: &error] mutableCopy];
+        NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:ckks.zoneID error:&error] mutableCopy];
 
         for(NSString* uuid in uuids) {
             if([self.modifications objectForKey: [[CKRecordID alloc] initWithRecordName: uuid zoneID: ckks.zoneID]]) {
-                ckksdebug("ckksresync", ckks, "UUID %@ is still in CloudKit; carry on.", uuid);
+                ckksnotice("ckksresync", ckks, "UUID %@ is still in CloudKit; carry on.", uuid);
             } else {
-                CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase: uuid zoneID:ckks.zoneID error: &error];
+                CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:ckks.zoneID error: &error];
                 if(error != nil) {
                     ckkserror("ckksresync", ckks, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
                     self.error = error;
+                    continue;
+                }
+                if(!ckme) {
+                    ckkserror("ckksresync", ckks, "Couldn't read ckme(%@) from database; continuing", uuid);
                     continue;
                 }
 
@@ -139,7 +145,6 @@
 
 - (void)groupStart {
     __weak __typeof(self) weakSelf = self;
-
 
     CKKSKeychainView* ckks = self.ckks;
     if(!ckks) {
@@ -200,6 +205,7 @@
             // Add this to the modifications, and remove it from the deletions
             [strongSelf.modifications setObject: record forKey: record.recordID];
             [strongSelf.deletions removeObjectForKey: record.recordID];
+            strongSelf.fetchedItems++;
         };
 
         self.fetchRecordZoneChangesOperation.recordWithIDWasDeletedBlock = ^(CKRecordID *recordID, NSString *recordType) {
@@ -215,6 +221,7 @@
             // Add to the deletions, and remove any pending modifications
             [strongSelf.modifications removeObjectForKey: recordID];
             [strongSelf.deletions setObject: recordType forKey: recordID];
+            strongSelf.fetchedItems++;
         };
 
         // This class only supports fetching from a single zone, so we can ignore recordZoneID
@@ -342,6 +349,9 @@
             if(operationError) {
                 strongSelf.error = operationError;
             }
+
+            //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventFetchAllChanges zone:ckks.zoneName count:strongSelf.fetchedItems];
+
 
             // Trigger the fake 'we're done' operation.
             [strongSelf runBeforeGroupFinished: recordZoneChangesCompletedOperation];

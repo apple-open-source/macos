@@ -21,9 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <Foundation/Foundation.h>
-
 #if OCTAGON
+#import <CloudKit/CloudKit.h>
+#import <Foundation/Foundation.h>
+#import "keychain/ckks/CKKSResultOperation.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 /* Fetch Reasons */
 @protocol SecCKKSFetchBecause
@@ -39,7 +42,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseKeyHierarchy;
 extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
 
 @protocol CKKSChangeFetcherErrorOracle
-- (bool) isFatalCKFetchError: (NSError*) error;
+- (bool)isFatalCKFetchError:(NSError*)error;
 @end
 
 /*
@@ -49,12 +52,10 @@ extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
  */
 
 @class CKKSKeychainView;
-#import "keychain/ckks/CKKSGroupOperation.h"
-#import <CloudKit/CloudKit.h>
 
 @interface CKKSZoneChangeFetcher : NSObject
 
-@property (weak) CKKSKeychainView* ckks;
+@property (nullable, weak) CKKSKeychainView* ckks;
 @property CKRecordZoneID* zoneID;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -64,12 +65,10 @@ extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
 - (CKKSResultOperation*)requestSuccessfulResyncFetch:(CKKSFetchBecause*)why;
 
 // We don't particularly care what this does, as long as it finishes
-- (void)holdFetchesUntil:(CKKSResultOperation*)holdOperation;
+- (void)holdFetchesUntil:(CKKSResultOperation* _Nullable)holdOperation;
 
--(void)cancel;
+- (void)cancel;
 @end
 
-
+NS_ASSUME_NONNULL_END
 #endif
-
-

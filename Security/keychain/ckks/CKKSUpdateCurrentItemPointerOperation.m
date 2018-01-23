@@ -128,8 +128,8 @@
         }
 
         // Check if either item is currently in any sync queue, and fail if so
-        NSArray* oqes = [CKKSOutgoingQueueEntry allUUIDs:&error];
-        NSArray* iqes = [CKKSIncomingQueueEntry allUUIDs:&error];
+        NSArray* oqes = [CKKSOutgoingQueueEntry allUUIDs:ckks.zoneID error:&error];
+        NSArray* iqes = [CKKSIncomingQueueEntry allUUIDs:ckks.zoneID error:&error];
         if([oqes containsObject:self.currentItemUUID] || [iqes containsObject:self.currentItemUUID]) {
             error = [NSError errorWithDomain:CKKSErrorDomain
                                         code:CKKSLocalItemChangePending
@@ -215,8 +215,8 @@
                 ckkserror("ckkscurrent", strongCKKS, "CloudKit returned an error: %@", ckerror);
                 strongSelf.error = ckerror;
 
-                [ckks dispatchSync:^bool {
-                    return [ckks _onqueueCKWriteFailed:ckerror attemptedRecordsChanged:recordsToSave];
+                [strongCKKS dispatchSync:^bool {
+                    return [strongCKKS _onqueueCKWriteFailed:ckerror attemptedRecordsChanged:recordsToSave];
                 }];
 
                 [strongCKKS scheduleOperation: modifyComplete];

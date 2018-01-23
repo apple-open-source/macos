@@ -99,7 +99,7 @@
     return self;
 }
 
-- (CKKSCondition*)register:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID *)zoneID {
+- (CKKSCondition*)registerReceiver:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID *)zoneID {
     CKKSCondition* finished = [[CKKSCondition alloc] init];
 
     __weak __typeof(self) weakSelf = self;

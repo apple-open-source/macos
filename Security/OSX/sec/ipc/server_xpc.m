@@ -145,73 +145,76 @@
     __block SecDbItemRef oldItem = NULL;
 
     bool ok = kc_with_dbt(false, &cferror, ^bool (SecDbConnectionRef dbt) {
-        Query *q = query_create_with_limit( (__bridge CFDictionaryRef) @{
-                                                                         (__bridge NSString *)kSecValuePersistentRef : newItemPersistentRef,
-                                                                         (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                                                         },
-                                           NULL,
-                                           1,
-                                           &cferror);
-        if(cferror) {
-            secerror("couldn't create query for new item pref: %@", cferror);
-            return false;
-        }
-
-        if(!SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
-            newItem = CFRetainSafe(item);
-        })) {
-            query_destroy(q, NULL);
-            secerror("couldn't run query for new item pref: %@", cferror);
-            return false;
-        }
-
-        if(!query_destroy(q, &cferror)) {
-            secerror("couldn't destroy query for new item pref: %@", cferror);
-            return false;
-        };
-
-        if(oldCurrentItemPersistentRef) {
-            q = query_create_with_limit( (__bridge CFDictionaryRef) @{
-                                                                      (__bridge NSString *)kSecValuePersistentRef : oldCurrentItemPersistentRef,
-                                                                      (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                                                      },
-                                        NULL,
-                                        1,
-                                        &cferror);
+        // Use a DB transaction to gain synchronization with all CKKS zones.
+        return kc_transaction_type(dbt, kSecDbExclusiveRemoteCKKSTransactionType, &cferror, ^bool {
+            Query *q = query_create_with_limit( (__bridge CFDictionaryRef) @{
+                                                                             (__bridge NSString *)kSecValuePersistentRef : newItemPersistentRef,
+                                                                             (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+                                                                             },
+                                               NULL,
+                                               1,
+                                               &cferror);
             if(cferror) {
-                secerror("couldn't create query: %@", cferror);
+                secerror("couldn't create query for new item pref: %@", cferror);
                 return false;
             }
 
             if(!SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
-                oldItem = CFRetainSafe(item);
+                newItem = CFRetainSafe(item);
             })) {
                 query_destroy(q, NULL);
-                secerror("couldn't run query for old item pref: %@", cferror);
+                secerror("couldn't run query for new item pref: %@", cferror);
                 return false;
             }
 
             if(!query_destroy(q, &cferror)) {
-                secerror("couldn't destroy query for old item pref: %@", cferror);
+                secerror("couldn't destroy query for new item pref: %@", cferror);
                 return false;
             };
-        }
 
-        CKKSViewManager* manager = [CKKSViewManager manager];
-        if(!manager) {
-            secerror("SecItemSetCurrentItemAcrossAllDevices: no view manager?");
-            cferror = (CFErrorRef) CFBridgingRetain([NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"No view manager, cannot forward request"}]);
-            return false;
-        }
-        [manager setCurrentItemForAccessGroup:newItem
-                                         hash:newItemSHA1
-                                  accessGroup:accessGroup
-                                   identifier:identifier
-                                     viewHint:viewHint
-                                    replacing:oldItem
-                                         hash:oldItemSHA1
-                                     complete:complete];
-        return true;
+            if(oldCurrentItemPersistentRef) {
+                q = query_create_with_limit( (__bridge CFDictionaryRef) @{
+                                                                          (__bridge NSString *)kSecValuePersistentRef : oldCurrentItemPersistentRef,
+                                                                          (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+                                                                          },
+                                            NULL,
+                                            1,
+                                            &cferror);
+                if(cferror) {
+                    secerror("couldn't create query: %@", cferror);
+                    return false;
+                }
+
+                if(!SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
+                    oldItem = CFRetainSafe(item);
+                })) {
+                    query_destroy(q, NULL);
+                    secerror("couldn't run query for old item pref: %@", cferror);
+                    return false;
+                }
+
+                if(!query_destroy(q, &cferror)) {
+                    secerror("couldn't destroy query for old item pref: %@", cferror);
+                    return false;
+                };
+            }
+
+            CKKSViewManager* manager = [CKKSViewManager manager];
+            if(!manager) {
+                secerror("SecItemSetCurrentItemAcrossAllDevices: no view manager?");
+                cferror = (CFErrorRef) CFBridgingRetain([NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"No view manager, cannot forward request"}]);
+                return false;
+            }
+            [manager setCurrentItemForAccessGroup:newItem
+                                             hash:newItemSHA1
+                                      accessGroup:accessGroup
+                                       identifier:identifier
+                                         viewHint:viewHint
+                                        replacing:oldItem
+                                             hash:oldItemSHA1
+                                         complete:complete];
+            return true;
+        });
     });
 
     CFReleaseNull(newItem);

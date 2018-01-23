@@ -34,10 +34,12 @@
 // should error if it can't process class A items due to the keychain being locked.
 @property bool errorOnClassAFailure;
 
+@property size_t successfulItemsProcessed;
+@property size_t errorItemsProcessed;
+
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks errorOnClassAFailure:(bool)errorOnClassAFailure;
 
 @end
 
-#endif // OCTAGON
-
+#endif  // OCTAGON

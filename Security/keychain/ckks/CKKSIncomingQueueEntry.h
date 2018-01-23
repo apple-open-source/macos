@@ -23,42 +23,37 @@
 
 #if OCTAGON
 
-#import "CKKSSQLDatabaseObject.h"
+#import <CloudKit/CloudKit.h>
+#include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
 #import "CKKSItem.h"
 #import "CKKSMirrorEntry.h"
-#include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
+#import "CKKSSQLDatabaseObject.h"
 
-#ifndef CKKSIncomingQueueEntry_h
-#define CKKSIncomingQueueEntry_h
-
-
-#import <CloudKit/CloudKit.h>
+NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSIncomingQueueEntry : CKKSSQLDatabaseObject
 
 @property CKKSItem* item;
-@property NSString* uuid; // through-access to underlying item
+@property NSString* uuid;  // through-access to underlying item
 
 @property NSString* action;
 @property NSString* state;
 
-- (instancetype) initWithCKKSItem:(CKKSItem*) ckme
-                           action:(NSString*) action
-                            state:(NSString*) state;
+- (instancetype)initWithCKKSItem:(CKKSItem*)ckme action:(NSString*)action state:(NSString*)state;
 
-+ (instancetype) fromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSIncomingQueueEntry*>*)fetch:(ssize_t)n
-                            startingAtUUID:(NSString*)uuid
-                                     state:(NSString*)state
-                                    zoneID:(CKRecordZoneID*)zoneID
-                                     error: (NSError * __autoreleasing *) error;
++ (NSArray<CKKSIncomingQueueEntry*>* _Nullable)fetch:(ssize_t)n
+                                      startingAtUUID:(NSString*)uuid
+                                               state:(NSString*)state
+                                              zoneID:(CKRecordZoneID*)zoneID
+                                               error:(NSError* __autoreleasing*)error;
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 @end
 
+NS_ASSUME_NONNULL_END
 #endif
-#endif /* CKKSIncomingQueueEntry_h */

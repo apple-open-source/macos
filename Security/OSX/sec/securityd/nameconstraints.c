@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -283,6 +283,7 @@ typedef struct {
 typedef struct {
     const CFArrayRef subtrees;
     match_t *match;
+    bool permit;
 } nc_san_match_context_t;
 
 static OSStatus nc_compare_subtree(void *context, SecCEGeneralNameType gnType, const DERItem *generalName) {
@@ -329,7 +330,7 @@ static OSStatus nc_compare_subtree(void *context, SecCEGeneralNameType gnType, c
 static void nc_decode_and_compare_subtree(const void *value, void *context) {
     CFDataRef subtree = value;
     nc_match_context_t *match_context = context;
-    if(subtree) {
+    if (subtree) {
         /* convert subtree to DERItem */
         const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), CFDataGetLength(subtree) };
         DERDecodedInfo general_name_content;
@@ -359,21 +360,29 @@ out:
     return true;
 }
 
-static void nc_compare_subject_to_subtrees(CFDataRef subject, CFArrayRef subtrees, match_t *match) {
-    /* An empty subject name is considered not present */
-    if (isEmptySubject(subject)) {
+/*
+ * We update match structs as follows:
+ * 'present' is true if there's any subtree of the same type as any Subject/SAN
+ * 'match' is false if the subtree(s) and Subject(s)/SAN(s) don't match.
+ * Note: the state of 'match' is meaningless without 'present' also being true.
+ */
+static void update_match(bool permit, match_t *input_match, match_t *output_match) {
+    if (!input_match || !output_match) {
         return;
     }
-    
-    CFIndex num_trees = CFArrayGetCount(subtrees);
-    CFRange range = { 0, num_trees };
-    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), CFDataGetLength(subject) };
-    nc_match_context_t context = {GNT_DirectoryName, &subject_der, match};
-    CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &context);
+    if (input_match->present) {
+        output_match->present = true;
+        if (permit) {
+            output_match->isMatch &= input_match->isMatch;
+        } else {
+            output_match->isMatch |= input_match->isMatch;
+        }
+    }
 }
 
-static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) {
-    CFStringRef rfc822Name = value;
+static void nc_compare_DNSName_to_subtrees(const void *value, void *context) {
+    CFStringRef dnsName = (CFStringRef)value;
+    char *dnsNameString = NULL;
     nc_san_match_context_t *san_context = context;
     CFArrayRef subtrees = NULL;
     if (san_context) {
@@ -383,23 +392,113 @@ static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) 
         CFIndex num_trees = CFArrayGetCount(subtrees);
         CFRange range = { 0, num_trees };
         match_t match = { false, false };
-        const DERItem addr = { (unsigned char *)CFStringGetCStringPtr(rfc822Name, kCFStringEncodingUTF8),
+        dnsNameString = CFStringToCString(dnsName);
+        if (!dnsNameString) { return; }
+        const DERItem name = { (unsigned char *)dnsNameString,
+                                CFStringGetLength(dnsName) };
+        nc_match_context_t match_context = {GNT_DNSName, &name, &match};
+        CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
+        free(dnsNameString);
+
+        update_match(san_context->permit, &match, san_context->match);
+    }
+}
+
+static void nc_compare_IPAddress_to_subtrees(const void *value, void *context) {
+    CFDataRef ipAddr = (CFDataRef)value;
+    nc_san_match_context_t *san_context = context;
+    CFArrayRef subtrees = NULL;
+    if (san_context) {
+        subtrees = san_context->subtrees;
+    }
+    if (subtrees) {
+        CFIndex num_trees = CFArrayGetCount(subtrees);
+        CFRange range = { 0, num_trees };
+        match_t match = { false, false };
+        const DERItem addr = { (unsigned char *)CFDataGetBytePtr(ipAddr), CFDataGetLength(ipAddr) };
+        nc_match_context_t match_context = {GNT_IPAddress, &addr, &match};
+        CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
+
+        update_match(san_context->permit, &match, san_context->match);
+    }
+}
+
+static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) {
+    CFStringRef rfc822Name = (CFStringRef)value;
+    char *rfc822NameString = NULL;
+    nc_san_match_context_t *san_context = context;
+    CFArrayRef subtrees = NULL;
+    if (san_context) {
+        subtrees = san_context->subtrees;
+    }
+    if (subtrees) {
+        CFIndex num_trees = CFArrayGetCount(subtrees);
+        CFRange range = { 0, num_trees };
+        match_t match = { false, false };
+        rfc822NameString = CFStringToCString(rfc822Name);
+        if (!rfc822NameString) { return; }
+        const DERItem addr = { (unsigned char *)rfc822NameString,
                               CFStringGetLength(rfc822Name) };
         nc_match_context_t match_context = {GNT_RFC822Name, &addr, &match};
         CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
-        
-        /*
-         * We set the SAN context match struct as follows:
-         * 'present' is true if there's any subtree of the same type as any SAN
-         * 'match' is false if the present type(s) is/are not supported or the subtree(s) and SAN(s) don't match.
-         * Note: the state of 'match' is meaningless without 'present' also being true.
-         */
-        if (match.present && san_context->match) {
-            san_context->match->present = true;
-            san_context->match->isMatch &= match.isMatch;
-        }
+        free(rfc822NameString);
+
+        update_match(san_context->permit, &match, san_context->match);
+
+    }
+}
+
+static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArrayRef subtrees,
+                                           bool permit, match_t *match) {
+    CFDataRef subject = SecCertificateCopySubjectSequence(certificate);
+    /* An empty subject name is considered not present */
+    if (!subject || isEmptySubject(subject)) {
+        CFReleaseNull(subject);
+        return;
     }
 
+    /* Compare X.500 distinguished name constraints */
+    CFIndex num_trees = CFArrayGetCount(subtrees);
+    CFRange range = { 0, num_trees };
+    match_t x500_match = { false, false };
+    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), CFDataGetLength(subject) };
+    nc_match_context_t context = {GNT_DirectoryName, &subject_der, &x500_match};
+    CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &context);
+    CFReleaseNull(subject);
+    update_match(permit, &x500_match, match);
+
+    /* Compare DNSName constraints */
+    match_t dns_match = { false, permit };
+    CFArrayRef dnsNames = SecCertificateCopyDNSNamesFromSubject(certificate);
+    if (dnsNames) {
+        CFRange dnsRange = { 0, CFArrayGetCount(dnsNames) };
+        nc_san_match_context_t dnsContext = { subtrees, &dns_match, permit };
+        CFArrayApplyFunction(dnsNames, dnsRange, nc_compare_DNSName_to_subtrees, &dnsContext);
+    }
+    CFReleaseNull(dnsNames);
+    update_match(permit, &dns_match, match);
+
+    /* Compare IPAddresss constraints */
+    match_t ip_match = { false, permit };
+    CFArrayRef ipAddresses = SecCertificateCopyIPAddressesFromSubject(certificate);
+    if (ipAddresses) {
+        CFRange ipRange = { 0, CFArrayGetCount(ipAddresses) };
+        nc_san_match_context_t ipContext = { subtrees, &ip_match, permit };
+        CFArrayApplyFunction(ipAddresses, ipRange, nc_compare_IPAddress_to_subtrees, &ipContext);
+    }
+    CFReleaseNull(ipAddresses);
+    update_match(permit, &ip_match, match);
+
+    /* Compare RFC822 constraints to subject email address */
+    match_t email_match = { false, permit };
+    CFArrayRef rfc822Names = SecCertificateCopyRFC822NamesFromSubject(certificate);
+    if (rfc822Names) {
+        CFRange emailRange = { 0, CFArrayGetCount(rfc822Names) };
+        nc_san_match_context_t emailContext = { subtrees, &email_match, permit };
+        CFArrayApplyFunction(rfc822Names, emailRange, nc_compare_RFC822Name_to_subtrees, &emailContext);
+    }
+    CFReleaseNull(rfc822Names);
+    update_match(permit, &email_match, match);
 }
 
 static OSStatus nc_compare_subjectAltName_to_subtrees(void *context, SecCEGeneralNameType gnType, const DERItem *generalName) {
@@ -414,17 +513,8 @@ static OSStatus nc_compare_subjectAltName_to_subtrees(void *context, SecCEGenera
         match_t match = { false, false };
         nc_match_context_t match_context = {gnType, generalName, &match};
         CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
-        
-        /*
-         * We set the SAN context match struct as follows:
-         * 'present' is true if there's any subtree of the same type as any SAN
-         * 'match' is false if the present type(s) is/are not supported or the subtree(s) and SAN(s) don't match.
-         * Note: the state of 'match' is meaningless without 'present' also being true.
-         */
-        if (match.present && san_context->match) {
-            san_context->match->present = true;
-            san_context->match->isMatch &= match.isMatch;
-        }
+
+        update_match(san_context->permit, &match, san_context->match);
         
         return errSecSuccess;
     }
@@ -435,7 +525,6 @@ static OSStatus nc_compare_subjectAltName_to_subtrees(void *context, SecCEGenera
 OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched, bool permit) {
     CFDataRef subject = NULL;
     OSStatus status = errSecSuccess;
-    CFArrayRef rfc822Names = NULL;
     
     require_action_quiet(subject = SecCertificateCopySubjectSequence(certificate),
                          out,
@@ -445,25 +534,20 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
     /* Reject certificates with neither Subject Name nor SubjectAltName */
     require_action_quiet(!isEmptySubject(subject) || subjectAltNames, out, status = errSecInvalidCertificate);
     
-    /* Verify that the subject name is within any of the subtrees for X.500 distinguished names */
-    match_t subject_match = { false, false };
-    nc_compare_subject_to_subtrees(subject,subtrees,&subject_match);
+    /* Verify that the subject name is within all of the subtrees */
+    match_t subject_match = { false, permit };
+    nc_compare_subject_to_subtrees(certificate, subtrees, permit, &subject_match);
 
-    match_t san_match = { false, true };
-    nc_san_match_context_t san_context = {subtrees, &san_match};
+    /* permit tells us whether to start with true or false. If we are looking at permitted
+     * subtrees, we are going to "and" the matching results because all present types must match
+     * to permit. For excluded subtrees, we are going to "or" the matching results because
+     * any matching present types causes exclusion. */
+    match_t san_match = { false, permit };
+    nc_san_match_context_t san_context = {subtrees, &san_match, permit};
     
-    /* If there are no subjectAltNames, then determine if there's a matching emailAddress in the Subject */
-    if (!subjectAltNames) {
-        rfc822Names = SecCertificateCopyRFC822Names(certificate);
-        /* If there's also no emailAddress field then subject match is enough. */
-        if (rfc822Names) {
-            CFRange range = { 0 , CFArrayGetCount(rfc822Names) };
-            CFArrayApplyFunction(rfc822Names, range, nc_compare_RFC822Name_to_subtrees, &san_context);
-        }
-    }
-    else {
-        /* And verify that each of the alternative names in the subjectAltName extension (critical or non-critical)
-         * is within any of the subtrees for that name type. */
+    /* And verify that each of the alternative names in the subjectAltName extension (critical or non-critical)
+     * is within any of the subtrees for that name type. */
+    if (subjectAltNames) {
         status = SecCertificateParseGeneralNames(subjectAltNames,
                                                  &san_context,
                                                  nc_compare_subjectAltName_to_subtrees);
@@ -500,7 +584,6 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
     
 out:
     CFReleaseNull(subject);
-    CFReleaseNull(rfc822Names);
     return status;
 }
 

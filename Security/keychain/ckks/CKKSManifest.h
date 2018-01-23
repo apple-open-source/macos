@@ -23,9 +23,9 @@
 
 #if OCTAGON
 
-#import "CKKSRecordHolder.h"
 #import <Foundation/Foundation.h>
 #import <SecurityFoundation/SFKey.h>
+#import "CKKSRecordHolder.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -76,9 +76,14 @@ extern NSString* const CKKSManifestGenCountKey;
 @interface CKKSEgoManifest : CKKSManifest
 
 + (nullable CKKSEgoManifest*)tryCurrentEgoManifestForZone:(NSString*)zone;
-+ (nullable instancetype)newManifestForZone:(NSString*)zone withItems:(NSArray<CKKSItem*>*)items peerManifestIDs:(NSArray<NSString*>*)peerManifestIDs currentItems:(NSDictionary*)currentItems error:(NSError**)error;
++ (nullable instancetype)newManifestForZone:(NSString*)zone
+                                  withItems:(NSArray<CKKSItem*>*)items
+                            peerManifestIDs:(NSArray<NSString*>*)peerManifestIDs
+                               currentItems:(NSDictionary*)currentItems
+                                      error:(NSError**)error;
 
-- (void)updateWithNewOrChangedRecords:(NSArray<CKRecord*>*)newOrChangedRecords deletedRecordIDs:(NSArray<CKRecordID*>*)deletedRecordIDs;
+- (void)updateWithNewOrChangedRecords:(NSArray<CKRecord*>*)newOrChangedRecords
+                     deletedRecordIDs:(NSArray<CKRecordID*>*)deletedRecordIDs;
 - (void)setCurrentItemUUID:(NSString*)newCurrentItemUUID forIdentifier:(NSString*)currentPointerIdentifier;
 
 - (NSArray<CKRecord*>*)allCKRecordsWithZoneID:(CKRecordZoneID*)zoneID;
@@ -98,13 +103,18 @@ extern NSString* const CKKSManifestGenCountKey;
 
 @interface CKKSEgoManifest (UnitTesting)
 
-+ (nullable instancetype)newFakeManifestForZone:(NSString*)zone withItemRecords:(NSArray<CKRecord*>*)itemRecords currentItems:(NSDictionary*)currentItems signerID:(NSString*)signerID keyPair:(SFECKeyPair*)keyPair error:(NSError**)error;
++ (nullable instancetype)newFakeManifestForZone:(NSString*)zone
+                                withItemRecords:(NSArray<CKRecord*>*)itemRecords
+                                   currentItems:(NSDictionary*)currentItems
+                                       signerID:(NSString*)signerID
+                                        keyPair:(SFECKeyPair*)keyPair
+                                          error:(NSError**)error;
 
 @end
 
 @interface CKKSManifestInjectionPointHelper : NSObject
 
-@property (class) BOOL ignoreChanges; // turn to YES to have changes to the database get ignored by CKKSManifest to support negative testing
+@property (class) BOOL ignoreChanges;  // turn to YES to have changes to the database get ignored by CKKSManifest to support negative testing
 
 + (void)registerEgoPeerID:(NSString*)egoPeerID keyPair:(SFECKeyPair*)keyPair;
 

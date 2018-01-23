@@ -225,6 +225,7 @@
                     [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:[NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"couldn't create new classA key", NSUnderlyingErrorKey: error}]];
                 }
 
+                keyset.classA = newClassAKey;
                 keyset.currentClassAPointer.currentKeyUUID = newClassAKey.uuid;
                 changedCurrentClassA = true;
             }
@@ -237,6 +238,7 @@
                     [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:[NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"couldn't create new classC key", NSUnderlyingErrorKey: error}]];
                 }
 
+                keyset.classC = newClassCKey;
                 keyset.currentClassCPointer.currentKeyUUID = newClassCKey.uuid;
                 changedCurrentClassC = true;
             }
@@ -384,14 +386,19 @@
             return true;
         }
 
-        [keyset.tlk loadKeyMaterialFromKeychain:&error];
+        // Check if CKKS can recover this TLK.
+        [ckks _onqueueWithAccountKeysCheckTLK:keyset.tlk error:&error];
         if(error && [ckks.lockStateTracker isLockedError:error]) {
-            ckksnotice("ckkskey", ckks, "Failed to load TLK from keychain, keybag is locked. Entering WaitForUnlock: %@", error);
+            ckksnotice("ckkskey", ckks, "Failed to load TLK from keychain, keybag is locked. Entering waitforunlock: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
             return false;
         } else if(error) {
-            ckkserror("ckksheal", ckks, "No TLK in keychain, triggering move to bad state: %@", error);
+            ckkserror("ckksheal", ckks, "CKKS wasn't sure about TLK, triggering move to bad state: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateWaitForTLK withError: nil];
+            return false;
+        }
+
+        if(![self ensureKeyPresent:keyset.tlk]) {
             return false;
         }
 
@@ -416,18 +423,18 @@
 
     [key loadKeyMaterialFromKeychain:&error];
     if(error) {
-        ckkserror("ckksheal", ckks, "Couldn't load classC key from keychain. Attempting recovery: %@", error);
+        ckkserror("ckksheal", ckks, "Couldn't load key(%@) from keychain. Attempting recovery: %@", key, error);
         error = nil;
         [key unwrapViaKeyHierarchy: &error];
         if(error) {
-            ckkserror("ckksheal", ckks, "Couldn't unwrap class C key using key hierarchy. Keys are broken, quitting: %@", error);
+            ckkserror("ckksheal", ckks, "Couldn't unwrap key(%@) using key hierarchy. Keys are broken, quitting: %@", key, error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
             self.error = error;
             return false;
         }
         [key saveKeyMaterialToKeychain:&error];
         if(error) {
-            ckkserror("ckksheal", ckks, "Couldn't save class C key to keychain: %@", error);
+            ckkserror("ckksheal", ckks, "Couldn't save key(%@) to keychain: %@", key, error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
             self.error = error;
             return false;

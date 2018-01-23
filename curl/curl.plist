@@ -28,6 +28,8 @@
 		<string>lib/ftp.c: 673d0cd8.patch 34632608</string>
 		<string>src/tool_urlglob.c: 0809A.patch 33659284</string>
 		<string>lib/imap.c: 35031588</string>
+		<string>lib/curl_fnmatch.c: 2017-11e7.patch 35704955</string>
+		<string>lib/curl_ntlm_core.c: 2017-ae72.patch 35704822</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

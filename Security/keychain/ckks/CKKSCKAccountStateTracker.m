@@ -67,7 +67,7 @@
         _firstCKAccountFetch = false;
         _firstSOSCircleFetch = false;
 
-        _finishedInitialCalls = [[CKKSCondition alloc] init];
+        _finishedInitialDispatches = [[CKKSCondition alloc] init];
         _ckdeviceIDInitialized = [[CKKSCondition alloc] init];
 
         id<CKKSNSNotificationCenter> notificationCenter = [self.nsnotificationCenterClass defaultCenter];
@@ -92,7 +92,7 @@
             }
             [strongSelf notifyCKAccountStatusChange:nil];
             [strongSelf notifyCircleChange:nil];
-            [strongSelf.finishedInitialCalls fulfill];
+            [strongSelf.finishedInitialDispatches fulfill];
         });
     }
     return self;
@@ -119,13 +119,11 @@
     return [self descriptionInternal: [super description]];
 }
 
--(CKKSAccountStatus)currentCKAccountStatusAndNotifyOnChange: (id<CKKSAccountStateListener>) listener {
+-(dispatch_semaphore_t)notifyOnAccountStatusChange:(id<CKKSAccountStateListener>)listener {
+    // signals when we've successfully delivered the first account status
+    dispatch_semaphore_t finishedSema = dispatch_semaphore_create(0);
 
-    __block CKKSAccountStatus status = CKKSAccountStatusUnknown;
-
-    dispatch_sync(self.queue, ^{
-        status = self.currentComputedAccountStatus;
-
+    dispatch_async(self.queue, ^{
         bool alreadyRegisteredListener = false;
         NSEnumerator *enumerator = [self.changeListeners objectEnumerator];
         id<CKKSAccountStateListener> value;
@@ -140,9 +138,30 @@
 
             dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
             [self.changeListeners setObject: listener forKey: objQueue];
+
+            // If we know the current account status, let this listener know
+            if(self.currentComputedAccountStatus != CKKSAccountStatusUnknown) {
+
+                dispatch_group_t g = dispatch_group_create();
+                if(!g) {
+                    secnotice("ckksaccount", "Unable to get dispatch group.");
+                    return;
+                }
+
+                [self _onqueueDeliverCurrentState:listener listenerQueue:objQueue oldStatus:CKKSAccountStatusUnknown group:g];
+
+                dispatch_group_notify(g, self.queue, ^{
+                    dispatch_semaphore_signal(finishedSema);
+                });
+            } else {
+                dispatch_semaphore_signal(finishedSema);
+            }
+        } else {
+            dispatch_semaphore_signal(finishedSema);
         }
     });
-    return status;
+
+    return finishedSema;
 }
 
 - (dispatch_semaphore_t)notifyCKAccountStatusChange:(__unused id)object {
@@ -262,7 +281,7 @@
     }
 }
 
--(void)_onqueueUpdateAccountState: (CKAccountInfo*) ckAccountInfo circle: (SOSCCStatus) sosccstatus deliveredSemaphore: (dispatch_semaphore_t) finishedSema {
+-(void)_onqueueUpdateAccountState:(CKAccountInfo*)ckAccountInfo circle:(SOSCCStatus)sosccstatus deliveredSemaphore:(dispatch_semaphore_t)finishedSema {
     dispatch_assert_queue(self.queue);
 
     if([self.currentCKAccountInfo isEqual: ckAccountInfo] && self.currentCircleStatus == sosccstatus) {
@@ -328,6 +347,12 @@
               self.currentCKAccountInfo,
               SOSCCGetStatusDescription(self.currentCircleStatus));
 
+    [self _onqueueDeliverStateChanges:oldComputedStatus deliveredSemaphore:finishedSema];
+}
+
+-(void)_onqueueDeliverStateChanges:(CKKSAccountStatus)oldStatus deliveredSemaphore:(dispatch_semaphore_t)finishedSema {
+    dispatch_assert_queue(self.queue);
+
     dispatch_group_t g = dispatch_group_create();
     if(!g) {
         secnotice("ckksaccount", "Unable to get dispatch group.");
@@ -340,18 +365,24 @@
     // Queue up the changes for each listener.
     while ((dq = [enumerator nextObject])) {
         id<CKKSAccountStateListener> listener = [self.changeListeners objectForKey: dq];
-        __weak __typeof(listener) weakListener = listener;
-
-        if(listener) {
-            dispatch_group_async(g, dq, ^{
-                [weakListener ckAccountStatusChange: oldComputedStatus to: self.currentComputedAccountStatus];
-            });
-        }
+        [self _onqueueDeliverCurrentState:listener listenerQueue:dq oldStatus:oldStatus group:g];
     }
 
     dispatch_group_notify(g, self.queue, ^{
         dispatch_semaphore_signal(finishedSema);
     });
+}
+
+-(void)_onqueueDeliverCurrentState:(id<CKKSAccountStateListener>)listener listenerQueue:(dispatch_queue_t)listenerQueue oldStatus:(CKKSAccountStatus)oldStatus group:(dispatch_group_t)g {
+    dispatch_assert_queue(self.queue);
+
+    __weak __typeof(listener) weakListener = listener;
+
+    if(listener) {
+        dispatch_group_async(g, listenerQueue, ^{
+            [weakListener ckAccountStatusChange:oldStatus to:self.currentComputedAccountStatus];
+        });
+    }
 }
 
 -(void)notifyCKAccountStatusChangeAndWaitForSignal {
@@ -360,6 +391,35 @@
 
 -(void)notifyCircleStatusChangeAndWaitForSignal {
     dispatch_semaphore_wait([self notifyCircleChange: nil], DISPATCH_TIME_FOREVER);
+}
+
+-(dispatch_group_t)checkForAllDeliveries {
+
+    dispatch_group_t g = dispatch_group_create();
+    if(!g) {
+        secnotice("ckksaccount", "Unable to get dispatch group.");
+        return nil;
+    }
+
+    dispatch_sync(self.queue, ^{
+        NSEnumerator *enumerator = [self.changeListeners keyEnumerator];
+        dispatch_queue_t dq;
+
+        // Queue up the changes for each listener.
+        while ((dq = [enumerator nextObject])) {
+            id<CKKSAccountStateListener> listener = [self.changeListeners objectForKey: dq];
+
+            secinfo("ckksaccountblock", "Starting blocking for listener %@", listener);
+            __weak __typeof(listener) weakListener = listener;
+            dispatch_group_async(g, dq, ^{
+                __strong __typeof(listener) strongListener = weakListener;
+                // Do nothing in particular. It's just important that this block runs.
+                secinfo("ckksaccountblock", "Done blocking for listener %@", strongListener);
+            });
+        }
+    });
+
+    return g;
 }
 
 // This is its own function to allow OCMock to swoop in and replace the result during testing.

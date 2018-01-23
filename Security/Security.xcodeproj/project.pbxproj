@@ -2215,6 +2215,10 @@
 		DC3C7AB91D838C8D00F6A832 /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1785421D778A7400B50D50 /* oids.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DC3C7ABA1D838C9F00F6A832 /* sslTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1786FB1D778F3C00B50D50 /* sslTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DC3C7C901D83957F00F6A832 /* NSFileHandle+Formatting.m in Sources */ = {isa = PBXBuildFile; fileRef = E78A9AD91D34959200006B5B /* NSFileHandle+Formatting.m */; };
+		DC3D748C1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC3D748A1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h */; };
+		DC3D748D1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC3D748A1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h */; };
+		DC3D748E1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC3D748B1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m */; };
+		DC3D748F1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC3D748B1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m */; };
 		DC4268F61E82036F002B7110 /* server_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC6ACC401E81DF9400125DC5 /* server_endpoint.m */; };
 		DC4268FC1E820370002B7110 /* server_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC6ACC401E81DF9400125DC5 /* server_endpoint.m */; };
 		DC4268FE1E820371002B7110 /* server_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC6ACC401E81DF9400125DC5 /* server_endpoint.m */; };
@@ -3301,6 +3305,7 @@
 		DCB344A51D8A35270054D16E /* si-20-sectrust-provisioning.h in Headers */ = {isa = PBXBuildFile; fileRef = DCB344701D8A35270054D16E /* si-20-sectrust-provisioning.h */; };
 		DCB344A61D8A35270054D16E /* si-33-keychain-backup.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB344711D8A35270054D16E /* si-33-keychain-backup.c */; };
 		DCB344A71D8A35270054D16E /* si-34-one-true-keychain.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB344721D8A35270054D16E /* si-34-one-true-keychain.c */; };
+		DCB502331FDA156B008F8E4F /* AutoreleaseTest.c in Sources */ = {isa = PBXBuildFile; fileRef = DCB5022C1FDA155D008F8E4F /* AutoreleaseTest.c */; };
 		DCB515DE1ED3CF86001F1152 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCE4E7C01D7A463E00AFB96E /* SecurityFoundation.framework */; };
 		DCB515DF1ED3CF95001F1152 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCE4E7C01D7A463E00AFB96E /* SecurityFoundation.framework */; };
 		DCB515E01ED3D111001F1152 /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 7908507F0CA87CF00083CC4D /* client.c */; };
@@ -9825,6 +9830,8 @@
 		DC3A4B601D91EAC500E46D4A /* com.apple.CodeSigningHelper.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.CodeSigningHelper.sb; sourceTree = "<group>"; };
 		DC3A4B621D91EAC500E46D4A /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		DC3A81D41D99D567000C7419 /* libcoretls_cfhelpers.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcoretls_cfhelpers.dylib; path = usr/lib/libcoretls_cfhelpers.dylib; sourceTree = SDKROOT; };
+		DC3D748A1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSLocalSynchronizeOperation.h; sourceTree = "<group>"; };
+		DC3D748B1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSLocalSynchronizeOperation.m; sourceTree = "<group>"; };
 		DC4269031E82EDAC002B7110 /* SecItem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecItem.m; sourceTree = "<group>"; };
 		DC4269061E82FBDF002B7110 /* server_security_helpers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = server_security_helpers.c; sourceTree = "<group>"; };
 		DC4269071E82FBDF002B7110 /* server_security_helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = server_security_helpers.h; sourceTree = "<group>"; };
@@ -10567,6 +10574,8 @@
 		DCB344701D8A35270054D16E /* si-20-sectrust-provisioning.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "si-20-sectrust-provisioning.h"; path = "regressions/si-20-sectrust-provisioning.h"; sourceTree = "<group>"; };
 		DCB344711D8A35270054D16E /* si-33-keychain-backup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-33-keychain-backup.c"; path = "regressions/si-33-keychain-backup.c"; sourceTree = "<group>"; };
 		DCB344721D8A35270054D16E /* si-34-one-true-keychain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-34-one-true-keychain.c"; path = "regressions/si-34-one-true-keychain.c"; sourceTree = "<group>"; };
+		DCB5022C1FDA155D008F8E4F /* AutoreleaseTest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AutoreleaseTest.c; sourceTree = "<group>"; };
+		DCB502321FDA155E008F8E4F /* AutoreleaseTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AutoreleaseTest.h; sourceTree = "<group>"; };
 		DCB5D9391E4A9A3400BE22AB /* CKKSSynchronizeOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSSynchronizeOperation.h; sourceTree = "<group>"; };
 		DCB5D93A1E4A9A3400BE22AB /* CKKSSynchronizeOperation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSSynchronizeOperation.m; sourceTree = "<group>"; };
 		DCBDB3B01E57C67500B61300 /* CKKSKeychainView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSKeychainView.h; sourceTree = "<group>"; };
@@ -15634,6 +15643,8 @@
 		DC3502B61E0208BE00BC0587 /* Tests (Local) */ = {
 			isa = PBXGroup;
 			children = (
+				DCB5022C1FDA155D008F8E4F /* AutoreleaseTest.c */,
+				DCB502321FDA155E008F8E4F /* AutoreleaseTest.h */,
 				471024D91E79CB6D00844C09 /* CKKSTests.h */,
 				DC3502B71E0208BE00BC0587 /* CKKSTests.m */,
 				DC6593D21ED8DBCE00C19462 /* CKKSTests+API.h */,
@@ -18365,6 +18376,8 @@
 				DCFE1C501F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.m */,
 				DCAD9B421F8D939C00C5E2AE /* CKKSFixups.h */,
 				DCAD9B431F8D939C00C5E2AE /* CKKSFixups.m */,
+				DC3D748A1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h */,
+				DC3D748B1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m */,
 			);
 			name = Operations;
 			sourceTree = "<group>";
@@ -20465,6 +20478,7 @@
 				DCAD9B451F8D939C00C5E2AE /* CKKSFixups.h in Headers */,
 				DC9C95B51F79CFD1000D19E5 /* CKKSControl.h in Headers */,
 				DC222C6F1E034D1F00B09171 /* SecKeybagSupport.h in Headers */,
+				DC3D748D1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h in Headers */,
 				DC222C701E034D1F00B09171 /* iCloudTrace.h in Headers */,
 				DCEA5D861E2F14810089CF55 /* CKKSAPSReceiver.h in Headers */,
 				DC222C711E034D1F00B09171 /* CKKSOutgoingQueueEntry.h in Headers */,
@@ -20519,6 +20533,7 @@
 				DCAD9B441F8D939C00C5E2AE /* CKKSFixups.h in Headers */,
 				DC9C95B41F79CFD1000D19E5 /* CKKSControl.h in Headers */,
 				DC52E7EA1D80BE9500B0A59C /* SecItemSchema.h in Headers */,
+				DC3D748C1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h in Headers */,
 				DC52E7E91D80BE8D00B0A59C /* SecKeybagSupport.h in Headers */,
 				DCD662F51E329B6800188186 /* CKKSNewTLKOperation.h in Headers */,
 				DC52E7EB1D80BE9B00B0A59C /* iCloudTrace.h in Headers */,
@@ -26552,6 +26567,7 @@
 				DC222C431E034D1F00B09171 /* SecItemBackupServer.c in Sources */,
 				DCE278E01ED789EF0083B485 /* CKKSCurrentItemPointer.m in Sources */,
 				DC222C441E034D1F00B09171 /* SecItemDataSource.c in Sources */,
+				DC3D748F1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m in Sources */,
 				526965D31E6E284500627F9D /* AsymKeybagBackup.m in Sources */,
 				DCFE1C541F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.m in Sources */,
 				DCD6C4B51EC5302500414FEE /* CKKSNearFutureScheduler.m in Sources */,
@@ -26619,6 +26635,7 @@
 				4771ECD91F17CE5100840998 /* SFAnalyticsLogger.m in Sources */,
 				4771ECCE1F17CD2100840998 /* SFObjCType.m in Sources */,
 				4771ECCC1F17CD0E00840998 /* SFSQLite.m in Sources */,
+				DCB502331FDA156B008F8E4F /* AutoreleaseTest.c in Sources */,
 				4771ECCD1F17CD0E00840998 /* SFSQLiteStatement.m in Sources */,
 				DCD6C4B71EC5319600414FEE /* CKKSNearFutureSchedulerTests.m in Sources */,
 				DC08D1C41E64FA8C006237DA /* CloudKitKeychainSyncingMockXCTest.m in Sources */,
@@ -26684,6 +26701,7 @@
 				6C588D801EAA20AB00D7E322 /* RateLimiter.m in Sources */,
 				DC15F7681E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m in Sources */,
 				DCE278DF1ED789EF0083B485 /* CKKSCurrentItemPointer.m in Sources */,
+				DC3D748E1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m in Sources */,
 				DCA4D1FF1E552DD50056214F /* CKKSCurrentKeyPointer.m in Sources */,
 				DCFE1C531F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.m in Sources */,
 				DCD6C4B41EC5302500414FEE /* CKKSNearFutureScheduler.m in Sources */,

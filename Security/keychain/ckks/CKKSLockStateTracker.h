@@ -28,16 +28,16 @@
 @interface CKKSLockStateTracker : NSObject
 @property NSOperation* unlockDependency;
 
--(instancetype)init;
+- (instancetype)init;
 
 // Force a recheck of the keybag lock state
--(void)recheck;
+- (void)recheck;
 
 // Check if this error code is related to keybag is locked and we should retry later
--(bool)isLockedError:(NSError *)error;
+- (bool)isLockedError:(NSError*)error;
 
 // Ask AKS if the user's keybag is locked
-+(bool)queryAKSLocked;
++ (bool)queryAKSLocked;
 @end
 
-#endif // OCTAGON
+#endif  // OCTAGON

@@ -77,7 +77,7 @@
     dependencies = [dependencies objectsAtIndexes: [dependencies indexesOfObjectsPassingTest: ^BOOL (id obj,
                                                                                                      NSUInteger idx,
                                                                                                      BOOL* stop) {
-        return [obj isPending] ? YES : NO;
+        return [obj isFinished] ? NO : YES;
     }]];
 
     if(dependencies.count == 0u) {

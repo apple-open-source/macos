@@ -30,6 +30,8 @@
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSTLKShare.h"
 
+#import "CKKSPowerCollection.h"
+
 @interface CKKSHealTLKSharesOperation ()
 @property NSBlockOperation* cloudkitModifyOperationFinished;
 @property CKOperationGroup* ckoperationGroup;
@@ -87,12 +89,14 @@
             ckksnotice("ckksshare", ckks, "Key set is %@", keyset);
         }
 
+        //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:ckks.zoneName];
+
         // Okay! Perform the checks.
         if(![keyset.tlk loadKeyMaterialFromKeychain:&error] || error) {
             // Well, that's no good. We can't share a TLK we don't have.
             if([ckks.lockStateTracker isLockedError: error]) {
                 ckkserror("ckksshare", ckks, "Keychain is locked: can't fix shares yet: %@", error);
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateReadyPendingUnlock withError:nil];
             } else {
                 // TODO go to waitfortlk
                 ckkserror("ckksshare", ckks, "couldn't load current tlk from keychain: %@", error);

@@ -181,6 +181,10 @@ bool SecCertificateIsOidString(CFStringRef oid);
 
 DERItem *SecCertificateGetExtensionValue(SecCertificateRef certificate, CFTypeRef oid);
 
+CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate);
+CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificate);
+CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATEINTERNAL_H_ */

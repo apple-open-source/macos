@@ -24,6 +24,8 @@
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 /*
  * CKKSCondition is for implementing one-shot condition variables,
  * based on libdispatch semaphores (which might use condition variables underneath).
@@ -31,14 +33,19 @@
 
 @interface CKKSCondition : NSObject
 
--(instancetype)init;
+- (instancetype)init;
+
+// Fulfilling this condition will also fulfill the chained condition.
+// Fulfilling the chained condition will do nothing to this condition.
+- (instancetype)initToChain:(CKKSCondition* _Nullable)chain;
 
 /* Fulfills the condition. Can only be called once per CKKSCondition. */
--(void)fulfill;
+- (void)fulfill;
 
 /* Wait for the the condition to be fulfilled. The returned result behaves exactly like
    libdispatch's dispatch_semaphore_wait. */
--(long)wait:(uint64_t)timeout;
+- (long)wait:(uint64_t)timeout;
 
 @end
 
+NS_ASSUME_NONNULL_END

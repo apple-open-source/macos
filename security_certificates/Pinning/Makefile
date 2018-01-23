@@ -23,5 +23,5 @@ clean:
 stage: asset
 	echo "CertificatePinning staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 16
+	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 17
 	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) sign -s staged

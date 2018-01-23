@@ -26,18 +26,21 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CKKSControl : NSObject
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithConnection:(NSXPCConnection*)connection;
 
-- (void)rpcStatus:                          (NSString*)viewName reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
-- (void)rpcResetLocal:                      (NSString*)viewName reply:(void(^)(NSError* error))reply;
-- (void)rpcResetCloudKit:                   (NSString*)viewName reply:(void(^)(NSError* error))reply;
-- (void)rpcResync:                          (NSString*)viewName reply:(void(^)(NSError* error))reply;
-- (void)rpcFetchAndProcessChanges:          (NSString*)viewName reply:(void(^)(NSError* error))reply;
-- (void)rpcFetchAndProcessClassAChanges:    (NSString*)viewName reply:(void(^)(NSError* error))reply;
-- (void)rpcPushOutgoingChanges:             (NSString*)viewName reply:(void(^)(NSError* error))reply;
+- (void)rpcStatus:(NSString* _Nullable)viewName
+            reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+- (void)rpcResetLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResync:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)rpcPerformanceCounters:             (void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
 - (void)rpcGetAnalyticsSysdiagnoseWithReply:(void (^)(NSString* sysdiagnose, NSError* error))reply;
@@ -45,10 +48,11 @@
 - (void)rpcForceUploadAnalyticsWithReply:   (void (^)(BOOL success, NSError* error))reply;
 
 // convenience wrapper for rpcStatus:reply:
-- (void)rpcTLKMissing:                      (NSString*)viewName reply:(void(^)(bool missing))reply;
+- (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
 
-+ (CKKSControl*)controlObject:(NSError* __autoreleasing *)error;
++ (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
 @end
 
-#endif // __OBJC__
+NS_ASSUME_NONNULL_END
+#endif  // __OBJC__

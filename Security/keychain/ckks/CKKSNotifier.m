@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSNotifier.h"
 #import <notify.h>
 #import <utilities/debugging.h>
@@ -35,3 +37,5 @@
 }
 
 @end
+
+#endif // OCTAGON

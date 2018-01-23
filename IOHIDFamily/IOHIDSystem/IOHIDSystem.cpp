@@ -912,7 +912,6 @@ IOReturn IOHIDSystem::evCloseGated(void)
     if ( evScreen != (void *)0 )
     {
         screens = 0;
-        lastShmemPtr = (void *)0;
     }
     // Remove port notification for the eventPort and clear the port out
     //setEventPortGated(MACH_PORT_NULL);
@@ -1069,9 +1068,6 @@ IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd,
     OSNumber *num = NULL;
     IOReturn result = kIOReturnSuccess;
     *index = -1;
-
-    if ( lastShmemPtr == (void *)0 )
-        lastShmemPtr = evs;
 
     /* shmemSize and bounds already set */
     log_screen_reg("%s %p %p %p\n", __func__, io_gd, boundsPtr, virtualBoundsPtr);
@@ -1415,11 +1411,9 @@ void IOHIDSystem::initShmem(bool clean)
 
     /* fill in EvOffsets structure */
     eop->evGlobalsOffset = sizeof(EvOffsets);
-    eop->evShmemOffset = eop->evGlobalsOffset + sizeof(EvGlobals);
 
     /* find pointers to start of globals and private shmem region */
-    evg = (EvGlobals *)((char *)shmem_addr + eop->evGlobalsOffset);
-    evs = (void *)((char *)shmem_addr + eop->evShmemOffset);
+    evg = (EvGlobals *)((char *)shmem_addr + sizeof(EvOffsets));
 
     evg->version = kIOHIDCurrentShmemVersion;
     evg->structSize = sizeof( EvGlobals);
@@ -1463,8 +1457,8 @@ void IOHIDSystem::initShmem(bool clean)
     }
     evg->LLELast = 0;
     evg->lleq[lleqSize-1].next = 0;
-    evg->LLEHead = evg->lleq[evg->LLELast].next;
-    evg->LLETail = evg->lleq[evg->LLELast].next;
+    evg->LLEHead = 1;
+    evg->LLETail = 1;
 
     _cursorLogTimed();
 }

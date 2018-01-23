@@ -482,6 +482,12 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 			if (engine->la_context) {
 				// sheet variant in progress
 				if (strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0) {
+					// set the UID the same way as SecurityAgent would
+					if (auth_items_exist(engine->context, "sheet-uid")) {
+						os_log_debug(AUTHD_LOG, "engine: setting sheet UID %d to the context", auth_items_get_uint(engine->context, "sheet-uid"));
+						auth_items_set_uint(engine->context, "uid", auth_items_get_uint(engine->context, "sheet-uid"));
+					}
+
 					// find out if sheet just provided credentials or did real authentication
 					// if password is provided or PAM service name exists, it means authd has to evaluate credentials
 					// otherwise we need to check la_result
@@ -1387,7 +1393,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
 		struct passwd *pwd = getpwnam(user);
 		require(pwd, done);
-		auth_items_set_int(engine->context, AGENT_CONTEXT_UID, pwd->pw_uid);
+		auth_items_set_uint(engine->context, "sheet-uid", pwd->pw_uid);
 
 		// move sheet-specific items from hints to context
 		const char *service = auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
@@ -1804,7 +1810,7 @@ CFTypeRef engine_copy_context(engine_t engine, auth_items_t source)
 
 bool engine_acquire_sheet_data(engine_t engine)
 {
-	uid_t uid = auth_items_get_int(engine->context, AGENT_CONTEXT_UID);
+	uid_t uid = auth_items_get_int(engine->context, "sheet-uid");
 	if (!uid)
 		return false;
 

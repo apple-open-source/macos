@@ -65,6 +65,9 @@
 
 #include <IOKit/IOLib.h>
 
+#define CONFIG_MACF 1
+#include <security/mac_framework.h>
+
 #include "autofs.h"
 #include "triggers.h"
 #include "triggers_priv.h"
@@ -446,6 +449,16 @@ top:
 		if (dfnip->fi_flags & MF_UNMOUNTING) {
 			error = ENOENT;
 			goto fail;
+		}
+
+		/*
+		 * Check whether security policy allows this process
+		 * to trigger mount.
+		 */
+		if (strcmp(dfnip->fi_map, "-hosts") == 0) {
+			error = mac_vnode_check_trigger_resolve(context, dvp, cnp);
+			if (error != 0)
+				goto fail;
 		}
 
 		/*

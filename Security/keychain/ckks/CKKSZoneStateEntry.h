@@ -21,9 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "CKKSSQLDatabaseObject.h"
-#include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
+#import "CKKSSQLDatabaseObject.h"
 
 #ifndef CKKSZoneStateEntry_h
 #define CKKSZoneStateEntry_h
@@ -46,14 +46,12 @@
 
 @class CKKSRateLimiter;
 
-@interface CKKSZoneStateEntry : CKKSSQLDatabaseObject {
-
-}
+@interface CKKSZoneStateEntry : CKKSSQLDatabaseObject
 
 @property NSString* ckzone;
 @property bool ckzonecreated;
 @property bool ckzonesubscribed;
-@property (getter=getChangeToken,setter=setChangeToken:) CKServerChangeToken* changeToken;
+@property (getter=getChangeToken, setter=setChangeToken:) CKServerChangeToken* changeToken;
 @property NSData* encodedChangeToken;
 @property NSDate* lastFetchTime;
 
@@ -62,10 +60,10 @@
 @property CKKSRateLimiter* rateLimiter;
 @property NSData* encodedRateLimiter;
 
-+ (instancetype) state: (NSString*) ckzone;
++ (instancetype)state:(NSString*)ckzone;
 
-+ (instancetype) fromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error;
++ (instancetype)fromDatabase:(NSString*)ckzone error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(NSString*)ckzone error:(NSError* __autoreleasing*)error;
 
 - (instancetype)initWithCKZone:(NSString*)ckzone
                    zoneCreated:(bool)ckzonecreated
@@ -75,10 +73,10 @@
                      lastFixup:(CKKSFixup)lastFixup
             encodedRateLimiter:(NSData*)encodedRateLimiter;
 
-- (CKServerChangeToken*) getChangeToken;
-- (void) setChangeToken: (CKServerChangeToken*) token;
+- (CKServerChangeToken*)getChangeToken;
+- (void)setChangeToken:(CKServerChangeToken*)token;
 
-- (BOOL)isEqual: (id) object;
+- (BOOL)isEqual:(id)object;
 @end
 
 #endif

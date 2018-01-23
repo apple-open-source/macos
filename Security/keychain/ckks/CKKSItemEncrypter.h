@@ -21,12 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef CKKSItemEncrypter_h
-#define CKKSItemEncrypter_h
+#if OCTAGON
 
 #include <securityd/SecDbItem.h>
-
-#if OCTAGON
 
 @class CKKSItem;
 @class CKKSMirrorEntry;
@@ -35,28 +32,32 @@
 @class CKKSAESSIVKey;
 @class CKRecordZoneID;
 
+NS_ASSUME_NONNULL_BEGIN
+
 #define CKKS_PADDING_MARK_BYTE 0x80
 
-@interface CKKSItemEncrypter : NSObject {
+@interface CKKSItemEncrypter : NSObject
 
-}
++ (CKKSItem* _Nullable)encryptCKKSItem:(CKKSItem*)baseitem
+                        dataDictionary:(NSDictionary*)dict
+                      updatingCKKSItem:(CKKSItem* _Nullable)olditem
+                             parentkey:(CKKSKey*)parentkey
+                                 error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
-+(CKKSItem*)encryptCKKSItem:(CKKSItem*)baseitem
-             dataDictionary:(NSDictionary *)dict
-           updatingCKKSItem:(CKKSItem*)olditem
-                  parentkey:(CKKSKey *)parentkey
-                      error:(NSError * __autoreleasing *) error;
++ (NSDictionary* _Nullable)decryptItemToDictionary:(CKKSItem*)item error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
-+ (NSDictionary*) decryptItemToDictionary: (CKKSItem*) item error: (NSError * __autoreleasing *) error;
++ (NSData* _Nullable)encryptDictionary:(NSDictionary*)dict
+                                   key:(CKKSAESSIVKey*)key
+                     authenticatedData:(NSDictionary<NSString*, NSData*>* _Nullable)ad
+                                 error:(NSError* _Nullable __autoreleasing* _Nullable)error;
++ (NSDictionary* _Nullable)decryptDictionary:(NSData*)encitem
+                                         key:(CKKSAESSIVKey*)key
+                           authenticatedData:(NSDictionary<NSString*, NSData*>* _Nullable)ad
+                                       error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
-+ (NSData*) encryptDictionary: (NSDictionary*) dict key:  (CKKSAESSIVKey*) key authenticatedData: (NSDictionary<NSString*, NSData*>*) ad  error: (NSError * __autoreleasing *) error;
-+ (NSDictionary*) decryptDictionary: (NSData*) encitem key: (CKKSAESSIVKey*) key authenticatedData: (NSDictionary<NSString*, NSData*>*) ad  error: (NSError * __autoreleasing *) error;
-
-+ (NSData *)padData:(NSData *)input blockSize:(NSUInteger)blockSize additionalBlock:(BOOL)extra;
-+ (NSData *)removePaddingFromData:(NSData *)input;
++ (NSData*)padData:(NSData*)input blockSize:(NSUInteger)blockSize additionalBlock:(BOOL)extra;
++ (NSData* _Nullable)removePaddingFromData:(NSData*)input;
 @end
 
-#endif // OCTAGON
-
-#endif /* CKKSItemEncrypter_h */
-
+NS_ASSUME_NONNULL_END
+#endif  // OCTAGON

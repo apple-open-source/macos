@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSGroupOperation.h"
 #include <utilities/debugging.h>
 
@@ -250,11 +252,6 @@
 }
 
 - (void)runBeforeGroupFinished: (NSOperation*) suboperation {
-    if([self isCancelled]) {
-        // Cancelled operations can't add anything.
-        secnotice("ckksgroup", "Not adding operation to cancelled group %@", self);
-        return;
-    }
 
     // op must wait for this operation to start
     [suboperation addDependency: self.startOperation];
@@ -293,3 +290,6 @@
 }
 
 @end
+
+#endif // OCTAGON
+

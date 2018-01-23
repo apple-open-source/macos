@@ -61,8 +61,8 @@
     self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassAPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = oldClassAKey;
     self.keychainZoneKeys.currentClassAPointer.currentKeyUUID = oldClassAKey.recordID.recordName;
 
-    // CKKS should then fix the pointers, but not update any keys
-    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords: 1 tlkShareRecords: 0 zoneID:self.keychainZoneID];
+    // CKKS should then fix the pointers and give itself a TLK share, but not update any keys
+    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords: 1 tlkShareRecords: 1 zoneID:self.keychainZoneID];
 
     // And then upload the record as normal
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -99,8 +99,8 @@
     self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = oldClassCKey;
     self.keychainZoneKeys.currentClassCPointer.currentKeyUUID = oldClassCKey.recordID.recordName;
 
-    // CKKS should then fix the pointers, but not update any keys
-    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords: 1 tlkShareRecords: 0 zoneID:self.keychainZoneID];
+    // CKKS should then fix the pointers and its TLK shares, but not update any keys
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:1 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
     // And then upload the record as normal
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -122,6 +122,7 @@
     // Test starts with a good key hierarchy in our fake CloudKit, and the TLK already arrived.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
 
     CKReference* oldClassCKey = self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey];
 
@@ -144,8 +145,8 @@
 
     [self.keychainView notifyZoneChange:nil];
 
-    // CKKS should then fix the pointers, but not update any keys
-    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords: 1 tlkShareRecords: 0 zoneID:self.keychainZoneID];
+    // CKKS should then fix the pointers and give itself a new TLK share record, but not update any keys
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:1 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self.keychainView notifyZoneChange:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
@@ -165,6 +166,7 @@
     // Test starts with a good key hierarchy in our fake CloudKit, and the TLK already arrived.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
 
     CKRecordID* classCPointerRecordID = self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID;
 
@@ -201,8 +203,9 @@
     }];
 
     // CKKS should try to fix the pointers, but be rejected (since someone else has already fixed them)
-    // It should not try again, because someone already fixed them
+    // It should not try to modify the pointers again, but it should give itself the new TLK
     [self expectCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self.keychainView notifyZoneChange:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
@@ -227,6 +230,7 @@
     CKReference* oldClassCKey = self.keychainZone.currentDatabase[classCPointerRecordID][SecCKRecordParentKeyRefKey];
 
     [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
@@ -237,6 +241,7 @@
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
 
     // Now, break the class C pointer, but don't tell CKKS
     CKReference* newClassCKey = self.keychainZone.currentDatabase[classCPointerRecordID][SecCKRecordParentKeyRefKey];

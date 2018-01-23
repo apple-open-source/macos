@@ -25,6 +25,7 @@
 #import "CKKSSQLDatabaseObject.h"
 #include <securityd/SecItemServer.h>
 
+#import "keychain/ckks/CKKS.h"
 #import "CKKSKeychainView.h"
 
 @implementation CKKSSQLDatabaseObject
@@ -328,7 +329,7 @@
     return ret;
 }
 
-+ (instancetype) tryFromDatabaseWhere: (NSDictionary*) whereDict error: (NSError * __autoreleasing *) error {
++ (instancetype _Nullable) tryFromDatabaseWhere: (NSDictionary*) whereDict error: (NSError * __autoreleasing *) error {
     __block id ret = nil;
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [self sqlTable]

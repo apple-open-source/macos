@@ -682,6 +682,19 @@ SecKeyRef SOSFullPeerInfoCopyOctagonEncryptionKey(SOSFullPeerInfoRef fullPeer, C
     return SOSFullPeerInfoCopyMatchingOctagonEncryptionPrivateKey(fullPeer, error);
 }
 
+bool SOSFullPeerInfoHaveOctagonKeys(SOSFullPeerInfoRef fullPeer)
+{
+    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fullPeer);
+    if (pi == NULL) {
+        return false;
+    }
+
+    return
+        SOSPeerInfoHasOctagonSigningPubKey(pi) &&
+        SOSPeerInfoHasOctagonEncryptionPubKey(pi);
+}
+
+
 //
 // MARK: Encode and decode
 //

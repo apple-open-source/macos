@@ -41,7 +41,7 @@ typedef NS_ENUM(int, BucketType) {
 };
 
 @interface CKKSRateLimiter()
-@property (readwrite, nonnull) NSDictionary<NSString *, NSNumber *> *config;
+@property (readwrite) NSDictionary<NSString *, NSNumber *> *config;
 @property NSMutableDictionary<NSString *, NSDate *> *buckets;
 @property NSDate *overloadUntil;
 #if !TARGET_OS_BRIDGE

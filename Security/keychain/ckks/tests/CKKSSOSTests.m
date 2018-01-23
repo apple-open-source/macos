@@ -49,9 +49,12 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
+#include <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <Security/SecureObjectSync/SOSAccount.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
+#pragma clang diagnostic pop
+
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
 #pragma clang diagnostic pop
@@ -109,30 +112,35 @@
     self.zones[self.engramZoneID] = self.engramZone;
     self.engramView = [[CKKSViewManager manager] findView:@"Engram"];
     XCTAssertNotNil(self.engramView, "CKKSViewManager created the Engram view");
+    [self.ckksZones addObject:self.engramZoneID];
 
     self.manateeZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Manatee" ownerName:CKCurrentUserDefaultName];
     self.manateeZone = [[FakeCKZone alloc] initZone: self.manateeZoneID];
     self.zones[self.manateeZoneID] = self.manateeZone;
     self.manateeView = [[CKKSViewManager manager] findView:@"Manatee"];
     XCTAssertNotNil(self.manateeView, "CKKSViewManager created the Manatee view");
+    [self.ckksZones addObject:self.manateeZoneID];
 
     self.autoUnlockZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"AutoUnlock" ownerName:CKCurrentUserDefaultName];
     self.autoUnlockZone = [[FakeCKZone alloc] initZone: self.autoUnlockZoneID];
     self.zones[self.autoUnlockZoneID] = self.autoUnlockZone;
     self.autoUnlockView = [[CKKSViewManager manager] findView:@"AutoUnlock"];
     XCTAssertNotNil(self.autoUnlockView, "CKKSViewManager created the AutoUnlock view");
+    [self.ckksZones addObject:self.autoUnlockZoneID];
 
     self.healthZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Health" ownerName:CKCurrentUserDefaultName];
     self.healthZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
     self.zones[self.healthZoneID] = self.healthZone;
     self.healthView = [[CKKSViewManager manager] findView:@"Health"];
     XCTAssertNotNil(self.healthView, "CKKSViewManager created the Health view");
+    [self.ckksZones addObject:self.healthZoneID];
 
     self.applepayZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"ApplePay" ownerName:CKCurrentUserDefaultName];
     self.applepayZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
     self.zones[self.applepayZoneID] = self.applepayZone;
     self.applepayView = [[CKKSViewManager manager] findView:@"ApplePay"];
     XCTAssertNotNil(self.applepayView, "CKKSViewManager created the ApplePay view");
+    [self.ckksZones addObject:self.applepayZoneID];
 }
 
 + (void)tearDown {
@@ -146,23 +154,23 @@
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
 
-    [self.engramView cancelAllOperations];
+    [self.engramView halt];
     [self.engramView waitUntilAllOperationsAreFinished];
     self.engramView = nil;
 
-    [self.manateeView cancelAllOperations];
+    [self.manateeView halt];
     [self.manateeView waitUntilAllOperationsAreFinished];
     self.manateeView = nil;
 
-    [self.autoUnlockView cancelAllOperations];
+    [self.autoUnlockView halt];
     [self.autoUnlockView waitUntilAllOperationsAreFinished];
     self.autoUnlockView = nil;
 
-    [self.healthView cancelAllOperations];
+    [self.healthView halt];
     [self.healthView waitUntilAllOperationsAreFinished];
     self.healthView = nil;
 
-    [self.applepayView cancelAllOperations];
+    [self.applepayView halt];
     [self.applepayView waitUntilAllOperationsAreFinished];
     self.applepayView = nil;
 
@@ -178,11 +186,9 @@
 }
 
 -(void)saveFakeKeyHierarchiesToLocalDatabase {
-    [self createAndSaveFakeKeyHierarchy: self.engramZoneID];
-    [self createAndSaveFakeKeyHierarchy: self.manateeZoneID];
-    [self createAndSaveFakeKeyHierarchy: self.autoUnlockZoneID];
-    [self createAndSaveFakeKeyHierarchy: self.healthZoneID];
-    [self createAndSaveFakeKeyHierarchy: self.applepayZoneID];
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self createAndSaveFakeKeyHierarchy: zoneID];
+    }
 }
 
 -(void)testAddEngramManateeItems {
@@ -288,6 +294,10 @@
     [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
     [self startCKKSSubsystem];
 
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+
     [self waitForKeyHierarchyReadinesses];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
@@ -358,7 +368,6 @@
         tempPath = [[[[NSFileManager defaultManager] temporaryDirectory] URLByAppendingPathComponent:@"PiggyPacket"] path];
 
     });
-    NSLog(@"using temp path: %@", tempPath);
     return tempPath;
 }
 
@@ -366,6 +375,9 @@
     [self putFakeKeyHierachiesInCloudKit];
     [self saveTLKsToKeychain];
 
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
     [self startCKKSSubsystem];
 
     [self waitForKeyHierarchyReadinesses];
@@ -448,9 +460,6 @@
     NSArray<NSDictionary *>* sortedTLKs = SOSAccountSortTLKS(tlks);
     XCTAssertNotNil(sortedTLKs, "sortedTLKs not set");
 
-    NSLog(@"TLKs: %@", tlks);
-    NSLog(@"sortedTLKs: %@", sortedTLKs);
-
     NSArray<NSString *> *expectedOrder = @[ @"11111111", @"22222222", @"33333333", @"44444444", @"55555555"];
     [sortedTLKs enumerateObjectsUsingBlock:^(NSDictionary *tlk, NSUInteger idx, BOOL * _Nonnull stop) {
         NSString *uuid = tlk[@"acct"];
@@ -467,11 +476,15 @@
     NSDictionary* piggyTLKS = [self SOSPiggyBackCopyFromKeychain];
     [self SOSPiggyBackAddToKeychain:piggyTLKS];
     [self deleteTLKMaterialsFromKeychain];
-    
+
+    // The CKKS subsystem should write a TLK Share for each view
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
-    
-    // The CKKS subsystem should not try to write anything to the CloudKit database while it's accepting the keys
+
     [self.manateeView waitForKeyHierarchyReadiness];
     
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
@@ -554,11 +567,15 @@
     [self startCKKSSubsystem];
     
     // The CKKS subsystem should not try to write anything to the CloudKit database.
-    sleep(1);
-    
+    XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:400*NSEC_PER_SEC], "CKKS entered waitfortlk");
+
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     
-    // Now, save the TLK to the keychain (to simulate it coming in later via piggybacking).
+    // Now, save the TLKs to the keychain (to simulate them coming in later via piggybacking).
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+
     [self SOSPiggyBackAddToKeychain:piggyData];
     [self waitForKeyHierarchyReadinesses];
     

@@ -23,15 +23,17 @@
 
 #if OCTAGON
 
-#import "keychain/ckks/CKKSGroupOperation.h"
-#import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import <Foundation/Foundation.h>
+#import "keychain/ckks/CKKSDeviceStateEntry.h"
+#import "keychain/ckks/CKKSGroupOperation.h"
 
 @interface CKKSUpdateDeviceStateOperation : CKKSGroupOperation
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks rateLimit:(bool)rateLimit ckoperationGroup:(CKOperationGroup*)group;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                               rateLimit:(bool)rateLimit
+                        ckoperationGroup:(CKOperationGroup*)group;
 @end
 
-#endif // OCTAGON
+#endif  // OCTAGON

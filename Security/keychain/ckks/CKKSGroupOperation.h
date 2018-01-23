@@ -21,15 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-#ifndef CKKSGroupOperation_h
-#define CKKSGroupOperation_h
+#if OCTAGON
 
 #import <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 #import "keychain/ckks/CKKSResultOperation.h"
 
-@interface CKKSGroupOperation : CKKSResultOperation {
+@interface CKKSGroupOperation : CKKSResultOperation
+{
     BOOL executing;
     BOOL finished;
 }
@@ -41,8 +40,8 @@
 // For subclasses: override this to execute at Group operation start time
 - (void)groupStart;
 
-- (void)runBeforeGroupFinished: (NSOperation*) suboperation;
-- (void)dependOnBeforeGroupFinished: (NSOperation*) suboperation;
+- (void)runBeforeGroupFinished:(NSOperation*)suboperation;
+- (void)dependOnBeforeGroupFinished:(NSOperation*)suboperation;
 @end
 
-#endif // CKKSGroupOperation_h
+#endif  // OCTAGON

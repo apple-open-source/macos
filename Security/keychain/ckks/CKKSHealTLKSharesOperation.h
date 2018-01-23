@@ -32,8 +32,7 @@
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
-                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
-#endif // OCTAGON
+#endif  // OCTAGON

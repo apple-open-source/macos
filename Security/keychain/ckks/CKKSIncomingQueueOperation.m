@@ -29,6 +29,7 @@
 #import "CKKSKey.h"
 #import "CKKSManifest.h"
 #import "CKKSAnalyticsLogger.h"
+#import "CKKSPowerCollection.h"
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 
 #include <securityd/SecItemServer.h>
@@ -105,13 +106,9 @@
         if ([CKKSManifest shouldSyncManifests]) {
             if (![manifest validateCurrentItem:p withError:&error]) {
                 ckkserror("ckksincoming", ckks, "Unable to validate current item pointer (%@) against manifest (%@)", p, manifest);
-                [[CKKSAnalyticsLogger logger] logSoftFailureForEventNamed:@"CKKSManifestCurrentItemPointerValidation" withAttributes:@{CKKSManifestZoneKey : ckks.zoneID.zoneName, CKKSManifestSignerIDKey : manifest.signerID ?: @"no signer", CKKSManifestGenCountKey : @(manifest.generationCount)}];
                 if ([CKKSManifest shouldEnforceManifests]) {
                     return false;
                 }
-            }
-            else {
-                [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestCurrentItemPointerValidation"];
             }
         }
 
@@ -141,8 +138,6 @@
 
     NSMutableArray* newOrChangedRecords = [[NSMutableArray alloc] init];
     NSMutableArray* deletedRecordIDs = [[NSMutableArray alloc] init];
-    NSInteger manifestGenerationCount = manifest.generationCount;
-    NSString* manifestSignerID = manifest.signerID ?: @"no signer";
 
     for(id entry in queueEntries) {
         if(self.cancelled) {
@@ -181,6 +176,7 @@
                 ckkserror("ckksincoming", ckks, "Couldn't decrypt IQE %@ for some reason: %@", iqe, error);
                 self.error = error;
             }
+            self.errorItemsProcessed += 1;
             continue;
         }
 
@@ -207,6 +203,7 @@
                                              code:errSecInternalError
                                          userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Item did not have a reasonable class: %@", classStr]}];
             ckkserror("ckksincoming", ckks, "Synced item seems wrong: %@", self.error);
+            self.errorItemsProcessed += 1;
             continue;
         }
 
@@ -220,19 +217,14 @@
                 ckkserror("ckksincoming", ckks, "Couldn't save errored IQE to database: %@", error);
                 self.error = error;
             }
+            self.errorItemsProcessed += 1;
             continue;
         }
 
         if([iqe.action isEqualToString: SecCKKSActionAdd] || [iqe.action isEqualToString: SecCKKSActionModify]) {
             BOOL requireManifestValidation = [CKKSManifest shouldEnforceManifests];
             BOOL manifestValidatesItem = [manifest validateItem:iqe.item withError:&error];
-            if (manifestValidatesItem) {
-                [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestValidateItemAdd"];
-            }
-            else {
-                [[CKKSAnalyticsLogger logger] logSoftFailureForEventNamed:@"CKKSManifestValidateItemAdd" withAttributes:@{CKKSManifestZoneKey : ckks.zoneID.zoneName, CKKSManifestSignerIDKey : manifestSignerID, CKKSManifestGenCountKey : @(manifestGenerationCount)}];
-            }
-            
+
             if (!requireManifestValidation || manifestValidatesItem) {
                 [self _onqueueHandleIQEChange: iqe attributes:attributes class:classP];
                 [newOrChangedRecords addObject:[iqe.item CKRecordWithZoneID:ckks.zoneID]];
@@ -243,18 +235,12 @@
                     ckkserror("ckksincoming", ckks, "failed to save incoming item back to database in unauthenticated state with error: %@", error);
                     return false;
                 }
-                
+                self.errorItemsProcessed += 1;
                 continue;
             }
         } else if ([iqe.action isEqualToString: SecCKKSActionDelete]) {
             BOOL requireManifestValidation = [CKKSManifest shouldEnforceManifests];
             BOOL manifestValidatesDelete = ![manifest itemUUIDExistsInManifest:iqe.uuid];
-            if (manifestValidatesDelete) {
-                [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestValidateItemDelete"];
-            }
-            else {
-                [[CKKSAnalyticsLogger logger] logSoftFailureForEventNamed:@"CKKSManifestValidateItemDelete" withAttributes:@{CKKSManifestZoneKey : ckks.zoneID.zoneName, CKKSManifestSignerIDKey : manifestSignerID, CKKSManifestGenCountKey : @(manifestGenerationCount)}];
-            }
             
             if (!requireManifestValidation || manifestValidatesDelete) {
                 // if the item does not exist in the latest manifest, we're good to delete it
@@ -266,6 +252,8 @@
                 ckkserror("ckksincoming", ckks, "could not validate incoming item deletion against manifest");
                 if (![self _onqueueUpdateIQE:iqe withState:SecCKKSStateUnauthenticated error:&error]) {
                     ckkserror("ckksincoming", ckks, "failed to save incoming item deletion back to database in unauthenticated state with error: %@", error);
+
+                    self.errorItemsProcessed += 1;
                     return false;
                 }
             }
@@ -382,7 +370,6 @@
         // Iterate through all incoming queue entries a chunk at a time (for peak memory concerns)
         NSArray<CKKSIncomingQueueEntry*> * queueEntries = nil;
         NSString* lastMaxUUID = nil;
-        NSUInteger processedItems = 0;
         while(queueEntries == nil || queueEntries.count == SecCKKSIncomingQueueItemsAtOnce) {
             if(self.cancelled) {
                 ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
@@ -407,11 +394,12 @@
                 break;
             }
 
+            //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:ckks.zoneName count:[queueEntries count]];
+
             if (![self processQueueEntries:queueEntries withManifest:ckks.latestManifest egoManifest:ckks.egoManifest]) {
                 ckksnotice("ckksincoming", ckks, "processQueueEntries didn't complete successfully");
                 return false;
             }
-            processedItems += [queueEntries count];
 
             // Find the highest UUID for the next fetch.
             for(CKKSIncomingQueueEntry* iqe in queueEntries) {
@@ -420,7 +408,7 @@
         }
 
         // Process other queues: CKKSCurrentItemPointers
-        ckksnotice("ckksincoming", ckks, "Processed %lu items in incoming queue", processedItems);
+        ckksnotice("ckksincoming", ckks, "Processed %lu items in incoming queue (%lu errors)", self.successfulItemsProcessed, self.errorItemsProcessed);
 
         NSArray<CKKSCurrentItemPointer*>* newCIPs = [CKKSCurrentItemPointer remoteItemPointers:ckks.zoneID error:&error];
         if(error || !newCIPs) {
@@ -449,12 +437,18 @@
                 return;
             }
 
+            CKKSAnalyticsLogger* logger = [CKKSAnalyticsLogger logger];
+
             if (!strongSelf.error) {
-                CKKSAnalyticsLogger* logger = [CKKSAnalyticsLogger logger];
                 [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:ckks];
                 if (!strongSelf.pendingClassAEntries) {
                     [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:ckks];
                 }
+            } else {
+                [logger logRecoverableError:strongSelf.error
+                                   forEvent:CKKSEventProcessIncomingQueueClassA
+                                     inView:strongSelf.ckks
+                             withAttributes:NULL];
             }
         };
 
@@ -574,6 +568,9 @@
         if(error) {
             ckkserror("ckksincoming", ckks, "couldn't delete CKKSIncomingQueueEntry: %@", error);
             self.error = error;
+            self.errorItemsProcessed += 1;
+        } else {
+            self.successfulItemsProcessed += 1;
         }
 
         if(moddate) {
@@ -592,6 +589,8 @@
             ckkserror("ckksincoming", ckks, "Couldn't save errored IQE to database: %@", error);
             self.error = error;
         }
+
+        self.errorItemsProcessed += 1;
     }
 }
 
@@ -657,10 +656,14 @@
         if(error) {
             ckkserror("ckksincoming", ckks, "couldn't delete CKKSIncomingQueueEntry: %@", error);
             self.error = error;
+            self.errorItemsProcessed += 1;
+        } else {
+            self.successfulItemsProcessed += 1;
         }
     } else {
         ckkserror("ckksincoming", ckks, "IQE not correctly processed, but why? %@ %@", error, cferror);
         self.error = error;
+        self.errorItemsProcessed += 1;
     }
 }
 

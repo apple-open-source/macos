@@ -17,7 +17,6 @@ def do_output_str(str, header = false)
     puts str if !str.nil?
 end
 
-
 build_dir = ENV["BUILT_PRODUCTS_DIR"]
 top_level_directory = ENV["PROJECT_DIR"]
 
@@ -46,13 +45,15 @@ end
 A = Array.new
 
 parsed["logs"].each do |log|
-    logEntry = Hash.new;
-    logEntry["key"] = CFPropertyList::Blob.new(Base64.decode64(log["key"]))
-    logEntry["operator"] = operators[log["operated_by"][0]]
-    if log["expiry"] then
-        logEntry["expiry"] = DateTime.parse(log["expiry"])
+    if log["state"] == 0 || log["state"] == 1 then # Included or Frozen logs
+        logEntry = Hash.new;
+        logEntry["key"] = CFPropertyList::Blob.new(Base64.decode64(log["key"]))
+        logEntry["operator"] = operators[log["operated_by"][0]]
+        if log["final_sth"] then
+            logEntry["expiry"] = Time.at(log["final_sth"]["timestamp"]/1000)
+        end
+        A.push(logEntry)
     end
-    A.push(logEntry)
 end
 
 

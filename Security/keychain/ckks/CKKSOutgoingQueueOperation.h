@@ -41,4 +41,4 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
-#endif // OCTAGON
+#endif  // OCTAGON

@@ -326,118 +326,151 @@
 }
 
 - (bool)saveKeyMaterialToKeychain: (bool)stashTLK error:(NSError * __autoreleasing *) error {
-    return [CKKSKey saveKeyMaterialToKeychain:self stashTLK:stashTLK error:error];
-}
-
-+(bool)saveKeyMaterialToKeychain:(CKKSKey*)key stashTLK:(bool)stashTLK error:(NSError * __autoreleasing *) error {
 
     // Note that we only store the key class, view, UUID, parentKeyUUID, and key material in the keychain
     // Any other metadata must be stored elsewhere and filled in at load time.
 
-    if(![key ensureKeyLoaded:error]) {
+    if(![self ensureKeyLoaded:error]) {
         // No key material, nothing to save to keychain.
         return false;
     }
 
     // iOS keychains can't store symmetric keys, so we're reduced to storing this key as a password
-    NSData* keydata = [[[NSData alloc] initWithBytes:key.aessivkey->key length:key.aessivkey->size] base64EncodedDataWithOptions:0];
+    NSData* keydata = [[[NSData alloc] initWithBytes:self.aessivkey->key length:self.aessivkey->size] base64EncodedDataWithOptions:0];
     NSMutableDictionary* query = [@{
             (id)kSecClass : (id)kSecClassInternetPassword,
             (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
             (id)kSecAttrNoLegacy : @YES,
             (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
-            (id)kSecAttrDescription: key.keyclass,
-            (id)kSecAttrServer: key.zoneID.zoneName,
-            (id)kSecAttrAccount: key.uuid,
-            (id)kSecAttrPath: key.parentKeyUUID,
+            (id)kSecAttrDescription: self.keyclass,
+            (id)kSecAttrServer: self.zoneID.zoneName,
+            (id)kSecAttrAccount: self.uuid,
+            (id)kSecAttrPath: self.parentKeyUUID,
             (id)kSecAttrIsInvisible: @YES,
             (id)kSecValueData : keydata,
         } mutableCopy];
 
     // Only TLKs are synchronizable. Other keyclasses must synchronize via key hierarchy.
-    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
+    if([self.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
         // Use PCS-MasterKey view so they'll be initial-synced under SOS.
         query[(id)kSecAttrSyncViewHint] = (id)kSecAttrViewHintPCSMasterKey;
         query[(id)kSecAttrSynchronizable] = (id)kCFBooleanTrue;
     }
 
     // Class C keys are accessible after first unlock; TLKs and Class A keys are accessible only when unlocked
-    if([key.keyclass isEqualToString: SecCKKSKeyClassC]) {
+    if([self.keyclass isEqualToString: SecCKKSKeyClassC]) {
         query[(id)kSecAttrAccessible] = (id)kSecAttrAccessibleAfterFirstUnlock;
     } else {
         query[(id)kSecAttrAccessible] = (id)kSecAttrAccessibleWhenUnlocked;
     }
 
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef) query, NULL);
+    NSError* localError = nil;
+    [CKKSKey setKeyMaterialInKeychain:query error:&localError];
 
-    if(status == errSecDuplicateItem) {
-        // Sure, okay, fine, we'll update.
-        error = nil;
-        NSMutableDictionary* update = [@{
-                                 (id)kSecValueData: keydata,
-                                 (id)kSecAttrPath: key.parentKeyUUID,
-                                 } mutableCopy];
-        query[(id)kSecValueData] = nil;
-        query[(id)kSecAttrPath] = nil;
-
-        // Udpate the view-hint, too
-        if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-            update[(id)kSecAttrSyncViewHint] = (id)kSecAttrViewHintPCSMasterKey;
-            query[(id)kSecAttrSyncViewHint] = nil;
-        }
-
-        status = SecItemUpdate((__bridge CFDictionaryRef) query, (__bridge CFDictionaryRef)update);
-    }
-
-    if(status && error) {
+    if(localError && error) {
         *error = [NSError errorWithDomain:@"securityd"
-                                    code:status
-                                userInfo:@{NSLocalizedDescriptionKey:
-                [NSString stringWithFormat:@"Couldn't save %@ to keychain: %d", self, (int)status]}];
+                                    code:localError.code
+                                userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Couldn't save %@ to keychain: %d", self, (int)localError.code],
+                                           NSUnderlyingErrorKey: localError,
+                                           }];
     }
 
     // TLKs are synchronizable. Stash them nonsyncably nearby.
     // Don't report errors here.
-    if(stashTLK && [key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
+    if(stashTLK && [self.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
         query = [@{
                    (id)kSecClass : (id)kSecClassInternetPassword,
                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
                    (id)kSecAttrNoLegacy : @YES,
                    (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
-                   (id)kSecAttrDescription: [key.keyclass stringByAppendingString: @"-nonsync"],
-                   (id)kSecAttrServer: key.zoneID.zoneName,
-                   (id)kSecAttrAccount: key.uuid,
-                   (id)kSecAttrPath: key.parentKeyUUID,
+                   (id)kSecAttrDescription: [self.keyclass stringByAppendingString: @"-nonsync"],
+                   (id)kSecAttrServer: self.zoneID.zoneName,
+                   (id)kSecAttrAccount: self.uuid,
+                   (id)kSecAttrPath: self.parentKeyUUID,
                    (id)kSecAttrIsInvisible: @YES,
                    (id)kSecValueData : keydata,
                    } mutableCopy];
         query[(id)kSecAttrSynchronizable] = (id)kCFBooleanFalse;
 
-        OSStatus stashstatus = SecItemAdd((__bridge CFDictionaryRef) query, NULL);
-        if(stashstatus != errSecSuccess) {
-            if(stashstatus == errSecDuplicateItem) {
-                // Sure, okay, fine, we'll update.
-                error = nil;
-                NSDictionary* update = @{
-                                         (id)kSecValueData: keydata,
-                                         (id)kSecAttrPath: key.parentKeyUUID,
-                                         };
-                query[(id)kSecValueData] = nil;
-                query[(id)kSecAttrPath] = nil;
+        NSError* stashError = nil;
+        [CKKSKey setKeyMaterialInKeychain:query error:&localError];
 
-                stashstatus = SecItemUpdate((__bridge CFDictionaryRef) query, (__bridge CFDictionaryRef)update);
-            }
-
-            if(stashstatus != errSecSuccess) {
-                secerror("ckkskey: Couldn't stash %@ to keychain: %d", self, (int)stashstatus);
-            }
+        if(stashError) {
+            secerror("ckkskey: Couldn't stash %@ to keychain: %@", self, stashError);
         }
     }
 
-    return status == 0;
+    return localError == nil;
 }
 
-+ (NSData*)loadKeyMaterialFromKeychain:(CKKSKey*)key resave:(bool*)resavePtr error:(NSError* __autoreleasing *)error {
++ (NSDictionary*)setKeyMaterialInKeychain:(NSDictionary*)query error:(NSError* __autoreleasing *)error {
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, &result);
+
+    NSError* localerror = nil;
+
+    // Did SecItemAdd fall over due to an existing item?
+    if(status == errSecDuplicateItem) {
+        // Add every primary key attribute to this find dictionary
+        NSMutableDictionary* findQuery = [[NSMutableDictionary alloc] init];
+        findQuery[(id)kSecClass]              = query[(id)kSecClass];
+        findQuery[(id)kSecAttrSynchronizable] = query[(id)kSecAttrSynchronizable];
+        findQuery[(id)kSecAttrSyncViewHint]   = query[(id)kSecAttrSyncViewHint];
+        findQuery[(id)kSecAttrAccessGroup]    = query[(id)kSecAttrAccessGroup];
+        findQuery[(id)kSecAttrAccount]        = query[(id)kSecAttrAccount];
+        findQuery[(id)kSecAttrServer]         = query[(id)kSecAttrServer];
+        findQuery[(id)kSecAttrPath]           = query[(id)kSecAttrPath];
+
+        NSMutableDictionary* updateQuery = [query mutableCopy];
+        updateQuery[(id)kSecClass] = nil;
+
+        status = SecItemUpdate((__bridge CFDictionaryRef)findQuery, (__bridge CFDictionaryRef)updateQuery);
+
+        if(status) {
+            localerror = [NSError errorWithDomain:@"securityd"
+                                             code:status
+                                      description:[NSString stringWithFormat:@"SecItemUpdate: %d", (int)status]];
+        }
+    } else {
+        localerror = [NSError errorWithDomain:@"securityd"
+                                         code:status
+                                  description: [NSString stringWithFormat:@"SecItemAdd: %d", (int)status]];
+    }
+
+    if(status) {
+        CFReleaseNull(result);
+
+        if(error) {
+            *error = localerror;
+        }
+        return false;
+    }
+
+    NSDictionary* resultDict = CFBridgingRelease(result);
+    return resultDict;
+}
+
++ (NSDictionary*)queryKeyMaterialInKeychain:(NSDictionary*)query  error:(NSError* __autoreleasing *)error {
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+
+    if(status) {
+        CFReleaseNull(result);
+
+        if(error) {
+            *error = [NSError errorWithDomain:@"securityd"
+                                         code:status
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                                                    [NSString stringWithFormat:@"SecItemCopyMatching: %d", (int)status]}];
+        }
+        return false;
+    }
+
+    NSDictionary* resultDict = CFBridgingRelease(result);
+    return resultDict;
+}
+
++ (NSDictionary*)fetchKeyMaterialItemFromKeychain:(CKKSKey*)key resave:(bool*)resavePtr error:(NSError* __autoreleasing *)error {
     NSMutableDictionary* query = [@{
             (id)kSecClass : (id)kSecClassInternetPassword,
             (id)kSecAttrNoLegacy : @YES,
@@ -445,6 +478,7 @@
             (id)kSecAttrDescription: key.keyclass,
             (id)kSecAttrAccount: key.uuid,
             (id)kSecAttrServer: key.zoneID.zoneName,
+            (id)kSecAttrPath: key.parentKeyUUID,
             (id)kSecReturnAttributes: @YES,
             (id)kSecReturnData: @YES,
         } mutableCopy];
@@ -454,37 +488,71 @@
         query[(id)kSecAttrSynchronizable] = (id)kCFBooleanTrue;
     }
 
-    CFTypeRef result = NULL;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef) query, &result);
+    NSError* localError = nil;
+    NSDictionary* result = [self queryKeyMaterialInKeychain:query error:&localError];
+    NSError* originalError = localError;
 
-    if(status == errSecItemNotFound) {
-        CFReleaseNull(result);
+    // If we found the item or errored in some interesting way, return.
+    if(localError == nil) {
+        return result;
+    }
+    if(localError && localError.code != errSecItemNotFound) {
+        if(error) {
+            *error = [NSError errorWithDomain:@"securityd"
+                                         code:localError.code
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                                                    [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
+                                                NSUnderlyingErrorKey: localError,
+                                                }];
+        }
+        return result;
+    }
+    localError = nil;
+
+    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
         //didn't find a regular tlk?  how about a piggy?
-        if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-            query = [@{
-                       (id)kSecClass : (id)kSecClassInternetPassword,
-                       (id)kSecAttrNoLegacy : @YES,
-                       (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                       (id)kSecAttrDescription: @"tlk-piggy",
-                       (id)kSecAttrSynchronizable : (id)kSecAttrSynchronizableAny,
-                       (id)kSecAttrAccount: [NSString stringWithFormat: @"%@-piggy", key.uuid],
-                       (id)kSecAttrServer: key.zoneID.zoneName,
-                       (id)kSecReturnAttributes: @YES,
-                       (id)kSecReturnData: @YES,
-                       (id)kSecMatchLimit: (id)kSecMatchLimitOne,
-                       } mutableCopy];
-            status = SecItemCopyMatching((__bridge CFDictionaryRef) query, &result);
-            if(status == errSecSuccess){
-                secnotice("ckkskey", "loaded a piggy TLK (%@)", key.uuid);
+        query = [@{
+                   (id)kSecClass : (id)kSecClassInternetPassword,
+                   (id)kSecAttrNoLegacy : @YES,
+                   (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                   (id)kSecAttrDescription: [key.keyclass stringByAppendingString: @"-piggy"],
+                   (id)kSecAttrSynchronizable : (id)kSecAttrSynchronizableAny,
+                   (id)kSecAttrAccount: [NSString stringWithFormat: @"%@-piggy", key.uuid],
+                   (id)kSecAttrServer: key.zoneID.zoneName,
+                   (id)kSecReturnAttributes: @YES,
+                   (id)kSecReturnData: @YES,
+                   (id)kSecMatchLimit: (id)kSecMatchLimitOne,
+                   } mutableCopy];
 
-                if(resavePtr) {
-                    *resavePtr = true;
-                }
+        result = [self queryKeyMaterialInKeychain:query error:&localError];
+        if(localError == nil) {
+            secnotice("ckkskey", "loaded a piggy TLK (%@)", key.uuid);
+
+            if(resavePtr) {
+                *resavePtr = true;
             }
+
+            return result;
+        }
+
+        if(localError && localError.code != errSecItemNotFound) {
+            if(error) {
+                *error = [NSError errorWithDomain:@"securityd"
+                                             code:localError.code
+                                         userInfo:@{NSLocalizedDescriptionKey:
+                                                        [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
+                                                    NSUnderlyingErrorKey: localError,
+                                                    }];
+            }
+            return nil;
         }
     }
-    if(status == errSecItemNotFound && [key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        CFReleaseNull(result);
+
+    localError = nil;
+
+    // Try to load a stashed TLK
+    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
+        localError = nil;
 
         // Try to look for the non-syncable stashed tlk and resurrect it.
         query = [@{
@@ -499,56 +567,52 @@
             (id)kSecAttrSynchronizable: @NO,
         } mutableCopy];
 
-        status = SecItemCopyMatching((__bridge CFDictionaryRef) query, &result);
-        if(status == errSecSuccess) {
+        result = [self queryKeyMaterialInKeychain:query error:&localError];
+        if(localError == nil) {
             secnotice("ckkskey", "loaded a stashed TLK (%@)", key.uuid);
 
             if(resavePtr) {
                 *resavePtr = true;
             }
+
+            return result;
         }
-    }
 
-    if(status){ //still can't find it!
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd"
-                                         code:status
-                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                    [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", self, (int)status]}];
-        }
-        return false;
-    }
-
-    // Determine if we should fix up any attributes on this item...
-    NSDictionary* resultDict = CFBridgingRelease(result);
-
-    // We created some TLKs with no ViewHint. Fix it.
-    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        NSString* viewHint = resultDict[(id)kSecAttrSyncViewHint];
-        if(!viewHint) {
-            ckksnotice("ckkskey", key.zoneID, "Fixing up non-viewhinted TLK %@", self);
-            query[(id)kSecReturnAttributes] = nil;
-            query[(id)kSecReturnData] = nil;
-
-            NSDictionary* update = @{(id)kSecAttrSyncViewHint: (id)kSecAttrViewHintPCSMasterKey};
-
-            status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
-            if(status) {
-                // Don't report error upwards; this is an optimization fixup.
-                secerror("ckkskey: Couldn't update viewhint on existing TLK %@", self);
+        if(localError && localError.code != errSecItemNotFound) {
+            if(error) {
+                *error = [NSError errorWithDomain:@"securityd"
+                                             code:localError.code
+                                         userInfo:@{NSLocalizedDescriptionKey:
+                                                        [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
+                                                    NSUnderlyingErrorKey: localError,
+                                                    }];
             }
+            return nil;
         }
     }
 
-    // Okay, back to the real purpose of this function: extract the CFData currently in the results dictionary
-    NSData* b64keymaterial = resultDict[(id)kSecValueData];
-    NSData* keymaterial = [[NSData alloc] initWithBase64EncodedData:b64keymaterial options:0];
-    return keymaterial;
+    // We didn't early-return. Use whatever error the original fetch produced.
+    if(error && originalError) {
+        *error = [NSError errorWithDomain:@"securityd"
+                                     code:originalError.code
+                                 userInfo:@{NSLocalizedDescriptionKey:
+                                                [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)originalError.code],
+                                            NSUnderlyingErrorKey: originalError,
+                                            }];
+    }
+
+    return result;
 }
 
 - (bool)loadKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
     bool resave = false;
-    NSData* keymaterial = [CKKSKey loadKeyMaterialFromKeychain:self resave:&resave error:error];
+    NSDictionary* result = [CKKSKey fetchKeyMaterialItemFromKeychain:self resave:&resave error:error];
+    if(!result) {
+        return false;
+    }
+
+    NSData* b64keymaterial = result[(id)kSecValueData];
+    NSData* keymaterial = [[NSData alloc] initWithBase64EncodedData:b64keymaterial options:0];
     if(!keymaterial) {
         return false;
     }
@@ -769,6 +833,44 @@
 
     return record;
 }
+
+- (bool)matchesCKRecord:(CKRecord*)record {
+    if(![record.recordType isEqual: SecCKRecordIntermediateKeyType]) {
+        return false;
+    }
+
+    if(![record.recordID.recordName isEqualToString: self.uuid]) {
+        secinfo("ckkskey", "UUID does not match");
+        return false;
+    }
+
+    // For the parent key ref, ensure that if it's nil, we wrap ourself
+    if(record[SecCKRecordParentKeyRefKey] == nil) {
+        if(![self wrapsSelf]) {
+            secinfo("ckkskey", "wrapping key reference (self-wrapped) does not match");
+            return false;
+        }
+
+    } else {
+        if(![[[record[SecCKRecordParentKeyRefKey] recordID] recordName] isEqualToString: self.parentKeyUUID]) {
+            secinfo("ckkskey", "wrapping key reference (non-self-wrapped) does not match");
+            return false;
+        }
+    }
+
+    if(![record[SecCKRecordKeyClassKey] isEqual: self.keyclass]) {
+        secinfo("ckkskey", "key class does not match");
+        return false;
+    }
+
+    if(![record[SecCKRecordWrappedKeyKey] isEqual: [self.wrappedkey base64WrappedKey]]) {
+        secinfo("ckkskey", "wrapped key does not match");
+        return false;
+    }
+
+    return true;
+}
+
 
 #pragma mark - Utility
 

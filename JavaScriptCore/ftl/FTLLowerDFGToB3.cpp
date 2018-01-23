@@ -1708,7 +1708,7 @@ private:
 #if ENABLE(MATH_IC_STATS)
                         auto slowPathEnd = jit.label();
                         jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                            size_t size = static_cast<char*>(linkBuffer.locationOf(slowPathEnd).executableAddress()) - static_cast<char*>(linkBuffer.locationOf(slowPathStart).executableAddress());
+                            size_t size = linkBuffer.locationOf(slowPathEnd).executableAddress<char*>() - linkBuffer.locationOf(slowPathStart).executableAddress<char*>();
                             mathIC->m_generatedCodeSize += size;
                         });
 #endif
@@ -1722,7 +1722,7 @@ private:
 #if ENABLE(MATH_IC_STATS)
                 auto inlineEnd = jit.label();
                 jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                    size_t size = static_cast<char*>(linkBuffer.locationOf(inlineEnd).executableAddress()) - static_cast<char*>(linkBuffer.locationOf(inlineStart).executableAddress());
+                    size_t size = linkBuffer.locationOf(inlineEnd).executableAddress<char*>() - linkBuffer.locationOf(inlineStart).executableAddress<char*>();
                     mathIC->m_generatedCodeSize += size;
                 });
 #endif
@@ -1801,7 +1801,7 @@ private:
 #if ENABLE(MATH_IC_STATS)
                         auto slowPathEnd = jit.label();
                         jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                            size_t size = static_cast<char*>(linkBuffer.locationOf(slowPathEnd).executableAddress()) - static_cast<char*>(linkBuffer.locationOf(slowPathStart).executableAddress());
+                            size_t size = linkBuffer.locationOf(slowPathEnd).executableAddress<char*>() - linkBuffer.locationOf(slowPathStart).executableAddress<char*>();
                             mathIC->m_generatedCodeSize += size;
                         });
 #endif
@@ -1815,7 +1815,7 @@ private:
 #if ENABLE(MATH_IC_STATS)
                 auto inlineEnd = jit.label();
                 jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                    size_t size = static_cast<char*>(linkBuffer.locationOf(inlineEnd).executableAddress()) - static_cast<char*>(linkBuffer.locationOf(inlineStart).executableAddress());
+                    size_t size = linkBuffer.locationOf(inlineEnd).executableAddress<char*>() - linkBuffer.locationOf(inlineStart).executableAddress<char*>();
                     mathIC->m_generatedCodeSize += size;
                 });
 #endif
@@ -3022,9 +3022,10 @@ private:
         LValue args[2];
         for (unsigned i = numExtraArgs; i--;)
             args[i] = getIntTypedArrayStoreOperand(argEdges[i]);
+        LValue base = lowCell(baseEdge);
         LValue storage = lowStorage(storageEdge);
-        
-        TypedPointer pointer = pointerIntoTypedArray(storage, index, type);
+
+        TypedPointer pointer = pointerIntoTypedArray(base, storage, index, type);
         Width width = widthForBytes(elementSize(type));
         
         LValue atomicValue;
@@ -3658,13 +3659,14 @@ private:
         }
             
         default: {
+            LValue base = lowCell(m_node->child1());
             LValue index = lowInt32(m_node->child2());
             LValue storage = lowStorage(m_node->child3());
             
             TypedArrayType type = m_node->arrayMode().typedArrayType();
             
             if (isTypedView(type)) {
-                TypedPointer pointer = pointerIntoTypedArray(storage, index, type);
+                TypedPointer pointer = pointerIntoTypedArray(base, storage, index, type);
                 
                 if (isInt(type)) {
                     LValue result = loadFromIntTypedArray(pointer, type);
@@ -4363,10 +4365,23 @@ private:
             return;
         }
         
+
         RegisteredStructure structure = m_graph.registerStructure(
-            isGeneratorFunction ? m_graph.globalObjectFor(m_node->origin.semantic)->generatorFunctionStructure() :
-            isAsyncFunction ? m_graph.globalObjectFor(m_node->origin.semantic)->asyncFunctionStructure() :
-            m_graph.globalObjectFor(m_node->origin.semantic)->functionStructure());
+            [&] () {
+                switch (m_node->op()) {
+                case NewGeneratorFunction:
+                    return m_graph.globalObjectFor(m_node->origin.semantic)->generatorFunctionStructure();
+                case NewAsyncFunction:
+                    return m_graph.globalObjectFor(m_node->origin.semantic)->asyncFunctionStructure();
+                case NewFunction:
+                    if (m_node->castOperand<FunctionExecutable*>()->isStrictMode())
+                        return m_graph.globalObjectFor(m_node->origin.semantic)->strictFunctionStructure();
+                    return m_graph.globalObjectFor(m_node->origin.semantic)->sloppyFunctionStructure();
+                    break;
+                default:
+                    RELEASE_ASSERT_NOT_REACHED();
+                }
+            }());
         
         LBasicBlock slowPath = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
@@ -5078,8 +5093,10 @@ private:
             LValue fastResultValue =
                 allocateObject<JSArrayBufferView>(structure, m_out.intPtrZero, slowCase);
 
+            LValue indexingMask = m_out.castToInt32(m_out.lShr(m_out.zeroExt(m_out.constInt32(-1), Int64), m_out.ctlz32(size)));
             m_out.storePtr(storage, fastResultValue, m_heaps.JSArrayBufferView_vector);
             m_out.store32(size, fastResultValue, m_heaps.JSArrayBufferView_length);
+            m_out.store32(indexingMask, fastResultValue, m_heaps.JSArrayBufferView_indexingMask);
             m_out.store32(m_out.constInt32(FastTypedArray), fastResultValue, m_heaps.JSArrayBufferView_mode);
             
             mutatorFence();
@@ -5400,6 +5417,7 @@ private:
         LBasicBlock lastNext = m_out.appendTo(fastPath, slowPath);
             
         LValue stringImpl = m_out.loadPtr(base, m_heaps.JSString_value);
+        LValue indexForAccess = m_out.bitAnd(index, m_out.load32(stringImpl, m_heaps.StringImpl_mask));
             
         LBasicBlock is8Bit = m_out.newBlock();
         LBasicBlock is16Bit = m_out.newBlock();
@@ -5416,7 +5434,7 @@ private:
             
         ValueFromBlock char8Bit = m_out.anchor(
             m_out.load8ZeroExt32(m_out.baseIndex(
-                m_heaps.characters8, storage, m_out.zeroExtPtr(index),
+                m_heaps.characters8, storage, m_out.zeroExtPtr(indexForAccess),
                 provenValue(m_node->child2()))));
         m_out.jump(bitsContinuation);
             
@@ -5424,7 +5442,7 @@ private:
 
         LValue char16BitValue = m_out.load16ZeroExt32(
             m_out.baseIndex(
-                m_heaps.characters16, storage, m_out.zeroExtPtr(index),
+                m_heaps.characters16, storage, m_out.zeroExtPtr(indexForAccess),
                 provenValue(m_node->child2())));
         ValueFromBlock char16Bit = m_out.anchor(char16BitValue);
         m_out.branch(
@@ -5506,6 +5524,7 @@ private:
                 index, m_out.load32NonNegative(base, m_heaps.JSString_length)));
         
         LValue stringImpl = m_out.loadPtr(base, m_heaps.JSString_value);
+        LValue indexForAccess = m_out.bitAnd(index, m_out.load32(stringImpl, m_heaps.StringImpl_mask));
         
         m_out.branch(
             m_out.testIsZero32(
@@ -5517,7 +5536,7 @@ private:
             
         ValueFromBlock char8Bit = m_out.anchor(
             m_out.load8ZeroExt32(m_out.baseIndex(
-                m_heaps.characters8, storage, m_out.zeroExtPtr(index),
+                m_heaps.characters8, storage, m_out.zeroExtPtr(indexForAccess),
                 provenValue(m_node->child2()))));
         m_out.jump(continuation);
             
@@ -5525,7 +5544,7 @@ private:
             
         ValueFromBlock char16Bit = m_out.anchor(
             m_out.load16ZeroExt32(m_out.baseIndex(
-                m_heaps.characters16, storage, m_out.zeroExtPtr(index),
+                m_heaps.characters16, storage, m_out.zeroExtPtr(indexForAccess),
                 provenValue(m_node->child2()))));
         m_out.jump(continuation);
         
@@ -6285,7 +6304,7 @@ private:
                     [=] (LinkBuffer& linkBuffer) {
                         MacroAssemblerCodePtr linkCall =
                             vm->getCTIStub(linkCallThunkGenerator).code();
-                        linkBuffer.link(slowCall, FunctionPtr(linkCall.executableAddress()));
+                        linkBuffer.link(slowCall, FunctionPtr(linkCall));
 
                         callLinkInfo->setCallLocations(
                             CodeLocationLabel(linkBuffer.locationOfNearCall(slowCall)),
@@ -6596,7 +6615,7 @@ private:
                     [=] (LinkBuffer& linkBuffer) {
                         MacroAssemblerCodePtr linkCall =
                             vm->getCTIStub(linkCallThunkGenerator).code();
-                        linkBuffer.link(slowCall, FunctionPtr(linkCall.executableAddress()));
+                        linkBuffer.link(slowCall, FunctionPtr(linkCall));
 
                         callLinkInfo->setCallLocations(
                             CodeLocationLabel(linkBuffer.locationOfNearCall(slowCall)),
@@ -6867,7 +6886,7 @@ private:
                     [=] (LinkBuffer& linkBuffer) {
                         MacroAssemblerCodePtr linkCall =
                             vm->getCTIStub(linkCallThunkGenerator).code();
-                        linkBuffer.link(slowCall, FunctionPtr(linkCall.executableAddress()));
+                        linkBuffer.link(slowCall, FunctionPtr(linkCall));
                         
                         callLinkInfo->setCallLocations(
                             CodeLocationLabel(linkBuffer.locationOfNearCall(slowCall)),
@@ -7150,7 +7169,7 @@ private:
                     [=] (LinkBuffer& linkBuffer) {
                         MacroAssemblerCodePtr linkCall =
                             vm->getCTIStub(linkCallThunkGenerator).code();
-                        linkBuffer.link(slowCall, FunctionPtr(linkCall.executableAddress()));
+                        linkBuffer.link(slowCall, FunctionPtr(linkCall));
                         
                         callLinkInfo->setCallLocations(
                             CodeLocationLabel(linkBuffer.locationOfNearCall(slowCall)),
@@ -10403,7 +10422,9 @@ private:
             LBasicBlock continuation = m_out.newBlock();
 
             LValue structure = loadStructure(cell);
-            ValueFromBlock otherAtStart = m_out.anchor(m_out.loadPtr(structure, m_heaps.Structure_classInfo));
+            LValue poisonedClassInfo = m_out.loadPtr(structure, m_heaps.Structure_classInfo);
+            LValue classInfo = m_out.bitXor(poisonedClassInfo, m_out.constInt64(g_globalDataPoison));
+            ValueFromBlock otherAtStart = m_out.anchor(classInfo);
             m_out.jump(loop);
 
             LBasicBlock lastNext = m_out.appendTo(loop, parentClass);
@@ -12083,14 +12104,15 @@ private:
         functor(TypeofType::Undefined);
     }
     
-    TypedPointer pointerIntoTypedArray(LValue storage, LValue index, TypedArrayType type)
+    TypedPointer pointerIntoTypedArray(LValue base, LValue storage, LValue index, TypedArrayType type)
     {
+        LValue mask = m_out.load32(base, m_heaps.JSArrayBufferView_indexingMask);
         return TypedPointer(
             m_heaps.typedArrayProperties,
             m_out.add(
                 storage,
                 m_out.shl(
-                    m_out.zeroExtPtr(index),
+                    m_out.zeroExtPtr(m_out.bitAnd(index, mask)),
                     m_out.constIntPtr(logElementSize(type)))));
     }
     

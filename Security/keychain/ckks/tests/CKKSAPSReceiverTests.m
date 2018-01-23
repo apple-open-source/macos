@@ -30,6 +30,8 @@
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "keychain/ckks/CKKSCondition.h"
 
+#if OCTAGON
+
 @interface CKKSAPSNotificationReceiver : NSObject <CKKSZoneUpdateReceiver>
 @property XCTestExpectation* expectation;
 @property void (^block)(CKRecordZoneNotification* notification);
@@ -122,7 +124,7 @@
                                             XCTAssertEqual(strongSelf.testZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
                                         }];
 
-    CKKSCondition* registered = [apsr register:anr forZoneID:self.testZoneID];
+    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
     APSIncomingMessage* message = [self messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
@@ -157,8 +159,8 @@
                                             XCTAssertEqual(otherZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
                                         }];
 
-    CKKSCondition* registered = [apsr register:anr forZoneID:self.testZoneID];
-    CKKSCondition* registered2 = [apsr register:anr2 forZoneID:otherZoneID];
+    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
+    CKKSCondition* registered2 = [apsr registerReceiver:anr2 forZoneID:otherZoneID];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
     XCTAssertEqual(0, [registered2 wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
 
@@ -185,10 +187,12 @@
                                             XCTAssertNil(notification, "Should not have received a notification, since we weren't alive to receive it");
                                         }];
 
-    CKKSCondition* registered = [apsr register:anr forZoneID:self.testZoneID];
+    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
 @end
+
+#endif

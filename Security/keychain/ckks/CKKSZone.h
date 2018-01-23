@@ -21,39 +21,33 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef CKKSZone_h
-#define CKKSZone_h
-
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
-#import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
-#endif
+#import "keychain/ckks/CloudKitDependencies.h"
 
-#if OCTAGON
-@interface CKKSZone : NSObject<CKKSZoneUpdateReceiver, CKKSAccountStateListener> {
+NS_ASSUME_NONNULL_BEGIN
+
+@interface CKKSZone : NSObject <CKKSZoneUpdateReceiver, CKKSAccountStateListener>
+{
     CKContainer* _container;
     CKDatabase* _database;
     CKRecordZone* _zone;
 }
-#else
-@interface CKKSZone : NSObject {
-}
-#endif
 
 @property (readonly) NSString* zoneName;
 
-@property bool setupStarted;
-@property bool setupComplete;
 @property CKKSGroupOperation* zoneSetupOperation;
 
 @property bool zoneCreated;
 @property bool zoneSubscribed;
-@property NSError* zoneCreatedError;
-@property NSError* zoneSubscribedError;
+@property (nullable) NSError* zoneCreatedError;
+@property (nullable) NSError* zoneSubscribedError;
 
-#if OCTAGON
+// True if this zone object has been halted. Halted zones will never recover.
+@property (readonly) bool halted;
+
 @property CKKSAccountStatus accountStatus;
 
 @property (readonly) CKContainer* container;
@@ -74,39 +68,49 @@
 
 @property dispatch_queue_t queue;
 
-- (instancetype)initWithContainer:     (CKContainer*) container
-                             zoneName: (NSString*) zoneName
-                       accountTracker:(CKKSCKAccountStateTracker*) tracker
- fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
-           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
-    modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
-      modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
-                   apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass;
+- (instancetype)initWithContainer:(CKContainer*)container
+                                zoneName:(NSString*)zoneName
+                          accountTracker:(CKKSCKAccountStateTracker*)tracker
+    fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
+              fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                     queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
+       modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>)modifySubscriptionsOperationClass
+         modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>)modifyRecordZonesOperationClass
+                      apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass;
 
 
-- (NSOperation*) createSetupOperation: (bool) zoneCreated zoneSubscribed: (bool) zoneSubscribed;
-
-- (CKKSResultOperation*) beginResetCloudKitZoneOperation;
+- (CKKSResultOperation* _Nullable)beginResetCloudKitZoneOperation;
 
 // Called when CloudKit notifies us that we just logged in.
 // That is, if we transition from any state to CKAccountStatusAvailable.
-// This will be called under the protection of dispatchSync
+// This will be called under the protection of dispatchSync.
+// This is a no-op; you should intercept this call and call handleCKLogin:zoneSubscribed:
+// with the appropriate state
 - (void)handleCKLogin;
+
+// Actually start a cloudkit login. Pass in whether you believe this zone has been created and if this device has
+// subscribed to this zone on the server.
+- (NSOperation* _Nullable)handleCKLogin:(bool)zoneCreated zoneSubscribed:(bool)zoneSubscribed;
 
 // Called when CloudKit notifies us that we just logged out.
 // i.e. we transition from CKAccountStatusAvailable to any other state.
 // This will be called under the protection of dispatchSync
 - (void)handleCKLogout;
 
+// Call this when you're ready for this zone to kick off operations
+// based on iCloud account status
+- (void)initializeZone;
+
 // Cancels all operations (no matter what they are).
 - (void)cancelAllOperations;
+// Reissues the call
+- (void)restartCurrentAccountStateOperation;
 
 // Schedules this operation for execution (if the CloudKit account exists)
-- (bool)scheduleOperation: (NSOperation*) op;
+- (bool)scheduleOperation:(NSOperation*)op;
 
 // Use this to schedule an operation handling account status (cleaning up after logout, etc.).
-- (bool)scheduleAccountStatusOperation: (NSOperation*) op;
+- (bool)scheduleAccountStatusOperation:(NSOperation*)op;
 
 // Schedules this operation for execution, and doesn't do any dependency magic
 // This should _only_ be used if you want to run something even if the CloudKit account is logged out
@@ -116,15 +120,19 @@
 - (void)waitUntilAllOperationsAreFinished;
 
 // Use this for testing, to only wait for a certain type of operation to finish.
-- (void)waitForOperationsOfClass:(Class) operationClass;
+- (void)waitForOperationsOfClass:(Class)operationClass;
 
 // If this object wants to do anything that needs synchronization, use this.
-- (void) dispatchSync: (bool (^)(void)) block;
+// If this object has had -halt called, this block will never fire.
+- (void)dispatchSync:(bool (^)(void))block;
+
+// Call this to halt everything this zone is doing. This object will never recover. Use for testing.
+- (void)halt;
 
 // Call this to reset this object's setup, so you can call createSetupOperation again.
 - (void)resetSetup;
 
-#endif
 @end
 
-#endif /* CKKSZone_h */
+NS_ASSUME_NONNULL_END
+#endif  // OCTAGON

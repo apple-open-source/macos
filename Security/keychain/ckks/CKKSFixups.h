@@ -24,9 +24,9 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
-#import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 
 // Sometimes things go wrong.
 // Sometimes you have to clean up after your past self.
@@ -36,8 +36,9 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
     CKKSFixupNever,
     CKKSFixupRefetchCurrentItemPointers,
     CKKSFixupFetchTLKShares,
+    CKKSFixupLocalReload,
 };
-#define CKKSCurrentFixupNumber (SecCKKSShareTLKs() ? CKKSFixupFetchTLKShares : CKKSFixupRefetchCurrentItemPointers)
+#define CKKSCurrentFixupNumber (CKKSFixupLocalReload)
 
 @interface CKKSFixups : NSObject
 +(CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView;
@@ -46,12 +47,18 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
 // Fixup declarations. You probably don't need to look at these
 @interface CKKSFixupRefetchAllCurrentItemPointers : CKKSGroupOperation
 @property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup *)ckoperationGroup;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
 @interface CKKSFixupFetchAllTLKShares : CKKSGroupOperation
 @property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup *)ckoperationGroup;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
-#endif // OCTAGON
+@interface CKKSFixupLocalReloadOperation : CKKSGroupOperation
+@property (weak) CKKSKeychainView* ckks;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
+                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+@end
+
+#endif  // OCTAGON

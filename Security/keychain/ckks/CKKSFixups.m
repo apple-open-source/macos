@@ -39,17 +39,17 @@
     CKKSGroupOperation* fixups = [[CKKSGroupOperation alloc] init];
     fixups.name = @"ckks-fixups";
 
-    CKKSResultOperation* previousOp = nil;
+    CKKSResultOperation* previousOp = keychainView.holdFixupOperation;
 
     if(lastfixup < CKKSFixupRefetchCurrentItemPointers) {
         CKKSResultOperation* refetch = [[CKKSFixupRefetchAllCurrentItemPointers alloc] initWithCKKSKeychainView:keychainView
                                                                                                ckoperationGroup:fixupCKGroup];
-        [refetch addNullableSuccessDependency:previousOp];
+        [refetch addNullableDependency:previousOp];
         [fixups runBeforeGroupFinished:refetch];
         previousOp = refetch;
     }
 
-    if(SecCKKSShareTLKs() && lastfixup < CKKSFixupFetchTLKShares) {
+    if(lastfixup < CKKSFixupFetchTLKShares) {
         CKKSResultOperation* fetchShares = [[CKKSFixupFetchAllTLKShares alloc] initWithCKKSKeychainView:keychainView
                                                                                        ckoperationGroup:fixupCKGroup];
         [fetchShares addNullableSuccessDependency:previousOp];
@@ -57,6 +57,15 @@
         previousOp = fetchShares;
     }
 
+    if(lastfixup < CKKSFixupLocalReload) {
+        CKKSResultOperation* localSync = [[CKKSFixupLocalReloadOperation alloc] initWithCKKSKeychainView:keychainView
+                                                                                        ckoperationGroup:fixupCKGroup];
+        [localSync addNullableSuccessDependency:previousOp];
+        [fixups runBeforeGroupFinished:localSync];
+        previousOp = localSync;
+    }
+
+    (void)previousOp;
     return fixups;
 }
 @end
@@ -268,5 +277,68 @@
 }
 @end
 
+#pragma mark - CKKSFixupLocalReloadOperation
+
+@interface CKKSFixupLocalReloadOperation ()
+@property CKOperationGroup* group;
+@end
+
+// In <rdar://problem/35540228> Server Generated CloudKit "Manatee Identity Lost"
+// items could be deleted from the local keychain after CKKS believed they were already synced, and therefore wouldn't resync
+// Perform a local resync operation
+@implementation CKKSFixupLocalReloadOperation
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
+                        ckoperationGroup:(CKOperationGroup *)ckoperationGroup
+{
+    if((self = [super init])) {
+        _ckks = keychainView;
+        _group = ckoperationGroup;
+    }
+    return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSFixup:LocalReload (%@)>", self.ckks];
+}
+- (void)groupStart {
+    CKKSKeychainView* ckks = self.ckks;
+    __weak __typeof(self) weakSelf = self;
+    if(!ckks) {
+        ckkserror("ckksfixup", ckks, "no CKKS object");
+        self.error = [NSError errorWithDomain:CKKSErrorDomain code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
+        return;
+    }
+
+    CKKSResultOperation* reload = [[CKKSReloadAllItemsOperation alloc] initWithCKKSKeychainView:ckks];
+    [self runBeforeGroupFinished:reload];
+
+    CKKSResultOperation* cleanup = [CKKSResultOperation named:@"local-reload-cleanup" withBlock:^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        __strong __typeof(self.ckks) strongCKKS = strongSelf.ckks;
+        [strongCKKS dispatchSync:^bool{
+            if(reload.error) {
+                ckkserror("ckksfixup", strongCKKS, "Couldn't perform a reload: %@", reload.error);
+                strongSelf.error = reload.error;
+                return false;
+            }
+
+            ckksnotice("ckksfixup", strongCKKS, "Successfully performed a reload fixup");
+
+            NSError* localerror = nil;
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:strongCKKS.zoneName error:&localerror];
+            ckse.lastFixup = CKKSFixupLocalReload;
+            [ckse saveToDatabase:&localerror];
+            if(localerror) {
+                ckkserror("ckksfixup", strongCKKS, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+            } else {
+                ckksnotice("ckksfixup", strongCKKS, "Updated zone fixup state to CKKSFixupLocalReload");
+            }
+            return true;
+        }];
+    }];
+    [cleanup addNullableDependency:reload];
+    [self runBeforeGroupFinished:cleanup];
+}
+@end
 
 #endif // OCTAGON

@@ -21,14 +21,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <XCTest/XCTest.h>
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
+#import <XCTest/XCTest.h>
 
 #import <Foundation/Foundation.h>
 
-#import "keychain/ckks/tests/MockCloudKit.h"
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/tests/MockCloudKit.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKey;
 @class CKKSCKRecordHolder;
@@ -39,19 +41,18 @@
 
 @interface CloudKitMockXCTest : XCTestCase
 
-#if OCTAGON
-
 @property CKRecordZoneID* testZoneID;
 
-@property id mockDatabase;
-@property id mockContainer;
-@property id mockFakeCKModifyRecordZonesOperation;
-@property id mockFakeCKModifySubscriptionsOperation;
-@property id mockFakeCKFetchRecordZoneChangesOperation;
-@property id mockFakeCKFetchRecordsOperation;
-@property id mockFakeCKQueryOperation;
+@property (nullable) id mockDatabase;
+@property (nullable) id mockDatabaseExceptionCatcher;
+@property (nullable) id mockContainer;
+@property (nullable) id mockFakeCKModifyRecordZonesOperation;
+@property (nullable) id mockFakeCKModifySubscriptionsOperation;
+@property (nullable) id mockFakeCKFetchRecordZoneChangesOperation;
+@property (nullable) id mockFakeCKFetchRecordsOperation;
+@property (nullable) id mockFakeCKQueryOperation;
 
-@property id mockAccountStateTracker;
+@property (nullable) id mockAccountStateTracker;
 
 @property CKAccountStatus accountStatus;
 @property BOOL supportsDeviceToDeviceEncryption;
@@ -61,57 +62,59 @@
 
 @property NSString* circlePeerID;
 
-@property bool aksLockState; // The current 'AKS lock state'
+@property bool aksLockState;  // The current 'AKS lock state'
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
-@property id mockLockStateTracker;
+@property (nullable) id mockLockStateTracker;
 
-@property NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>* zones;
+@property (nullable) NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>* zones;
 
-@property NSOperationQueue* operationQueue;
-@property NSBlockOperation* ckksHoldOperation;
-@property NSBlockOperation* ckaccountHoldOperation;
+@property (nullable) NSOperationQueue* operationQueue;
+@property (nullable) NSBlockOperation* ckaccountHoldOperation;
 
-@property NSBlockOperation* ckModifyHoldOperation;
-@property NSBlockOperation* ckFetchHoldOperation;
+@property (nullable) NSBlockOperation* ckModifyHoldOperation;
+@property (nullable) NSBlockOperation* ckFetchHoldOperation;
 
 @property bool silentFetchesAllowed;
 
-@property id mockCKKSViewManager;
-@property CKKSViewManager* injectedManager;
+@property (nullable) id mockCKKSViewManager;
+@property (nullable) CKKSViewManager* injectedManager;
 
-- (CKKSKey*) fakeTLK: (CKRecordZoneID*)zoneID;
+- (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID;
 
-- (void)expectCKModifyItemRecords: (NSUInteger) expectedNumberOfRecords
-         currentKeyPointerRecords: (NSUInteger) expectedCurrentKeyRecords
-                           zoneID: (CKRecordZoneID*) zoneID;
-- (void)expectCKModifyItemRecords: (NSUInteger) expectedNumberOfRecords
-         currentKeyPointerRecords: (NSUInteger) expectedCurrentKeyRecords
-                           zoneID: (CKRecordZoneID*) zoneID
-                        checkItem: (BOOL (^)(CKRecord*)) checkItem;
+- (void)expectCKModifyItemRecords:(NSUInteger)expectedNumberOfRecords
+         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                           zoneID:(CKRecordZoneID*)zoneID;
+- (void)expectCKModifyItemRecords:(NSUInteger)expectedNumberOfRecords
+         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                           zoneID:(CKRecordZoneID*)zoneID
+                        checkItem:(BOOL (^_Nullable)(CKRecord*))checkItem;
 
 - (void)expectCKModifyItemRecords:(NSUInteger)expectedNumberOfModifiedRecords
                    deletedRecords:(NSUInteger)expectedNumberOfDeletedRecords
          currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
                            zoneID:(CKRecordZoneID*)zoneID
-                        checkItem:(BOOL (^)(CKRecord*))checkItem;
+                        checkItem:(BOOL (^_Nullable)(CKRecord*))checkItem;
 
-- (void)expectCKDeleteItemRecords: (NSUInteger) expectedNumberOfRecords zoneID: (CKRecordZoneID*) zoneID;
+- (void)expectCKDeleteItemRecords:(NSUInteger)expectedNumberOfRecords zoneID:(CKRecordZoneID*)zoneID;
 
 - (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
                  tlkShareRecords:(NSUInteger)expectedTLKShareRecords
                           zoneID:(CKRecordZoneID*)zoneID;
 
-- (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*) expectedRecordTypeCounts
-      deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*) expectedDeletedRecordTypeCounts
-                       zoneID:(CKRecordZoneID*) zoneID
-          checkModifiedRecord:(BOOL (^)(CKRecord*)) checkRecord
-         runAfterModification:(void (^) ())afterModification;
+- (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)expectedRecordTypeCounts
+      deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>* _Nullable)expectedDeletedRecordTypeCounts
+                       zoneID:(CKRecordZoneID*)zoneID
+          checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkRecord
+         runAfterModification:(void (^_Nullable)())afterModification;
 
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID;
-- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)())blockAfterReject;
-- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)())blockAfterReject withError:(NSError*)error;
-- (void)expectCKAtomicModifyItemRecordsUpdateFailure: (CKRecordZoneID*) zoneID;
+- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID
+                                      blockAfterReject:(void (^_Nullable)())blockAfterReject;
+- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID
+                                      blockAfterReject:(void (^_Nullable)())blockAfterReject
+                                             withError:(NSError* _Nullable)error;
+- (void)expectCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID;
 
 - (void)failNextZoneCreation:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneCreationSilently:(CKRecordZoneID*)zoneID;
@@ -123,19 +126,16 @@
 
 // Use this to 1) assert that a fetch occurs and 2) cause a block to run _after_ all changes have been delivered but _before_ the fetch 'completes'.
 // This way, you can modify the CK zone to cause later collisions.
-- (void)expectCKFetchAndRunBeforeFinished: (void (^)())blockAfterFetch;
+- (void)expectCKFetchAndRunBeforeFinished:(void (^_Nullable)())blockAfterFetch;
 
 // Use this to assert that a FakeCKFetchRecordsOperation occurs.
--(void)expectCKFetchByRecordID;
+- (void)expectCKFetchByRecordID;
 
 // Use this to assert that a FakeCKQueryOperation occurs.
 - (void)expectCKFetchByQuery;
 
 // Wait until all scheduled cloudkit operations are reflected in the currentDatabase
 - (void)waitForCKModifications;
-
-// Unblocks the CKKS subsystem only.
-- (void)startCKKSSubsystemOnly;
 
 // Unblocks the CKAccount mock subsystem. Until this is called, the tests believe cloudd hasn't returned any account status yet.
 - (void)startCKAccountStatusMock;
@@ -144,22 +144,23 @@
 - (void)startCKKSSubsystem;
 
 // Blocks the completion (partial or full) of CloudKit modifications
--(void)holdCloudKitModifications;
+- (void)holdCloudKitModifications;
 
 // Unblocks the hold you've added with holdCloudKitModifications; CloudKit modifications will finish
--(void)releaseCloudKitModificationHold;
+- (void)releaseCloudKitModificationHold;
 
 // Blocks the CloudKit fetches from beginning (similar to network latency)
--(void)holdCloudKitFetches;
+- (void)holdCloudKitFetches;
 // Unblocks the hold you've added with holdCloudKitFetches; CloudKit fetches will finish
--(void)releaseCloudKitFetchHold;
+- (void)releaseCloudKitFetchHold;
 
 // Make a CK internal server extension error with a given code and description.
 - (NSError*)ckInternalServerExtensionError:(NSInteger)code description:(NSString*)desc;
 
 // Schedule an operation for execution (and failure), with some existing record errors.
 // Other records in the operation but not in failedRecords will have CKErrorBatchRequestFailed errors created.
--(void)rejectWrite:(CKModifyRecordsOperation*)op failedRecords:(NSMutableDictionary<CKRecordID*, NSError*>*)failedRecords;
+- (void)rejectWrite:(CKModifyRecordsOperation*)op failedRecords:(NSMutableDictionary<CKRecordID*, NSError*>*)failedRecords;
 
-#endif // OCTAGON
 @end
+
+NS_ASSUME_NONNULL_END

@@ -23,10 +23,10 @@
 
 #if OCTAGON
 
-#import "CKKSSQLDatabaseObject.h"
-#import "CKKSItem.h"
-#include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
+#import "CKKSItem.h"
+#import "CKKSSQLDatabaseObject.h"
 
 #ifndef CKKSMirrorEntry_h
 #define CKKSMirrorEntry_h
@@ -42,15 +42,15 @@
 
 @property uint64_t wasCurrent;
 
--(instancetype)initWithCKKSItem:(CKKSItem*)item;
--(instancetype)initWithCKRecord:(CKRecord*)record;
--(void)setFromCKRecord: (CKRecord*) record;
-- (bool)matchesCKRecord: (CKRecord*) record;
+- (instancetype)initWithCKKSItem:(CKKSItem*)item;
+- (instancetype)initWithCKRecord:(CKRecord*)record;
+- (void)setFromCKRecord:(CKRecord*)record;
+- (bool)matchesCKRecord:(CKRecord*)record;
 
-+ (instancetype) fromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (instancetype)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 @end
 

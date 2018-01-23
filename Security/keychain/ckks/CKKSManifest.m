@@ -28,7 +28,6 @@
 #import "CKKS.h"
 #import "CKKSItem.h"
 #import "CKKSCurrentItemPointer.h"
-#import "CKKSAnalyticsLogger.h"
 #import "utilities/der_plist.h"
 #import <securityd/SOSCloudCircleServer.h>
 #import <securityd/SecItemServer.h>
@@ -282,7 +281,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 {
     CKKSAccountInfo* accountInfo = [[CKKSAccountInfo alloc] init];
 
-    [[CKKSEgoManifest egoHelper] performWithSigningKey:^(_SFECKeyPair* signingKey, NSError* error) {
+    [[CKKSEgoManifest egoHelper] performWithSigningKey:^(SFECKeyPair* signingKey, NSError* error) {
         accountInfo.signingKey = signingKey;
         if(error) {
             secerror("ckksmanifest: cannot get signing key from account: %@", error);
@@ -522,14 +521,12 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     NSString* signatureBase64String = record[SecCKRecordManifestSignaturesKey];
     if (!signatureBase64String) {
         ckkserror("ckksmanifest", record.recordID.zoneID, "attempt to create manifest from CKRecord that does not have signatures attached: %@", record);
-        [[CKKSAnalyticsLogger logger] logHardFailureForEventNamed:@"CKKSManifestCreateFromCKRecord" withAttributes:@{CKKSManifestZoneKey : record.recordID.zoneID.zoneName}];
         return nil;
     }
     NSData* signatureDERData = [[NSData alloc] initWithBase64EncodedString:signatureBase64String options:0];
     NSDictionary* signaturesDict = [self signatureDictFromDERData:signatureDERData error:&error];
     if (error) {
         ckkserror("ckksmanifest", record.recordID.zoneID, "failed to initialize CKKSManifest from CKRecord because we could not form a signature dict from the record: %@", record);
-        [[CKKSAnalyticsLogger logger] logHardFailureForEventNamed:@"CKKSManifestCreateFromCKRecord" withAttributes:@{CKKSManifestZoneKey : record.recordID.zoneID.zoneName}];
         return nil;
     }
 
@@ -546,7 +543,6 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     NSString* digestBase64String = record[SecCKRecordManifestDigestValueKey];
     if (!digestBase64String) {
         ckkserror("ckksmanifest", record.recordID.zoneID, "attempt to create manifest from CKRecord that does not have a digest attached: %@", record);
-        [[CKKSAnalyticsLogger logger] logHardFailureForEventNamed:@"CKKSManifestCreateFromCKRecord" withAttributes:@{CKKSManifestZoneKey : record.recordID.zoneID.zoneName}];
         return nil;
     }
     NSData* digestData = [[NSData alloc] initWithBase64EncodedString:digestBase64String options:0];
@@ -562,12 +558,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
                                 signerID:record[SecCKRecordManifestSignerIDKey]
                                   schema:schemaDict]) {
         self.storedCKRecord = record;
-        [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestCreateFromCKRecord"];
     }
-    else {
-        [[CKKSAnalyticsLogger logger] logHardFailureForEventNamed:@"CKKSManifestCreateFromCKRecord" withAttributes:@{CKKSManifestZoneKey : record.recordID.zoneID.zoneName}];
-    }
-    
+
     return self;
 }
 
@@ -739,7 +731,6 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     
     NSData* signatureDERData = [self derDataFromSignatureDict:self.signatures error:nil];
     if (!signatureDERData) {
-        [[CKKSAnalyticsLogger logger] logHardFailureForEventNamed:@"CKKSManifestUpdateRecord" withAttributes:@{CKKSManifestZoneKey : zoneID.zoneName, CKKSManifestSignerIDKey : _signerID, CKKSManifestGenCountKey : @(_generationCount)}];
         return record;
     }
     
@@ -756,7 +747,6 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         record[key] = futureField;
     }];
     
-    [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestUpdateRecord"];
     return record;
 }
 
@@ -834,13 +824,6 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         }
     }
 
-    if (verified) {
-        [[CKKSAnalyticsLogger logger] logSuccessForEventNamed:@"CKKSManifestValidateSelf"];
-    }
-    else {
-        [[CKKSAnalyticsLogger logger] logSoftFailureForEventNamed:@"CKKSManifestValidateSelf" withAttributes:@{CKKSManifestZoneKey : _zoneName, CKKSManifestSignerIDKey : _signerID, CKKSManifestGenerationCountKey : @(_generationCount)}];
-    }
-    
     return verified;
 }
 

@@ -1985,6 +1985,13 @@ nano_init(const char *envp[], const char *apple[])
 	if (flag && flag[0] == '1') {
 		_malloc_engaged_nano = 1;
 	}
+#if CONFIG_NANO_SMALLMEM_DYNAMIC_DISABLE_35305995
+	// Disable nano malloc on <=1gb configurations rdar://problem/35305995
+	uint64_t memsize = platform_hw_memsize();
+	if (memsize <= (1ull << 30)) {
+		_malloc_engaged_nano = 0;
+	}
+#endif // CONFIG_NANO_SMALLMEM_DYNAMIC_DISABLE_35305995
 	/* Explicit overrides from the environment */
 	flag = _simple_getenv(envp, "MallocNanoZone");
 	if (flag && flag[0] == '1') {

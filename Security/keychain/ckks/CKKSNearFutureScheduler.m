@@ -23,12 +23,16 @@
 
 #import "CKKSNearFutureScheduler.h"
 #import "CKKSCondition.h"
+#import "keychain/ckks/NSOperationCategories.h"
 #include <os/transaction_private.h>
 
 @interface CKKSNearFutureScheduler ()
 @property NSString* name;
 @property dispatch_time_t initialDelay;
 @property dispatch_time_t continuingDelay;
+
+@property NSOperation* operationDependency;
+@property (nonnull) NSOperationQueue* operationQueue;
 
 @property NSDate* predictedNextFireTime;
 @property bool liveRequest;
@@ -43,16 +47,16 @@
 
 @implementation CKKSNearFutureScheduler
 
--(instancetype)initWithName:(NSString*)name delay:(dispatch_time_t)ns keepProcessAlive:(bool)keepProcessAlive block:(void (^)(void))futureOperation
+-(instancetype)initWithName:(NSString*)name delay:(dispatch_time_t)ns keepProcessAlive:(bool)keepProcessAlive block:(void (^)(void))futureBlock
 {
-    return [self initWithName:name initialDelay:ns continuingDelay:ns keepProcessAlive:keepProcessAlive block:futureOperation];
+    return [self initWithName:name initialDelay:ns continuingDelay:ns keepProcessAlive:keepProcessAlive block:futureBlock];
 }
 
 -(instancetype)initWithName:(NSString*)name
                initialDelay:(dispatch_time_t)initialDelay
             continuingDelay:(dispatch_time_t)continuingDelay
            keepProcessAlive:(bool)keepProcessAlive
-                      block:(void (^)(void))futureOperation
+                      block:(void (^)(void))futureBlock
 {
     if((self = [super init])) {
         _name = name;
@@ -60,15 +64,22 @@
         _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], DISPATCH_QUEUE_SERIAL);
         _initialDelay = initialDelay;
         _continuingDelay = continuingDelay;
-        _futureOperation = futureOperation;
+        _futureBlock = futureBlock;
 
         _liveRequest = false;
         _liveRequestReceived = [[CKKSCondition alloc] init];
         _predictedNextFireTime = nil;
 
         _keepProcessAlive = keepProcessAlive;
+
+        _operationQueue = [[NSOperationQueue alloc] init];
+        _operationDependency = [self makeOperationDependency];
     }
     return self;
+}
+
+- (NSOperation*)makeOperationDependency {
+    return [NSBlockOperation named:[NSString stringWithFormat:@"nfs-%@", self.name] withBlock:^{}];
 }
 
 -(NSString*)description {
@@ -86,7 +97,7 @@
     // If we have a live request, send the next fire time back. Otherwise, wait a tiny tiny bit to see if we receive a request.
     if(self.liveRequest) {
         return self.predictedNextFireTime;
-    } else if([self.liveRequestReceived wait:100*NSEC_PER_USEC] == 0) {
+    } else if([self.liveRequestReceived wait:50*NSEC_PER_USEC] == 0) {
         return self.predictedNextFireTime;
     }
 
@@ -103,10 +114,16 @@
     dispatch_assert_queue(self.queue);
 
     if(self.liveRequest) {
-        self.futureOperation();
+        // Put a new dependency in place, and save the old one for execution
+        NSOperation* dependency = self.operationDependency;
+        self.operationDependency = [self makeOperationDependency];
+
+        self.futureBlock();
         self.liveRequest = false;
         self.liveRequestReceived = [[CKKSCondition alloc] init];
         self.transaction = nil;
+
+        [self.operationQueue addOperation: dependency];
 
         self.predictedNextFireTime = [NSDate dateWithTimeIntervalSinceNow: (NSTimeInterval) ((double) self.continuingDelay) / (double) NSEC_PER_SEC];
     } else {

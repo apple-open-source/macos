@@ -39,15 +39,18 @@
 - (instancetype)initForClass:(CKKSKeyClass*)keyclass
               currentKeyUUID:(NSString*)currentKeyUUID
                       zoneID:(CKRecordZoneID*)zoneID
-             encodedCKRecord: (NSData*) encodedrecord;
+             encodedCKRecord:(NSData*)encodedrecord;
 
-+ (instancetype) fromDatabase: (CKKSKeyClass*) keyclass zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (CKKSKeyClass*) keyclass zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (instancetype)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
-+ (instancetype) forKeyClass: (CKKSKeyClass*) keyclass withKeyUUID: (NSString*) keyUUID zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (instancetype)forKeyClass:(CKKSKeyClass*)keyclass
+                withKeyUUID:(NSString*)keyUUID
+                     zoneID:(CKRecordZoneID*)zoneID
+                      error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSCurrentKeyPointer*>*)all:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (bool) deleteAll:(CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error;
++ (NSArray<CKKSCurrentKeyPointer*>*)all:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 @end
 
@@ -62,8 +65,8 @@
 
 @property NSArray<CKKSTLKShare*>* tlkShares;
 
--(instancetype)init;
--(instancetype)initForZone:(CKRecordZoneID*)zoneID;
+- (instancetype)init;
+- (instancetype)initForZone:(CKRecordZoneID*)zoneID;
 @end
 
 #endif

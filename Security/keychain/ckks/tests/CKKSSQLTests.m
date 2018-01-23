@@ -24,6 +24,8 @@
 #if OCTAGON
 
 #import <XCTest/XCTest.h>
+#import <Security/Security.h>
+#import <Security/SecItemPriv.h>
 #import "CloudKitMockXCTest.h"
 
 #import "keychain/ckks/CKKS.h"
@@ -307,7 +309,7 @@
 
     attrs = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
     CFDictionarySetValue( attrs, kSecClass, kSecClassGenericPassword );
-    CFDictionarySetValue( attrs, kSecAttrAccessible, kSecAttrAccessibleAlways );
+    CFDictionarySetValue( attrs, kSecAttrAccessible, kSecAttrAccessibleAlwaysPrivate );
     CFDictionarySetValue( attrs, kSecAttrLabel, CFSTR( "TestLabel" ) );
     CFDictionarySetValue( attrs, kSecAttrDescription, CFSTR( "TestDescription" ) );
     CFDictionarySetValue( attrs, kSecAttrAccount, CFSTR( "TestAccount" ) );

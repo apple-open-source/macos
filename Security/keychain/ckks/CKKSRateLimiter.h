@@ -21,17 +21,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef RateLimiter_h
-#define RateLimiter_h
-
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
 #import "CKKSOutgoingQueueEntry.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CKKSRateLimiter : NSObject <NSSecureCoding>
 
-@property (readonly, nonnull) NSDictionary * config;  // of NSString : NSNumber
+@property (readonly) NSDictionary* config;  // of NSString : NSNumber
 
 /*!
  * @brief Find out whether outgoing items are okay to send.
@@ -44,19 +43,19 @@
  * At badness 5 judge:at: has determined there is too much activity so the caller should hold off altogether. The limitTime object will indicate when
  * this overloaded state will end.
  */
-- (int)judge:(CKKSOutgoingQueueEntry * _Nonnull const)entry
-          at:(NSDate * _Nonnull)time
-   limitTime:(NSDate * _Nonnull __autoreleasing * _Nonnull) limitTime;
+- (int)judge:(CKKSOutgoingQueueEntry* const)entry
+           at:(NSDate*)time
+    limitTime:(NSDate* _Nonnull __autoreleasing* _Nonnull)limitTime;
 
 - (instancetype _Nullable)init;
-- (instancetype _Nullable)initWithCoder:(NSCoder * _Nullable)coder NS_DESIGNATED_INITIALIZER;
+- (instancetype _Nullable)initWithCoder:(NSCoder* _Nullable)coder NS_DESIGNATED_INITIALIZER;
 - (NSUInteger)stateSize;
 - (void)reset;
-- (NSString * _Nonnull)diagnostics;
+- (NSString*)diagnostics;
 
 + (BOOL)supportsSecureCoding;
 
 @end
 
-#endif
+NS_ASSUME_NONNULL_END
 #endif

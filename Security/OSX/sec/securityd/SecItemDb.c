@@ -1899,6 +1899,10 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
         ok = false;
     }
 
+    // If CKKS had spun up, it's very likely that we just deleted its data.
+    // Tell it to perform a local resync.
+    SecCKKSPerformLocalResync();
+
 errOut:
     CFReleaseSafe(sys_bound);
     CFReleaseSafe(keybaguuid);

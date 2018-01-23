@@ -100,7 +100,6 @@ private:
 	vm_size_t	shmem_size;	// size of shared memory
 
 	// Pointers to structures which occupy the shared memory area.
-	volatile void       *evs;		// Pointer to private driver shmem
 	volatile EvGlobals  *evg;	// Pointer to EvGlobals (shmem)
 	// Internal variables related to the shared memory area
 	int                 lleqSize;	// # of entries in low-level queue
@@ -109,9 +108,6 @@ private:
 	// Screens list
 	vm_size_t           evScreenSize;	// Byte size of evScreen array
 	void                *evScreen;	// array of screens known to driver
-	volatile void       *lastShmemPtr;	// Pointer used to index thru shmem
-					// while assigning shared areas to
-					// drivers.
 	int             screens;	// running total of allocated screens
 	UInt32          cursorScreens;	// bit mask of screens with cursor present
     UInt32          cursorPinScreen;// a screen to pin against

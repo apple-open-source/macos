@@ -30,7 +30,6 @@
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CloudKitCategories.h"
-#import "CKKSAnalyticsLogger.h"
 
 #import "SecEntitlements.h"
 
@@ -51,6 +50,8 @@
 
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFKey_Private.h>
+
+#import  "CKKSAnalyticsLogger.h"
 #endif
 
 @interface CKKSViewManager () <NSXPCListenerDelegate>
@@ -90,21 +91,20 @@
        modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
                     apsConnectionClass:[APSConnection class]
              nsnotificationCenterClass:[NSNotificationCenter class]
-                         notifierClass:[CKKSNotifyPostNotifier class]
-                             setupHold:nil];
+                         notifierClass:[CKKSNotifyPostNotifier class]];
 }
 
 - (instancetype)initWithContainerName: (NSString*) containerName
-                               usePCS:(bool)usePCS
+                               usePCS: (bool)usePCS
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
            fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
+                  queryOperationClass: (Class<CKKSQueryOperation>)queryOperationClass
     modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
       modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
                    apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass
             nsnotificationCenterClass: (Class<CKKSNSNotificationCenter>) nsnotificationCenterClass
                         notifierClass: (Class<CKKSNotifier>) notifierClass
-                            setupHold: (NSOperation*) setupHold {
+{
     if(self = [super init]) {
         _fetchRecordZoneChangesOperationClass = fetchRecordZoneChangesOperationClass;
         _fetchRecordsOperationClass = fetchRecordsOperationClass;
@@ -127,7 +127,6 @@
         _views = [[NSMutableDictionary alloc] init];
         _pendingSyncCallbacks = [[NSMutableDictionary alloc] init];
 
-        _zoneStartupDependency = setupHold;
         _initializeNewZones = false;
 
         _completedSecCKKSInitialize = [[CKKSCondition alloc] init];
@@ -277,10 +276,6 @@ dispatch_once_t globalZoneStateQueueOnce;
                                            modifyRecordZonesOperationClass: self.modifyRecordZonesOperationClass
                                                         apsConnectionClass: self.apsConnectionClass
                                                              notifierClass: self.notifierClass];
-
-        if(self.zoneStartupDependency) {
-            [self.views[viewName].zoneSetupOperation addDependency: self.zoneStartupDependency];
-        }
 
         if(self.initializeNewZones) {
             [self.views[viewName] initializeZone];
@@ -560,27 +555,39 @@ dispatch_once_t globalZoneStateQueueOnce;
     reply(@{});
 }
 
-- (void)rpcResetLocal:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
+- (NSArray<CKKSKeychainView*>*)views:(NSString*)viewName operation:(NSString*)opName error:(NSError**)error
+{
     NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckksreset", "Received a local reset RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
+    @synchronized(self.views) {
+        if(viewName) {
+            secnotice("ckks", "Received a %@ request for zone %@", opName, viewName);
+            CKKSKeychainView* view = self.views[viewName];
 
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply([NSError errorWithDomain:@"securityd"
-                                      code:kSOSCCNoSuchView
-                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No view for '%@'", viewName]}]);
-            return;
-        }
+            if(!view) {
+                if(error) {
+                    *error = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSNoSuchView
+                                             userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No view for '%@'", viewName]}];
+                }
+                return nil;
+            }
 
-        actualViews = @[view];
-    } else {
-        secnotice("ckksreset", "Received a local reset RPC for all zones");
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
+            actualViews = @[view];
+        } else {
+            secnotice("ckks", "Received a %@ request for all zones", opName);
             actualViews = [self.views.allValues copy];
         }
+    }
+    return actualViews;
+}
+
+- (void)rpcResetLocal:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
+    NSError* localError = nil;
+    NSArray* actualViews = [self views:viewName operation:@"local reset" error:&localError];
+    if(localError) {
+        secerror("ckks: Error getting view %@: %@", viewName, localError);
+        reply(localError);
+        return;
     }
 
     CKKSResultOperation* op = [CKKSResultOperation named:@"local-reset-zones-waiter" withBlock:^{}];
@@ -603,26 +610,12 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void)rpcResetCloudKit:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
-    NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckksreset", "Received a cloudkit reset RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
-
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply([NSError errorWithDomain:@"securityd"
-                                      code:kSOSCCNoSuchView
-                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No view for '%@'", viewName]}]);
-            return;
-        }
-
-        actualViews = @[view];
-    } else {
-        secnotice("ckksreset", "Received a cloudkit reset RPC for all zones");
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
-            actualViews = [self.views.allValues copy];
-        }
+    NSError* localError = nil;
+    NSArray* actualViews = [self views:viewName operation:@"CloudKit reset" error:&localError];
+    if(localError) {
+        secerror("ckks: Error getting view %@: %@", viewName, localError);
+        reply(localError);
+        return;
     }
 
     CKKSResultOperation* op = [CKKSResultOperation named:@"cloudkit-reset-zones-waiter" withBlock:^{}];
@@ -645,38 +638,24 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
-    secnotice("ckksresync", "Received a resync RPC for zone %@. Beginning resync...", viewName);
-
-    NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckks", "Received a resync RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
-
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply(nil);
-            return;
-        }
-
-        actualViews = @[view];
-
-    } else {
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
-            actualViews = [self.views.allValues copy];
-        }
+    NSError* localError = nil;
+    NSArray* actualViews = [self views:viewName operation:@"CloudKit resync" error:&localError];
+    if(localError) {
+        secerror("ckks: Error getting view %@: %@", viewName, localError);
+        reply(localError);
+        return;
     }
 
     CKKSResultOperation* op = [[CKKSResultOperation alloc] init];
-    op.name = @"rpc-resync";
+    op.name = @"rpc-resync-cloudkit";
     __weak __typeof(op) weakOp = op;
     [op addExecutionBlock:^{
         __strong __typeof(op) strongOp = weakOp;
-        secnotice("ckks", "Ending rsync rpc with %@", strongOp.error);
+        secnotice("ckks", "Ending rsync-CloudKit rpc with %@", strongOp.error);
     }];
 
     for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckksresync", view, "Beginning resync for %@", view);
+        ckksnotice("ckksresync", view, "Beginning resync (CloudKit) for %@", view);
 
         CKKSSynchronizeOperation* resyncOp = [view resyncWithCloud];
         [op addSuccessDependency:resyncOp];
@@ -686,6 +665,34 @@ dispatch_once_t globalZoneStateQueueOnce;
     [self.operationQueue addOperation:op];
     [op waitUntilFinished];
     reply(CKXPCSuitableError(op.error));
+}
+
+- (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply {
+    NSError* localError = nil;
+    NSArray* actualViews = [self views:viewName operation:@"local resync" error:&localError];
+    if(localError) {
+        secerror("ckks: Error getting view %@: %@", viewName, localError);
+        reply(localError);
+        return;
+    }
+
+    CKKSResultOperation* op = [[CKKSResultOperation alloc] init];
+    op.name = @"rpc-resync-local";
+    __weak __typeof(op) weakOp = op;
+    [op addExecutionBlock:^{
+        __strong __typeof(op) strongOp = weakOp;
+        secnotice("ckks", "Ending rsync-local rpc with %@", strongOp.error);
+        reply(CKXPCSuitableError(strongOp.error));
+    }];
+
+    for(CKKSKeychainView* view in actualViews) {
+        ckksnotice("ckksresync", view, "Beginning resync (local) for %@", view);
+
+        CKKSLocalSynchronizeOperation* resyncOp = [view resyncLocal];
+        [op addSuccessDependency:resyncOp];
+    }
+
+    [op timeout:120*NSEC_PER_SEC];
 }
 
 - (void)rpcStatus: (NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
@@ -958,7 +965,12 @@ dispatch_once_t globalZoneStateQueueOnce;
             SecKeyRef cfOctagonEncryptionKey = SOSPeerInfoCopyOctagonEncryptionPublicKey(sosPeerInfoRef, &cfPeerError);
 
             if(cfPeerError) {
-                secerror("ckkspeer: error fetching octagon keys for peer: %@ %@", sosPeerInfoRef, cfPeerError);
+                // Don't log non-debug for -50; it almost always just means this peer didn't have octagon keys
+                if(!(CFEqualSafe(CFErrorGetDomain(cfPeerError), kCFErrorDomainOSStatus) && (CFErrorGetCode(cfPeerError) == errSecParam))) {
+                    secerror("ckkspeer: error fetching octagon keys for peer: %@ %@", sosPeerInfoRef, cfPeerError);
+                } else {
+                    secinfo("ckkspeer", "Peer doesn't have Octagon keys, but this is expected: %@", cfPeerError);
+                }
             } else {
                 SFECPublicKey* signingPublicKey = cfOctagonSigningKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonSigningKey] : nil;
                 SFECPublicKey* encryptionPublicKey = cfOctagonEncryptionKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonEncryptionKey] : nil;

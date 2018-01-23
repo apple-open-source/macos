@@ -24,13 +24,15 @@
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
-#import <CloudKit/CloudKit.h>
 #import <ApplePushService/ApplePushService.h>
-#import "keychain/ckks/CloudKitDependencies.h"
+#import <CloudKit/CloudKit.h>
 #import "keychain/ckks/CKKSCondition.h"
+#import "keychain/ckks/CloudKitDependencies.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 @protocol CKKSZoneUpdateReceiver
-- (void)notifyZoneChange: (CKRecordZoneNotification*) notification;
+- (void)notifyZoneChange:(CKRecordZoneNotification* _Nullable)notification;
 @end
 
 @interface CKKSAPSReceiver : NSObject <APSConnectionDelegate>
@@ -39,13 +41,12 @@
 
 // class dependencies (for injection)
 @property (readonly) Class<CKKSAPSConnection> apsConnectionClass;
-
-@property id<CKKSAPSConnection> apsConnection;
+@property (nullable) id<CKKSAPSConnection> apsConnection;
 
 + (instancetype)receiverForEnvironment:(NSString*)environmentName
                      namedDelegatePort:(NSString*)namedDelegatePort
                     apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass;
-- (CKKSCondition*)register:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID *)zoneID;
+- (CKKSCondition*)registerReceiver:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID*)zoneID;
 
 // Test support:
 - (instancetype)initWithEnvironmentName:(NSString*)environmentName
@@ -56,4 +57,5 @@
 
 @end
 
-#endif // OCTAGON
+NS_ASSUME_NONNULL_END
+#endif  // OCTAGON

@@ -164,9 +164,9 @@
     [self startCKKSSubsystem];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
-    // Due to item UUID selection, this item will be added with UUID DD7C2F9B-B22D-3B90-C299-E3B48174BFA3.
+    // Due to item UUID selection, this item will be added with UUID 50184A35-4480-E8BA-769B-567CF72F1EC0.
     // Add it to CloudKit first!
-    CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3"];
+    CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"50184A35-4480-E8BA-769B-567CF72F1EC0"];
     [self.keychainZone addToZone: ckr];
 
 
@@ -180,6 +180,7 @@
                                     (id)kSecAttrAccount : @"testaccount",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
                                     (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName, // @ fake view hint for fake view
                                     } mutableCopy];
 
     XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
@@ -200,6 +201,8 @@
     self.accountStatus = CKAccountStatusNoAccount;
     self.silentFetchesAllowed = false;
     [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.loggedOut wait:2*NSEC_PER_SEC], "CKKS should positively log out");
 
     NSMutableDictionary* query = [@{
                                     (id)kSecClass : (id)kSecClassGenericPassword,
@@ -222,15 +225,48 @@
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
+- (void)testAddAndNotifyOnSyncAccountStatusUnclear {
+    // Test starts with nothing in database, but CKKS hasn't been told we've logged out yet.
+    // We expect no CKKS operations.
+    self.accountStatus = CKAccountStatusNoAccount;
+    self.silentFetchesAllowed = false;
+
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassGenericPassword,
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    XCTAssertEqual(errSecSuccess, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        XCTAssertFalse(didSync, "Item did not sync (with no iCloud account)");
+        XCTAssertNotNil((__bridge NSError*)error, "Error exists syncing item while logged out");
+
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    // And now, allow CKKS to discover we're logged out
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.loggedOut wait:2*NSEC_PER_SEC], "CKKS should positively log out");
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
 - (void)testAddAndNotifyOnSyncBeforeKeyHierarchyReady {
     // Test starts with a key hierarchy in cloudkit and the TLK having arrived
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
 
     // But block CloudKit fetches (so the key hierarchy won't be ready when we add this new item)
     [self holdCloudKitFetches];
 
     [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.loggedIn wait:2*NSEC_PER_SEC], "CKKS should log in");
     [self.keychainView.viewSetupOperation waitUntilFinished];
 
     NSMutableDictionary* query = [@{
@@ -291,11 +327,10 @@
 }
 
 - (void)testPCSUnencryptedFieldsAdd {
-
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [self.keychainView waitForKeyHierarchyReadiness];
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -318,6 +353,7 @@
                                     (id)kSecAttrPCSPlaintextServiceIdentifier : servIdentifier,
                                     (id)kSecAttrPCSPlaintextPublicKey : publicKey,
                                     (id)kSecAttrPCSPlaintextPublicIdentity : publicIdentity,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName, // allows a CKKSScanOperation to find this item
                                     } mutableCopy];
 
     XCTAssertEqual(errSecSuccess, SecItemAdd((__bridge CFDictionaryRef) query, NULL), @"SecItemAdd succeeded");
@@ -336,9 +372,9 @@
     XCTAssertEqualObjects(itemAttributes[(id)kSecAttrPCSPlaintextPublicIdentity],    publicIdentity, "public identity exists");
 
     // Find the item record in CloudKit. Since we're using kSecAttrDeriveSyncIDFromItemAttributes,
-    // the record ID is likely DD7C2F9B-B22D-3B90-C299-E3B48174BFA3
+    // the record ID is likely 50184A35-4480-E8BA-769B-567CF72F1EC0
     [self waitForCKModifications];
-    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
+    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID];
     CKRecord* record = self.keychainZone.currentDatabase[recordID];
     XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
 
@@ -351,7 +387,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [self.keychainView waitForKeyHierarchyReadiness];
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -374,6 +410,7 @@
                                     (id)kSecAttrPCSPlaintextServiceIdentifier : servIdentifier,
                                     (id)kSecAttrPCSPlaintextPublicKey : publicKey,
                                     (id)kSecAttrPCSPlaintextPublicIdentity : publicIdentity,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName, // allows a CKKSScanOperation to find this item
                                     } mutableCopy];
 
     XCTAssertEqual(errSecSuccess, SecItemAdd((__bridge CFDictionaryRef) query, NULL), @"SecItemAdd succeeded");
@@ -419,9 +456,9 @@
     XCTAssertEqualObjects(itemAttributes[(id)kSecAttrPCSPlaintextPublicIdentity],    newPublicIdentity,    "public identity exists");
 
     // Find the item record in CloudKit. Since we're using kSecAttrDeriveSyncIDFromItemAttributes,
-    // the record ID is likely DD7C2F9B-B22D-3B90-C299-E3B48174BFA3
+    // the record ID is likely 50184A35-4480-E8BA-769B-567CF72F1EC0
     [self waitForCKModifications];
-    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
+    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID];
     CKRecord* record = self.keychainZone.currentDatabase[recordID];
     XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
 
@@ -458,6 +495,7 @@
                                     (id)kSecAttrPCSPlaintextServiceIdentifier : servIdentifier,
                                     (id)kSecAttrPCSPlaintextPublicKey : publicKey,
                                     (id)kSecAttrPCSPlaintextPublicIdentity : publicIdentity,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName, // fake, for CKKSScanOperation
                                     } mutableCopy];
 
     XCTAssertEqual(errSecSuccess, SecItemAdd((__bridge CFDictionaryRef) query, NULL), @"SecItemAdd succeeded");
@@ -466,8 +504,8 @@
     [self waitForCKModifications];
 
     // Find the item record in CloudKit. Since we're using kSecAttrDeriveSyncIDFromItemAttributes,
-    // the record ID is likely DD7C2F9B-B22D-3B90-C299-E3B48174BFA3
-    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
+    // the record ID is likely 50184A35-4480-E8BA-769B-567CF72F1EC0
+    CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName: @"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID];
     CKRecord* record = self.keychainZone.currentDatabase[recordID];
     XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
 
@@ -644,6 +682,7 @@
 -(void)testResetLocal {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
@@ -685,12 +724,14 @@
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
     self.silentFetchesAllowed = false;
 
-    // Test starts with local TLK and key hierarhcy in our fake cloudkit
+    // Test starts with local TLK and key hierarchy in our fake cloudkit
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.loggedOut wait:500*NSEC_PER_MSEC], "Should have been told of a 'logout' event on startup");
 
     NSData* changeTokenData = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
     CKServerChangeToken* changeToken = [[CKServerChangeToken alloc] initWithData:changeTokenData];
@@ -705,7 +746,7 @@
 
     dispatch_semaphore_t resetSemaphore = dispatch_semaphore_create(0);
     [self.injectedManager rpcResetLocal:nil reply:^(NSError* result) {
-        XCTAssertNil(result, "no error resetting cloudkit");
+        XCTAssertNil(result, "no error resetting local");
         secnotice("ckks", "Received a rpcResetLocal callback");
         dispatch_semaphore_signal(resetSemaphore);
     }];
@@ -718,6 +759,7 @@
     }];
 
     // Now log in, and see what happens! It should re-fetch, pick up the old key hierarchy, and use it
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     self.silentFetchesAllowed = true;
     self.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
@@ -735,6 +777,7 @@
 -(void)testResetCloudKitZone {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
@@ -792,7 +835,7 @@
 
     // Now, reset everything. The outgoingOp should get cancelled.
     // We expect a key hierarchy upload, and then the class C item upload
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords:3 zoneID:self.keychainZoneID];
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
@@ -880,10 +923,6 @@
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
 
-    [self.keychainView.viewSetupOperation waitUntilFinished];
-    // Reset setup, since that's the most likely state to be in (33866282)
-    [self.keychainView resetSetup];
-
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone: ckr];
 
@@ -935,12 +974,15 @@
     }];
 
     [self waitForExpectations:@[callbackOccurs] timeout:5.0];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
 - (void)testRPCTLKMissingWhenFound {
     // Bring CKKS up in waitfortlk
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered 'ready''");
@@ -953,6 +995,8 @@
     }];
 
     [self waitForExpectations:@[callbackOccurs] timeout:5.0];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
 @end

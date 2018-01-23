@@ -21,8 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "keychain/ckks/CKKSResultOperation.h"
+#import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ckks/CKKSCondition.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #include <utilities/debugging.h>
 
 @interface CKKSResultOperation()
@@ -110,7 +114,9 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.timeoutQueue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
         if(strongSelf.timeoutCanOccur) {
-            strongSelf.error = [NSError errorWithDomain:CKKSResultErrorDomain code: CKKSResultTimedOut userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"Operation timed out waiting to start for [%@]", [self pendingDependenciesString:@""]]}];
+            strongSelf.error = [NSError errorWithDomain:CKKSResultErrorDomain
+                                                   code:CKKSResultTimedOut
+                                            description:[NSString stringWithFormat:@"Operation(%@) timed out waiting to start for [%@]", [self selfname], [self pendingDependenciesString:@""]]];
             strongSelf.timeoutCanOccur = false;
             [strongSelf cancel];
         }
@@ -144,11 +150,16 @@
         bool finished = true;   // all dependents must be finished
         bool cancelled = false; // no dependents can be cancelled
         bool failed = false;    // no dependents can have failed
+        NSMutableArray<NSOperation*>* cancelledSuboperations = [NSMutableArray array];
 
         for(CKKSResultOperation* op in operations) {
             finished  &= !!([op isFinished]);
             cancelled |= !!([op isCancelled]);
             failed    |= (op.error != nil);
+
+            if([op isCancelled]) {
+                [cancelledSuboperations addObject:op];
+            }
 
             // TODO: combine suberrors
             if(op.error != nil) {
@@ -164,7 +175,7 @@
         result = finished && !( cancelled || failed );
 
         if(!result && self.error == nil) {
-            self.error = [NSError errorWithDomain:CKKSResultErrorDomain code: CKKSResultSubresultCancelled userInfo:nil];
+            self.error = [NSError errorWithDomain:CKKSResultErrorDomain code: CKKSResultSubresultCancelled userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"Operation (%@) cancelled", cancelledSuboperations]}];
         }
         return result;
     }
@@ -181,4 +192,18 @@
     blockOp.name = name;
     return blockOp;
 }
+
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* op))block
+{
+    CKKSResultOperation* op = [[CKKSResultOperation alloc] init];
+    __weak __typeof(op) weakOp = op;
+    [op addExecutionBlock:^{
+        __strong __typeof(op) strongOp = weakOp;
+        block(strongOp);
+    }];
+    op.name = name;
+    return op;
+}
 @end
+
+#endif // OCTAGON

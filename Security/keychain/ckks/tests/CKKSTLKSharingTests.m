@@ -50,7 +50,6 @@
 
 - (void)setUp {
     [super setUp];
-    SecCKKSSetShareTLKs(true);
 
     self.remotePeer1 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote-peer1"
                                                     encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
@@ -75,8 +74,6 @@
     self.untrustedPeer = nil;
 
     [super tearDown];
-
-    SecCKKSSetShareTLKs(false);
 }
 
 - (void)testAcceptExistingTLKSharedKeyHierarchy {
@@ -292,7 +289,6 @@
     // Test also starts with the TLK shared to all trusted peers from peer1
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
 
-    // Because 33710924 didn't make it backwards in time, this test is fragile on Chipmunk/Cinar.
     self.aksLockState = true;
     [self.lockStateTracker recheck];
 
@@ -324,17 +320,34 @@
 }
 
 - (void)testUploadTLKSharesForExistingHierarchyOnRestart {
-    // Turn off TLK sharing, and get situated
-    SecCKKSSetShareTLKs(false);
-
+    // Bring up CKKS. It'll upload a few TLK Shares, but we'll delete them to get into state
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:3 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], "Key state should become ready");
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
 
-    // Turn TLK sharing back on, and restart. We expect an upload of 3 TLK shares.
-    SecCKKSSetShareTLKs(true);
+    // Now, delete all the TLK Shares, so CKKS will upload them again
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        [CKKSTLKShare deleteAll:self.keychainZoneID error:&error];
+        XCTAssertNil(error, "Shouldn't be an error deleting all TLKShares");
+
+        NSArray<CKRecord*>* records = [self.zones[self.keychainZoneID].currentDatabase allValues];
+        for(CKRecord* record in records) {
+            if([record.recordType isEqualToString:SecCKRecordTLKShareType]) {
+                [self.zones[self.keychainZoneID] deleteFromHistory:record.recordID];
+            }
+        }
+
+        return true;
+    }];
+
+    // Restart. We expect an upload of 3 TLK shares.
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:3 zoneID:self.keychainZoneID];
     self.keychainView = [self.injectedManager restartZone: self.keychainZoneID.zoneName];
 
@@ -489,7 +502,7 @@
     // The CKKS subsystem should now accept the key, and share the TLK back to itself
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:500*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should become ready");
 
     // And use it as well
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -529,6 +542,74 @@
     [self.injectedManager sendTrustedPeerSetChangedUpdate];
 
     [self.keychainView waitUntilAllOperationsAreFinished];
+}
+
+- (void)testFillInMissingPeerSharesAfterUnlock {
+    // step 1: add a new peer; we should share the TLK with them
+    // start with no trusted peers
+    [self.currentPeers removeAllObjects];
+
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
+                          checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    // Now, lock.
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    // New peer arrives! This can't actually happen (since we have to be unlocked to accept a new peer), but this will exercise CKKS
+    [self.currentPeers addObject:self.remotePeer1];
+    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+
+    // CKKS should notice that it has things to do...
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReadyPendingUnlock] wait:8*NSEC_PER_SEC], @"Key state should become 'readypendingunlock'");
+
+    // And do them.
+    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    self.aksLockState = false;
+    [self.lockStateTracker recheck];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    // and return to ready
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+}
+
+- (void)testAddItemDuringNewTLKSharesOnTrustSetAddition {
+    // step 1: add a new peer; we should share the TLK with them
+    // start with no trusted peers
+    [self.currentPeers removeAllObjects];
+
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    // Hold the TLK share modification
+    [self holdCloudKitModifications];
+
+    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self.currentPeers addObject:self.remotePeer1];
+    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    // While CloudKit is hanging the write, add an item
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    // After that returns, release the write. CKKS should upload the new item
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self releaseCloudKitModificationHold];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
 - (void)testSendNewTLKSharesOnTrustSetRemoval {

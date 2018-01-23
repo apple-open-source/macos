@@ -24,14 +24,20 @@
 #ifndef CKKS_h
 #define CKKS_h
 
-#include <ipc/securityd_client.h>
-#include <utilities/SecDb.h>
-#include <utilities/SecCFWrappers.h>
 #include <dispatch/dispatch.h>
+#include <ipc/securityd_client.h>
+#include <utilities/SecCFWrappers.h>
+#include <utilities/SecDb.h>
 #include <xpc/xpc.h>
 
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
+NS_ASSUME_NONNULL_BEGIN
+#else
+CF_ASSUME_NONNULL_BEGIN
+#endif
+
+#ifdef __OBJC__
 
 typedef NS_ENUM(NSUInteger, SecCKKSItemEncryptionVersion) {
     CKKSItemEncryptionVersionNone = 0,  // No encryption present
@@ -55,7 +61,7 @@ extern CKKSItemState* const SecCKKSStateUnauthenticated;
 extern CKKSItemState* const SecCKKSStateInFlight;
 extern CKKSItemState* const SecCKKSStateReencrypt;
 extern CKKSItemState* const SecCKKSStateError;
-extern CKKSItemState* const SecCKKSStateDeleted; // meta-state: please delete this item!
+extern CKKSItemState* const SecCKKSStateDeleted;  // meta-state: please delete this item!
 
 /* Processed States */
 @protocol SecCKKSProcessedState
@@ -94,8 +100,8 @@ extern NSString* const SecCKRecordServerWasCurrent;
 /* Intermediate Key CKRecord Keys */
 extern NSString* const SecCKRecordIntermediateKeyType;
 extern NSString* const SecCKRecordKeyClassKey;
-//extern NSString* const SecCKRecordWrappedKeyKey;
-//extern NSString* const SecCKRecordParentKeyRefKey;
+//extern NSString*  const SecCKRecordWrappedKeyKey;
+//extern NSString*  const SecCKRecordParentKeyRefKey;
 
 /* TLK Share CKRecord Keys */
 // These are a bit special; they can't use the record ID as information without parsing.
@@ -108,13 +114,13 @@ extern NSString* const SecCKRecordEpoch;
 extern NSString* const SecCKRecordPoisoned;
 extern NSString* const SecCKRecordSignature;
 extern NSString* const SecCKRecordVersion;
-//extern NSString* const SecCKRecordParentKeyRefKey; // reference to the key contained by this record
-//extern NSString* const SecCKRecordWrappedKeyKey;   // key material
+//extern NSString*  const SecCKRecordParentKeyRefKey; // reference to the key contained by this record
+//extern NSString*  const SecCKRecordWrappedKeyKey;   // key material
 
 /* Current Key CKRecord Keys */
 extern NSString* const SecCKRecordCurrentKeyType;
 // The key class will be the record name.
-//extern NSString* const SecCKRecordParentKeyRefKey; <-- represent the current key for this key class
+//extern NSString*  const SecCKRecordParentKeyRefKey; <-- represent the current key for this key class
 
 /* Current Item CKRecord Keys */
 extern NSString* const SecCKRecordCurrentItemType;
@@ -157,6 +163,9 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateInitializing;
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateInitialized;
 // Everything is ready and waiting for input.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReady;
+// We're presumably ready, but we'd like to do one or two more checks after we unlock.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReadyPendingUnlock;
+
 // A Fetch has just been completed which includes some new keys to process
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateFetchComplete;
 // We'd really like a full refetch.
@@ -207,7 +216,7 @@ extern NSString* const CKKSServerExtensionErrorDomain;
 #define SecCKKSOutgoingQueueItemsAtOnce 100
 #define SecCKKSIncomingQueueItemsAtOnce 10
 
-#endif // OBJ-C
+#endif  // OBJ-C
 
 /* C functions to interact with CKKS */
 void SecCKKSInitialize(SecDbRef db);
@@ -218,6 +227,9 @@ void SecCKKS24hrNotification(void);
 
 // Register this callback to receive a call when the item with this UUID next successfully (or unsuccessfully) exits the outgoing queue.
 void CKKSRegisterSyncStatusCallback(CFStringRef cfuuid, SecBoolCFErrorCallback callback);
+
+// Tells CKKS that the local keychain was reset, and that it should respond accordingly
+void SecCKKSPerformLocalResync(void);
 
 // Returns true if CloudKit keychain syncing should occur
 bool SecCKKSIsEnabled(void);
@@ -235,10 +247,6 @@ bool SecCKKSEnforceManifests(void);
 bool SecCKKSEnableEnforceManifests(void);
 bool SecCKKSSetEnforceManifests(bool value);
 
-bool SecCKKSShareTLKs(void);
-bool SecCKKSEnableShareTLKs(void);
-bool SecCKKSSetShareTLKs(bool value);
-
 // Testing support
 bool SecCKKSTestsEnabled(void);
 bool SecCKKSTestsEnable(void);
@@ -255,8 +263,7 @@ bool SecCKKSTestDisableKeyNotifications(void);
 void SecCKKSTestSetDisableKeyNotifications(bool set);
 
 
-XPC_RETURNS_RETAINED xpc_endpoint_t
-SecServerCreateCKKSEndpoint(void);
+XPC_RETURNS_RETAINED _Nullable xpc_endpoint_t SecServerCreateCKKSEndpoint(void);
 
 // TODO: handle errors better
 typedef CF_ENUM(CFIndex, CKKSErrorCode) {
@@ -305,40 +312,68 @@ typedef CF_ENUM(CFIndex, CKKSServerExtensionErrorCode) {
     //CKKSServerInvalidCurrentItem = 17,
 };
 
-#define SecTranslateError(nserrorptr, cferror) \
-    if(nserrorptr) { \
-       *nserrorptr = (__bridge_transfer NSError*) cferror; \
-    } else { \
-       CFReleaseNull(cferror); \
+#define SecTranslateError(nserrorptr, cferror)             \
+    if(nserrorptr) {                                       \
+        *nserrorptr = (__bridge_transfer NSError*)cferror; \
+    } else {                                               \
+        CFReleaseNull(cferror);                            \
     }
 
 // Very similar to the secerror, secnotice, and secinfo macros in debugging.h, but add zoneNames
-#define ckkserrorwithzonename(scope, zoneName, format, ...) { os_log(secLogObjForScope("SecError"), scope "-%@: " format, (zoneName ? zoneName : @"unknown"), ## __VA_ARGS__); }
-#define ckksnoticewithzonename(scope, zoneName, format, ...) { os_log(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString: (zoneName ? zoneName : @"unknown")]), format, ## __VA_ARGS__); }
-#define ckksinfowithzonename(scope, zoneName, format, ...) { os_log_debug(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString: (zoneName ? zoneName : @"unknown")]), format, ## __VA_ARGS__); }
+#define ckkserrorwithzonename(scope, zoneName, format, ...)                                                             \
+    {                                                                                                                   \
+        os_log(secLogObjForScope("SecError"), scope "-%@: " format, (zoneName ? zoneName : @"unknown"), ##__VA_ARGS__); \
+    }
+#define ckksnoticewithzonename(scope, zoneName, format, ...)                                                                         \
+    {                                                                                                                                \
+        os_log(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString:(zoneName ? zoneName : @"unknown")]), \
+               format,                                                                                                               \
+               ##__VA_ARGS__);                                                                                                       \
+    }
+#define ckksinfowithzonename(scope, zoneName, format, ...)                                                                                 \
+    {                                                                                                                                      \
+        os_log_debug(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString:(zoneName ? zoneName : @"unknown")]), \
+                     format,                                                                                                               \
+                     ##__VA_ARGS__);                                                                                                       \
+    }
 
-#define ckkserror(scope, zoneNameHaver, format, ...) \
-{ NSString* znh = zoneNameHaver.zoneName; \
-  ckkserrorwithzonename(scope, znh, format, ## __VA_ARGS__) \
-}
-#define ckksnotice(scope, zoneNameHaver, format, ...) \
-{ NSString* znh = zoneNameHaver.zoneName; \
-  ckksnoticewithzonename(scope, znh, format, ## __VA_ARGS__) \
-}
-#define ckksinfo(scope, zoneNameHaver, format, ...) \
-{ NSString* znh = zoneNameHaver.zoneName; \
-  ckksinfowithzonename(scope, znh, format, ## __VA_ARGS__) \
-}
+#define ckkserror(scope, zoneNameHaver, format, ...)             \
+    {                                                            \
+        NSString* znh = zoneNameHaver.zoneName;                  \
+        ckkserrorwithzonename(scope, znh, format, ##__VA_ARGS__) \
+    }
+#define ckksnotice(scope, zoneNameHaver, format, ...)             \
+    {                                                             \
+        NSString* znh = zoneNameHaver.zoneName;                   \
+        ckksnoticewithzonename(scope, znh, format, ##__VA_ARGS__) \
+    }
+#define ckksinfo(scope, zoneNameHaver, format, ...)             \
+    {                                                           \
+        NSString* znh = zoneNameHaver.zoneName;                 \
+        ckksinfowithzonename(scope, znh, format, ##__VA_ARGS__) \
+    }
 
 #undef ckksdebug
 #if !defined(NDEBUG)
-#define ckksdebugwithzonename(scope, zoneName, format, ...) { os_log_debug(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString: (zoneName ? zoneName : @"unknown")]), format, ## __VA_ARGS__); }
-#define ckksdebug(scope, zoneNameHaver, format, ...) \
-{ NSString* znh = zoneNameHaver.zoneName; \
-  ckksdebugwithzonename(scope, znh, format, ## __VA_ARGS__) \
-}
+#define ckksdebugwithzonename(scope, zoneName, format, ...)                                                                                \
+    {                                                                                                                                      \
+        os_log_debug(secLogObjForCFScope((__bridge CFStringRef)[@(scope "-") stringByAppendingString:(zoneName ? zoneName : @"unknown")]), \
+                     format,                                                                                                               \
+                     ##__VA_ARGS__);                                                                                                       \
+    }
+#define ckksdebug(scope, zoneNameHaver, format, ...)             \
+    {                                                            \
+        NSString* znh = zoneNameHaver.zoneName;                  \
+        ckksdebugwithzonename(scope, znh, format, ##__VA_ARGS__) \
+    }
 #else
-#define ckksdebug(scope,...)	/* nothing */
+#define ckksdebug(scope, ...) /* nothing */
+#endif
+
+#ifdef __OBJC__
+NS_ASSUME_NONNULL_END
+#else
+CF_ASSUME_NONNULL_END
 #endif
 
 #endif /* CKKS_h */

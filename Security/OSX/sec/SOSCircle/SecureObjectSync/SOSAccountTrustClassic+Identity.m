@@ -72,6 +72,10 @@
     NSString* octagonKeyName;
     SecKeyRef publicKey;
 
+    if (SOSFullPeerInfoHaveOctagonKeys(self.fullPeerInfo)) {
+        return;
+    }
+
     bool changedSelf = false;
 
     CFErrorRef copyError = NULL;

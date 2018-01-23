@@ -21,15 +21,22 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
 #import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 // There's terrible testing support for notify_post, but that's what our clients
 // are listening for. Use this structure to mock out notification sending for testing.
 
 @protocol CKKSNotifier
-+(void)post:(NSString*) notification;
++ (void)post:(NSString*)notification;
 @end
 
 @interface CKKSNotifyPostNotifier : NSObject <CKKSNotifier>
-+(void)post:(NSString*) notification;
++ (void)post:(NSString*)notification;
 @end
+
+NS_ASSUME_NONNULL_END
+
+#endif  //OCTAGON

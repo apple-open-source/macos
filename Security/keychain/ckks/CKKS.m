@@ -117,6 +117,7 @@ NSString* const SecCKRecordManifestLeafDERKey = @"der";
 NSString* const SecCKRecordManifestLeafDigestKey = @"digest";
 
 CKKSZoneKeyState* const SecCKKSZoneKeyStateReady = (CKKSZoneKeyState*) @"ready";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateReadyPendingUnlock = (CKKSZoneKeyState*) @"readypendingunlock";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateError = (CKKSZoneKeyState*) @"error";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateCancelled = (CKKSZoneKeyState*) @"cancelled";
 
@@ -154,6 +155,7 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
           SecCKKSZoneKeyStateHealTLKShares:      @12U,
           SecCKKSZoneKeyStateHealTLKSharesFailed:@13U,
           SecCKKSZoneKeyStateWaitForFixupOperation:@14U,
+          SecCKKSZoneKeyStateReadyPendingUnlock: @15U,
         };
     });
     return map;
@@ -279,8 +281,10 @@ bool SecCKKSSetEnforceManifests(bool value) {
     return CKKSEnforceManifests;
 }
 
-static bool CKKSShareTLKs = true;
+// Here's a mechanism for CKKS feature flags with default values from NSUserDefaults:
+/*static bool CKKSShareTLKs = true;
 bool SecCKKSShareTLKs(void) {
+    return true;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         // Use the default value as above, or apply the preferences value if it exists
@@ -292,17 +296,7 @@ bool SecCKKSShareTLKs(void) {
     });
 
     return CKKSShareTLKs;
-}
-bool SecCKKSEnableShareTLKs(void) {
-    return SecCKKSSetShareTLKs(true);
-}
-bool SecCKKSSetShareTLKs(bool value) {
-    // Call this to do the dispatch_once first
-    SecCKKSShareTLKs();
-
-    CKKSShareTLKs = value;
-    return CKKSShareTLKs;
-}
+}*/
 
 // Feature flags to twiddle behavior for tests
 static bool CKKSDisableAutomaticUUID = false;
@@ -443,5 +437,18 @@ void CKKSRegisterSyncStatusCallback(CFStringRef cfuuid, SecBoolCFErrorCallback c
     };
 
     [[CKKSViewManager manager] registerSyncStatusCallback: (__bridge NSString*) cfuuid callback:nscallback];
+#endif
+}
+
+void SecCKKSPerformLocalResync() {
+#if OCTAGON
+    secnotice("ckks", "Local keychain was reset; performing local resync");
+    [[CKKSViewManager manager] rpcResyncLocal:nil reply:^(NSError *result) {
+        if(result) {
+            secnotice("ckks", "Local keychain reset resync finished with an error: %@", result);
+        } else {
+            secnotice("ckks", "Local keychain reset resync finished successfully");
+        }
+    }];
 #endif
 }

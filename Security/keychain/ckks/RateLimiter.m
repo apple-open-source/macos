@@ -35,7 +35,7 @@
 #endif
 
 @interface RateLimiter()
-@property (readwrite, nonatomic, nonnull) NSDictionary *config;
+@property (readwrite, nonatomic) NSDictionary *config;
 @property (nonatomic) NSArray<NSMutableDictionary<NSString *, NSDate *> *> *groups;
 @property (nonatomic) NSDate *lastJudgment;
 @property (nonatomic) NSDate *overloadUntil;

@@ -24,6 +24,9 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
+#import "keychain/ckks/CKKSItem.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKey;
 @class CKKSCurrentKeyPointer;
@@ -42,82 +45,93 @@
 
 @property CKKSControl* ckksControl;
 
-@property id mockCKKSKey;
+@property (nullable) id mockCKKSKey;
 
-@property id<CKKSSelfPeer> currentSelfPeer;
-@property NSMutableSet<id<CKKSPeer>>* currentPeers;
+@property (nullable) id<CKKSSelfPeer> currentSelfPeer;
+@property (nullable) NSMutableSet<id<CKKSPeer>>* currentPeers;
 
-@property NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
+@property NSMutableSet<CKRecordZoneID*>* ckksZones;
+@property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
 
 // Pass in an oldTLK to wrap it to the new TLK; otherwise, pass nil
-- (ZoneKeys*)createFakeKeyHierarchy: (CKRecordZoneID*)zoneID oldTLK:(CKKSKey*) oldTLK;
-- (void)saveFakeKeyHierarchyToLocalDatabase: (CKRecordZoneID*)zoneID;
-- (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID;
-- (void)saveTLKMaterialToKeychain: (CKRecordZoneID*)zoneID;
-- (void)deleteTLKMaterialFromKeychain: (CKRecordZoneID*)zoneID;
-- (void)saveTLKMaterialToKeychainSimulatingSOS: (CKRecordZoneID*)zoneID;
+- (ZoneKeys*)createFakeKeyHierarchy:(CKRecordZoneID*)zoneID oldTLK:(CKKSKey* _Nullable)oldTLK;
+- (void)saveFakeKeyHierarchyToLocalDatabase:(CKRecordZoneID*)zoneID;
+- (void)putFakeKeyHierarchyInCloudKit:(CKRecordZoneID*)zoneID;
+- (void)saveTLKMaterialToKeychain:(CKRecordZoneID*)zoneID;
+- (void)deleteTLKMaterialFromKeychain:(CKRecordZoneID*)zoneID;
+- (void)saveTLKMaterialToKeychainSimulatingSOS:(CKRecordZoneID*)zoneID;
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
 - (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
-- (NSMutableArray<NSData *>*) SOSPiggyICloudIdentities;
+- (NSMutableArray<NSData*>*)SOSPiggyICloudIdentities;
 
 - (void)putTLKShareInCloudKit:(CKKSKey*)key
                          from:(CKKSSOSSelfPeer*)sharingPeer
                            to:(id<CKKSPeer>)receivingPeer
                        zoneID:(CKRecordZoneID*)zoneID;
-- (void)putTLKSharesInCloudKit:(CKKSKey*)key
-                          from:(CKKSSOSSelfPeer*)sharingPeer
-                        zoneID:(CKRecordZoneID*)zoneID;
+- (void)putTLKSharesInCloudKit:(CKKSKey*)key from:(CKKSSOSSelfPeer*)sharingPeer zoneID:(CKRecordZoneID*)zoneID;
 - (void)putSelfTLKSharesInCloudKit:(CKRecordZoneID*)zoneID;
 - (void)saveTLKSharesInLocalDatabase:(CKRecordZoneID*)zoneID;
 
-- (void)saveClassKeyMaterialToKeychain: (CKRecordZoneID*)zoneID;
+- (void)saveClassKeyMaterialToKeychain:(CKRecordZoneID*)zoneID;
 
 // Call this to fake out your test: all keys are created, saved in cloudkit, and saved locally (as if the key state machine had processed them)
-- (void)createAndSaveFakeKeyHierarchy: (CKRecordZoneID*)zoneID;
+- (void)createAndSaveFakeKeyHierarchy:(CKRecordZoneID*)zoneID;
 
-- (void)rollFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID;
+- (void)rollFakeKeyHierarchyInCloudKit:(CKRecordZoneID*)zoneID;
 
-- (NSDictionary*)fakeRecordDictionary:(NSString*) account zoneID:(CKRecordZoneID*)zoneID;
-- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName ;
-- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account;
-- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account key:(CKKSKey*)key;
+- (NSDictionary*)fakeRecordDictionary:(NSString*)account zoneID:(CKRecordZoneID*)zoneID;
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount:(NSString* _Nullable)account;
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
+                   recordName:(NSString*)recordName
+                  withAccount:(NSString* _Nullable)account
+                          key:(CKKSKey* _Nullable)key;
 
-- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary;
-- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key;
-- (NSDictionary*)decryptRecord: (CKRecord*) record;
+- (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key;
+- (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary;
+- (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary key:(CKKSKey*)key;
+- (NSDictionary*)decryptRecord:(CKRecord*)record;
 
 // Do keychain things:
-- (void)addGenericPassword: (NSString*) password account: (NSString*) account;
-- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint:(NSString*)viewHint;
-- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint: (NSString*) viewHint access:(NSString*)access expecting: (OSStatus) status message: (NSString*) message;
-- (void)addGenericPassword: (NSString*) password account: (NSString*) account expecting: (OSStatus) status message: (NSString*) message;
+- (void)addGenericPassword:(NSString*)password account:(NSString*)account;
+- (void)addGenericPassword:(NSString*)password account:(NSString*)account viewHint:(NSString* _Nullable)viewHint;
+- (void)addGenericPassword:(NSString*)password
+                   account:(NSString*)account
+                  viewHint:(NSString* _Nullable)viewHint
+                    access:(NSString*)access
+                 expecting:(OSStatus)status
+                   message:(NSString*)message;
+- (void)addGenericPassword:(NSString*)password account:(NSString*)account expecting:(OSStatus)status message:(NSString*)message;
 
-- (void)updateGenericPassword: (NSString*) newPassword account: (NSString*)account;
+- (void)updateGenericPassword:(NSString*)newPassword account:(NSString*)account;
 - (void)updateAccountOfGenericPassword:(NSString*)newAccount account:(NSString*)account;
 
-- (void)checkNoCKKSData: (CKKSKeychainView*) view;
+- (void)checkNoCKKSData:(CKKSKeychainView*)view;
 
-- (void)deleteGenericPassword: (NSString*) account;
+- (void)deleteGenericPassword:(NSString*)account;
 
-- (void)findGenericPassword: (NSString*) account expecting: (OSStatus) status;
-- (void)checkGenericPassword: (NSString*) password account: (NSString*) account;
+- (void)findGenericPassword:(NSString*)account expecting:(OSStatus)status;
+- (void)checkGenericPassword:(NSString*)password account:(NSString*)account;
 
 - (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
 - (void)createClassAItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
 
 // Pass the blocks created with these to expectCKModifyItemRecords to check if all items were encrypted with a particular class key
-- (BOOL (^) (CKRecord*)) checkClassABlock: (CKRecordZoneID*) zoneID message:(NSString*) message;
-- (BOOL (^) (CKRecord*)) checkClassCBlock: (CKRecordZoneID*) zoneID message:(NSString*) message;
+- (BOOL (^)(CKRecord*))checkClassABlock:(CKRecordZoneID*)zoneID message:(NSString*)message;
+- (BOOL (^)(CKRecord*))checkClassCBlock:(CKRecordZoneID*)zoneID message:(NSString*)message;
 
-- (BOOL (^) (CKRecord*)) checkPasswordBlock:(CKRecordZoneID*)zoneID
-                                    account:(NSString*)account
-                                   password:(NSString*)password;
+- (BOOL (^)(CKRecord*))checkPasswordBlock:(CKRecordZoneID*)zoneID account:(NSString*)account password:(NSString*)password;
 
 - (void)checkNSyncableTLKsInKeychain:(size_t)n;
 
 // Returns an expectation that someone will send an NSNotification that this view changed
--(XCTestExpectation*)expectChangeForView:(NSString*)view;
+- (XCTestExpectation*)expectChangeForView:(NSString*)view;
 
 // Establish an assertion that CKKS will cause a server extension error soon.
 - (void)expectCKReceiveSyncKeyHierarchyError:(CKRecordZoneID*)zoneID;
+
+// Add expectations that CKKS will upload a single TLK share
+- (void)expectCKKSTLKSelfShareUpload:(CKRecordZoneID*)zoneID;
 @end
+
+NS_ASSUME_NONNULL_END

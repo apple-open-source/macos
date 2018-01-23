@@ -41,4 +41,4 @@
 
 @end
 
-#endif // OCTAGON
+#endif  // OCTAGON

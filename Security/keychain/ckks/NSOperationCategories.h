@@ -31,19 +31,18 @@
 - (NSString*)selfname;
 
 // If op is nonnull, op becomes a dependency of this operation
-- (void)addNullableDependency: (NSOperation*) op;
+- (void)addNullableDependency:(NSOperation*)op;
 
 // Add all operations in this collection as dependencies, then add yourself to the collection
--(void)linearDependencies:(NSHashTable*)collection;
+- (void)linearDependencies:(NSHashTable*)collection;
 
 // Insert yourself as high up the linearized list of dependencies as possible
--(void)linearDependenciesWithSelfFirst: (NSHashTable*) collection;
+- (void)linearDependenciesWithSelfFirst:(NSHashTable*)collection;
 
 // Return a stringified representation of this operation's live dependencies.
--(NSString*)pendingDependenciesString:(NSString*)prefix;
+- (NSString*)pendingDependenciesString:(NSString*)prefix;
 @end
 
 @interface NSBlockOperation (CKKSUsefulConstructorOperation)
-+(instancetype)named: (NSString*)name withBlock: (void(^)(void)) block;
++ (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
 @end
-

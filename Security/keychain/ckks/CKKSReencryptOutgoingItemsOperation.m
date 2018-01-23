@@ -28,6 +28,7 @@
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 #if OCTAGON
 
@@ -91,7 +92,7 @@
                 continue;
             }
             if(newOQE) {
-                ckksinfo("ckksreencrypt", ckks, "Have a new OQE superceding %@ (%@), skipping", oqe, newOQE);
+                ckksnotice("ckksreencrypt", ckks, "Have a new OQE superceding %@ (%@), skipping", oqe, newOQE);
                 // Don't use the state transition here, either, since this item isn't really changing states
                 [oqe deleteFromDatabase:&error];
                 if(error) {
@@ -103,7 +104,7 @@
                 continue;
             }
 
-            ckksinfo("ckksreencrypt", ckks, "Reencrypting item %@", oqe);
+            ckksnotice("ckksreencrypt", ckks, "Reencrypting item %@", oqe);
 
             NSDictionary* item = [CKKSItemEncrypter decryptItemToDictionary: oqe.item error:&error];
             if(error) {

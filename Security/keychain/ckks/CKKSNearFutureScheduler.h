@@ -23,6 +23,7 @@
 
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
+NS_ASSUME_NONNULL_BEGIN
 
 /*
  * The CKKSNearFutureScheduler is intended to rate-limit an operation. When
@@ -35,25 +36,31 @@
 
 @interface CKKSNearFutureScheduler : NSObject
 
-@property (readonly) NSDate* nextFireTime;
-@property void (^futureOperation)(void);
+@property (nullable, readonly) NSDate* nextFireTime;
+@property void (^futureBlock)(void);
 
--(instancetype)initWithName:(NSString*)name
-                      delay:(dispatch_time_t)ns
-           keepProcessAlive:(bool)keepProcessAlive
-                      block:(void (^)(void))futureOperation;
+// Will execute every time futureBlock is called, just after the future block.
+// Operations added in the futureBlock will receive the next operationDependency, so they won't run again until futureBlock occurs again.
+@property (nullable, readonly) NSOperation* operationDependency;
 
--(instancetype)initWithName:(NSString*)name
-               initialDelay:(dispatch_time_t)initialDelay
-            continuingDelay:(dispatch_time_t)continuingDelay
-           keepProcessAlive:(bool)keepProcessAlive
-                      block:(void (^)(void))futureOperation;
+- (instancetype)initWithName:(NSString*)name
+                       delay:(dispatch_time_t)ns
+            keepProcessAlive:(bool)keepProcessAlive
+                       block:(void (^_Nonnull)(void))futureOperation;
 
--(void)trigger;
+- (instancetype)initWithName:(NSString*)name
+                initialDelay:(dispatch_time_t)initialDelay
+             continuingDelay:(dispatch_time_t)continuingDelay
+            keepProcessAlive:(bool)keepProcessAlive
+                       block:(void (^_Nonnull)(void))futureBlock;
 
--(void)cancel;
+- (void)trigger;
+
+- (void)cancel;
 
 // Don't trigger again until at least this much time has passed.
--(void)waitUntil:(uint64_t)delay;
+- (void)waitUntil:(uint64_t)delay;
 
 @end
+
+NS_ASSUME_NONNULL_END

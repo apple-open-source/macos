@@ -54,7 +54,11 @@
 
 
 /* Security.framework's bundle id. */
+#if TARGET_OS_IPHONE
 static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
+#else
+static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.security");
+#endif
 
 CFGiblisGetSingleton(CFBundleRef, SecFrameworkGetBundle, bundle,  ^{
     *bundle = CFRetainSafe(CFBundleGetBundleWithIdentifier(kSecFrameworkBundleID));

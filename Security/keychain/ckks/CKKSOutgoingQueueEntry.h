@@ -21,11 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "CKKSSQLDatabaseObject.h"
+#include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
 #import "CKKSItem.h"
 #import "CKKSMirrorEntry.h"
-#include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
+#import "CKKSSQLDatabaseObject.h"
 
 #ifndef CKKSOutgoingQueueEntry_h
 #define CKKSOutgoingQueueEntry_h
@@ -38,28 +38,42 @@
 @interface CKKSOutgoingQueueEntry : CKKSSQLDatabaseObject
 
 @property CKKSItem* item;
-@property NSString* uuid; // property access to underlying CKKSItem
+@property NSString* uuid;  // property access to underlying CKKSItem
 
 @property NSString* action;
 @property NSString* state;
 @property NSString* accessgroup;
-@property NSDate* waitUntil; // If non-null, the time at which this entry should be processed
+@property NSDate* waitUntil;  // If non-null, the time at which this entry should be processed
 
-- (instancetype) initWithCKKSItem:(CKKSItem*) item
-                           action:(NSString*) action
-                            state:(NSString*) state
-                        waitUntil:(NSDate*) waitUntil
-                      accessGroup:(NSString*) accessgroup;
+- (instancetype)initWithCKKSItem:(CKKSItem*)item
+                          action:(NSString*)action
+                           state:(NSString*)state
+                       waitUntil:(NSDate*)waitUntil
+                     accessGroup:(NSString*)accessgroup;
 
-+ (instancetype) withItem: (SecDbItemRef) item action: (NSString*) action ckks:(CKKSKeychainView*)ckks error: (NSError * __autoreleasing *) error;
-+ (instancetype) fromDatabase: (NSString*) uuid state: (NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (instancetype) tryFromDatabase: (NSString*) uuid state: (NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (instancetype)withItem:(SecDbItemRef)item
+                  action:(NSString*)action
+                    ckks:(CKKSKeychainView*)ckks
+                   error:(NSError* __autoreleasing*)error;
++ (instancetype)fromDatabase:(NSString*)uuid
+                       state:(NSString*)state
+                      zoneID:(CKRecordZoneID*)zoneID
+                       error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(NSString*)uuid
+                          state:(NSString*)state
+                         zoneID:(CKRecordZoneID*)zoneID
+                          error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSOutgoingQueueEntry*>*) fetch:(ssize_t) n state: (NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
-+ (NSArray<CKKSOutgoingQueueEntry*>*) allInState: (NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSArray<CKKSOutgoingQueueEntry*>*)fetch:(ssize_t)n
+                                     state:(NSString*)state
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError* __autoreleasing*)error;
++ (NSArray<CKKSOutgoingQueueEntry*>*)allInState:(NSString*)state
+                                         zoneID:(CKRecordZoneID*)zoneID
+                                          error:(NSError* __autoreleasing*)error;
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 @end
 

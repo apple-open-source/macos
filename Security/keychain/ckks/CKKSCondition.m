@@ -25,20 +25,28 @@
 
 @interface CKKSCondition ()
 @property dispatch_semaphore_t semaphore;
+@property CKKSCondition* chain;
 @end
 
 @implementation CKKSCondition
 
--(instancetype)init
+-(instancetype)init {
+    return [self initToChain:nil];
+}
+
+-(instancetype)initToChain:(CKKSCondition*)chain
 {
     if((self = [super init])) {
         _semaphore = dispatch_semaphore_create(0);
+        _chain = chain;
     }
     return self;
 }
 
 -(void)fulfill {
     dispatch_semaphore_signal(self.semaphore);
+    [self.chain fulfill];
+    self.chain = nil; // break the retain, since that condition is filled
 }
 
 -(long)wait:(uint64_t)timeout {

@@ -248,6 +248,56 @@
     XCTAssertNil(unwrappedKey, "unwrapped key was not returned in error case");
 }
 
+- (void)testKeyKeychainSaving {
+    NSError* error = nil;
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+
+    XCTAssertTrue([tlk saveKeyMaterialToKeychain:false error:&error], "should be able to save key material to keychain (without stashing)");
+    XCTAssertNil(error, "tlk should save to database without error");
+    XCTAssertTrue([tlk loadKeyMaterialFromKeychain:&error], "Should be able to reload key material");
+    XCTAssertNil(error, "should be no error loading the tlk from the keychain");
+
+    XCTAssertTrue([tlk saveKeyMaterialToKeychain:false error:&error], "should be able to save key material to keychain (without stashing)");
+    XCTAssertNil(error, "tlk should save again to database without error");
+    XCTAssertTrue([tlk loadKeyMaterialFromKeychain:&error], "Should be able to reload key material");
+    XCTAssertNil(error, "should be no error loading the tlk from the keychain");
+
+    [tlk deleteKeyMaterialFromKeychain:&error];
+    XCTAssertNil(error, "tlk should be able to delete itself without error");
+
+    XCTAssertFalse([tlk loadKeyMaterialFromKeychain:&error], "Should not able to reload key material");
+    XCTAssertNotNil(error, "should be error loading the tlk from the keychain");
+    error = nil;
+
+    NSData* keydata = [@"asdf" dataUsingEncoding:NSUTF8StringEncoding];
+
+    // Add an item using no viewhint that will conflict with itself upon a SecItemUpdate (internal builds only)
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassInternetPassword,
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+                                    (id)kSecAttrNoLegacy : @YES,
+                                    (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
+                                    (id)kSecAttrDescription: tlk.keyclass,
+                                    (id)kSecAttrServer: tlk.zoneID.zoneName,
+                                    (id)kSecAttrAccount: tlk.uuid,
+                                    (id)kSecAttrPath: tlk.parentKeyUUID,
+                                    (id)kSecAttrIsInvisible: @YES,
+                                    (id)kSecValueData : keydata,
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    } mutableCopy];
+    XCTAssertEqual(errSecSuccess, SecItemAdd((__bridge CFDictionaryRef)query, NULL), "Should be able to add a conflicting item");
+
+    XCTAssertTrue([tlk saveKeyMaterialToKeychain:false error:&error], "should be able to save key material to keychain (without stashing)");
+    XCTAssertNil(error, "tlk should save to database without error");
+    XCTAssertTrue([tlk loadKeyMaterialFromKeychain:&error], "Should be able to reload key material");
+    XCTAssertNil(error, "should be no error loading the tlk from the keychain");
+
+    XCTAssertTrue([tlk saveKeyMaterialToKeychain:false error:&error], "should be able to save key material to keychain (without stashing)");
+    XCTAssertNil(error, "tlk should save again to database without error");
+    XCTAssertTrue([tlk loadKeyMaterialFromKeychain:&error], "Should be able to reload key material");
+    XCTAssertNil(error, "should be no error loading the tlk from the keychain");
+}
+
 - (void)testKeyHierarchy {
     NSError* error = nil;
     NSData* testCKRecord = [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding];
@@ -690,11 +740,14 @@
 	XCTAssertNil(unpadded, "Cannot remove padding where none exists");
 
 	// Feeding nil
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
 	padded = [CKKSItemEncrypter padData:nil blockSize:0 additionalBlock:extra];
 	XCTAssertNotNil(padded, "padData always returns a data object");
     XCTAssertEqual(padded.length, extra ? 2ul : 1ul, "Length of padded nil object is padding byte only--two if extra");
 	unpadded = [CKKSItemEncrypter removePaddingFromData:nil];
 	XCTAssertNil(unpadded, "Removing padding from nil is senseless");
+#pragma clang diagnostic pop
 }
 
 - (BOOL)encryptAndDecryptDictionary:(NSDictionary<NSString*, NSData*>*)data key:(CKKSKey *)key {

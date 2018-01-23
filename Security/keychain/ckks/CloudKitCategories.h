@@ -23,29 +23,36 @@
 
 #if OCTAGON
 
-#import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface CKOperationGroup (CKKS)
-+(instancetype) CKKSGroupWithName:(NSString*)name;
++ (instancetype)CKKSGroupWithName:(NSString*)name;
 @end
 
 @interface NSError (CKKS)
 
 // More useful constructor
 + (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description;
-+ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description underlying:(NSError*)underlying;
+
++ (instancetype)errorWithDomain:(NSErrorDomain)domain
+                           code:(NSInteger)code
+                    description:(NSString*)description
+                     underlying:(NSError* _Nullable)underlying;
 
 // Returns true if this is a CloudKit error where
 // 1) An atomic write failed
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
--(bool) ckksIsCKErrorRecordChangedError;
+- (bool)ckksIsCKErrorRecordChangedError;
 @end
 
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)
--(NSString*)description;
+- (NSString*)description;
 @end
 
-#endif // OCTAGON
+NS_ASSUME_NONNULL_END
+#endif  // OCTAGON

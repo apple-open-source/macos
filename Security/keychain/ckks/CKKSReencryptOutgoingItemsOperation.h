@@ -22,8 +22,8 @@
  */
 
 #if OCTAGON
-#import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
+#import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 
 @class CKKSKeychainView;
@@ -37,5 +37,4 @@
 
 @end
 
-#endif // OCTAGON
-
+#endif  // OCTAGON

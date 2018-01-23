@@ -30,12 +30,14 @@
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSPeer.h"
 
-#import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
+#import <SecurityFoundation/SFKey.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
     SecCKKSTLKShareVersion0 = 0,  // Signature is over all fields except (signature) and (receiverPublicKey)
-                                  // Unknown fields in the CKRecord will be appended to the end, in sorted order based on column ID
+    // Unknown fields in the CKRecord will be appended to the end, in sorted order based on column ID
 };
 
 #define SecCKKSTLKShareCurrentVersion SecCKKSTLKShareVersion0
@@ -53,53 +55,49 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
 @property NSInteger epoch;
 @property NSInteger poisoned;
 
-@property NSData* wrappedTLK;
-@property NSData* signature;
+@property (nullable) NSData* wrappedTLK;
+@property (nullable) NSData* signature;
 
--(instancetype)init NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 
-- (CKKSKey*)recoverTLK:(id<CKKSSelfPeer>)recoverer
-          trustedPeers:(NSSet<id<CKKSPeer>>*)peers
-                 error:(NSError* __autoreleasing *)error;
+- (CKKSKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer trustedPeers:(NSSet<id<CKKSPeer>>*)peers error:(NSError**)error;
 
-+ (CKKSTLKShare*)share:(CKKSKey*)key
-                    as:(id<CKKSSelfPeer>)sender
-                    to:(id<CKKSPeer>)receiver
-                 epoch:(NSInteger)epoch
-              poisoned:(NSInteger)poisoned
-                 error:(NSError* __autoreleasing *)error;
++ (CKKSTLKShare* _Nullable)share:(CKKSKey*)key
+                              as:(id<CKKSSelfPeer>)sender
+                              to:(id<CKKSPeer>)receiver
+                           epoch:(NSInteger)epoch
+                        poisoned:(NSInteger)poisoned
+                           error:(NSError**)error;
 
 // Database loading
-+ (instancetype)fromDatabase:(NSString*)uuid
-              receiverPeerID:(NSString*)receiverPeerID
-                senderPeerID:(NSString*)senderPeerID
-                      zoneID:(CKRecordZoneID*)zoneID
-                       error:(NSError * __autoreleasing *)error;
-+ (instancetype)tryFromDatabase:(NSString*)uuid
-                 receiverPeerID:(NSString*)receiverPeerID
-                   senderPeerID:(NSString*)senderPeerID
-                         zoneID:(CKRecordZoneID*)zoneID
-                          error:(NSError * __autoreleasing *)error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                        receiverPeerID:(NSString*)receiverPeerID
+                          senderPeerID:(NSString*)senderPeerID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                           receiverPeerID:(NSString*)receiverPeerID
+                             senderPeerID:(NSString*)senderPeerID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError**)error;
 + (NSArray<CKKSTLKShare*>*)allFor:(NSString*)receiverPeerID
                           keyUUID:(NSString*)uuid
                            zoneID:(CKRecordZoneID*)zoneID
-                            error:(NSError * __autoreleasing *)error;
-+ (NSArray<CKKSTLKShare*>*)allForUUID:(NSString*)uuid
-                               zoneID:(CKRecordZoneID*)zoneID
-                                error:(NSError * __autoreleasing *)error;
-+ (NSArray<CKKSTLKShare*>*)allInZone:(CKRecordZoneID*)zoneID
-                               error:(NSError * __autoreleasing *)error;
-+ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID
-                                        error:(NSError * __autoreleasing *)error;
+                            error:(NSError* __autoreleasing*)error;
++ (NSArray<CKKSTLKShare*>*)allForUUID:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError**)error;
++ (NSArray<CKKSTLKShare*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError**)error;
++ (instancetype _Nullable)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError**)error;
 
 // Returns a prefix that all every CKKSTLKShare CKRecord will have
 + (NSString*)ckrecordPrefix;
 
 // For tests
-- (CKKSKey*)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError * __autoreleasing *)error;
-- (NSData*)signRecord:(SFECKeyPair*)signingKey error:(NSError* __autoreleasing *)error;
-- (bool)verifySignature:(NSData*)signature verifyingPeer:(id<CKKSPeer>)peer error:(NSError* __autoreleasing *)error;
+- (CKKSKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError**)error;
+- (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey error:(NSError**)error;
+- (bool)verifySignature:(NSData*)signature verifyingPeer:(id<CKKSPeer>)peer error:(NSError**)error;
 - (NSData*)dataForSigning;
 @end
 
-#endif // OCTAGON
+NS_ASSUME_NONNULL_END
+
+#endif  // OCTAGON

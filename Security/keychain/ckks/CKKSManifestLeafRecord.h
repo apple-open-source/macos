@@ -23,8 +23,8 @@
 
 #if OCTAGON
 
-#import "CKKSRecordHolder.h"
 #import <Foundation/Foundation.h>
+#import "CKKSRecordHolder.h"
 
 @class CKRecord;
 @class CKKSItem;
@@ -34,13 +34,13 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CKKSManifestLeafRecord : CKKSCKRecordHolder
 
 + (BOOL)recordExistsForID:(NSString*)recordID;
-+ (instancetype)leafRecordForID:(NSString*)recordID error:(NSError* __autoreleasing *)error;
-+ (instancetype)tryLeafRecordForID:(NSString*)recordID error:(NSError* __autoreleasing *)error;
++ (instancetype)leafRecordForID:(NSString*)recordID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryLeafRecordForID:(NSString*)recordID error:(NSError* __autoreleasing*)error;
 + (NSString*)leafUUIDForRecordID:(NSString*)recordID;
 
 @property (nonatomic, readonly) NSString* uuid;
 @property (nonatomic, readonly) NSData* digestValue;
-@property (nonatomic, readonly) NSDictionary<NSString*, NSData*>* recordDigestDict; // keyed by record UUID
+@property (nonatomic, readonly) NSDictionary<NSString*, NSData*>* recordDigestDict;  // keyed by record UUID
 
 @end
 

@@ -25,25 +25,29 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/tests/CKKSTests.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CloudKitKeychainSyncingTests (APITests)
 
-- (BOOL (^) (CKRecord*)) checkPCSFieldsBlock: (CKRecordZoneID*) zoneID
-                        PCSServiceIdentifier:(NSNumber*)servIdentifier
-                                PCSPublicKey:(NSData*)publicKey
-                           PCSPublicIdentity:(NSData*)publicIdentity;
+- (BOOL (^)(CKRecord*))checkPCSFieldsBlock:(CKRecordZoneID*)zoneID
+                      PCSServiceIdentifier:(NSNumber*)servIdentifier
+                              PCSPublicKey:(NSData*)publicKey
+                         PCSPublicIdentity:(NSData*)publicIdentity;
 
--(NSMutableDictionary*)pcsAddItemQuery:(NSString*)account
-                                  data:(NSData*)data
-                     serviceIdentifier:(NSNumber*)serviceIdentifier
-                             publicKey:(NSData*)publicKey
-                        publicIdentity:(NSData*)publicIdentity;
+- (NSMutableDictionary*)pcsAddItemQuery:(NSString*)account
+                                   data:(NSData*)data
+                      serviceIdentifier:(NSNumber*)serviceIdentifier
+                              publicKey:(NSData*)publicKey
+                         publicIdentity:(NSData*)publicIdentity;
 
--(NSDictionary*)pcsAddItem:(NSString*)account
-                      data:(NSData*)data
-         serviceIdentifier:(NSNumber*)serviceIdentifier
-                 publicKey:(NSData*)publicKey
-            publicIdentity:(NSData*)publicIdentity
-             expectingSync:(bool)expectingSync;
+- (NSDictionary*)pcsAddItem:(NSString*)account
+                       data:(NSData*)data
+          serviceIdentifier:(NSNumber*)serviceIdentifier
+                  publicKey:(NSData*)publicKey
+             publicIdentity:(NSData*)publicIdentity
+              expectingSync:(bool)expectingSync;
 
 
 @end
+
+NS_ASSUME_NONNULL_END

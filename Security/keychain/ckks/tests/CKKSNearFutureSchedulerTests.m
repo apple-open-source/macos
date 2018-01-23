@@ -24,22 +24,27 @@
 #include <dispatch/dispatch.h>
 #import <XCTest/XCTest.h>
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 
 @interface CKKSNearFutureSchedulerTests : XCTestCase
-
+@property NSOperationQueue* operationQueue;
 @end
 
 @implementation CKKSNearFutureSchedulerTests
 
 - (void)setUp {
     [super setUp];
+
+    self.operationQueue = [[NSOperationQueue alloc] init];
 }
 
 - (void)tearDown {
     [super tearDown];
 }
 
-- (void)testOneShot {
+#pragma mark - Block-based tests
+
+- (void)testBlockOneShot {
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
 
     CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true block:^{
@@ -51,7 +56,7 @@
     [self waitForExpectationsWithTimeout:1 handler:nil];
 }
 
-- (void)testOneShotDelay {
+- (void)testBlockOneShotDelay {
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
@@ -71,7 +76,7 @@
     [self waitForExpectations: @[expectation] timeout:1];
 }
 
-- (void)testOneShotManyTrigger {
+- (void)testBlockOneShotManyTrigger {
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
@@ -105,7 +110,7 @@
 }
 
 
-- (void)testMultiShot {
+- (void)testBlockMultiShot {
     XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
     first.assertForOverFulfill = NO;
 
@@ -120,20 +125,20 @@
 
     [scheduler trigger];
 
-    [self waitForExpectations: @[first] timeout:0.2];
+    [self waitForExpectations: @[first] timeout:0.4];
 
     [scheduler trigger];
     [scheduler trigger];
     [scheduler trigger];
 
-    [self waitForExpectations: @[second] timeout:0.2];
+    [self waitForExpectations: @[second] timeout:0.4];
 
     XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
     waitmore.inverted = YES;
-    [self waitForExpectations: @[waitmore] timeout: 0.2];
+    [self waitForExpectations: @[waitmore] timeout: 0.4];
 }
 
-- (void)testMultiShotDelays {
+- (void)testBlockMultiShotDelays {
     XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
     first.assertForOverFulfill = NO;
 
@@ -145,7 +150,7 @@
     second.expectedFulfillmentCount = 2;
     second.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:300*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:600*NSEC_PER_MSEC keepProcessAlive:false block:^{
         [first fulfill];
         [longdelay fulfill];
         [second fulfill];
@@ -153,16 +158,16 @@
 
     [scheduler trigger];
 
-    [self waitForExpectations: @[first] timeout:0.2];
+    [self waitForExpectations: @[first] timeout:0.5];
 
     [scheduler trigger];
     [scheduler trigger];
     [scheduler trigger];
 
-    // longdelay should NOT be fulfilled twice in the first 0.3 seconds
-    [self waitForExpectations: @[longdelay] timeout:0.2];
+    // longdelay should NOT be fulfilled twice in the first 0.9 seconds
+    [self waitForExpectations: @[longdelay] timeout:0.4];
 
-    // But second should be fulfilled in the first 0.8 seconds
+    // But second should be fulfilled in the first 1.4 seconds
     [self waitForExpectations: @[second] timeout:0.5];
 
     XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
@@ -170,7 +175,7 @@
     [self waitForExpectations: @[waitmore] timeout: 0.2];
 }
 
-- (void)testCancel {
+- (void)testBlockCancel {
     XCTestExpectation *cancelexpectation = [self expectationWithDescription:@"FutureScheduler fired (after cancel)"];
     cancelexpectation.inverted = YES;
 
@@ -185,7 +190,7 @@
     [self waitForExpectations: @[cancelexpectation] timeout:0.2];
 }
 
-- (void)testDelayedNoShot {
+- (void)testBlockDelayedNoShot {
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
@@ -199,7 +204,7 @@
     [self waitForExpectations: @[toofastexpectation] timeout:0.1];
 }
 
-- (void)testDelayedOneShot {
+- (void)testBlockDelayedOneShot {
     XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
     first.assertForOverFulfill = NO;
 
@@ -215,10 +220,10 @@
     [scheduler trigger];
 
     [self waitForExpectations: @[toofastexpectation] timeout:0.1];
-    [self waitForExpectations: @[first] timeout:0.2];
+    [self waitForExpectations: @[first] timeout:0.5];
 }
 
-- (void)testDelayedMultiShot {
+- (void)testBlockWaitedMultiShot {
     XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
     first.assertForOverFulfill = NO;
 
@@ -237,13 +242,195 @@
     }];
 
     [scheduler trigger];
-    [self waitForExpectations: @[first] timeout:0.2];
+    [self waitForExpectations: @[first] timeout:0.5];
 
     [scheduler waitUntil: 150*NSEC_PER_MSEC];
     [scheduler trigger];
 
     [self waitForExpectations: @[toofastexpectation] timeout:0.1];
     [self waitForExpectations: @[second] timeout:0.3];
+}
+
+#pragma mark - Operation-based tests
+
+- (NSOperation*)operationFulfillingExpectations:(NSArray<XCTestExpectation*>*)expectations {
+    return [NSBlockOperation named:@"test" withBlock:^{
+        for(XCTestExpectation* e in expectations) {
+            [e fulfill];
+        }
+    }];
+}
+
+- (void)addOperationFulfillingExpectations:(NSArray<XCTestExpectation*>*)expectations scheduler:(CKKSNearFutureScheduler*)scheduler {
+    NSOperation* op = [self operationFulfillingExpectations:expectations];
+    XCTAssertNotNil(scheduler.operationDependency, "Should be an operation dependency");
+    XCTAssertTrue([scheduler.operationDependency isPending], "operation dependency shouldn't have run yet");
+    [op addDependency:scheduler.operationDependency];
+    [self.operationQueue addOperation:op];
+}
+
+- (void)testOperationOneShot {
+    XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+    [self addOperationFulfillingExpectations:@[expectation] scheduler:scheduler];
+
+    [scheduler trigger];
+
+    [self waitForExpectationsWithTimeout:1 handler:nil];
+}
+
+- (void)testOperationOneShotDelay {
+    XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
+    toofastexpectation.inverted = YES;
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    [self addOperationFulfillingExpectations:@[expectation,toofastexpectation] scheduler:scheduler];
+
+    [scheduler trigger];
+
+    // Make sure it waits at least 0.1 seconds
+    [self waitForExpectations: @[toofastexpectation] timeout:0.1];
+
+    // But finishes within 1.1s (total)
+    [self waitForExpectations: @[expectation] timeout:1];
+}
+
+- (void)testOperationOneShotManyTrigger {
+    XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
+    toofastexpectation.inverted = YES;
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
+    expectation.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+    [self addOperationFulfillingExpectations:@[expectation,toofastexpectation] scheduler:scheduler];
+
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+
+    // Make sure it waits at least 0.1 seconds
+    [self waitForExpectations: @[toofastexpectation] timeout:0.1];
+
+    // But finishes within .6s (total)
+    [self waitForExpectations: @[expectation] timeout:0.5];
+
+    // Ensure we don't get called again in the next 0.3 s
+    XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
+    waitmore.inverted = YES;
+    [self waitForExpectations: @[waitmore] timeout: 0.3];
+}
+
+
+- (void)testOperationMultiShot {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+
+    [self addOperationFulfillingExpectations:@[first] scheduler:scheduler];
+
+    [scheduler trigger];
+
+    [self waitForExpectations: @[first] timeout:0.2];
+
+    [self addOperationFulfillingExpectations:@[second] scheduler:scheduler];
+
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+
+    [self waitForExpectations: @[second] timeout:0.2];
+
+    XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
+    waitmore.inverted = YES;
+    [self waitForExpectations: @[waitmore] timeout: 0.2];
+}
+
+- (void)testOperationMultiShotDelays {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+
+    XCTestExpectation *longdelay = [self expectationWithDescription:@"FutureScheduler fired (long delay expectation)"];
+    longdelay.inverted = YES;
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:300*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+
+    [self addOperationFulfillingExpectations:@[first] scheduler:scheduler];
+
+    [scheduler trigger];
+
+    [self waitForExpectations: @[first] timeout:0.2];
+
+    [self addOperationFulfillingExpectations:@[second,longdelay] scheduler:scheduler];
+
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+
+    // longdelay shouldn't be fulfilled in the first 0.2 seconds
+    [self waitForExpectations: @[longdelay] timeout:0.2];
+
+    // But second should be fulfilled in the next 0.5 seconds
+    [self waitForExpectations: @[second] timeout:0.5];
+
+    XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
+    waitmore.inverted = YES;
+    [self waitForExpectations: @[waitmore] timeout: 0.2];
+}
+
+- (void)testOperationCancel {
+    XCTestExpectation *cancelexpectation = [self expectationWithDescription:@"FutureScheduler fired (after cancel)"];
+    cancelexpectation.inverted = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+
+    [self addOperationFulfillingExpectations:@[cancelexpectation] scheduler:scheduler];
+
+    [scheduler trigger];
+    [scheduler cancel];
+
+    // Make sure it does not fire in 0.5 s
+    [self waitForExpectations: @[cancelexpectation] timeout:0.2];
+}
+
+- (void)testOperationDelayedNoShot {
+    XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
+    toofastexpectation.inverted = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    [self addOperationFulfillingExpectations:@[toofastexpectation] scheduler:scheduler];
+
+    // Tell the scheduler to wait, but don't trigger it. It shouldn't fire.
+    [scheduler waitUntil: 50*NSEC_PER_MSEC];
+
+    [self waitForExpectations: @[toofastexpectation] timeout:0.1];
+}
+
+- (void)testOperationDelayedOneShot {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.assertForOverFulfill = NO;
+
+    XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
+    toofastexpectation.inverted = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    [self addOperationFulfillingExpectations:@[first,toofastexpectation] scheduler:scheduler];
+
+    [scheduler waitUntil: 150*NSEC_PER_MSEC];
+    [scheduler trigger];
+
+    [self waitForExpectations: @[toofastexpectation] timeout:0.1];
+    [self waitForExpectations: @[first] timeout:0.5];
 }
 
 @end

@@ -4317,6 +4317,59 @@ const DERItem * SecCertificateGetSubjectAltName(SecCertificateRef certificate) {
     return &certificate->_subjectAltName->extnValue;
 }
 
+static bool convertIPAddress(CFStringRef name, CFDataRef *dataIP) {
+    /* IPv4: 4 octets in decimal separated by dots. We don't support matching IPv6 already. */
+    bool result = false;
+    /* Check size */
+    if (CFStringGetLength(name) < 7 || /* min size is #.#.#.# */
+        CFStringGetLength(name) > 15) { /* max size is ###.###.###.### */
+        return false;
+    }
+
+    CFCharacterSetRef decimals = CFCharacterSetCreateWithCharactersInString(NULL, CFSTR("0123456789."));
+    CFCharacterSetRef nonDecimals = CFCharacterSetCreateInvertedSet(NULL, decimals);
+    CFMutableDataRef data = CFDataCreateMutable(NULL, 0);
+    CFArrayRef parts = CFStringCreateArrayBySeparatingStrings(NULL, name, CFSTR("."));
+
+    /* Check character set */
+    if (CFStringFindCharacterFromSet(name, nonDecimals,
+                                      CFRangeMake(0, CFStringGetLength(name)),
+                                      kCFCompareForcedOrdering, NULL)) {
+        goto out;
+    }
+
+    /* Check number of labels */
+    if (CFArrayGetCount(parts) != 4) {
+        goto out;
+    }
+
+    /* Check each label and convert */
+    CFIndex i, count = CFArrayGetCount(parts);
+    for (i = 0; i < count; i++) {
+        CFStringRef octet = CFArrayGetValueAtIndex(parts, i);
+        char *cString = CFStringToCString(octet);
+        uint32_t value = atoi(cString);
+        free(cString);
+        if (value > 255) {
+            goto out;
+        } else {
+            uint8_t byte = value;
+            CFDataAppendBytes(data, &byte, 1);
+        }
+    }
+    result = true;
+    if (dataIP) {
+        *dataIP = CFRetain(data);
+    }
+
+out:
+    CFReleaseNull(data);
+    CFReleaseNull(parts);
+    CFReleaseNull(decimals);
+    CFReleaseNull(nonDecimals);
+    return result;
+}
+
 static OSStatus appendIPAddressesFromGeneralNames(void *context,
 	SecCEGeneralNameType gnType, const DERItem *generalName) {
 	CFMutableArrayRef ipAddresses = (CFMutableArrayRef)context;
@@ -4347,6 +4400,38 @@ CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRef certificate) {
 		ipAddresses = NULL;
 	}
 	return ipAddresses;
+}
+
+static OSStatus appendIPAddressesFromX501Name(void *context, const DERItem *type,
+                                              const DERItem *value, CFIndex rdnIX) {
+    CFMutableArrayRef addrs = (CFMutableArrayRef)context;
+    if (DEROidCompare(type, &oidCommonName)) {
+        CFStringRef string = copyDERThingDescription(kCFAllocatorDefault,
+                                                     value, true);
+        if (string) {
+            CFDataRef data = NULL;
+            if (convertIPAddress(string, &data)) {
+                CFArrayAppendValue(addrs, data);
+                CFReleaseNull(data);
+            }
+            CFRelease(string);
+        } else {
+            return errSecInvalidCertificate;
+        }
+    }
+    return errSecSuccess;
+}
+
+CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificate) {
+    CFMutableArrayRef addrs = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                      0, &kCFTypeArrayCallBacks);
+    OSStatus status = parseX501NameContent(&certificate->_subject, addrs,
+                                           appendIPAddressesFromX501Name);
+    if (status || CFArrayGetCount(addrs) == 0) {
+        CFReleaseNull(addrs);
+        return NULL;
+    }
+    return addrs;
 }
 
 static OSStatus appendDNSNamesFromGeneralNames(void *context, SecCEGeneralNameType gnType,
@@ -4468,6 +4553,32 @@ static OSStatus appendDNSNamesFromX501Name(void *context, const DERItem *type,
 	return errSecSuccess;
 }
 
+CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate) {
+    CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                      0, &kCFTypeArrayCallBacks);
+    OSStatus status = parseX501NameContent(&certificate->_subject, dnsNames,
+                                          appendDNSNamesFromX501Name);
+    if (status || CFArrayGetCount(dnsNames) == 0) {
+        CFReleaseNull(dnsNames);
+        return NULL;
+    }
+
+    /* appendDNSNamesFromX501Name allows IP addresses, we don't want those for this function */
+    __block CFMutableArrayRef result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayForEach(dnsNames, ^(const void *value) {
+        CFStringRef name = (CFStringRef)value;
+        if (!convertIPAddress(name, NULL)) {
+            CFArrayAppendValue(result, name);
+        }
+    });
+    CFReleaseNull(dnsNames);
+    if (CFArrayGetCount(result) == 0) {
+        CFReleaseNull(result);
+    }
+
+    return result;
+}
+
 /* Not everything returned by this function is going to be a proper DNS name,
    we also return the certificates common name entries from the subject,
    assuming they look like dns names as specified in RFC 1035. */
@@ -4566,6 +4677,18 @@ OSStatus SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArray
         *emailAddresses = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
     }
     return errSecSuccess;
+}
+
+CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate) {
+    CFMutableArrayRef rfc822Names = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                         0, &kCFTypeArrayCallBacks);
+    OSStatus status = parseX501NameContent(&certificate->_subject, rfc822Names,
+                                      appendRFC822NamesFromX501Name);
+    if (status || CFArrayGetCount(rfc822Names) == 0) {
+        CFRelease(rfc822Names);
+        rfc822Names = NULL;
+    }
+    return rfc822Names;
 }
 
 static OSStatus appendCommonNamesFromX501Name(void *context,

@@ -30,7 +30,6 @@
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
-#endif
 
 #import "CKKSKeychainView.h"
 #import "CKKSZone.h"
@@ -38,23 +37,21 @@
 #include <utilities/debugging.h>
 
 @interface CKKSZone()
-#if OCTAGON
 
 @property CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneCreationOperation;
 @property CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneDeletionOperation;
 @property CKDatabaseOperation<CKKSModifySubscriptionsOperation>* zoneSubscriptionOperation;
 
-@property bool acceptingNewOperations;
 @property NSOperationQueue* operationQueue;
 @property NSOperation* accountLoggedInDependency;
 
 @property NSHashTable<NSOperation*>* accountOperations;
-#endif
+
+// Make writable
+@property bool halted;
 @end
 
 @implementation CKKSZone
-
-#if OCTAGON
 
 - (instancetype)initWithContainer:     (CKContainer*) container
                              zoneName: (NSString*) zoneName
@@ -71,12 +68,18 @@
         _zoneName = zoneName;
         _accountTracker = tracker;
 
+        _halted = false;
+
         _database = [_container privateCloudDatabase];
         _zone = [[CKRecordZone alloc] initWithZoneID: [[CKRecordZoneID alloc] initWithZoneName:zoneName ownerName:CKCurrentUserDefaultName]];
 
-        // Every subclass must set up call beginSetup at least once.
         _accountStatus = CKKSAccountStatusUnknown;
-        [self resetSetup];
+
+        __weak __typeof(self) weakSelf = self;
+        self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
+            ckksnotice("ckkszone", weakSelf, "CloudKit account logged in.");
+        }];
+        self.accountLoggedInDependency.name = @"account-logged-in-dependency";
 
         _accountOperations = [NSHashTable weakObjectsHashTable];
 
@@ -89,33 +92,15 @@
 
         _queue = dispatch_queue_create([[NSString stringWithFormat:@"CKKSQueue.%@.zone.%@", container.containerIdentifier, zoneName] UTF8String], DISPATCH_QUEUE_SERIAL);
         _operationQueue = [[NSOperationQueue alloc] init];
-        _acceptingNewOperations = true;
     }
     return self;
 }
 
-// Initialize this object so that we can call beginSetup again
+- (void)initializeZone {
+    [self.accountTracker notifyOnAccountStatusChange:self];
+}
+
 - (void)resetSetup {
-    self.setupStarted = false;
-    self.setupComplete = false;
-
-    if([self.zoneSetupOperation isPending]) {
-        // Nothing to do here: there's already an existing zoneSetupOperation
-    } else {
-        self.zoneSetupOperation = [[CKKSGroupOperation alloc] init];
-        self.zoneSetupOperation.name = @"zone-setup-operation";
-    }
-
-    if([self.accountLoggedInDependency isPending]) {
-        // Nothing to do here: there's already an existing accountLoggedInDependency
-    } else {
-        __weak __typeof(self) weakSelf = self;
-        self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
-            ckksnotice("ckkszone", weakSelf, "CloudKit account logged in.");
-        }];
-        self.accountLoggedInDependency.name = @"account-logged-in-dependency";
-    }
-
     self.zoneCreated = false;
     self.zoneSubscribed = false;
     self.zoneCreatedError = nil;
@@ -131,86 +116,75 @@
 }
 
 
--(void)ckAccountStatusChange: (CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus {
+-(void)ckAccountStatusChange:(CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus {
+    ckksnotice("ckkszone", self, "%@ Received notification of CloudKit account status change, moving from %@ to %@",
+               self.zoneID.zoneName,
+               [CKKSCKAccountStateTracker stringFromAccountStatus: oldStatus],
+               [CKKSCKAccountStateTracker stringFromAccountStatus: currentStatus]);
 
-    // dispatch this on a serial queue, so we get each transition in order
-    [self dispatchSync: ^bool {
-        ckksnotice("ckkszone", self, "%@ Received notification of CloudKit account status change, moving from %@ to %@",
-                   self.zoneID.zoneName,
-                   [CKKSCKAccountStateTracker stringFromAccountStatus: self.accountStatus],
-                   [CKKSCKAccountStateTracker stringFromAccountStatus: currentStatus]);
-        CKKSAccountStatus oldStatus = self.accountStatus;
-        self.accountStatus = currentStatus;
+    __weak __typeof(self) weakSelf = self;
+    switch(currentStatus) {
+        case CKKSAccountStatusAvailable: {
+            ckksnotice("ckkszone", self, "Logged into iCloud.");
+            [self handleCKLogin];
 
-        switch(currentStatus) {
-            case CKKSAccountStatusAvailable: {
-
-                ckksinfo("ckkszone", self, "logging in while setup started: %d and complete: %d", self.setupStarted, self.setupComplete);
-
-                // This is only a login if we're not in the middle of setup, and the previous state was not logged in
-                if(!(self.setupStarted ^ self.setupComplete) && oldStatus != CKKSAccountStatusAvailable) {
-                    [self resetSetup];
-                    [self handleCKLogin];
-                }
-
-                if(self.accountLoggedInDependency) {
-                    [self.operationQueue addOperation:self.accountLoggedInDependency];
-                    self.accountLoggedInDependency = nil;
-                };
-            }
-            break;
-
-            case CKKSAccountStatusNoAccount: {
-                ckksnotice("ckkszone", self, "Logging out of iCloud. Shutting down.");
-
-                self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
-                    ckksnotice("ckkszone", self, "CloudKit account logged in again.");
-                }];
-                self.accountLoggedInDependency.name = @"account-logged-in-dependency";
-
-                [self.operationQueue cancelAllOperations];
-                [self handleCKLogout];
-
-                // now we're in a logged out state. Optimistically prepare for a log in!
-                [self resetSetup];
-            }
-            break;
-
-            case CKKSAccountStatusUnknown: {
-                // We really don't expect to receive this as a notification, but, okay!
-                ckksnotice("ckkszone", self, "Account status has become undetermined. Pausing for %@", self.zoneID.zoneName);
-
-                self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
-                    ckksnotice("ckkszone", self, "CloudKit account restored from 'unknown'.");
-                }];
-                self.accountLoggedInDependency.name = @"account-logged-in-dependency";
-
-                [self.operationQueue cancelAllOperations];
-                [self resetSetup];
-            }
-            break;
+            if(self.accountLoggedInDependency) {
+                [self.operationQueue addOperation:self.accountLoggedInDependency];
+                self.accountLoggedInDependency = nil;
+            };
         }
+            break;
 
-        return true;
-    }];
+        case CKKSAccountStatusNoAccount: {
+            ckksnotice("ckkszone", self, "Logging out of iCloud. Shutting down.");
+
+            self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
+                ckksnotice("ckkszone", weakSelf, "CloudKit account logged in again.");
+            }];
+            self.accountLoggedInDependency.name = @"account-logged-in-dependency";
+
+            [self handleCKLogout];
+        }
+            break;
+
+        case CKKSAccountStatusUnknown: {
+            // We really don't expect to receive this as a notification, but, okay!
+            ckksnotice("ckkszone", self, "Account status has become undetermined. Pausing for %@", self.zoneID.zoneName);
+
+            self.accountLoggedInDependency = [NSBlockOperation blockOperationWithBlock:^{
+                ckksnotice("ckkszone", weakSelf, "CloudKit account restored from 'unknown'.");
+            }];
+            self.accountLoggedInDependency.name = @"account-logged-in-dependency";
+
+            [self handleCKLogout];
+        }
+            break;
+    }
 }
 
-- (NSOperation*) createSetupOperation: (bool) zoneCreated zoneSubscribed: (bool) zoneSubscribed {
+- (void)restartCurrentAccountStateOperation {
+    __weak __typeof(self) weakSelf = self;
+    dispatch_async(self.queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        ckksnotice("ckksaccount", strongSelf, "Restarting account in state %@", [CKKSCKAccountStateTracker stringFromAccountStatus:strongSelf.accountStatus]);
+        [strongSelf ckAccountStatusChange:strongSelf.accountStatus to:strongSelf.accountStatus];
+    });
+}
+
+- (NSOperation*)handleCKLogin:(bool)zoneCreated zoneSubscribed:(bool)zoneSubscribed {
     if(!SecCKKSIsEnabled()) {
         ckksinfo("ckkszone", self, "Skipping CloudKit registration due to disabled CKKS");
         return nil;
     }
 
     // If we've already started set up, skip doing it again.
-    if(self.setupStarted) {
-        ckksinfo("ckkszone", self, "skipping startup: it's already started");
+    if([self.zoneSetupOperation isPending] || [self.zoneSetupOperation isExecuting]) {
+        ckksnotice("ckkszone", self, "skipping startup: it's already started");
         return self.zoneSetupOperation;
     }
 
-    if(self.zoneSetupOperation == nil) {
-        ckkserror("ckkszone", self, "trying to set up but the setup operation is gone; what happened?");
-        return nil;
-    }
+    self.zoneSetupOperation = [[CKKSGroupOperation alloc] init];
+    self.zoneSetupOperation.name = [NSString stringWithFormat:@"zone-setup-operation-%@", self.zoneName];
 
     self.zoneCreated = zoneCreated;
     self.zoneSubscribed = zoneSubscribed;
@@ -221,42 +195,23 @@
     self.zoneSetupOperation.qualityOfService = NSQualityOfServiceUserInitiated;
 
     ckksnotice("ckkszone", self, "Setting up zone %@", self.zoneName);
-    self.setupStarted = true;
 
     __weak __typeof(self) weakSelf = self;
 
     // First, check the account status. If it's sufficient, add the necessary CloudKit operations to this operation
-    NSBlockOperation* doSetup = [NSBlockOperation blockOperationWithBlock:^{
+    __weak CKKSGroupOperation* weakZoneSetupOperation = self.zoneSetupOperation;
+    [self.zoneSetupOperation runBeforeGroupFinished:[CKKSResultOperation named:[NSString stringWithFormat:@"zone-setup-%@", self.zoneName] withBlock:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
-        if(!strongSelf) {
+        __strong __typeof(self.zoneSetupOperation) zoneSetupOperation = weakZoneSetupOperation;
+        if(!strongSelf || !zoneSetupOperation) {
             ckkserror("ckkszone", strongSelf, "received callback for released object");
             return;
         }
 
-        __block bool ret = false;
-        [strongSelf dispatchSync: ^bool {
-            strongSelf.accountStatus = [strongSelf.accountTracker currentCKAccountStatusAndNotifyOnChange:strongSelf];
-
-            switch(strongSelf.accountStatus) {
-                case CKKSAccountStatusNoAccount:
-                    ckkserror("ckkszone", strongSelf, "No CloudKit account; quitting setup for %@", strongSelf.zoneID.zoneName);
-                    [strongSelf handleCKLogout];
-                    ret = true;
-                    break;
-                case CKKSAccountStatusAvailable:
-                    if(strongSelf.accountLoggedInDependency) {
-                        [strongSelf.operationQueue addOperation: strongSelf.accountLoggedInDependency];
-                        strongSelf.accountLoggedInDependency = nil;
-                    }
-                    break;
-                case CKKSAccountStatusUnknown:
-                    ckkserror("ckkszone", strongSelf, "CloudKit account status currently unknown; stopping setup for %@", strongSelf.zoneID.zoneName);
-                    ret = true;
-                    break;
-            }
-
-            return true;
-        }];
+        if(strongSelf.accountStatus != CKKSAccountStatusAvailable) {
+            ckkserror("ckkszone", strongSelf, "Zone doesn't believe it's logged in; quitting setup");
+            return;
+        }
 
         NSBlockOperation* setupCompleteOperation = [NSBlockOperation blockOperationWithBlock:^{
             __strong __typeof(weakSelf) strongSelf = weakSelf;
@@ -265,16 +220,9 @@
                 return;
             }
 
-            ckksinfo("ckkszone", strongSelf, "%@: Setup complete", strongSelf.zoneName);
-            strongSelf.setupComplete = true;
+            ckksnotice("ckkszone", strongSelf, "%@: Setup complete", strongSelf.zoneName);
         }];
         setupCompleteOperation.name = @"zone-setup-complete-operation";
-
-        // If we don't have an CloudKit account, don't bother continuing
-        if(ret) {
-            [strongSelf.zoneSetupOperation runBeforeGroupFinished:setupCompleteOperation];
-            return;
-        }
 
         // We have an account, so fetch the push environment and bring up APS
         [strongSelf.container serverPreferredPushEnvironmentWithCompletionHandler: ^(NSString *apsPushEnvString, NSError *error) {
@@ -290,7 +238,7 @@
                 CKKSAPSReceiver* aps = [CKKSAPSReceiver receiverForEnvironment:apsPushEnvString
                                                              namedDelegatePort:SecCKKSAPSNamedPort
                                                             apsConnectionClass:strongSelf.apsConnectionClass];
-                [aps register:strongSelf forZoneID:strongSelf.zoneID];
+                [aps registerReceiver:strongSelf forZoneID:strongSelf.zoneID];
             }
         }];
 
@@ -330,10 +278,10 @@
             ckksnotice("ckkszone", strongSelf, "Adding CKKSModifyRecordZonesOperation: %@ %@", zoneCreationOperation, zoneCreationOperation.dependencies);
             strongSelf.zoneCreationOperation = zoneCreationOperation;
             [setupCompleteOperation addDependency: modifyRecordZonesCompleteOperation];
-            [strongSelf.zoneSetupOperation runBeforeGroupFinished: zoneCreationOperation];
-            [strongSelf.zoneSetupOperation dependOnBeforeGroupFinished: modifyRecordZonesCompleteOperation];
+            [zoneSetupOperation runBeforeGroupFinished: zoneCreationOperation];
+            [zoneSetupOperation dependOnBeforeGroupFinished: modifyRecordZonesCompleteOperation];
         } else {
-            ckksinfo("ckkszone", strongSelf, "no need to create the zone '%@'", strongSelf.zoneName);
+            ckksnotice("ckkszone", strongSelf, "no need to create the zone '%@'", strongSelf.zoneName);
         }
 
         if(!zoneSubscribed) {
@@ -384,25 +332,23 @@
             }
             strongSelf.zoneSubscriptionOperation = zoneSubscriptionOperation;
             [setupCompleteOperation addDependency: zoneSubscriptionCompleteOperation];
-            [strongSelf.zoneSetupOperation runBeforeGroupFinished:zoneSubscriptionOperation];
-            [strongSelf.zoneSetupOperation dependOnBeforeGroupFinished: zoneSubscriptionCompleteOperation];
+            [zoneSetupOperation runBeforeGroupFinished:zoneSubscriptionOperation];
+            [zoneSetupOperation dependOnBeforeGroupFinished: zoneSubscriptionCompleteOperation];
         } else {
-            ckksinfo("ckkszone", strongSelf, "no need to create database subscription");
+            ckksnotice("ckkszone", strongSelf, "no need to create database subscription");
         }
 
         [strongSelf.zoneSetupOperation runBeforeGroupFinished:setupCompleteOperation];
-    }];
-    doSetup.name = @"begin-zone-setup";
+    }]];
 
-    [self.zoneSetupOperation runBeforeGroupFinished:doSetup];
-
+    [self scheduleAccountStatusOperation:self.zoneSetupOperation];
     return self.zoneSetupOperation;
 }
 
 
 - (CKKSResultOperation*)beginResetCloudKitZoneOperation {
     if(!SecCKKSIsEnabled()) {
-        ckksinfo("ckkszone", self, "Skipping CloudKit reset due to disabled CKKS");
+        ckksnotice("ckkszone", self, "Skipping CloudKit reset due to disabled CKKS");
         return nil;
     }
 
@@ -453,7 +399,6 @@
         }
 
         ckksinfo("ckkszone", strongSelf, "record zones deletion %@ completed with error: %@", deletedRecordZoneIDs, operationError);
-        [strongSelf resetSetup];
 
         if(operationError && fatalError) {
             // If the error wasn't actually a problem, don't report it upward.
@@ -465,7 +410,7 @@
     // If the zone creation operation is still pending, wait for it to complete before attempting zone deletion
     [zoneDeletionOperation addNullableDependency: self.zoneCreationOperation];
 
-    ckksinfo("ckkszone", self, "deleting zone with %@ %@", zoneDeletionOperation, zoneDeletionOperation.dependencies);
+    ckksnotice("ckkszone", self, "deleting zone with %@ %@", zoneDeletionOperation, zoneDeletionOperation.dependencies);
     // Don't use scheduleOperation: zone deletions should be attempted even if we're "logged out"
     [self.operationQueue addOperation: zoneDeletionOperation];
     self.zoneDeletionOperation = zoneDeletionOperation;
@@ -477,16 +422,19 @@
 }
 
 - (void)handleCKLogin {
-    ckksinfo("ckkszone", self, "received a notification of CK login, ignoring");
+    ckksinfo("ckkszone", self, "received a notification of CK login");
+    self.accountStatus = CKKSAccountStatusAvailable;
 }
 
 - (void)handleCKLogout {
-    ckksinfo("ckkszone", self, "received a notification of CK logout, ignoring");
+    ckksinfo("ckkszone", self, "received a notification of CK logout");
+    self.accountStatus = CKKSAccountStatusNoAccount;
+    [self resetSetup];
 }
 
 - (bool)scheduleOperation: (NSOperation*) op {
-    if(!self.acceptingNewOperations) {
-        ckksdebug("ckkszone", self, "attempted to schedule an operation on a cancelled zone, ignoring");
+    if(self.halted) {
+        ckkserror("ckkszone", self, "attempted to schedule an operation on a halted zone, ignoring");
         return false;
     }
 
@@ -516,6 +464,11 @@
 }
 
 - (bool)scheduleAccountStatusOperation: (NSOperation*) op {
+    if(self.halted) {
+        ckkserror("ckkszone", self, "attempted to schedule an account operation on a halted zone, ignoring");
+        return false;
+    }
+
     // Always succeed. But, account status operations should always proceed in-order.
     [op linearDependencies:self.accountOperations];
     [self.operationQueue addOperation: op];
@@ -524,6 +477,11 @@
 
 // to be used rarely, if at all
 - (bool)scheduleOperationWithoutDependencies:(NSOperation*)op {
+    if(self.halted) {
+        ckkserror("ckkszone", self, "attempted to schedule an non-dependent operation on a halted zone, ignoring");
+        return false;
+    }
+
     [self.operationQueue addOperation: op];
     return true;
 }
@@ -532,6 +490,11 @@
     // important enough to block this thread.
     __block bool ok = false;
     dispatch_sync(self.queue, ^{
+        if(self.halted) {
+            ckkserror("ckkszone", self, "CKKSZone not dispatchSyncing a block (due to being halted)");
+            return;
+        }
+
         ok = block();
         if(!ok) {
             ckkserror("ckkszone", self, "CKKSZone block returned false");
@@ -539,9 +502,17 @@
     });
 }
 
+- (void)halt {
+    // Synchronously set the 'halted' bit
+    dispatch_sync(self.queue, ^{
+        self.halted = true;
+    });
 
-#endif /* OCTAGON */
+    // Bring all operations down, too
+    [self cancelAllOperations];
+}
+
 @end
 
-
+#endif /* OCTAGON */
 

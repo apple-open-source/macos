@@ -21,47 +21,39 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-#ifndef CKKSKeychainView_h
-#define CKKSKeychainView_h
-
+#if OCTAGON
 #import <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 
-#if OCTAGON
-#import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSAPSReceiver.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
-#endif
+#import "keychain/ckks/CloudKitDependencies.h"
 
-#include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
 
 #import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
+#import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSIncomingQueueOperation.h"
-#import "keychain/ckks/CKKSOutgoingQueueOperation.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSNewTLKOperation.h"
+#import "keychain/ckks/CKKSNotifier.h"
+#import "keychain/ckks/CKKSOutgoingQueueOperation.h"
+#import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CKKSProcessReceivedKeysOperation.h"
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
-#import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
 #import "keychain/ckks/CKKSScanLocalItemsOperation.h"
+#import "keychain/ckks/CKKSTLKShare.h"
 #import "keychain/ckks/CKKSUpdateDeviceStateOperation.h"
-#import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSZone.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
-#import "keychain/ckks/CKKSNotifier.h"
-#import "keychain/ckks/CKKSPeer.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSSynchronizeOperation.h"
+#import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
 
 #include "CKKS.h"
 
-# if !OCTAGON
-@interface CKKSKeychainView : NSObject {
-    NSString* _containerName;
-}
-@end
-#else // OCTAGON
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKey;
 @class CKKSAESSIVKey;
@@ -72,27 +64,32 @@
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
 
-@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver,
-                                        CKKSChangeFetcherErrorOracle,
-                                        CKKSPeerUpdateListener> {
+@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver, CKKSChangeFetcherErrorOracle, CKKSPeerUpdateListener>
+{
     CKKSZoneKeyState* _keyHierarchyState;
 }
+
+@property CKKSCondition* loggedIn;
+@property CKKSCondition* loggedOut;
 
 @property CKKSLockStateTracker* lockStateTracker;
 
 @property CKKSZoneKeyState* keyHierarchyState;
-@property NSError* keyHierarchyError;
-@property CKOperationGroup* keyHierarchyOperationGroup;
-@property NSOperation* keyStateMachineOperation;
+@property (nullable) NSError* keyHierarchyError;
+@property (nullable) CKOperationGroup* keyHierarchyOperationGroup;
+@property (nullable) NSOperation* keyStateMachineOperation;
 
 // If the key hierarchy isn't coming together, it might be because we're out of sync with cloudkit.
 // Use this to track if we've completed a full refetch, so fix-up operations can be done.
 @property bool keyStateMachineRefetched;
-@property CKKSEgoManifest* egoManifest;
-@property CKKSManifest* latestManifest;
-@property CKKSResultOperation* keyStateReadyDependency;
+@property (nullable) CKKSEgoManifest* egoManifest;
+@property (nullable) CKKSManifest* latestManifest;
+@property (nullable) CKKSResultOperation* keyStateReadyDependency;
 
-@property (readonly) NSString *lastActiveTLKUUID;
+// True if we believe there's any items in the keychain which haven't been brought up in CKKS yet
+@property bool droppedItems;
+
+@property (readonly) NSString* lastActiveTLKUUID;
 
 // Full of condition variables, if you'd like to try to wait until the key hierarchy is in some state
 @property NSMutableDictionary<CKKSZoneKeyState*, CKKSCondition*>* keyHierarchyConditions;
@@ -102,22 +99,24 @@
 @property (weak) CKKSNearFutureScheduler* savedTLKNotifier;
 
 // Differs from the zonesetupoperation: zoneSetup is only for CK modifications, viewSetup handles local db changes too
-@property CKKSGroupOperation* viewSetupOperation;
+@property CKKSResultOperation* viewSetupOperation;
 
 /* Used for debugging: just what happened last time we ran this? */
-@property CKKSIncomingQueueOperation*             lastIncomingQueueOperation;
-@property CKKSNewTLKOperation*                    lastNewTLKOperation;
-@property CKKSOutgoingQueueOperation*             lastOutgoingQueueOperation;
-@property CKKSProcessReceivedKeysOperation*       lastProcessReceivedKeysOperation;
+@property CKKSIncomingQueueOperation* lastIncomingQueueOperation;
+@property CKKSNewTLKOperation* lastNewTLKOperation;
+@property CKKSOutgoingQueueOperation* lastOutgoingQueueOperation;
+@property CKKSProcessReceivedKeysOperation* lastProcessReceivedKeysOperation;
 @property CKKSFetchAllRecordZoneChangesOperation* lastRecordZoneChangesOperation;
-@property CKKSReencryptOutgoingItemsOperation*    lastReencryptOutgoingItemsOperation;
-@property CKKSScanLocalItemsOperation*            lastScanLocalItemsOperation;
-@property CKKSSynchronizeOperation*               lastSynchronizeOperation;
-@property CKKSResultOperation*                    lastFixupOperation;
+@property CKKSReencryptOutgoingItemsOperation* lastReencryptOutgoingItemsOperation;
+@property CKKSScanLocalItemsOperation* lastScanLocalItemsOperation;
+@property CKKSSynchronizeOperation* lastSynchronizeOperation;
+@property CKKSResultOperation* lastFixupOperation;
 
 /* Used for testing: pause operation types by adding operations here */
 @property NSOperation* holdReencryptOutgoingItemsOperation;
 @property NSOperation* holdOutgoingQueueOperation;
+@property NSOperation* holdLocalSynchronizeOperation;
+@property CKKSResultOperation* holdFixupOperation;
 
 /* Trigger this to tell the whole machine that this view has changed */
 @property CKKSNearFutureScheduler* notifyViewChangedScheduler;
@@ -129,60 +128,59 @@
 @property (nonatomic, readonly) NSSet<id<CKKSPeer>>* currentTrustedPeers;
 @property (nonatomic, readonly) NSError* currentTrustedPeersError;
 
-- (instancetype)initWithContainer:     (CKContainer*) container
-                             zoneName: (NSString*) zoneName
-                       accountTracker:(CKKSCKAccountStateTracker*) accountTracker
-                     lockStateTracker:(CKKSLockStateTracker*) lockStateTracker
-                     savedTLKNotifier:(CKKSNearFutureScheduler*) savedTLKNotifier
-                         peerProvider:(id<CKKSPeerProvider>)peerProvider
- fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
-           fetchRecordsOperationClass: (Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                  queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
-    modifySubscriptionsOperationClass: (Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
-      modifyRecordZonesOperationClass: (Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
-                   apsConnectionClass: (Class<CKKSAPSConnection>) apsConnectionClass
-                        notifierClass: (Class<CKKSNotifier>) notifierClass;
+- (instancetype)initWithContainer:(CKContainer*)container
+                                zoneName:(NSString*)zoneName
+                          accountTracker:(CKKSCKAccountStateTracker*)accountTracker
+                        lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+                        savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
+                            peerProvider:(id<CKKSPeerProvider>)peerProvider
+    fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
+              fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
+                     queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
+       modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>)modifySubscriptionsOperationClass
+         modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>)modifyRecordZonesOperationClass
+                      apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass
+                           notifierClass:(Class<CKKSNotifier>)notifierClass;
 
 /* Synchronous operations */
 
-- (void) handleKeychainEventDbConnection:(SecDbConnectionRef) dbconn
-                                   added:(SecDbItemRef) added
-                                 deleted:(SecDbItemRef) deleted
-                             rateLimiter:(CKKSRateLimiter*) rateLimiter
-                            syncCallback:(SecBoolNSErrorCallback) syncCallback;
+- (void)handleKeychainEventDbConnection:(SecDbConnectionRef)dbconn
+                                  added:(SecDbItemRef _Nullable)added
+                                deleted:(SecDbItemRef _Nullable)deleted
+                            rateLimiter:(CKKSRateLimiter*)rateLimiter
+                           syncCallback:(SecBoolNSErrorCallback)syncCallback;
 
--(void)setCurrentItemForAccessGroup:(SecDbItemRef)newItem
-                               hash:(NSData*)newItemSHA1
-                        accessGroup:(NSString*)accessGroup
-                         identifier:(NSString*)identifier
-                          replacing:(SecDbItemRef)oldItem
-                               hash:(NSData*)oldItemSHA1
-                           complete:(void (^) (NSError* operror)) complete;
+- (void)setCurrentItemForAccessGroup:(SecDbItemRef)newItem
+                                hash:(NSData*)newItemSHA1
+                         accessGroup:(NSString*)accessGroup
+                          identifier:(NSString*)identifier
+                           replacing:(SecDbItemRef _Nullable)oldItem
+                                hash:(NSData* _Nullable)oldItemSHA1
+                            complete:(void (^)(NSError* operror))complete;
 
--(void)getCurrentItemForAccessGroup:(NSString*)accessGroup
-                         identifier:(NSString*)identifier
-                    fetchCloudValue:(bool)fetchCloudValue
-                           complete:(void (^) (NSString* uuid, NSError* operror)) complete;
+- (void)getCurrentItemForAccessGroup:(NSString*)accessGroup
+                          identifier:(NSString*)identifier
+                     fetchCloudValue:(bool)fetchCloudValue
+                            complete:(void (^)(NSString* uuid, NSError* operror))complete;
 
-- (bool) outgoingQueueEmpty: (NSError * __autoreleasing *) error;
+- (bool)outgoingQueueEmpty:(NSError* __autoreleasing*)error;
 
 - (CKKSResultOperation*)waitForFetchAndIncomingQueueProcessing;
-- (void) waitForKeyHierarchyReadiness;
-- (void) cancelAllOperations;
+- (void)waitForKeyHierarchyReadiness;
+- (void)cancelAllOperations;
 
-- (CKKSKey*) keyForItem: (SecDbItemRef) item error: (NSError * __autoreleasing *) error;
+- (CKKSKey* _Nullable)keyForItem:(SecDbItemRef)item error:(NSError* __autoreleasing*)error;
 
-- (bool)_onqueueWithAccountKeysCheckTLK: (CKKSKey*) proposedTLK error: (NSError * __autoreleasing *) error;
+- (bool)_onqueueWithAccountKeysCheckTLK:(CKKSKey*)proposedTLK error:(NSError* __autoreleasing*)error;
 
 /* Asynchronous kickoffs */
 
-- (void) initializeZone;
+- (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup;
+- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
+                                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 
-- (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup*)ckoperationGroup;
-- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation*)after ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
-
-- (CKKSIncomingQueueOperation*) processIncomingQueue:(bool)failOnClassA;
-- (CKKSIncomingQueueOperation*) processIncomingQueue:(bool)failOnClassA after: (CKKSResultOperation*) after;
+- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA;
+- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA after:(CKKSResultOperation* _Nullable)after;
 
 // Schedules a process queueoperation to happen after the next device unlock. This may be Immediately, if the device is unlocked.
 - (void)processIncomingQueueAfterNextUnlock;
@@ -191,9 +189,10 @@
 // If rateLimit is true, the operation will abort if it's updated the record in the past 3 days
 - (CKKSUpdateDeviceStateOperation*)updateDeviceState:(bool)rateLimit
                    waitForKeyHierarchyInitialization:(uint64_t)timeout
-                                    ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+                                    ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 
-- (CKKSSynchronizeOperation*) resyncWithCloud;
+- (CKKSSynchronizeOperation*)resyncWithCloud;
+- (CKKSLocalSynchronizeOperation*)resyncLocal;
 
 - (CKKSResultOperation*)fetchAndProcessCKChanges:(CKKSFetchBecause*)because;
 
@@ -209,8 +208,8 @@
 // For our serial queue to work with how handleKeychainEventDbConnection is called from the main thread,
 // every block on our queue must have a SecDBConnectionRef available to it before it begins on the queue.
 // Use these helper methods to make sure those exist.
-- (void) dispatchAsync: (bool (^)(void)) block;
-- (void) dispatchSync: (bool (^)(void)) block;
+- (void)dispatchAsync:(bool (^)(void))block;
+- (void)dispatchSync:(bool (^)(void))block;
 - (void)dispatchSyncWithAccountKeys:(bool (^)(void))block;
 
 /* Synchronous operations which must be called from inside a dispatchAsync or dispatchSync block */
@@ -225,35 +224,39 @@
 - (void)_onqueueKeyStateMachineRequestProcess;
 
 // Call this from a key hierarchy operation to move the state machine, and record the results of the last move.
-- (void)_onqueueAdvanceKeyStateMachineToState: (CKKSZoneKeyState*) state withError: (NSError*) error;
+- (void)_onqueueAdvanceKeyStateMachineToState:(CKKSZoneKeyState* _Nullable)state withError:(NSError* _Nullable)error;
 
 // Since we might have people interested in the state transitions of objects, please do those transitions via these methods
-- (bool)_onqueueChangeOutgoingQueueEntry: (CKKSOutgoingQueueEntry*) oqe toState: (NSString*) state error: (NSError* __autoreleasing*) error;
-- (bool)_onqueueErrorOutgoingQueueEntry: (CKKSOutgoingQueueEntry*) oqe itemError: (NSError*) itemError error: (NSError* __autoreleasing*) error;
+- (bool)_onqueueChangeOutgoingQueueEntry:(CKKSOutgoingQueueEntry*)oqe
+                                 toState:(NSString*)state
+                                   error:(NSError* __autoreleasing*)error;
+- (bool)_onqueueErrorOutgoingQueueEntry:(CKKSOutgoingQueueEntry*)oqe
+                              itemError:(NSError*)itemError
+                                  error:(NSError* __autoreleasing*)error;
 
 // Call this if you've done a write and received an error. It'll pull out any new records returned as CKErrorServerRecordChanged and pretend we received them in a fetch
 //
 // Note that you need to tell this function the records you wanted to save, so it can determine which record failed from its CKRecordID.
 // I don't know why CKRecordIDs don't have record types, either.
-- (bool)_onqueueCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*,CKRecord*>*)savedRecords;
+- (bool)_onqueueCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
 
-- (bool) _onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync;
-- (bool) _onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
+- (bool)_onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync;
+- (bool)_onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
 
 // For this key, who doesn't yet have a CKKSTLKShare for it?
 // Note that we really want a record sharing the TLK to ourselves, so this function might return
 // a non-empty set even if all peers have the TLK: it wants us to make a record for ourself.
-- (NSSet<id<CKKSPeer>>*)_onqueueFindPeersMissingShare:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
+- (NSSet<id<CKKSPeer>>* _Nullable)_onqueueFindPeersMissingShare:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
 
 // For this key, share it to all trusted peers who don't have it yet
-- (NSSet<CKKSTLKShare*>*)_onqueueCreateMissingKeyShares:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
+- (NSSet<CKKSTLKShare*>* _Nullable)_onqueueCreateMissingKeyShares:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
 
-- (bool)_onQueueUpdateLatestManifestWithError:(NSError**)error;
+- (bool)_onqueueUpdateLatestManifestWithError:(NSError**)error;
 
-- (CKKSDeviceStateEntry*)_onqueueCurrentDeviceStateEntry: (NSError* __autoreleasing*)error;
+- (CKKSDeviceStateEntry* _Nullable)_onqueueCurrentDeviceStateEntry:(NSError* __autoreleasing*)error;
 
 // Called by the CKKSZoneChangeFetcher
-- (bool) isFatalCKFetchError: (NSError*) error;
+- (bool)isFatalCKFetchError:(NSError*)error;
 
 // Please don't use these unless you're an Operation in this package
 @property NSHashTable<CKKSIncomingQueueOperation*>* incomingQueueOperations;
@@ -261,16 +264,15 @@
 @property CKKSScanLocalItemsOperation* initialScanOperation;
 
 // Returns the current state of this view
--(NSDictionary<NSString*, NSString*>*)status;
+- (NSDictionary<NSString*, NSString*>*)status;
 @end
-#endif // OCTAGON
 
-
-#define SecTranslateError(nserrorptr, cferror) \
-    if(nserrorptr) { \
-       *nserrorptr = (__bridge_transfer NSError*) cferror; \
-    } else { \
-       CFReleaseNull(cferror); \
-    }
-
-#endif /* CKKSKeychainView_h */
+NS_ASSUME_NONNULL_END
+#else   // !OCTAGON
+#import <Foundation/Foundation.h>
+@interface CKKSKeychainView : NSObject
+{
+    NSString* _containerName;
+}
+@end
+#endif  // OCTAGON

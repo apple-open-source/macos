@@ -97,11 +97,8 @@
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
-    // If TLK sharing is enabled, CKKS will save a share for itself
-    if(SecCKKSShareTLKs()) {
-        [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    }
-    
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
     [self addGenericPassword:@"data" account:@"first"];
     [self addGenericPassword:@"data" account:@"second"];
     [self addGenericPassword:@"data" account:@"third"];

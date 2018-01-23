@@ -26,13 +26,13 @@
 
 #if OCTAGON
 
-#include <utilities/SecDb.h>
 #include <securityd/SecDbItem.h>
+#include <utilities/SecDb.h>
 
 #import <CloudKit/CloudKit.h>
 #import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSSQLDatabaseObject.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
+#import "keychain/ckks/CKKSSQLDatabaseObject.h"
 
 /*
  * This is the backing class for "device state" records: each device in an iCloud account copies
@@ -54,10 +54,10 @@
 @property NSString* currentClassAUUID;
 @property NSString* currentClassCUUID;
 
-+ (instancetype)fromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
-+ (instancetype)tryFromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
-+ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError * __autoreleasing *)error;
-+ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
++ (instancetype)fromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError* __autoreleasing*)error;
++ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initForDevice:(NSString*)device
@@ -71,6 +71,5 @@
               encodedCKRecord:(NSData*)encodedrecord;
 @end
 
-#endif // OCTAGON
-#endif /* CKKSDeviceStateEntry_h */
-
+#endif  // OCTAGON
+#endif  /* CKKSDeviceStateEntry_h */

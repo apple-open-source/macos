@@ -525,6 +525,9 @@
 - (void)addToZone: (CKKSCKRecordHolder*) item zoneID: (CKRecordZoneID*) zoneID {
     CKRecord* record = [item CKRecordWithZoneID: zoneID];
     [self addToZone: record];
+
+    // Save off the etag
+    item.storedCKRecord = record;
 }
 
 - (void)addToZone: (CKRecord*) record {
@@ -565,6 +568,14 @@
 
     [self addToZone: record];
 }
+
+- (void)deleteFromHistory:(CKRecordID*)recordID {
+    for(NSMutableDictionary* pastDatabase in self.pastDatabases.objectEnumerator) {
+        [pastDatabase removeObjectForKey:recordID];
+    }
+    [self.currentDatabase removeObjectForKey:recordID];
+}
+
 
 - (NSError*)deleteCKRecordIDFromZone:(CKRecordID*) recordID {
     // todo: fail somehow

@@ -83,6 +83,10 @@
 - (void)setUp {
     [super setUp];
 
+    NSString* testName = [self.name componentsSeparatedByString:@" "][1];
+    testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
+    secnotice("ckkstest", "Beginning test %@", testName);
+
     // All tests start with the same flag set.
     SecCKKSTestResetFlags();
     SecCKKSTestSetDisableSOS(true);
@@ -95,6 +99,7 @@
 
     self.zones = [[NSMutableDictionary alloc] init];
 
+    self.mockDatabaseExceptionCatcher = OCMStrictClassMock([CKDatabase class]);
     self.mockDatabase = OCMStrictClassMock([CKDatabase class]);
     self.mockContainer = OCMClassMock([CKContainer class]);
     OCMStub([self.mockContainer containerWithIdentifier:[OCMArg isKindOfClass:[NSString class]]]).andReturn(self.mockContainer);
@@ -102,18 +107,21 @@
     OCMStub([self.mockContainer alloc]).andReturn(self.mockContainer);
     OCMStub([self.mockContainer containerIdentifier]).andReturn(SecCKKSContainerName);
     OCMStub([self.mockContainer initWithContainerID: [OCMArg any] options: [OCMArg any]]).andReturn(self.mockContainer);
-    OCMStub([self.mockContainer privateCloudDatabase]).andReturn(self.mockDatabase);
+    OCMStub([self.mockContainer privateCloudDatabase]).andReturn(self.mockDatabaseExceptionCatcher);
     OCMStub([self.mockContainer serverPreferredPushEnvironmentWithCompletionHandler: ([OCMArg invokeBlockWithArgs:@"fake APS push string", [NSNull null], nil])]);
 
+    // Use two layers of mockDatabase here, so we can both add Expectations and catch the exception (instead of crash) when one fails.
+    OCMStub([self.mockDatabaseExceptionCatcher addOperation:[OCMArg any]]).andCall(self, @selector(ckdatabaseAddOperation:));
+
     // If you want to change this, you'll need to update the mock
-    _ckDeviceID = @"fake-cloudkit-device-id";
+    _ckDeviceID = [NSString stringWithFormat:@"fake-cloudkit-device-id-%@", testName];
     OCMStub([self.mockContainer fetchCurrentDeviceIDWithCompletionHandler: ([OCMArg invokeBlockWithArgs:self.ckDeviceID, [NSNull null], nil])]);
 
     self.accountStatus = CKAccountStatusAvailable;
     self.supportsDeviceToDeviceEncryption = YES;
 
-    // Inject a fake operation dependency into the manager object, so that the tests can perform setup and mock expectations before zone setup begins
-    // Also blocks all CK account state retrieval operations (but not circle status ones)
+    // Inject a fake operation dependency so we won't respond with the CloudKit account status immediately
+    // The CKKSCKAccountStateTracker won't send any login/logout calls without that information, so this blocks all CKKS setup
     self.ckaccountHoldOperation = [NSBlockOperation named:@"ckaccount-hold" withBlock:^{
         secnotice("ckks", "CKKS CK account status test hold released");
     }];
@@ -161,7 +169,7 @@
     OCMStub([self.mockAccountStateTracker getCircleStatus]).andCall(self, @selector(circleStatus));
 
     // If we're in circle, come up with a fake circle id. Otherwise, return an error.
-    self.circlePeerID = @"fake-circle-id";
+    self.circlePeerID = [NSString stringWithFormat:@"fake-circle-id-%@", testName];
     OCMStub([self.mockAccountStateTracker fetchCirclePeerID:
              [OCMArg checkWithBlock:^BOOL(void (^passedBlock) (NSString* peerID,
                                                                NSError * error)) {
@@ -246,16 +254,6 @@
 
     self.testZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName];
 
-    // Inject a fake operation dependency into the manager object, so that the tests can perform setup and mock expectations before zone setup begins
-    // Also blocks all CK account state retrieval operations (but not circle status ones)
-    self.ckksHoldOperation = [[NSBlockOperation alloc] init];
-    [self.ckksHoldOperation addExecutionBlock:^{
-        secnotice("ckks", "CKKS testing hold released");
-    }];
-    self.ckksHoldOperation.name = @"ckks-hold";
-
-    //self.mockCKKSViewManagerClass = OCMClassMock([CKKSViewManager class]);
-
     // We don't want to use class mocks here, because they don't play well with partial mocks
     self.mockCKKSViewManager = OCMPartialMock(
         [[CKKSViewManager alloc] initWithContainerName:SecCKKSContainerName
@@ -267,8 +265,7 @@
                        modifyRecordZonesOperationClass:[FakeCKModifyRecordZonesOperation class]
                                     apsConnectionClass:[FakeAPSConnection class]
                              nsnotificationCenterClass:[FakeNSNotificationCenter class]
-                                         notifierClass:[FakeCKKSNotifier class]
-                                             setupHold:self.ckksHoldOperation]);
+                                         notifierClass:[FakeCKKSNotifier class]]);
 
     OCMStub([self.mockCKKSViewManager viewList]).andCall(self, @selector(managedViewList));
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
@@ -278,10 +275,7 @@
     [CKKSViewManager resetManager:false setTo:self.injectedManager];
 
     // Make a new fake keychain
-    NSString* smallName = [self.name componentsSeparatedByString:@" "][1];
-    smallName = [smallName stringByReplacingOccurrencesOfString:@"]" withString:@""];
-
-    NSString* tmp_dir = [NSString stringWithFormat: @"/tmp/%@.%X", smallName, arc4random()];
+    NSString* tmp_dir = [NSString stringWithFormat: @"/tmp/%@.%X", testName, arc4random()];
     [[NSFileManager defaultManager] createDirectoryAtPath:[NSString stringWithFormat: @"%@/Library/Keychains", tmp_dir] withIntermediateDirectories:YES attributes:nil error:NULL];
 
     SetCustomHomeURLString((__bridge CFStringRef) tmp_dir);
@@ -289,6 +283,14 @@
 
     // Actually load the database.
     kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+}
+
+- (void)ckdatabaseAddOperation:(NSOperation*)op {
+    @try {
+        [self.mockDatabase addOperation:op];
+    } @catch (NSException *exception) {
+        XCTFail("Received an database exception: %@", exception);
+    }
 }
 
 -(CKKSCKAccountStateTracker*)accountStateTracker {
@@ -380,16 +382,6 @@
 
 - (void)startCKKSSubsystem {
     [self startCKAccountStatusMock];
-    [self startCKKSSubsystemOnly];
-}
-
-- (void)startCKKSSubsystemOnly {
-    // Note: currently, based on how we're mocking up the zone creation and zone subscription operation,
-    // they will 'fire' before this method is called. It's harmless, since the mocks immediately succeed
-    // and return; it's just a tad confusing.
-    if([self.ckksHoldOperation isPending]) {
-        [self.operationQueue addOperation: self.ckksHoldOperation];
-    }
 }
 
 - (void)startCKAccountStatusMock {
@@ -544,8 +536,10 @@
                     return NO;
                 }
 
-                if([zone errorFromSavingRecord: record]) {
-                    secnotice("fakecloudkit", "Record zone rejected record write: %@", record);
+                NSError* recordError = [zone errorFromSavingRecord: record];
+                if(recordError) {
+                    secnotice("fakecloudkit", "Record zone rejected record write: %@ %@", recordError, record);
+                    XCTFail(@"Record zone rejected record write: %@ %@", recordError, record);
                     return NO;
                 }
 
@@ -638,12 +632,11 @@
                             [zone deleteCKRecordIDFromZone: recordID];
                         }
 
-                        op.modifyRecordsCompletionBlock(savedRecords, op.recordIDsToDelete, nil);
-
                         if(afterModification) {
                             afterModification();
                         }
 
+                        op.modifyRecordsCompletionBlock(savedRecords, op.recordIDsToDelete, nil);
                         op.isFinished = YES;
                     }
                 }];
@@ -840,20 +833,28 @@
 }
 
 - (void)tearDown {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
+    NSString* testName = [self.name componentsSeparatedByString:@" "][1];
+    testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
+    secnotice("ckkstest", "Ending test %@", testName);
 
     if(SecCKKSIsEnabled()) {
-        // Ensure we don't have any blocking operations
-        self.accountStatus = CKAccountStatusNoAccount;
-        [self startCKKSSubsystem];
+        self.accountStatus = CKAccountStatusCouldNotDetermine;
 
+        [self.ckaccountHoldOperation cancel];
+        self.ckaccountHoldOperation = nil;
+
+        // Ensure we don't have any blocking operations left
+        [self.operationQueue cancelAllOperations];
         [self waitForCKModifications];
 
         XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:2*NSEC_PER_SEC],
             "Timeout did not occur waiting for SecCKKSInitialize");
 
         // Make sure this happens before teardown.
-        XCTAssertEqual(0, [self.accountStateTracker.finishedInitialCalls wait:1*NSEC_PER_SEC], "Account state tracker initialized itself");
+        XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:1*NSEC_PER_SEC], "Account state tracker initialized itself");
+
+        dispatch_group_t accountChangesDelivered = [self.accountStateTracker checkForAllDeliveries];
+        XCTAssertEqual(0, dispatch_group_wait(accountChangesDelivered, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)), "Account state tracker finished delivering everything");
     }
 
     [super tearDown];
@@ -888,13 +889,15 @@
     [self.mockDatabase stopMocking];
     self.mockDatabase = nil;
 
+    [self.mockDatabaseExceptionCatcher stopMocking];
+    self.mockDatabaseExceptionCatcher = nil;
+
     [self.mockContainer stopMocking];
     self.mockContainer = nil;
 
     self.zones = nil;
+
     self.operationQueue = nil;
-    self.ckksHoldOperation = nil;
-    self.ckaccountHoldOperation = nil;
 
     SecCKKSTestResetFlags();
 }

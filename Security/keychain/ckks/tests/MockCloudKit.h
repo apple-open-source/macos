@@ -22,11 +22,11 @@
  */
 
 
-#import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
+#import <Foundation/Foundation.h>
 
-#import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSNotifier.h"
+#import "keychain/ckks/CloudKitDependencies.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -38,21 +38,20 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 @interface FakeCKModifyRecordZonesOperation : NSBlockOperation <CKKSModifyRecordZonesOperation>
 @property (nullable) NSError* creationError;
-@property (nonatomic, nullable) NSMutableArray<CKRecordZone *>* recordZonesSaved;
-@property (nonatomic, nullable) NSMutableArray<CKRecordZoneID *>* recordZoneIDsDeleted;
-+(FakeCKDatabase*) ckdb;
+@property (nonatomic, nullable) NSMutableArray<CKRecordZone*>* recordZonesSaved;
+@property (nonatomic, nullable) NSMutableArray<CKRecordZoneID*>* recordZoneIDsDeleted;
++ (FakeCKDatabase*)ckdb;
 @end
 
 @interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation>
 @property (nullable) NSError* subscriptionError;
-@property (nonatomic, nullable) NSMutableArray<CKSubscription *> *subscriptionsSaved;
-@property (nonatomic, nullable) NSMutableArray<NSString *> *subscriptionIDsDeleted;
-+(FakeCKDatabase*) ckdb;
+@property (nonatomic, nullable) NSMutableArray<CKSubscription*>* subscriptionsSaved;
+@property (nonatomic, nullable) NSMutableArray<NSString*>* subscriptionIDsDeleted;
++ (FakeCKDatabase*)ckdb;
 @end
 
-
 @interface FakeCKFetchRecordZoneChangesOperation : NSOperation <CKKSFetchRecordZoneChangesOperation>
-+(FakeCKDatabase*) ckdb;
++ (FakeCKDatabase*)ckdb;
 @property (nullable) void (^blockAfterFetch)();
 @end
 
@@ -64,24 +63,21 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 + (FakeCKDatabase*)ckdb;
 @end
 
-
 @interface FakeAPSConnection : NSObject <CKKSAPSConnection>
 @end
 
-
-@interface FakeNSNotificationCenter : NSObject<CKKSNSNotificationCenter>
+@interface FakeNSNotificationCenter : NSObject <CKKSNSNotificationCenter>
 + (instancetype)defaultCenter;
 - (void)addObserver:(id)observer selector:(SEL)aSelector name:(nullable NSNotificationName)aName object:(nullable id)anObject;
 @end
-
 
 @interface FakeCKZone : NSObject
 // Used while mocking: database is the contents of the current current CloudKit database, pastDatabase is the state of the world in the past at different change tokens
 @property CKRecordZoneID* zoneID;
 @property CKServerChangeToken* currentChangeToken;
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* currentDatabase;
-@property NSMutableDictionary<CKServerChangeToken*,  NSMutableDictionary<CKRecordID*, CKRecord*>*>* pastDatabases;
-@property bool flag; // used however you'd like in a test
+@property NSMutableDictionary<CKServerChangeToken*, NSMutableDictionary<CKRecordID*, CKRecord*>*>* pastDatabases;
+@property bool flag;  // used however you'd like in a test
 
 // Usually nil. If set, trying to 'create' this zone should fail.
 @property (nullable) NSError* creationError;
@@ -92,25 +88,28 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 // Usually nil. If set, trying to subscribe to this zone should fail.
 @property (nullable) NSError* subscriptionError;
 
-- (instancetype)initZone: (CKRecordZoneID*) zoneID;
+- (instancetype)initZone:(CKRecordZoneID*)zoneID;
 
 - (void)rollChangeToken;
 
 // Always Succeed
-- (void)addToZone: (CKKSCKRecordHolder*) item zoneID: (CKRecordZoneID*) zoneID;
-- (void)addToZone: (CKRecord*) record;
+- (void)addToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
+- (void)addToZone:(CKRecord*)record;
 
-- (void)addCKRecordToZone: (CKRecord*) record;
-- (NSError* _Nullable)deleteCKRecordIDFromZone:(CKRecordID*) recordID;
+// Removes this record from all versions of the CK database, without changing the change tag
+- (void)deleteFromHistory:(CKRecordID*)recordID;
+
+- (void)addCKRecordToZone:(CKRecord*)record;
+- (NSError* _Nullable)deleteCKRecordIDFromZone:(CKRecordID*)recordID;
 
 // Sets up the next fetchChanges to fail with this error
-- (void)failNextFetchWith: (NSError*) fetchChangesError;
+- (void)failNextFetchWith:(NSError*)fetchChangesError;
 
 // Get the next fetchChanges error. Returns NULL if the fetchChanges should succeed.
-- (NSError * _Nullable)popFetchChangesError;
+- (NSError* _Nullable)popFetchChangesError;
 
 // Checks if this record add/modification should fail
-- (NSError * _Nullable)errorFromSavingRecord:(CKRecord*) record;
+- (NSError* _Nullable)errorFromSavingRecord:(CKRecord*)record;
 @end
 
 @interface FakeCKKSNotifier : NSObject <CKKSNotifier>

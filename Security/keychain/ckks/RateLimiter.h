@@ -21,29 +21,28 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef RateLimiter_h
-#define RateLimiter_h
-
 #import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface RateLimiter : NSObject <NSSecureCoding>
 
-@property (readonly, nonatomic, nonnull) NSDictionary *config;
+@property (readonly, nonatomic) NSDictionary* config;
 @property (readonly, nonatomic) NSUInteger stateSize;
-@property (readonly, nonatomic, nullable) NSString *assetType;
+@property (readonly, nonatomic, nullable) NSString* assetType;
 
 typedef NS_ENUM(NSInteger, RateLimiterBadness) {
-    RateLimiterBadnessClear = 0,            // everything is fine, process right now
+    RateLimiterBadnessClear = 0,  // everything is fine, process right now
     RateLimiterBadnessCongested,
     RateLimiterBadnessSeverelyCongested,
     RateLimiterBadnessGridlocked,
-    RateLimiterBadnessOverloaded,           // everything is on fire, go away
+    RateLimiterBadnessOverloaded,  // everything is on fire, go away
 };
 
-- (instancetype _Nullable)initWithConfig:(NSDictionary * _Nonnull)config;
-- (instancetype _Nullable)initWithPlistFromURL:(NSURL * _Nonnull)url;
-- (instancetype _Nullable)initWithAssetType:(NSString * _Nonnull)type;  // Not implemented yet
-- (instancetype _Nullable)initWithCoder:(NSCoder * _Nonnull)coder;
+- (instancetype _Nullable)initWithConfig:(NSDictionary*)config;
+- (instancetype _Nullable)initWithPlistFromURL:(NSURL*)url;
+- (instancetype _Nullable)initWithAssetType:(NSString*)type;  // Not implemented yet
+- (instancetype _Nullable)initWithCoder:(NSCoder*)coder;
 - (instancetype _Nullable)init NS_UNAVAILABLE;
 
 /*!
@@ -57,10 +56,10 @@ typedef NS_ENUM(NSInteger, RateLimiterBadness) {
  * At badness 5 judge:at: has determined there is too much activity so the caller should hold off altogether. The limitTime object will indicate when
  * this overloaded state will end.
  */
-- (NSInteger)judge:(id _Nonnull)obj at:(NSDate * _Nonnull)time limitTime:(NSDate * _Nullable __autoreleasing * _Nonnull)limitTime;
+- (NSInteger)judge:(id)obj at:(NSDate*)time limitTime:(NSDate* _Nonnull __autoreleasing* _Nonnull)limitTime;
 
 - (void)reset;
-- (NSString * _Nonnull)diagnostics;
+- (NSString*)diagnostics;
 + (BOOL)supportsSecureCoding;
 
 // TODO:
@@ -68,7 +67,7 @@ typedef NS_ENUM(NSInteger, RateLimiterBadness) {
 
 @end
 
-#endif /* RateLimiter_h */
+NS_ASSUME_NONNULL_END
 
 /* Annotated example plist
 
