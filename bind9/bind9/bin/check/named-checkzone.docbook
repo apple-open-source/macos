@@ -1,8 +1,5 @@
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-               "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd"
-	       [<!ENTITY mdash "&#8212;">]>
 <!--
- - Copyright (C) 2004-2007, 2009-2011, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
+ - Copyright (C) 2004-2007, 2009-2016  Internet Systems Consortium, Inc. ("ISC")
  - Copyright (C) 2000-2002  Internet Software Consortium.
  -
  - Permission to use, copy, modify, and/or distribute this software for any
@@ -18,9 +15,14 @@
  - PERFORMANCE OF THIS SOFTWARE.
 -->
 
-<refentry id="man.named-checkzone">
+<!-- Converted by db4-upgrade version 1.0 -->
+<refentry xmlns:db="http://docbook.org/ns/docbook" version="5.0" xml:id="man.named-checkzone">
+  <info>
+    <date>2014-02-19</date>
+  </info>
   <refentryinfo>
-    <date>April 29, 2013</date>
+    <corpname>ISC</corpname>
+    <corpauthor>Internet Systems Consortium, Inc.</corpauthor>
   </refentryinfo>
 
   <refmeta>
@@ -38,8 +40,11 @@
       <year>2009</year>
       <year>2010</year>
       <year>2011</year>
+      <year>2012</year>
       <year>2013</year>
       <year>2014</year>
+      <year>2015</year>
+      <year>2016</year>
       <holder>Internet Systems Consortium, Inc. ("ISC")</holder>
     </copyright>
     <copyright>
@@ -57,64 +62,68 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <cmdsynopsis>
+    <cmdsynopsis sepchar=" ">
       <command>named-checkzone</command>
-      <arg><option>-d</option></arg>
-      <arg><option>-h</option></arg>
-      <arg><option>-j</option></arg>
-      <arg><option>-q</option></arg>
-      <arg><option>-v</option></arg>
-      <arg><option>-c <replaceable class="parameter">class</replaceable></option></arg>
-      <arg><option>-f <replaceable class="parameter">format</replaceable></option></arg>
-      <arg><option>-F <replaceable class="parameter">format</replaceable></option></arg>
-      <arg><option>-i <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-k <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-m <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-M <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-n <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-L <replaceable class="parameter">serial</replaceable></option></arg>
-      <arg><option>-o <replaceable class="parameter">filename</replaceable></option></arg>
-      <arg><option>-r <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-s <replaceable class="parameter">style</replaceable></option></arg>
-      <arg><option>-S <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-t <replaceable class="parameter">directory</replaceable></option></arg>
-      <arg><option>-T <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-w <replaceable class="parameter">directory</replaceable></option></arg>
-      <arg><option>-D</option></arg>
-      <arg><option>-W <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg choice="req">zonename</arg>
-      <arg choice="req">filename</arg>
+      <arg choice="opt" rep="norepeat"><option>-d</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-h</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-j</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-q</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-v</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-c <replaceable class="parameter">class</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-f <replaceable class="parameter">format</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-F <replaceable class="parameter">format</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-J <replaceable class="parameter">filename</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-i <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-k <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-m <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-M <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-n <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-l <replaceable class="parameter">ttl</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-L <replaceable class="parameter">serial</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-o <replaceable class="parameter">filename</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-r <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-s <replaceable class="parameter">style</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-S <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-t <replaceable class="parameter">directory</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-T <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-w <replaceable class="parameter">directory</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-D</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-W <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="req" rep="norepeat">zonename</arg>
+      <arg choice="req" rep="norepeat">filename</arg>
     </cmdsynopsis>
-    <cmdsynopsis>
+    <cmdsynopsis sepchar=" ">
       <command>named-compilezone</command>
-      <arg><option>-d</option></arg>
-      <arg><option>-j</option></arg>
-      <arg><option>-q</option></arg>
-      <arg><option>-v</option></arg>
-      <arg><option>-c <replaceable class="parameter">class</replaceable></option></arg>
-      <arg><option>-C <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-f <replaceable class="parameter">format</replaceable></option></arg>
-      <arg><option>-F <replaceable class="parameter">format</replaceable></option></arg>
-      <arg><option>-i <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-k <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-m <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-n <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-L <replaceable class="parameter">serial</replaceable></option></arg>
-      <arg><option>-r <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-s <replaceable class="parameter">style</replaceable></option></arg>
-      <arg><option>-t <replaceable class="parameter">directory</replaceable></option></arg>
-      <arg><option>-T <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg><option>-w <replaceable class="parameter">directory</replaceable></option></arg>
-      <arg><option>-D</option></arg>
-      <arg><option>-W <replaceable class="parameter">mode</replaceable></option></arg>
-      <arg choice="req"><option>-o <replaceable class="parameter">filename</replaceable></option></arg>
-      <arg choice="req">zonename</arg>
-      <arg choice="req">filename</arg>
+      <arg choice="opt" rep="norepeat"><option>-d</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-j</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-q</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-v</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-c <replaceable class="parameter">class</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-C <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-f <replaceable class="parameter">format</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-F <replaceable class="parameter">format</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-J <replaceable class="parameter">filename</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-i <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-k <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-m <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-n <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-l <replaceable class="parameter">ttl</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-L <replaceable class="parameter">serial</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-r <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-s <replaceable class="parameter">style</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-t <replaceable class="parameter">directory</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-T <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-w <replaceable class="parameter">directory</replaceable></option></arg>
+      <arg choice="opt" rep="norepeat"><option>-D</option></arg>
+      <arg choice="opt" rep="norepeat"><option>-W <replaceable class="parameter">mode</replaceable></option></arg>
+      <arg choice="req" rep="norepeat"><option>-o <replaceable class="parameter">filename</replaceable></option></arg>
+      <arg choice="req" rep="norepeat">zonename</arg>
+      <arg choice="req" rep="norepeat">filename</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
-  <refsect1>
-    <title>DESCRIPTION</title>
+  <refsection><info><title>DESCRIPTION</title></info>
+
     <para><command>named-checkzone</command>
       checks the syntax and integrity of a zone file.  It performs the
       same checks as <command>named</command> does when loading a
@@ -132,10 +141,10 @@
         least be as strict as those specified in the
 	<command>named</command> configuration file.
      </para>
-  </refsect1>
+  </refsection>
 
-  <refsect1>
-    <title>OPTIONS</title>
+  <refsection><info><title>OPTIONS</title></info>
+
 
     <variablelist>
       <varlistentry>
@@ -179,7 +188,19 @@
         <term>-j</term>
         <listitem>
           <para>
-            When loading the zone file read the journal if it exists.
+            When loading a zone file, read the journal if it exists.
+            The journal file name is assumed to be the zone file name
+	    appended with the string <filename>.jnl</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>-J <replaceable class="parameter">filename</replaceable></term>
+        <listitem>
+          <para>
+            When loading the zone file read the journal from the given
+            file, if it exists. (Implies -j.)
           </para>
         </listitem>
       </varlistentry>
@@ -242,8 +263,8 @@
 	<listitem>
 	  <para>
 	    Specify the format of the zone file.
-	    Possible formats are <command>"text"</command> (default)
-	    and <command>"raw"</command>.
+	    Possible formats are <command>"text"</command> (default),
+	    <command>"raw"</command>, and <command>"map"</command>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -258,14 +279,15 @@
 	    contents.
 	  </para>
 	  <para>
-	    Possible formats are <command>"text"</command> (default)
-	    and <command>"raw"</command> or <command>"raw=N"</command>,
-            which store the zone in a binary format for rapid loading
-            by <command>named</command>.  <command>"raw=N"</command>
-            specifies the format version of the raw zone file: if N
-            is 0, the raw file can be read by any version of
-            <command>named</command>; if N is 1, the file can be read
-            by release 9.9.0 or higher.  The default is 1.
+	    Possible formats are <command>"text"</command> (default),
+	    which is the standard textual representation of the zone,
+	    and <command>"map"</command>, <command>"raw"</command>,
+            and <command>"raw=N"</command>, which store the zone in a
+            binary format for rapid loading by <command>named</command>.
+            <command>"raw=N"</command> specifies the format version of
+            the raw zone file: if N is 0, the raw file can be read by
+            any version of <command>named</command>; if N is 1, the file
+            can be read by release 9.9.0 or higher; the default is 1.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -286,12 +308,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term>-l <replaceable class="parameter">ttl</replaceable></term>
+        <listitem>
+          <para>
+            Sets a maximum permissible TTL for the input file.
+            Any record with a TTL higher than this value will cause
+            the zone to be rejected.  This is similar to using the
+            <command>max-zone-ttl</command> option in
+            <filename>named.conf</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>-L <replaceable class="parameter">serial</replaceable></term>
         <listitem>
           <para>
-            When compiling a zone to 'raw' format, set the "source serial" 
-            value in the header to the specified serial number.  (This is
-            expected to be used primarily for testing purposes.)
+            When compiling a zone to "raw" or "map" format, set the
+            "source serial" value in the header to the specified serial
+            number.  (This is expected to be used primarily for testing
+            purposes.)
           </para>
         </listitem>
       </varlistentry>
@@ -352,7 +388,7 @@
         <listitem>
 	  <para>
             Check for records that are treated as different by DNSSEC but
-	    are semantically equal in plain DNS.  
+	    are semantically equal in plain DNS.
             Possible modes are <command>"fail"</command>,
             <command>"warn"</command> (default) and
             <command>"ignore"</command>.
@@ -473,37 +509,27 @@
 
     </variablelist>
 
-  </refsect1>
+  </refsection>
 
-  <refsect1>
-    <title>RETURN VALUES</title>
+  <refsection><info><title>RETURN VALUES</title></info>
+
     <para><command>named-checkzone</command>
       returns an exit status of 1 if
       errors were detected and 0 otherwise.
     </para>
-  </refsect1>
+  </refsection>
 
-  <refsect1>
-    <title>SEE ALSO</title>
+  <refsection><info><title>SEE ALSO</title></info>
+
     <para><citerefentry>
         <refentrytitle>named</refentrytitle><manvolnum>8</manvolnum>
       </citerefentry>,
       <citerefentry>
-        <refentrytitle>named-checkconf</refentrytitle><manvolnum>8</manvolnum>  
+        <refentrytitle>named-checkconf</refentrytitle><manvolnum>8</manvolnum>
       </citerefentry>,
       <citetitle>RFC 1035</citetitle>,
       <citetitle>BIND 9 Administrator Reference Manual</citetitle>.
     </para>
-  </refsect1>
+  </refsection>
 
-  <refsect1>
-    <title>AUTHOR</title>
-    <para><corpauthor>Internet Systems Consortium</corpauthor>
-    </para>
-  </refsect1>
-
-</refentry><!--
- - Local variables:
- - mode: sgml
- - End:
--->
+</refentry>

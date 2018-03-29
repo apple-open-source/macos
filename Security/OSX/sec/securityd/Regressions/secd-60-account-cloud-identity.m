@@ -59,6 +59,7 @@ static bool purgeICloudIdentity(SOSAccount* account) {
     SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef([account.trust getCircle:NULL], NULL);
     if(!icfpi) return false;
     retval = SOSFullPeerInfoPurgePersistentKey(icfpi, NULL);
+    CFReleaseNull(icfpi);
     return retval;
 }
 
@@ -261,11 +262,16 @@ static void tests(void)
     CFDataRef public_key_hash = SecKeyCopyPublicKeyHash(publicKey);
     ok(public_key_hash != NULL, "hash is not null");
 
+    CFReleaseNull(publicKey);
+
     SOSAccount* margaret_account = CreateAccountForLocalChanges(CFSTR("margaret"), CFSTR("TestSource"));
 
     ok(SOSAccountAssertUserCredentialsAndUpdate(margaret_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     ok(SOSAccountJoinCirclesAfterRestore_wTxn(margaret_account, &error), "Carole cloud identity joins (%@)", error);
 
+    CFReleaseNull(identityArray);
+    CFReleaseNull(changes);
+    CFReleaseNull(error);
     CFReleaseNull(public_key_hash);
     CFReleaseNull(cfpassword);
     CFReleaseNull(privKey);

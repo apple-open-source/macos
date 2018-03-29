@@ -36,6 +36,7 @@
 #include "trusted_cert_utils.h"
 #include "verify_cert.h"
 #include <utilities/SecCFRelease.h>
+#include "security_tool.h"
 
 /*
  * Read file as a cert, add to a CFArray, creating the array if necessary
@@ -95,7 +96,7 @@ verify_cert(int argc, char * const *argv)
 	CFOptionFlags		revOptions = 0;
 
 	if(argc < 2) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 	/* permit network cert fetch unless explicitly turned off with '-L' */
 	actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;

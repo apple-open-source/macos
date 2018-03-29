@@ -26,6 +26,7 @@
 
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDPointingDevice.h" 
+#include "IOHIDUsageTables.h"
 
 typedef struct __attribute__((packed)) ScrollDescriptor {
     //09 38:    Usage (Wheel)

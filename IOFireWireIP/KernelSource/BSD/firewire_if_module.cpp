@@ -262,7 +262,7 @@ firewire_add_proto(ifnet_t   ifp, protocol_family_t protocol, const struct ifnet
 ////////////////////////////////////////////////////////////////////////////////
 __private_extern__ int firewire_demux(ifnet_t ifp, mbuf_t m, char *frame_header, protocol_family_t *protocol_family)
 {
-    register struct firewire_header *eh = (struct firewire_header *)frame_header;
+     struct firewire_header *eh = (struct firewire_header *)frame_header;
 
 	IOFWInterface					*fwIf		= (IOFWInterface*)ifnet_softc(ifp);
 	
@@ -315,7 +315,7 @@ __private_extern__ int
 firewire_frameout(ifnet_t ifp, mbuf_t *m, 
 					const struct sockaddr *ndest, const char *edst, const char *fw_type)
 {
-	register struct firewire_header *fwh;
+	struct firewire_header *fwh;
 		
 	/*
 	 * If a simplex interface, and the packet is being sent to our

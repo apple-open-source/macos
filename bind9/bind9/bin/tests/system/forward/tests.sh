@@ -1,4 +1,4 @@
-# Copyright (C) 2004, 2007, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2011-2014, 2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000, 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -27,56 +27,56 @@ status=0
 
 echo "I:checking that a forward zone overrides global forwarders"
 ret=0
-$DIG txt.example1. txt @$hidden -p 5300 > dig.out.hidden || ret=1
-$DIG txt.example1. txt @$f1 -p 5300 > dig.out.f1 || ret=1
+$DIG +noadd +noauth txt.example1. txt @$hidden -p 5300 > dig.out.hidden || ret=1
+$DIG +noadd +noauth txt.example1. txt @$f1 -p 5300 > dig.out.f1 || ret=1
 $PERL ../digcomp.pl dig.out.hidden dig.out.f1 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that a forward first zone no forwarders recurses"
 ret=0
-$DIG txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
-$DIG txt.example2. txt @$f1 -p 5300 > dig.out.f1 || ret=1
+$DIG +noadd +noauth txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
+$DIG +noadd +noauth txt.example2. txt @$f1 -p 5300 > dig.out.f1 || ret=1
 $PERL ../digcomp.pl dig.out.root dig.out.f1 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that a forward only zone no forwarders fails"
 ret=0
-$DIG txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
-$DIG txt.example2. txt @$f1 -p 5300 > dig.out.f1 || ret=1
+$DIG +noadd +noauth txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
+$DIG +noadd +noauth txt.example2. txt @$f1 -p 5300 > dig.out.f1 || ret=1
 $PERL ../digcomp.pl dig.out.root dig.out.f1 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that global forwarders work"
 ret=0
-$DIG txt.example4. txt @$hidden -p 5300 > dig.out.hidden || ret=1
-$DIG txt.example4. txt @$f1 -p 5300 > dig.out.f1 || ret=1
+$DIG +noadd +noauth txt.example4. txt @$hidden -p 5300 > dig.out.hidden || ret=1
+$DIG +noadd +noauth txt.example4. txt @$f1 -p 5300 > dig.out.f1 || ret=1
 $PERL ../digcomp.pl dig.out.hidden dig.out.f1 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that a forward zone works"
 ret=0
-$DIG txt.example1. txt @$hidden -p 5300 > dig.out.hidden || ret=1
-$DIG txt.example1. txt @$f2 -p 5300 > dig.out.f2 || ret=1
+$DIG +noadd +noauth txt.example1. txt @$hidden -p 5300 > dig.out.hidden || ret=1
+$DIG +noadd +noauth txt.example1. txt @$f2 -p 5300 > dig.out.f2 || ret=1
 $PERL ../digcomp.pl dig.out.hidden dig.out.f2 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that forwarding doesn't spontaneously happen"
 ret=0
-$DIG txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
-$DIG txt.example2. txt @$f2 -p 5300 > dig.out.f2 || ret=1
+$DIG +noadd +noauth txt.example2. txt @$root -p 5300 > dig.out.root || ret=1
+$DIG +noadd +noauth txt.example2. txt @$f2 -p 5300 > dig.out.f2 || ret=1
 $PERL ../digcomp.pl dig.out.root dig.out.f2 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
 echo "I:checking that a forward zone with no specified policy works"
 ret=0
-$DIG txt.example3. txt @$hidden -p 5300 > dig.out.hidden || ret=1
-$DIG txt.example3. txt @$f2 -p 5300 > dig.out.f2 || ret=1
+$DIG +noadd +noauth txt.example3. txt @$hidden -p 5300 > dig.out.hidden || ret=1
+$DIG +noadd +noauth txt.example3. txt @$f2 -p 5300 > dig.out.f2 || ret=1
 $PERL ../digcomp.pl dig.out.hidden dig.out.f2 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -123,5 +123,19 @@ grep "status: NOERROR" dig.out.q4 > /dev/null || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
+echo "I:checking that rfc1918 inherited 'forward first;' zones are warned about"
+ret=0
+$CHECKCONF rfc1918-inherited.conf | grep "forward first;" >/dev/null || ret=1
+$CHECKCONF rfc1918-notinherited.conf | grep "forward first;" >/dev/null && ret=1
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking that ULA inherited 'forward first;' zones are warned about"
+ret=0
+$CHECKCONF ula-inherited.conf | grep "forward first;" >/dev/null || ret=1
+$CHECKCONF ula-notinherited.conf | grep "forward first;" >/dev/null && ret=1
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
 echo "I:exit status: $status"
-exit $status
+[ $status -eq 0 ] || exit 1

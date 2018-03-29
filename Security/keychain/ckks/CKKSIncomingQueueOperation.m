@@ -28,7 +28,7 @@
 #import "CKKSOutgoingQueueEntry.h"
 #import "CKKSKey.h"
 #import "CKKSManifest.h"
-#import "CKKSAnalyticsLogger.h"
+#import "CKKSAnalytics.h"
 #import "CKKSPowerCollection.h"
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 
@@ -43,6 +43,7 @@
 @interface CKKSIncomingQueueOperation ()
 @property bool newOutgoingEntries;
 @property bool pendingClassAEntries;
+@property bool missingKey;
 @end
 
 @implementation CKKSIncomingQueueOperation
@@ -58,6 +59,8 @@
         if(ckks.keyStateReadyDependency) {
             [self addDependency: ckks.keyStateReadyDependency];
         }
+
+        [self addNullableDependency: ckks.holdIncomingQueueOperation];
 
         _errorOnClassAFailure = errorOnClassAFailure;
         _pendingClassAEntries = false;
@@ -169,8 +172,8 @@
                 }
 
             } else if ([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
-                ckkserror("ckksincoming", ckks, "Coudn't find key in keychain; attempting to poke key hierarchy: %@", error)
-                [ckks _onqueueAdvanceKeyStateMachineToState: nil withError: nil];
+                ckkserror("ckksincoming", ckks, "Coudn't find key in keychain; will attempt to poke key hierarchy: %@", error)
+                self.missingKey = true;
 
             } else {
                 ckkserror("ckksincoming", ckks, "Couldn't decrypt IQE %@ for some reason: %@", iqe, error);
@@ -265,6 +268,10 @@
         [ckks.notifyViewChangedScheduler trigger];
     }
 
+    if(self.missingKey) {
+        [ckks.pokeKeyStateMachineScheduler trigger];
+    }
+
     if ([CKKSManifest shouldSyncManifests]) {
         [egoManifest updateWithNewOrChangedRecords:newOrChangedRecords deletedRecordIDs:deletedRecordIDs];
     }
@@ -298,7 +305,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountKeys: ^bool{
+    [ckks dispatchSync: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
             return false;
@@ -321,18 +328,17 @@
         __block NSError* error = nil;
 
         if ([CKKSManifest shouldSyncManifests]) {
-            NSDictionary<NSString*, NSNumber*>* stateCounts = [CKKSIncomingQueueEntry countsByState:ckks.zoneID error:&error];
-            if (error) {
+            NSInteger unauthenticatedItemCount = [CKKSIncomingQueueEntry countByState:SecCKKSStateUnauthenticated zone:ckks.zoneID error:&error];
+            if (error || unauthenticatedItemCount < 0) {
                 ckkserror("ckksincoming", ckks, "Error fetching incoming queue state counts: %@", error);
                 self.error = error;
                 return false;
             }
-            NSUInteger unauthenticatedItemCount = stateCounts[SecCKKSStateUnauthenticated].unsignedIntegerValue;
 
             // take any existing unauthenticated entries and put them back in the new state
             NSArray<CKKSIncomingQueueEntry*>* unauthenticatedEntries = nil;
             NSString* lastMaxUUID = nil;
-            NSUInteger numEntriesProcessed = 0;
+            NSInteger numEntriesProcessed = 0;
             while (numEntriesProcessed < unauthenticatedItemCount &&  (unauthenticatedEntries == nil || unauthenticatedEntries.count == SecCKKSIncomingQueueItemsAtOnce)) {
                 if(self.cancelled) {
                     ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
@@ -394,7 +400,7 @@
                 break;
             }
 
-            //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:ckks.zoneName count:[queueEntries count]];
+            [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:ckks.zoneName count:[queueEntries count]];
 
             if (![self processQueueEntries:queueEntries withManifest:ckks.latestManifest egoManifest:ckks.egoManifest]) {
                 ckksnotice("ckksincoming", ckks, "processQueueEntries didn't complete successfully");
@@ -437,7 +443,7 @@
                 return;
             }
 
-            CKKSAnalyticsLogger* logger = [CKKSAnalyticsLogger logger];
+            CKKSAnalytics* logger = [CKKSAnalytics logger];
 
             if (!strongSelf.error) {
                 [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:ckks];

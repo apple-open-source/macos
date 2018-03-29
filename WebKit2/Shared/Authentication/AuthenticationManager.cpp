@@ -62,10 +62,10 @@ const char* AuthenticationManager::supplementName()
     return "AuthenticationManager";
 }
 
-AuthenticationManager::AuthenticationManager(ChildProcess* process)
+AuthenticationManager::AuthenticationManager(ChildProcess& process)
     : m_process(process)
 {
-    m_process->addMessageReceiver(Messages::AuthenticationManager::messageReceiverName(), *this);
+    m_process.addMessageReceiver(Messages::AuthenticationManager::messageReceiverName(), *this);
 }
 
 uint64_t AuthenticationManager::addChallengeToChallengeMap(Challenge&& challenge)
@@ -126,7 +126,7 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(WebFrame* frame, c
     if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
         return;
     
-    m_process->send(Messages::WebPageProxy::DidReceiveAuthenticationChallenge(frame->frameID(), authenticationChallenge, challengeID), frame->page()->pageID());
+    m_process.send(Messages::WebPageProxy::DidReceiveAuthenticationChallenge(frame->frameID(), authenticationChallenge, challengeID), frame->page()->pageID());
 }
 
 #if USE(NETWORK_SESSION)
@@ -141,10 +141,10 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(uint64_t pageID, u
     if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
         return;
     
-    m_process->send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
+    m_process.send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
 }
 
-void AuthenticationManager::didReceiveAuthenticationChallenge(PendingDownload& pendingDownload, const WebCore::AuthenticationChallenge& authenticationChallenge, ChallengeCompletionHandler&& completionHandler)
+void AuthenticationManager::didReceiveAuthenticationChallenge(IPC::MessageSender& download, const WebCore::AuthenticationChallenge& authenticationChallenge, ChallengeCompletionHandler&& completionHandler)
 {
     uint64_t dummyPageID = 0;
     uint64_t challengeID = addChallengeToChallengeMap({ dummyPageID, authenticationChallenge, WTFMove(completionHandler) });
@@ -153,26 +153,25 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(PendingDownload& p
     if (shouldCoalesceChallenge(dummyPageID, challengeID, authenticationChallenge))
         return;
     
-    pendingDownload.send(Messages::DownloadProxy::DidReceiveAuthenticationChallenge(authenticationChallenge, challengeID));
+    download.send(Messages::DownloadProxy::DidReceiveAuthenticationChallenge(authenticationChallenge, challengeID));
 }
 #endif
+
+#if !USE(NETWORK_SESSION)
 void AuthenticationManager::didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const AuthenticationChallenge& authenticationChallenge)
 {
     ASSERT(pageID);
     ASSERT(frameID);
 
-    uint64_t challengeID = addChallengeToChallengeMap({pageID, authenticationChallenge
-#if USE(NETWORK_SESSION)
-        , { }
-#endif
-    });
+    uint64_t challengeID = addChallengeToChallengeMap({pageID, authenticationChallenge});
 
     // Coalesce challenges in the same protection space and in the same page.
     if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
         return;
     
-    m_process->send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
+    m_process.send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
 }
+#endif
 
 #if !USE(NETWORK_SESSION)
 void AuthenticationManager::didReceiveAuthenticationChallenge(Download& download, const AuthenticationChallenge& authenticationChallenge)
@@ -190,7 +189,7 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(Download& download
 
 // Currently, only Mac knows how to respond to authentication challenges with certificate info.
 #if !HAVE(SEC_IDENTITY)
-bool AuthenticationManager::tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const CertificateInfo&, const ChallengeCompletionHandler&)
+bool AuthenticationManager::tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const CertificateInfo&, ChallengeCompletionHandler&)
 {
     return false;
 }
@@ -232,7 +231,7 @@ void AuthenticationManager::useCredentialForSingleChallenge(uint64_t challengeID
 
     if (coreClient)
         coreClient->receivedCredential(challenge.challenge, credential);
-#if !USE(CFURLCONNECTION) && !USE(NETWORK_SESSION)
+#if !USE(NETWORK_SESSION)
     else
         receivedCredential(challenge.challenge, credential);
 #endif
@@ -263,7 +262,7 @@ void AuthenticationManager::continueWithoutCredentialForSingleChallenge(uint64_t
 
     if (coreClient)
         coreClient->receivedRequestToContinueWithoutCredential(challenge.challenge);
-#if !USE(CFURLCONNECTION) && !USE(NETWORK_SESSION)
+#if !USE(NETWORK_SESSION)
     else
         receivedRequestToContinueWithoutCredential(challenge.challenge);
 #endif
@@ -294,7 +293,7 @@ void AuthenticationManager::cancelSingleChallenge(uint64_t challengeID)
 
     if (coreClient)
         coreClient->receivedCancellation(challenge.challenge);
-#if !USE(CFURLCONNECTION) && !USE(NETWORK_SESSION)
+#if !USE(NETWORK_SESSION)
     else
         receivedCancellation(challenge.challenge);
 #endif
@@ -325,7 +324,7 @@ void AuthenticationManager::performDefaultHandlingForSingleChallenge(uint64_t ch
 
     if (coreClient)
         coreClient->receivedRequestToPerformDefaultHandling(challenge.challenge);
-#if !USE(CFURLCONNECTION) && !USE(NETWORK_SESSION)
+#if !USE(NETWORK_SESSION)
     else
         receivedRequestToPerformDefaultHandling(challenge.challenge);
 #endif
@@ -356,7 +355,7 @@ void AuthenticationManager::rejectProtectionSpaceAndContinueForSingleChallenge(u
 
     if (coreClient)
         coreClient->receivedChallengeRejection(challenge.challenge);
-#if !USE(CFURLCONNECTION) && !USE(NETWORK_SESSION)
+#if !USE(NETWORK_SESSION)
     else
         receivedChallengeRejection(challenge.challenge);
 #endif

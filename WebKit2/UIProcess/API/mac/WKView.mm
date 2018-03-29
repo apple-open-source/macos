@@ -42,7 +42,7 @@
 #import "WebProcessPool.h"
 #import "WebViewImpl.h"
 #import "_WKLinkIconParametersInternal.h"
-#import <WebCore/AVKitSPI.h>
+#import <pal/spi/cocoa/AVKitSPI.h>
 #import <wtf/BlockPtr.h>
 
 using namespace WebKit;
@@ -1029,6 +1029,10 @@ Some other editing-related methods still unimplemented:
     [self _dismissContentRelativeChildWindowsWithAnimation:withAnimation];
 }
 
+- (void)_web_editorStateDidChange
+{
+}
+
 - (void)_web_gestureEventWasNotHandledByWebCore:(NSEvent *)event
 {
     [self _gestureEventWasNotHandledByWebCore:event];
@@ -1241,7 +1245,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(NSUs
 // FIXME: This returns an autoreleased object. Should it really be prefixed 'create'?
 - (NSWindow *)createFullScreenWindow
 {
-    return _data->_impl->createFullScreenWindow();
+    return _data->_impl->fullScreenWindow();
 }
 
 - (void)beginDeferringViewInWindowChanges
@@ -1592,6 +1596,19 @@ static _WKOverlayScrollbarStyle toAPIScrollbarStyle(std::optional<WebCore::Scrol
 {
 }
 
+- (void)_doAfterNextPresentationUpdate:(void (^)(void))updateBlock
+{
+    auto updateBlockCopy = makeBlockPtr(updateBlock);
+    _data->_impl->page().callAfterNextPresentationUpdate([updateBlockCopy](WebKit::CallbackBase::Error error) {
+        if (updateBlockCopy)
+            updateBlockCopy();
+    });
+}
+
+- (void)_setShouldSuppressFirstResponderChanges:(BOOL)shouldSuppress
+{
+    _data->_impl->setShouldSuppressFirstResponderChanges(shouldSuppress);
+}
 @end
 
 #endif // PLATFORM(MAC)

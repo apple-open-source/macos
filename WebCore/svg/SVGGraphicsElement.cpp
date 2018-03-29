@@ -49,9 +49,7 @@ SVGGraphicsElement::SVGGraphicsElement(const QualifiedName& tagName, Document& d
     registerAnimatedPropertiesForSVGGraphicsElement();
 }
 
-SVGGraphicsElement::~SVGGraphicsElement()
-{
-}
+SVGGraphicsElement::~SVGGraphicsElement() = default;
 
 Ref<SVGMatrix> SVGGraphicsElement::getCTMForBindings()
 {
@@ -128,11 +126,12 @@ AffineTransform* SVGGraphicsElement::supplementalTransform()
 
 bool SVGGraphicsElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
-    if (supportedAttributes.get().isEmpty()) {
-        SVGTests::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.get().add(SVGNames::transformAttr);
-    }
+    static const auto supportedAttributes = makeNeverDestroyed([] {
+        HashSet<QualifiedName> set;
+        SVGTests::addSupportedAttributes(set);
+        set.add(SVGNames::transformAttr);
+        return set;
+    }());
     return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
@@ -200,11 +199,12 @@ RenderPtr<RenderElement> SVGGraphicsElement::createElementRenderer(RenderStyle&&
     return createRenderer<RenderSVGPath>(*this, WTFMove(style));
 }
 
-void SVGGraphicsElement::toClipPath(Path& path)
+Path SVGGraphicsElement::toClipPath()
 {
-    updatePathFromGraphicsElement(this, path);
+    Path path = pathFromGraphicsElement(this);
     // FIXME: How do we know the element has done a layout?
     path.transform(animatedLocalTransform());
+    return path;
 }
 
 Ref<SVGStringList> SVGGraphicsElement::requiredFeatures()

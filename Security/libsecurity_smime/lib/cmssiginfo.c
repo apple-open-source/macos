@@ -316,6 +316,10 @@ SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si)
         CFRelease(si->hashAgilityAttrValue);
     }
 
+    if (si->hashAgilityV2AttrValues != NULL) {
+        CFRelease(si->hashAgilityV2AttrValues);
+    }
+
     /* XXX storage ??? */
 }
 
@@ -899,6 +903,113 @@ SecCmsSignerInfoGetAppleCodesigningHashAgility(SecCmsSignerInfoRef sinfo, CFData
     return errSecAllocate;
 }
 
+/* AgileHash ::= SEQUENCE {
+     hashType OBJECT IDENTIFIER,
+     hashValues OCTET STRING }
+*/
+typedef struct {
+    SecAsn1Item digestOID;
+    SecAsn1Item digestValue;
+} CMSAppleAgileHash;
+
+static const SecAsn1Template CMSAppleAgileHashTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+        0, NULL, sizeof(CMSAppleAgileHash) },
+    { SEC_ASN1_OBJECT_ID,
+        offsetof(CMSAppleAgileHash, digestOID), },
+    { SEC_ASN1_OCTET_STRING,
+        offsetof(CMSAppleAgileHash, digestValue), },
+    { 0, }
+};
+
+static OSStatus CMSAddAgileHashToDictionary(CFMutableDictionaryRef dictionary, SecAsn1Item *DERAgileHash) {
+    PLArenaPool *tmppoolp = NULL;
+    OSStatus status = errSecSuccess;
+    CMSAppleAgileHash agileHash;
+    CFDataRef digestValue = NULL;
+    CFNumberRef digestTag = NULL;
+
+    tmppoolp = PORT_NewArena(1024);
+    if (tmppoolp == NULL) {
+        return errSecAllocate;
+    }
+
+    if ((status = SEC_ASN1DecodeItem(tmppoolp, &agileHash, CMSAppleAgileHashTemplate, DERAgileHash)) != errSecSuccess) {
+        goto loser;
+    }
+
+    int64_t tag = SECOID_FindOIDTag(&agileHash.digestOID);
+    digestTag = CFNumberCreate(NULL, kCFNumberSInt64Type, &tag);
+    digestValue = CFDataCreate(NULL, agileHash.digestValue.Data, agileHash.digestValue.Length);
+    CFDictionaryAddValue(dictionary, digestTag, digestValue);
+
+loser:
+    CFReleaseNull(digestValue);
+    CFReleaseNull(digestTag);
+    if (tmppoolp) {
+        PORT_FreeArena(tmppoolp, PR_FALSE);
+    }
+    return status;
+}
+
+/*!
+ @function
+ @abstract Return the data in the signed Codesigning Hash Agility V2 attribute.
+ @param sinfo SignerInfo data for this signer, pointer to a CFDictionaryRef for attribute values
+ @discussion Returns a CFDictionaryRef containing the values of the attribute
+ @result A return value of errSecInternal is an error trying to look up the oid.
+ A status value of success with null result data indicates the attribute was not present.
+ */
+OSStatus
+SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef sinfo, CFDictionaryRef *sdict)
+{
+    SecCmsAttribute *attr;
+
+    if (sinfo == NULL || sdict == NULL) {
+        return errSecParam;
+    }
+
+    *sdict = NULL;
+
+    if (sinfo->hashAgilityV2AttrValues != NULL) {
+        *sdict = sinfo->hashAgilityV2AttrValues;    /* cached copy */
+        return SECSuccess;
+    }
+
+    attr = SecCmsAttributeArrayFindAttrByOidTag(sinfo->authAttr, SEC_OID_APPLE_HASH_AGILITY_V2, PR_TRUE);
+
+    /* attribute not found */
+    if (attr == NULL) {
+        return SECSuccess;
+    }
+
+    /* attrValues SET OF AttributeValue
+     * AttributeValue ::= ANY
+     */
+    SecAsn1Item **values = attr->values;
+    if (values == NULL) { /* There must be values */
+        return errSecDecode;
+    }
+
+    CFMutableDictionaryRef agileHashValues = CFDictionaryCreateMutable(NULL, SecCmsArrayCount((void **)values),
+                                                                       &kCFTypeDictionaryKeyCallBacks,
+                                                                       &kCFTypeDictionaryValueCallBacks);
+    while (*values != NULL) {
+        (void)CMSAddAgileHashToDictionary(agileHashValues, *values++);
+    }
+    if (CFDictionaryGetCount(agileHashValues) != SecCmsArrayCount((void **)attr->values)) {
+        CFReleaseNull(agileHashValues);
+        return errSecDecode;
+    }
+
+    sinfo->hashAgilityV2AttrValues = agileHashValues;    /* make cached copy */
+    if (sinfo->hashAgilityV2AttrValues) {
+        *sdict = sinfo->hashAgilityV2AttrValues;
+        return SECSuccess;
+    }
+    return errSecAllocate;
+}
+
 /*
  * Return the signing cert of a CMS signerInfo.
  *
@@ -1215,7 +1326,7 @@ loser:
 
 /* 
  * SecCmsSignerInfoAddMSSMIMEEncKeyPrefs - add a SMIMEEncryptionKeyPreferences attribute to the
- * authenticated (i.e. signed) attributes of "signerinfo", using the OID prefered by Microsoft.
+ * authenticated (i.e. signed) attributes of "signerinfo", using the OID preferred by Microsoft.
  *
  * This is expected to be included in outgoing signed messages for email (S/MIME),
  * if compatibility with Microsoft mail clients is wanted.
@@ -1289,7 +1400,7 @@ SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
 /*!
      @function
      @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
-     @discussion This is expected to be included in outgoing signed Apple code signatures.
+     @discussion This is expected to be included in outgoing Apple code signatures.
  */
 OSStatus
 SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, CFDataRef attrValue)
@@ -1334,6 +1445,90 @@ loser:
     return status;
 }
 
+static OSStatus CMSAddAgileHashToAttribute(PLArenaPool *poolp, SecCmsAttribute *attr, CFNumberRef cftag, CFDataRef value) {
+    PLArenaPool *tmppoolp = NULL;
+    int64_t tag;
+    SECOidData *digestOid = NULL;
+    CMSAppleAgileHash agileHash;
+    SecAsn1Item attrValue = { .Data = NULL, .Length = 0 };
+    OSStatus status = errSecSuccess;
+
+    memset(&agileHash, 0, sizeof(agileHash));
+
+    if(!CFNumberGetValue(cftag, kCFNumberSInt64Type, &tag)) {
+        return errSecParam;
+    }
+    digestOid = SECOID_FindOIDByTag((SECOidTag)tag);
+
+    agileHash.digestValue.Data = (uint8_t *)CFDataGetBytePtr(value);
+    agileHash.digestValue.Length = CFDataGetLength(value);
+    agileHash.digestOID.Data = digestOid->oid.Data;
+    agileHash.digestOID.Length = digestOid->oid.Length;
+
+    tmppoolp = PORT_NewArena(1024);
+    if (tmppoolp == NULL) {
+        return errSecAllocate;
+    }
+
+    if (SEC_ASN1EncodeItem(tmppoolp, &attrValue, &agileHash, CMSAppleAgileHashTemplate) == NULL) {
+        status = errSecParam;
+        goto loser;
+    }
+
+    status = SecCmsAttributeAddValue(poolp, attr, &attrValue);
+
+loser:
+    if (tmppoolp) {
+        PORT_FreeArena(tmppoolp, PR_FALSE);
+    }
+    return status;
+}
+
+/*!
+ @function
+ @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+ @discussion This is expected to be included in outgoing Apple code signatures.
+ */
+OSStatus
+SecCmsSignerInfoAddAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef signerinfo, CFDictionaryRef attrValues)
+{
+    __block SecCmsAttribute *attr;
+    __block PLArenaPool *poolp = signerinfo->signedData->contentInfo.cmsg->poolp;
+    void *mark = PORT_ArenaMark(poolp);
+    OSStatus status = SECFailure;
+
+    /* The value is required for this attribute. */
+    if (!attrValues) {
+        status = errSecParam;
+        goto loser;
+    }
+
+    if ((attr = SecCmsAttributeCreate(poolp, SEC_OID_APPLE_HASH_AGILITY_V2,
+                                      NULL, PR_TRUE)) == NULL) {
+        status = errSecAllocate;
+        goto loser;
+    }
+
+    CFDictionaryForEach(attrValues, ^(const void *key, const void *value) {
+        if (!isNumber(key) || !isData(value)) {
+            return;
+        }
+        (void)CMSAddAgileHashToAttribute(poolp, attr, (CFNumberRef)key, (CFDataRef)value);
+    });
+
+    if (SecCmsSignerInfoAddAuthAttr(signerinfo, attr) != SECSuccess) {
+        status = errSecInternal;
+        goto loser;
+    }
+
+    PORT_ArenaUnmark(poolp, mark);
+    return SECSuccess;
+
+loser:
+    PORT_ArenaRelease(poolp, mark);
+    return status;
+}
+
 SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSignerInfoRef signerinfo) {
     SecCertificateRef cert = NULL;
     SecCmsAttribute *attr;
@@ -1343,6 +1538,12 @@ SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSign
     if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
         return NULL;
 
+    /* Prep the rawCerts */
+    SecAsn1Item **rawCerts = NULL;
+    if (signerinfo->signedData) {
+        rawCerts = signerinfo->signedData->rawCerts;
+    }
+
     /* find preferred encryption cert */
     if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr) &&
         (attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
@@ -1351,11 +1552,17 @@ SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSign
         ekp = SecCmsAttributeGetValue(attr);
         if (ekp == NULL)
             return NULL;
+        cert = SecSMIMEGetCertFromEncryptionKeyPreference(rawCerts, ekp);
+    }
+    if (cert) return cert;
 
-        SecAsn1Item **rawCerts = NULL;
-        if (signerinfo->signedData) {
-            rawCerts = signerinfo->signedData->rawCerts;
-        }
+    if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr) &&
+        (attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
+                                                     SEC_OID_MS_SMIME_ENCRYPTION_KEY_PREFERENCE, PR_TRUE)) != NULL)
+    { /* we have a MS_SMIME_ENCRYPTION_KEY_PREFERENCE attribute! Find the cert. */
+        ekp = SecCmsAttributeGetValue(attr);
+        if (ekp == NULL)
+            return NULL;
         cert = SecSMIMEGetCertFromEncryptionKeyPreference(rawCerts, ekp);
     }
     return cert;

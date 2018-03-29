@@ -28,9 +28,28 @@
 #ifndef _SECURITY_SECCERTIFICATEINTERNAL_H_
 #define _SECURITY_SECCERTIFICATEINTERNAL_H_
 
-#include <Security/SecCertificatePriv.h>
-#include <Security/certextensions.h>
+#include <TargetConditionals.h>
 #include <libDER/DER_Keys.h>
+
+#include <Security/SecBase.h>
+#include <Security/SecCertificatePriv.h>
+
+#include <Security/certextensions.h>
+
+// This file can only be included under the ios view of the headers.
+// If you're not under that view, we'll forward declare the things you need here.
+#if SECURITY_PROJECT_TAPI_HACKS && SEC_OS_OSX
+typedef enum {
+  NO_ENUM_VALUES,
+} SecCEGeneralNameType; // The real enum values are already declared.
+
+typedef struct {} SecCEBasicConstraints;
+typedef struct {} SecCEPolicyConstraints;
+typedef struct {} SecCEPolicyMapping;
+typedef struct {} SecCEPolicyMappings;
+typedef struct {} SecCECertificatePolicies;
+typedef struct {} SecCEInhibitAnyPolicy;
+#endif
 
 __BEGIN_DECLS
 
@@ -75,11 +94,6 @@ CFDictionaryRef SecCertificateCopyAttributeDictionary(
    this item in a keychain. */
 SecCertificateRef SecCertificateCreateFromAttributeDictionary(
 	CFDictionaryRef refAttributes);
-
-/* Return a SecKeyRef for the public key embedded in the cert. */
-#if TARGET_OS_OSX
-SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate);
-#endif
 
 /* Return the SecCEBasicConstraints extension for this certificate if it
    has one. */
@@ -133,14 +147,19 @@ CFArrayRef SecCertificateCopyLegacyProperties(SecCertificateRef certificate);
 OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
     SecKeyRef issuerKey);
 
+#ifndef SECURITY_PROJECT_TAPI_HACKS
 void appendProperty(CFMutableArrayRef properties, CFStringRef propertyType,
-    CFStringRef label, CFStringRef localizedLabel, CFTypeRef value);
+    CFStringRef label, CFStringRef localizedLabel, CFTypeRef value, bool localized);
+#endif
 
 /* Utility functions. */
 CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
     const DERItem *oid);
+
+#ifndef SECURITY_PROJECT_TAPI_HACKS
 CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
 	const DERItem *x501name);
+#endif
 
 /* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
    an absoluteTime if the date was valid and properly decoded.  Return
@@ -165,6 +184,7 @@ bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
 bool SecCertificateIsStrongKey(SecCertificateRef certificate);
 
 extern const CFStringRef kSecSignatureDigestAlgorithmUnknown;
+#ifndef SECURITY_PROJECT_TAPI_HACKS
 extern const CFStringRef kSecSignatureDigestAlgorithmMD2;
 extern const CFStringRef kSecSignatureDigestAlgorithmMD4;
 extern const CFStringRef kSecSignatureDigestAlgorithmMD5;
@@ -173,6 +193,7 @@ extern const CFStringRef kSecSignatureDigestAlgorithmSHA224;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA256;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA384;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA512;
+#endif
 
 bool SecCertificateIsWeakHash(SecCertificateRef certificate);
 
@@ -184,6 +205,8 @@ DERItem *SecCertificateGetExtensionValue(SecCertificateRef certificate, CFTypeRe
 CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate);
+
+CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate);
 
 __END_DECLS
 

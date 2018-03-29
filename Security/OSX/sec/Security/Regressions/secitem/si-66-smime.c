@@ -2484,7 +2484,7 @@ static void tests(void)
 	CFRelease(anchor_array);
 
     ok_status(SecTrustEvaluate(trust, &result), "evaluate trust");
-    ok(result == kSecTrustResultUnspecified, "private root");
+    ok(result == kSecTrustResultRecoverableTrustFailure, "private root");
 
 #if DUMP_CERTS
 // debug code to save a cert chain retrieved from a SecTrustRef (written to /tmp/c[0-9].cer)
@@ -2496,7 +2496,7 @@ static void tests(void)
 			if (d) {
 				char f[12] = { '/', 't', 'm', 'p', '/', 'c', 'n', '.', 'c', 'e', 'r', 0 };
 				f[6] = '0' + (idx % 10);
-				writeFile(f, CFDataGetBytePtr(d), CFDataGetLength(d));
+				writeFile(f, CFDataGetBytePtr(d), (int)CFDataGetLength(d));
 				CFRelease(d);
 			}
 		}
@@ -2523,7 +2523,7 @@ static void tests(void)
     CFReleaseNull(parameters);
 
     CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(subject_alt_names, CFSTR("rfc822name"), CFSTR("xey@nl"));
+    CFDictionarySetValue(subject_alt_names, kSecSubjectAltNameEmailAddress, CFSTR("xey@nl"));
     int key_usage = kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment;
     CFNumberRef key_usage_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_usage);
     const void *self_key[] = { kSecCertificateKeyUsage, kSecSubjectAltName };
@@ -2819,7 +2819,7 @@ static void test_sign_no_priv(void) {
     CFReleaseNull(parameters);
 
     CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(subject_alt_names, CFSTR("rfc822name"), CFSTR("xey@nl"));
+    CFDictionarySetValue(subject_alt_names, kSecSubjectAltNameEmailAddress, CFSTR("xey@nl"));
     int key_usage = kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment;
     CFNumberRef key_usage_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_usage);
     const void *self_key[] = { kSecCertificateKeyUsage, kSecSubjectAltName };

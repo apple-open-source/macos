@@ -1,0 +1,51 @@
+#!/bin/bash -e
+
+if [ $# -ne 1 ]; then
+    echo "Usage:" 1>&2
+    echo "  sudo $0 enable       ... enables ASanification of system libraries on your system" 1>&2
+    echo "  sudo $0 disable      ... reverts the changes and restores the system back to normal" 1>&2
+    echo "  $0 status            ... prints current mode" 1>&2
+    exit 1
+fi
+
+if [ "$1" == "enable" ]; then
+    if [[ $(id -u) != 0 ]]; then echo "Must be run as root." 1>&2; exit 1; fi
+
+    if [ -f /usr/lib/libSystem.B.dylib-asan-mode-backup ]; then
+        if [ "`md5 -q /usr/lib/libSystem.B.dylib-asan-mode-backup`" != "`md5 -q /usr/lib/libSystem.B.dylib`" ]; then
+            echo "Looks like your system already has ASan mode enabled, or you have a custom /usr/lib/libSystem.B.dylib file. Not activating." 1>&2
+            exit 1
+        fi
+    fi
+
+    ditto /usr/lib/libSystem.B.dylib /usr/lib/libSystem.B.dylib-asan-mode-backup
+    ditto /usr/lib/libSystem.B_asan.dylib /usr/lib/libSystem.B.dylib
+    echo "ASan mode activated. You probably want to reboot now." 1>&2
+    exit 0
+elif [ "$1" == "disable" ]; then
+    if [[ $(id -u) != 0 ]]; then echo "Must be run as root." 1>&2; exit 1; fi
+    ditto /usr/lib/libSystem.B.dylib-asan-mode-backup /usr/lib/libSystem.B.dylib
+    echo "ASan mode deactivated. You probably want to reboot now." 1>&2
+    exit 0
+elif [ "$1" == "status" ]; then
+    if [ ! -f /usr/lib/libSystem.B.dylib-asan-mode-backup ]; then
+        echo "ASan mode is disabled." 1>&2
+        exit 0
+    fi
+
+    if [ "`md5 -q /usr/lib/libSystem.B.dylib-asan-mode-backup`" == "`md5 -q /usr/lib/libSystem.B.dylib`" ]; then
+        echo "ASan mode is disabled." 1>&2
+        exit 0
+    fi
+
+    if [ "`md5 -q /usr/lib/libSystem.B_asan.dylib`" == "`md5 -q /usr/lib/libSystem.B.dylib`" ]; then
+        echo "ASan mode is enabled." 1>&2
+        exit 0
+    fi
+
+    echo "Cannot tell whether ASan mode is enabled or not. You seem to have a custom /usr/lib/libSystem.B.dylib file." 1>&2
+    exit 1
+else
+    echo "Invalid argument. Run '$0' for usage instructions." 1>&2
+    exit 1
+fi

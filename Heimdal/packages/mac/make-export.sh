@@ -35,6 +35,7 @@ struct _krb5_srp;
 
 #include <config.h>
 #include <krb5.h>
+#include <krb5cf-protos.h>
 #include <krb5_asn1.h>
 #include "crypto-headers.h"
 #include <gssapi_rewrite.h>

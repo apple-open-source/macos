@@ -32,20 +32,24 @@ typedef NS_ENUM(NSInteger, _WKWebsiteAutoplayPolicy) {
     _WKWebsiteAutoplayPolicyAllow,
     _WKWebsiteAutoplayPolicyAllowWithoutSound,
     _WKWebsiteAutoplayPolicyDeny
-} WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+} WK_API_AVAILABLE(macosx(10.13), ios(11.0));
 
 typedef NS_OPTIONS(NSUInteger, _WKWebsiteAutoplayQuirk) {
     _WKWebsiteAutoplayQuirkSynthesizedPauseEvents = 1 << 0,
     _WKWebsiteAutoplayQuirkInheritedUserGestures = 1 << 1,
     _WKWebsiteAutoplayQuirkArbitraryUserGestures = 1 << 2,
-} WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+} WK_API_AVAILABLE(macosx(10.13), ios(11.0));
+
+@class WKWebsiteDataStore;
 
 WK_CLASS_AVAILABLE(macosx(10.12.3), ios(10.3))
 @interface _WKWebsitePolicies : NSObject
 
 @property (nonatomic) BOOL contentBlockersEnabled;
-@property (nonatomic) _WKWebsiteAutoplayQuirk allowedAutoplayQuirks WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
-@property (nonatomic) _WKWebsiteAutoplayPolicy autoplayPolicy WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic) _WKWebsiteAutoplayQuirk allowedAutoplayQuirks WK_API_AVAILABLE(macosx(10.13), ios(11.0));
+@property (nonatomic) _WKWebsiteAutoplayPolicy autoplayPolicy WK_API_AVAILABLE(macosx(10.13), ios(11.0));
+@property (nonatomic, copy) NSDictionary<NSString *, NSString *> *customHeaderFields WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, strong) WKWebsiteDataStore *websiteDataStore WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 

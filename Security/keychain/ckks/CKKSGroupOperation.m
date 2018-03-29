@@ -64,6 +64,7 @@
 
             [strongSelf groupStart];
         }];
+        [self.startOperation removeDependenciesUponCompletion];
 
         // The finish operation will 'finish' us
         _finishOperation = [NSBlockOperation blockOperationWithBlock:^{
@@ -75,6 +76,7 @@
 
             [strongSelf completeOperation];
         }];
+        [self.finishOperation removeDependenciesUponCompletion];
 
         [self.finishOperation addDependency: self.startOperation];
         [self.operationQueue addOperation: self.finishOperation];
@@ -113,9 +115,14 @@
 - (NSString*)description {
     if(self.isFinished) {
         if(self.error) {
-            return [NSString stringWithFormat: @"<%@: finished %@ - %@>", [self selfname], self.finishDate, self.error];
+            return [NSString stringWithFormat: @"<%@: %@ %@ - %@>", [self selfname],
+                    [self operationStateString],
+                    self.finishDate,
+                    self.error];
         } else {
-            return [NSString stringWithFormat: @"<%@: finished %@>", [self selfname], self.finishDate];
+            return [NSString stringWithFormat: @"<%@: %@ %@>", [self selfname],
+                    [self operationStateString],
+                    self.finishDate];
         }
     }
 
@@ -133,9 +140,9 @@
     NSString* opsString = [ops componentsJoinedByString:@", "];
 
     if(self.error) {
-        return [NSString stringWithFormat: @"<%@: [%@] error:%@>", [self selfname], opsString, self.error];
+        return [NSString stringWithFormat: @"<%@: %@ [%@] error:%@>", [self selfname], [self operationStateString], opsString, self.error];
     } else {
-        return [NSString stringWithFormat: @"<%@: [%@]%@>", [self selfname], opsString, [self pendingDependenciesString:@" dep:"]];
+        return [NSString stringWithFormat: @"<%@: %@ [%@]%@>", [self selfname], [self operationStateString], opsString, [self pendingDependenciesString:@" dep:"]];
     }
 }
 
@@ -202,8 +209,8 @@
 
     NSArray<NSOperation*>* finishDependencies = [self.finishOperation.dependencies copy];
     for(NSOperation* finishDep in finishDependencies) {
-        if(![ops containsObject: finishDep]) {
-            // This is finish dependency that we don't control.
+        if(!([ops containsObject: finishDep] || [finishDep isEqual:self.startOperation])) {
+            // This is finish dependency that we don't control (and isn't our start operation)
             // Since we're cancelled, don't wait for it.
             [self.finishOperation removeDependency: finishDep];
         }
@@ -287,6 +294,31 @@
             [self.internalSuccesses addObject: (CKKSResultOperation*) suboperation];
         }
     }
+}
+
++ (instancetype)operationWithBlock:(void (^)(void))block {
+    CKKSGroupOperation* op = [[CKKSGroupOperation alloc] init];
+    NSBlockOperation* blockOp = [NSBlockOperation blockOperationWithBlock:block];
+    [op runBeforeGroupFinished:blockOp];
+    return op;
+}
+
++(instancetype)named:(NSString*)name withBlock:(void(^)(void)) block {
+    CKKSGroupOperation* blockOp = [CKKSGroupOperation operationWithBlock: block];
+    blockOp.name = name;
+    return blockOp;
+}
+
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSGroupOperation* strongOp))block
+{
+    CKKSGroupOperation* op = [[CKKSGroupOperation alloc] init];
+    __weak __typeof(op) weakOp = op;
+    [op runBeforeGroupFinished:[NSBlockOperation blockOperationWithBlock:^{
+        __strong __typeof(op) strongOp = weakOp;
+        block(strongOp);
+    }]];
+    op.name = name;
+    return op;
 }
 
 @end

@@ -28,6 +28,8 @@
 
 #if WK_API_ENABLED
 
+#import "WKWebsiteDataStoreInternal.h"
+
 @implementation _WKWebsitePolicies
 
 - (void)dealloc
@@ -120,6 +122,39 @@
     case WebKit::WebsiteAutoplayPolicy::Deny:
         return _WKWebsiteAutoplayPolicyDeny;
     }
+}
+
+- (NSDictionary<NSString *, NSString *> *)customHeaderFields
+{
+    const auto& fields = _websitePolicies->customHeaderFields();
+    NSMutableDictionary *dictionary = [[[NSMutableDictionary alloc] initWithCapacity:fields.size()] autorelease];
+    for (const auto& field : fields)
+        [dictionary setObject:field.value() forKey:field.name()];
+    return dictionary;
+}
+
+- (void)setCustomHeaderFields:(NSDictionary<NSString *, NSString *> *)fields
+{
+    Vector<WebCore::HTTPHeaderField> parsedFields;
+    parsedFields.reserveInitialCapacity(fields.count);
+    
+    for (NSString* name in fields) {
+        auto field = WebCore::HTTPHeaderField::create(name, [fields objectForKey:name]);
+        if (field && startsWithLettersIgnoringASCIICase(field->name(), "x-"))
+            parsedFields.uncheckedAppend(WTFMove(*field));
+    }
+    _websitePolicies->setCustomHeaderFields(WTFMove(parsedFields));
+}
+
+- (WKWebsiteDataStore *)websiteDataStore
+{
+    auto* store = _websitePolicies->websiteDataStore();
+    return store ? WebKit::wrapper(*store) : nil;
+}
+
+- (void)setWebsiteDataStore:(WKWebsiteDataStore *)websiteDataStore
+{
+    _websitePolicies->setWebsiteDataStore(websiteDataStore->_websiteDataStore.get());
 }
 
 - (NSString *)description

@@ -1,4 +1,4 @@
-# Copyright (C) 2005, 2007, 2010-2015  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2005, 2007, 2010-2016  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -48,8 +48,19 @@ for bad in bad*.conf
 do
 	ret=0
 	echo "I: checking that named-checkconf detects error in $bad"
-	$CHECKCONF $bad > /dev/null 2>&1
-	if [ $? != 1 ]; then echo "I:failed"; ret=1; fi
+	$CHECKCONF $bad > checkconf.out 2>&1
+	if [ $? != 1 ]; then ret=1; fi
+	grep "^$bad:[0-9]*: " checkconf.out > /dev/null || ret=1
+	if [ $ret != 0 ]; then echo "I:failed"; fi
+	status=`expr $status + $ret`
+done
+
+for good in good-*.conf
+do
+	ret=0
+	echo "I: checking that named-checkconf detects no error in $good"
+	$CHECKCONF $good > /dev/null 2>&1
+	if [ $? != 0 ]; then echo "I:failed"; ret=1; fi
 	status=`expr $status + $ret`
 done
 
@@ -57,6 +68,12 @@ echo "I: checking that named-checkconf -z catches missing hint file"
 ret=0
 $CHECKCONF -z hint-nofile.conf > hint-nofile.out 2>&1 && ret=1
 grep "could not configure root hints from 'nonexistent.db': file not found" hint-nofile.out > /dev/null || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf catches range errors"
+ret=0
+$CHECKCONF range.conf > /dev/null 2>&1 && ret=1
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
@@ -138,6 +155,12 @@ n=`$CHECKCONF inline-bad.conf 2>&1 | grep "missing 'file' entry" | wc -l`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
+echo "I: checking named-checkconf DLZ warnings"
+ret=0
+$CHECKCONF dlz-bad.conf 2>&1 | grep "'dlz' and 'database'" > /dev/null || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
 echo "I: checking for missing key directory warning"
 ret=0
 rm -rf test.keydir
@@ -152,11 +175,55 @@ n=`$CHECKCONF warn-keydir.conf 2>&1 | grep "key-directory" | wc -l`
 [ $n -eq 0 ] || ret=1
 rm -rf test.keydir
 if [ $ret != 0 ]; then echo "I:failed"; fi
+
+echo "I: checking that named-checkconf -z catches conflicting ttl with max-ttl"
+ret=0
+$CHECKCONF -z max-ttl.conf > check.out 2>&1
+grep 'TTL 900 exceeds configured max-zone-ttl 600' check.out > /dev/null 2>&1 || ret=1
+grep 'TTL 900 exceeds configured max-zone-ttl 600' check.out > /dev/null 2>&1 || ret=1
+grep 'TTL 900 exceeds configured max-zone-ttl 600' check.out > /dev/null 2>&1 || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z catches invalid max-ttl"
+ret=0
+$CHECKCONF -z max-ttl-bad.conf > /dev/null 2>&1 && ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
 status=`expr $status + $ret`
 
 echo "I: checking that named-checkconf -z skips zone check with alternate databases"
 ret=0
 $CHECKCONF -z altdb.conf > /dev/null 2>&1 || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z skips zone check with DLZ"
+ret=0
+$CHECKCONF -z altdlz.conf > /dev/null 2>&1 || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z fails on view with ANY class"
+ret=0
+$CHECKCONF -z view-class-any1.conf > /dev/null 2>&1 && ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z fails on view with CLASS255 class"
+ret=0
+$CHECKCONF -z view-class-any2.conf > /dev/null 2>&1 && ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z passes on view with IN class"
+ret=0
+$CHECKCONF -z view-class-in1.conf > /dev/null 2>&1 || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: checking that named-checkconf -z passes on view with CLASS1 class"
+ret=0
+$CHECKCONF -z view-class-in2.conf > /dev/null 2>&1 || ret=1
 if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
 status=`expr $status + $ret`
 
@@ -208,5 +275,19 @@ grep "zone check-mx-cname/IN: loaded serial" < checkconf.out6 > /dev/null && ret
 if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
 status=`expr $status + $ret`
 
+echo "I: check that named-checkconf -p properly print a port range"
+ret=0
+$CHECKCONF -p portrange-good.conf > checkconf.out7 2>&1 || ret=1
+grep "range 8610 8614;" checkconf.out7 > /dev/null || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
+echo "I: check that named-checkconf -z handles in-view"
+ret=0
+$CHECKCONF -z in-view-good.conf > checkconf.out7 2>&1 || ret=1
+grep "zone shared.example/IN: loaded serial" < checkconf.out7 > /dev/null || ret=1
+if [ $ret != 0 ]; then echo "I:failed"; ret=1; fi
+status=`expr $status + $ret`
+
 echo "I:exit status: $status"
-exit $status
+[ $status -eq 0 ] || exit 1

@@ -21,6 +21,7 @@
 #include <Security/SecureObjectSync/SOSTransportCircleKVS.h>
 #include <Security/SecureObjectSync/SOSTransportCircle.h>
 #include <Security/SecureObjectSync/SOSCircleDer.h>
+#include <Security/SecureObjectSync/SOSInternal.h>
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCoreCrypto.h>
@@ -465,13 +466,6 @@ fail:
 }
 
 //Views
--(void) peerGotInSync:(SOSAccountTransaction*) aTxn peerID:(CFStringRef) peerID views:(CFSetRef) views
-{
-    secnotice("initial-sync", "Peer %@ synced views: %@", peerID, views);
-    if (self.trustedCircle && [self isInCircle:NULL] && SOSCircleHasActivePeerWithID(self.trustedCircle, peerID, NULL)) {
-        SOSAccountUpdateOutOfSyncViews(aTxn, views);
-    }
-}
 -(void) removeInvalidApplications:(SOSCircleRef) circle userPublic:(SecKeyRef)userPublic
 {
     CFMutableSetRef peersToRemove = CFSetCreateMutableForSOSPeerInfosByID(kCFAllocatorDefault);
@@ -495,6 +489,7 @@ fail:
     require_quiet(SOSFullPeerInfoUpgradeSignatures(cloud_fpi, privKey, NULL), errOut);
     retval = SOSCircleUpdatePeerInfo(circle, SOSFullPeerInfoGetPeerInfo(cloud_fpi));
 errOut:
+    CFReleaseNull(cloud_fpi);
     return retval;
 }
 const CFStringRef kSOSHsaPreApprovedPeerKeyInfo = CFSTR("HSAPreApprovedPeer");
@@ -523,12 +518,15 @@ const CFStringRef kSOSHsaPreApprovedPeerKeyInfo = CFSTR("HSAPreApprovedPeer");
     CFReleaseNull(cloud_peer);
     if(!cloud_identity)
         return result;
-    if(!SOSCircleRequestAdmission(circle, userKey, cloud_identity, error))
+    if(!SOSCircleRequestAdmission(circle, userKey, cloud_identity, error)) {
+        CFReleaseNull(cloud_identity);
         return result;
+    }
     
     require_quiet(SOSCircleAcceptRequest(circle, userKey, self.fullPeerInfo, SOSFullPeerInfoGetPeerInfo(cloud_identity), error), err_out);
     result = true;
 err_out:
+    CFReleaseNull(cloud_identity);
     return result;
 }
 -(bool) addEscrowToPeerInfo:(SOSFullPeerInfoRef) myPeer err:(CFErrorRef *)error
@@ -643,8 +641,10 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
     SOSAccount* account = txn.account;
     
     // Kick getting our device ID if we don't have it, and find out if we're setup to use IDS.
+    [account.ids_message_transport SOSTransportMessageIDSGetIDSDeviceID:account];
+
     bool canUseIDS = [account.ids_message_transport SOSTransportMessageIDSGetIDSDeviceID:account];
-    
+
     if(![self isInCircle:error])
     {
         handledPeerIDs = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, peerIDs);
@@ -680,7 +680,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
         
         peerInfo = SOSCircleCopyPeerWithID(self.trustedCircle, peerID, NULL);
         if (peerInfo && SOSCircleHasValidSyncingPeer(self.trustedCircle, peerInfo, account.accountKey, NULL)) {
-            if (canUseIDS && SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peerInfo)) {
+            if (ENABLE_IDS && canUseIDS && SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peerInfo)) {
                 CFSetAddValue(peersForIDS, peerID);
             } else {
                 CFSetAddValue(peersForKVS, peerID);

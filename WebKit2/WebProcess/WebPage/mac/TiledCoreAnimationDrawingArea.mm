@@ -49,7 +49,6 @@
 #import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformCAAnimationCocoa.h>
-#import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/RenderLayerBacking.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderView.h>
@@ -57,6 +56,7 @@
 #import <WebCore/Settings.h>
 #import <WebCore/TiledBacking.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/MainThread.h>
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -403,6 +403,12 @@ void TiledCoreAnimationDrawingArea::sendPendingNewlyReachedLayoutMilestones()
     m_pendingNewlyReachedLayoutMilestones = 0;
 }
 
+void TiledCoreAnimationDrawingArea::addTransactionCallbackID(CallbackID callbackID)
+{
+    m_pendingCallbackIDs.append(callbackID);
+    scheduleCompositingLayerFlush();
+}
+
 bool TiledCoreAnimationDrawingArea::flushLayers()
 {
     ASSERT(!m_layerTreeStateIsFrozen);
@@ -411,6 +417,7 @@ bool TiledCoreAnimationDrawingArea::flushLayers()
         scaleViewToFitDocumentIfNeeded();
 
         m_webPage.layoutIfNeeded();
+        m_webPage.flushPendingEditorStateUpdate();
 
         updateIntrinsicContentSizeIfNeeded();
 
@@ -447,6 +454,11 @@ bool TiledCoreAnimationDrawingArea::flushLayers()
         // that WebCore makes to the relevant layers, so re-apply our changes after flushing.
         if (m_transientZoomScale != 1)
             applyTransientZoomToLayers(m_transientZoomScale, m_transientZoomOrigin);
+
+        if (!m_pendingCallbackIDs.isEmpty()) {
+            m_webPage.send(Messages::DrawingAreaProxy::DispatchPresentationCallbacksAfterFlushingLayers(m_pendingCallbackIDs));
+            m_pendingCallbackIDs.clear();
+        }
 
         return returnValue;
     }
@@ -669,7 +681,7 @@ void TiledCoreAnimationDrawingArea::updateDebugInfoLayer(bool showLayer)
 
 bool TiledCoreAnimationDrawingArea::shouldUseTiledBackingForFrameView(const FrameView& frameView)
 {
-    return frameView.frame().isMainFrame();
+    return frameView.frame().isMainFrame() || m_webPage.corePage()->settings().asyncFrameScrollingEnabled();
 }
 
 PlatformCALayer* TiledCoreAnimationDrawingArea::layerForTransientZoom() const

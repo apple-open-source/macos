@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "Connection.h"
+#import "config.h"
+#import "Connection.h"
 
-#include "DataReference.h"
-#include "ImportanceAssertion.h"
-#include "MachMessage.h"
-#include "MachPort.h"
-#include "MachUtilities.h"
-#include <WebCore/AXObjectCache.h>
-#include <WebKitSystemInterface.h>
-#include <mach/mach_error.h>
-#include <mach/vm_map.h>
-#include <sys/mman.h>
-#include <wtf/RunLoop.h>
-#include <wtf/spi/darwin/XPCSPI.h>
+#import "DataReference.h"
+#import "ImportanceAssertion.h"
+#import "MachMessage.h"
+#import "MachPort.h"
+#import "MachUtilities.h"
+#import "WKCrashReporter.h"
+#import <WebCore/AXObjectCache.h>
+#import <mach/mach_error.h>
+#import <mach/vm_map.h>
+#import <sys/mman.h>
+#import <wtf/RunLoop.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 
 #if PLATFORM(IOS)
-#include "ProcessAssertion.h"
-#include <UIKit/UIAccessibility.h>
+#import "ProcessAssertion.h"
+#import <UIKit/UIAccessibility.h>
 
 #if USE(APPLE_INTERNAL_SDK)
-#include <AXRuntime/AXDefines.h>
-#include <AXRuntime/AXNotificationConstants.h>
+#import <AXRuntime/AXDefines.h>
+#import <AXRuntime/AXNotificationConstants.h>
 #else
 #define kAXPidStatusChangedNotification 0
 #endif
@@ -55,7 +55,7 @@
 #if PLATFORM(MAC)
 
 #if USE(APPLE_INTERNAL_SDK)
-#include <HIServices/AccessibilityPriv.h>
+#import <HIServices/AccessibilityPriv.h>
 #else
 typedef enum {
     AXSuspendStatusRunning = 0,
@@ -247,7 +247,7 @@ bool Connection::sendMessage(std::unique_ptr<MachMessage> message)
         return false;
 
     default:
-        WKSetCrashReportApplicationSpecificInformation((CFStringRef)[NSString stringWithFormat:@"Unhandled error code %x, message '%@'", kr, message->messageName()]);
+        WebKit::setCrashReportApplicationSpecificInformation((CFStringRef)[NSString stringWithFormat:@"Unhandled error code %x, message '%s::%s'", kr, message->messageReceiverName().data(), message->messageName().data()]);
         CRASH();
     }
 }
@@ -282,7 +282,9 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<Encoder> encoder)
     }
 
     auto message = MachMessage::create(messageSize);
-    message->setMessageName((__bridge CFStringRef)[NSString stringWithFormat:@"%s:%s:", encoder->messageReceiverName().toString().data(), encoder->messageName().toString().data()]);
+
+    message->setMessageReceiverName(encoder->messageReceiverName().toString());
+    message->setMessageName(encoder->messageName().toString());
 
     bool isComplex = (numberOfPortDescriptors + numberOfOOLMemoryDescriptors) > 0;
 
@@ -461,7 +463,7 @@ static mach_msg_header_t* readFromMachPort(mach_port_t machPort, ReceiveBuffer& 
 
     if (kr != MACH_MSG_SUCCESS) {
 #if !ASSERT_DISABLED
-        WKSetCrashReportApplicationSpecificInformation((CFStringRef)[NSString stringWithFormat:@"Unhandled error code %x from mach_msg, receive port is %x", kr, machPort]);
+        WebKit::setCrashReportApplicationSpecificInformation((CFStringRef)[NSString stringWithFormat:@"Unhandled error code %x from mach_msg, receive port is %x", kr, machPort]);
 #endif
         ASSERT_NOT_REACHED();
         return 0;
@@ -584,6 +586,11 @@ bool Connection::kill()
 static void AccessibilityProcessSuspendedNotification(bool suspended)
 {
 #if PLATFORM(MAC)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+    // Calling _AXUIElementNotifyProcessSuspendStatus will crash if the NSApplication event loop is not running.
+    if (![NSApp isRunning])
+        return;
+#endif
     _AXUIElementNotifyProcessSuspendStatus(suspended ? AXSuspendStatusSuspended : AXSuspendStatusRunning);
 #elif PLATFORM(IOS)
     UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });

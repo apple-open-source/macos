@@ -114,8 +114,6 @@ OSStatus SecKeychainSystemKeychainCheckWouldDeadlock()
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password)
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_NA);
-OSStatus SecKeychainEraseUnlockKey(SecKeychainRef systemKeychainRef, CFStringRef username)
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 
 /* Token login support */
 OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash, SecKeychainRef userKeychain, CFStringRef password)

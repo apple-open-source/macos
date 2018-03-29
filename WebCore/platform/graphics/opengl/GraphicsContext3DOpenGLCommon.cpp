@@ -79,9 +79,9 @@
 #endif
 #endif
 
-using namespace WTF;
 
 namespace WebCore {
+using namespace WTF;
 
 static ThreadSpecific<ShaderNameHash*>& getCurrentNameHashMapForShader()
 {
@@ -130,19 +130,6 @@ static uint64_t nameHashForShader(const char* name, size_t length)
 
     currentNameHashMapForShader->set(nameAsCString, result);
     return result;
-}
-
-RefPtr<GraphicsContext3D> GraphicsContext3D::createForCurrentGLContext()
-{
-    auto context = adoptRef(*new GraphicsContext3D({ }, 0, GraphicsContext3D::RenderToCurrentGLContext));
-#if USE(TEXTURE_MAPPER)
-    if (!context->m_texmapLayer)
-        return nullptr;
-#else
-    if (!context->m_private)
-        return nullptr;
-#endif
-    return WTFMove(context);
 }
 
 void GraphicsContext3D::validateDepthStencil(const char* packedDepthStencilExtension)
@@ -262,7 +249,7 @@ void GraphicsContext3D::prepareTexture()
 
     ::glActiveTexture(GL_TEXTURE0);
     ::glBindTexture(GL_TEXTURE_2D, m_state.boundTarget(GL_TEXTURE0) == GL_TEXTURE_2D ? m_state.boundTexture(GL_TEXTURE0) : 0);
-    ::glActiveTexture(m_state.activeTexture);
+    ::glActiveTexture(m_state.activeTextureUnit);
     if (m_state.boundFBO != m_fbo)
         ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_state.boundFBO);
     ::glFlush();
@@ -452,7 +439,7 @@ IntSize GraphicsContext3D::getInternalFramebufferSize() const
 void GraphicsContext3D::activeTexture(GC3Denum texture)
 {
     makeContextCurrent();
-    m_state.activeTexture = texture;
+    m_state.activeTextureUnit = texture;
     ::glActiveTexture(texture);
 }
 
@@ -505,7 +492,7 @@ void GraphicsContext3D::bindRenderbuffer(GC3Denum target, Platform3DObject rende
 void GraphicsContext3D::bindTexture(GC3Denum target, Platform3DObject texture)
 {
     makeContextCurrent();
-    m_state.setBoundTexture(m_state.activeTexture, texture, target);
+    m_state.setBoundTexture(m_state.activeTextureUnit, texture, target);
     ::glBindTexture(target, texture);
 }
 
@@ -558,7 +545,7 @@ void GraphicsContext3D::bufferSubData(GC3Denum target, GC3Dintptr offset, GC3Dsi
     ::glBufferSubData(target, offset, size, data);
 }
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(WPE)
 void* GraphicsContext3D::mapBufferRange(GC3Denum target, GC3Dintptr offset, GC3Dsizeiptr length, GC3Dbitfield access)
 {
     makeContextCurrent();
@@ -589,6 +576,14 @@ void GraphicsContext3D::texStorage3D(GC3Denum target, GC3Dsizei levels, GC3Denum
     makeContextCurrent();
     ::glTexStorage3D(target, levels, internalformat, width, height, depth);
     m_state.textureSeedCount.add(m_state.currentBoundTexture());
+}
+
+void GraphicsContext3D::getActiveUniforms(Platform3DObject program, const Vector<GC3Duint>& uniformIndices, GC3Denum pname, Vector<GC3Dint>& params)
+{
+    ASSERT(program);
+    makeContextCurrent();
+
+    ::glGetActiveUniformsiv(program, uniformIndices.size(), uniformIndices.data(), pname, params.data());
 }
 #endif
 
@@ -1658,14 +1653,20 @@ void GraphicsContext3D::getNonBuiltInActiveSymbolCount(Platform3DObject program,
 
 String GraphicsContext3D::getUnmangledInfoLog(Platform3DObject shaders[2], GC3Dsizei count, const String& log)
 {
-    LOG(WebGL, "Was: %s", log.utf8().data());
+    LOG(WebGL, "Original ShaderInfoLog:\n%s", log.utf8().data());
 
-    JSC::Yarr::RegularExpression regExp("webgl_[0123456789abcdefABCDEF]+", TextCaseSensitive);
+    JSC::Yarr::RegularExpression regExp("webgl_[0123456789abcdefABCDEF]+");
 
     StringBuilder processedLog;
     
-    int startFrom = 0;
+    // ANGLE inserts a "#extension" line into the shader source that
+    // causes a warning in some compilers. There is no point showing
+    // this warning to the user since they didn't write the code that
+    // is causing it.
+    static const NeverDestroyed<String> angleWarning = ASCIILiteral { "WARNING: 0:1: extension 'GL_ARB_gpu_shader5' is not supported\n" };
+    int startFrom = log.startsWith(angleWarning) ? angleWarning.get().length() : 0;
     int matchedLength = 0;
+
     do {
         int start = regExp.match(log, startFrom, &matchedLength);
         if (start == -1)
@@ -1682,7 +1683,7 @@ String GraphicsContext3D::getUnmangledInfoLog(Platform3DObject shaders[2], GC3Ds
 
     processedLog.append(log.substring(startFrom, log.length() - startFrom));
 
-    LOG(WebGL, "-->: %s", processedLog.toString().utf8().data());
+    LOG(WebGL, "Unmangled ShaderInfoLog:\n%s", processedLog.toString().utf8().data());
     return processedLog.toString();
 }
 
@@ -1854,10 +1855,21 @@ void GraphicsContext3D::texSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xo
         type = GL_HALF_FLOAT_ARB;
 #endif
 
-    if (m_usingCoreProfile && format == ALPHA) {
-        // We are using a core profile. This means that GL_ALPHA, which is a valid format in WebGL for texSubImage2D
-        // is not supported in OpenGL. We are using GL_RED to back GL_ALPHA, so do it here as well.
-        format = RED;
+    if (m_usingCoreProfile)  {
+        // There are some format values used in WebGL that are deprecated when using a core profile, so we need
+        // to adapt them, as we do in GraphicsContext3D::texImage2D().
+        switch (format) {
+        case ALPHA:
+            // We are using GL_RED to back GL_ALPHA, so do it here as well.
+            format = RED;
+            break;
+        case LUMINANCE_ALPHA:
+            // We are using GL_RG to back GL_LUMINANCE_ALPHA, so do it here as well.
+            format = RG;
+            break;
+        default:
+            break;
+        }
     }
 
     // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size.

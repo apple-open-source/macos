@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2006, 2007, 2010, 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -22,15 +22,13 @@
  *
  */
 
-#ifndef FontCascade_h
-#define FontCascade_h
+#pragma once
 
 #include "DashArray.h"
 #include "Font.h"
 #include "FontCascadeFonts.h"
 #include "FontDescription.h"
 #include "Path.h"
-#include "TextFlags.h"
 #include <wtf/HashSet.h>
 #include <wtf/Optional.h>
 #include <wtf/WeakPtr.h>
@@ -44,13 +42,6 @@
 
 namespace WebCore {
 
-class FloatPoint;
-class FloatRect;
-class FontData;
-class FontMetrics;
-class FontPlatformData;
-class FontSelector;
-class GlyphBuffer;
 class GraphicsContext;
 class LayoutRect;
 class RenderText;
@@ -60,21 +51,12 @@ class TextRun;
 struct GlyphData;
 
 struct GlyphOverflow {
-    GlyphOverflow()
-        : left(0)
-        , right(0)
-        , top(0)
-        , bottom(0)
-        , computeBounds(false)
-    {
-    }
-
-    inline bool isEmpty()
+    bool isEmpty() const
     {
         return !left && !right && !top && !bottom;
     }
 
-    inline void extendTo(const GlyphOverflow& other)
+    void extendTo(const GlyphOverflow& other)
     {
         left = std::max(left, other.left);
         right = std::max(right, other.right);
@@ -84,14 +66,15 @@ struct GlyphOverflow {
 
     bool operator!=(const GlyphOverflow& other)
     {
+        // FIXME: Probably should name this rather than making it the != operator since it ignores the value of computeBounds.
         return left != other.left || right != other.right || top != other.top || bottom != other.bottom;
     }
 
-    int left;
-    int right;
-    int top;
-    int bottom;
-    bool computeBounds;
+    int left { 0 };
+    int right { 0 };
+    int top { 0 };
+    int bottom { 0 };
+    bool computeBounds { false };
 };
 
 class GlyphToPathTranslator {
@@ -102,7 +85,7 @@ public:
     virtual std::pair<float, float> extents() = 0;
     virtual GlyphUnderlineType underlineType() = 0;
     virtual void advance() = 0;
-    virtual ~GlyphToPathTranslator() { }
+    virtual ~GlyphToPathTranslator() = default;
 };
 GlyphToPathTranslator::GlyphUnderlineType computeUnderlineType(const TextRun&, const GlyphBuffer&, unsigned index);
 
@@ -206,13 +189,13 @@ public:
     WEBCORE_EXPORT static bool shouldUseSmoothing();
 
     enum CodePath { Auto, Simple, Complex, SimpleWithGlyphOverflow };
-    CodePath codePath(const TextRun&) const;
+    CodePath codePath(const TextRun&, std::optional<unsigned> from = std::nullopt, std::optional<unsigned> to = std::nullopt) const;
     static CodePath characterRangeCodePath(const LChar*, unsigned) { return Simple; }
     static CodePath characterRangeCodePath(const UChar*, unsigned len);
 
     bool primaryFontIsSystemFont() const;
 
-    WeakPtr<FontCascade> createWeakPtr() const { return m_weakPtrFactory.createWeakPtr(); }
+    WeakPtr<FontCascade> createWeakPtr() const { return m_weakPtrFactory.createWeakPtr(*const_cast<FontCascade*>(this)); }
 
 private:
     enum ForTextEmphasisOrNot { NotForTextEmphasis, ForTextEmphasis };
@@ -292,7 +275,7 @@ private:
             return true;
         if (textRenderingMode == OptimizeSpeed)
             return false;
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || USE(FREETYPE)
         return true;
 #else
         return false;
@@ -311,7 +294,7 @@ private:
 
     bool computeRequiresShaping() const
     {
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || USE(FREETYPE)
         if (!m_fontDescription.variantSettings().isAllNormal())
             return true;
         if (m_fontDescription.featureSettings().size())
@@ -325,11 +308,11 @@ private:
     FontCascadeDescription m_fontDescription;
     mutable RefPtr<FontCascadeFonts> m_fonts;
     WeakPtrFactory<FontCascade> m_weakPtrFactory;
-    float m_letterSpacing;
-    float m_wordSpacing;
-    mutable bool m_useBackslashAsYenSymbol;
-    mutable unsigned m_enableKerning : 1; // Computed from m_fontDescription.
-    mutable unsigned m_requiresShaping : 1; // Computed from m_fontDescription.
+    float m_letterSpacing { 0 };
+    float m_wordSpacing { 0 };
+    mutable bool m_useBackslashAsYenSymbol { false };
+    mutable bool m_enableKerning { false }; // Computed from m_fontDescription.
+    mutable bool m_requiresShaping { false }; // Computed from m_fontDescription.
 };
 
 void invalidateFontCascadeCache();
@@ -370,5 +353,3 @@ inline float FontCascade::tabWidth(const Font& font, unsigned tabSize, float pos
 }
 
 }
-
-#endif

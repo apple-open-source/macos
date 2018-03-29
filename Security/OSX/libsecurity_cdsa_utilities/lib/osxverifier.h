@@ -25,6 +25,7 @@
 #include <security_utilities/hashing.h>
 #include <security_utilities/osxcode.h>
 #include <security_utilities/blob.h>
+#include <security_utilities/debugging_internal.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <Security/CodeSigning.h>
 #include <string>

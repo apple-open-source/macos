@@ -32,6 +32,7 @@
 #include <securityd/SecItemDb.h>
 #include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
+#include <securityd/SecItemServer.h>
 #include <securityd/SOSCloudCircleServer.h>
 #include <Security/SecureObjectSync/SOSDigestVector.h>
 #include <Security/SecureObjectSync/SOSEngine.h>
@@ -122,7 +123,7 @@ static bool SecDbItemSelectSHA1(SecDbQueryRef query, SecDbConnectionRef dbconn, 
 static SOSManifestRef SecItemDataSourceCopyManifestWithQueries(SecItemDataSourceRef ds, CFArrayRef queries, CFErrorRef *error) {
     __block SOSManifestRef manifest = NULL;
     __block CFErrorRef localError = NULL;
-    if (!SecDbPerformRead(ds->db, error, ^(SecDbConnectionRef dbconn) {
+    if (!kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
         __block struct SOSDigestVector dv = SOSDigestVectorInit;
         Query *q;
         bool ok = true;
@@ -148,6 +149,7 @@ static SOSManifestRef SecItemDataSourceCopyManifestWithQueries(SecItemDataSource
             manifest = SOSManifestCreateWithDigestVector(&dv, &localError);
         }
         SOSDigestVectorFree(&dv);
+        return ok;
     })) {
         CFReleaseSafe(manifest);
     }
@@ -392,7 +394,7 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
     __block CFStringRef *sqls = select_sql;
     __block sqlite3_stmt **stmts = select_stmts;
 
-    void (^readBlock)(SecDbConnectionRef dbconn) = ^(SecDbConnectionRef dbconn)
+    bool (^readBlock)(SecDbConnectionRef dbconn) = ^bool(SecDbConnectionRef dbconn)
     {
         // Setup
         for (size_t class_ix = 0; class_ix < dsSyncedClassesSize; ++class_ix) {
@@ -426,12 +428,14 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
             if (queries[class_ix])
                 result &= query_destroy(queries[class_ix], error);
         }
+
+        return true;
     };
 
     if (txn) {
         readBlock((SecDbConnectionRef)txn);
     } else {
-        result &= SecDbPerformRead(ds->db, error, readBlock);
+        result &= kc_with_custom_db(false, true, ds->db, error, readBlock);
     }
 
     return result;
@@ -476,6 +480,7 @@ static CFDateRef copyObjectModDate(SOSObjectRef object, CFErrorRef *error) {
 
 static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *error) {
     SecDbItemRef item = (SecDbItemRef) object;
+    CFMutableDictionaryRef secretDataDict = SecDbItemCopyPListWithMask(item, kSecDbReturnDataFlag, error);
     CFMutableDictionaryRef cryptoDataDict = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
     CFMutableDictionaryRef authDataDict = SecDbItemCopyPListWithMask(item, kSecDbInAuthenticatedDataFlag, error);
     
@@ -485,18 +490,24 @@ static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *e
                 CFDictionarySetValue(cryptoDataDict, key, value);
             });
         }
+        if (secretDataDict) {
+            CFDictionaryForEach(secretDataDict, ^(const void* key, const void* value) {
+                CFDictionarySetValue(cryptoDataDict, key, value);
+            });
+        }
         CFDictionaryAddValue(cryptoDataDict, kSecClass, SecDbItemGetClass(item)->name);
     }
-    
-    CFReleaseSafe(authDataDict);
+
+    CFReleaseNull(secretDataDict);
+    CFReleaseNull(authDataDict);
     return cryptoDataDict;
 }
 
 static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourceTransactionSource source, bool onCommitQueue, void(^transaction)(SOSTransactionRef txn, bool *commit)) {
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     __block bool ok = true;
-    ok &= SecDbPerformWrite(ds->db, error, ^(SecDbConnectionRef dbconn) {
-        ok &= SecDbTransaction(dbconn,
+    ok &= kc_with_custom_db(true, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+        return SecDbTransaction(dbconn,
                                source == kSOSDataSourceAPITransaction ? kSecDbExclusiveTransactionType : kSecDbExclusiveRemoteSOSTransactionType,
                                error, ^(bool *commit) {
                                    if (onCommitQueue) {
@@ -514,10 +525,11 @@ static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourc
 static bool dsReadWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourceTransactionSource source, void(^perform)(SOSTransactionRef txn)) {
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     __block bool ok = true;
-    ok &= SecDbPerformRead(ds->db, error, ^(SecDbConnectionRef dbconn) {
+    ok &= kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
         SecDbPerformOnCommitQueue(dbconn, false, ^{
             perform((SOSTransactionRef)dbconn);
         });
+        return true;
     });
     return ok;
 }
@@ -657,8 +669,8 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
-        void (^read_it)(SecDbConnectionRef dbconn) = ^(SecDbConnectionRef dbconn) {
-            SecDbItemSelect(query, dbconn, error, NULL, ^bool(const SecDbAttr *attr) {
+        bool (^read_it)(SecDbConnectionRef dbconn) = ^(SecDbConnectionRef dbconn) {
+            return SecDbItemSelect(query, dbconn, error, NULL, ^bool(const SecDbAttr *attr) {
                 return CFDictionaryContainsKey(dict, attr->name);
             }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {
                 secnotice("ds", "found item for key %@@%@", key, pdmn);
@@ -668,7 +680,7 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
         if (txn) {
             read_it((SecDbConnectionRef) txn);
         } else {
-            SecDbPerformRead(ds->db, error, read_it);
+            kc_with_custom_db(false, true, ds->db, error, read_it);
         }
         query_destroy(query, error);
     } else {
@@ -702,8 +714,8 @@ static CFDataRef dsCopyItemDataWithKeys(SOSDataSourceRef data_source, CFDictiona
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
-        SecDbPerformRead(ds->db, error, ^(SecDbConnectionRef dbconn) {
-            SecDbItemSelect(query, dbconn, error, NULL, ^bool(const SecDbAttr *attr) {
+        kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+            return SecDbItemSelect(query, dbconn, error, NULL, ^bool(const SecDbAttr *attr) {
                 return CFDictionaryContainsKey(dict, attr->name);
             }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {
                 secnotice("ds", "found item for keys %@", keys);

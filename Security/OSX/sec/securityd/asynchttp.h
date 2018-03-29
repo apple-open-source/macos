@@ -46,6 +46,7 @@ typedef struct asynchttp_s {
     CFHTTPMessageRef request;
     CFHTTPMessageRef response;
     dispatch_queue_t queue;
+    uint64_t start_time;
     /* The fields below should be considered private. */
     CFMutableDataRef data;
     CFReadStreamRef stream;

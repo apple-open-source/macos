@@ -65,9 +65,11 @@ static bool SOSAccountResetCircleToNastyOffering(SOSAccount* account, SecKeyRef 
     SecKeyRef userPub = SecKeyCreatePublicFromPrivate(userPriv);
     SOSAccountTrustClassic *trust = account.trust;
     if(!SOSAccountHasCircle(account, error)){
+        CFReleaseNull(userPub);
         return result;
     }
     if(![account.trust ensureFullPeerAvailable:(__bridge CFDictionaryRef)(account.gestalt) deviceID:(__bridge CFStringRef)(account.deviceID) backupKey:(__bridge CFDataRef)(account.backup_key) err:error]){
+        CFReleaseNull(userPub);
         return result;
     }
     (void) [account.trust resetAllRings:account err:error];
@@ -88,17 +90,22 @@ static bool SOSAccountResetCircleToNastyOffering(SOSAccount* account, SecKeyRef 
         
         [trust setDepartureCode:kSOSNeverLeftCircle];
         result = true;
-        [trust setTrustedCircle:SOSCircleCopyCircle(kCFAllocatorDefault, circle, error)];
+        SOSCircleRef copiedCircle = SOSCircleCopyCircle(kCFAllocatorDefault, circle, error); // I don't think this copy is necessary, but...
+        [trust setTrustedCircle:copiedCircle];
+        CFReleaseNull(copiedCircle);
         SOSAccountPublishCloudParameters(account, NULL);
         trust.fullPeerInfo = nil;
 
     err_out:
-        if (result == false)
-        secerror("error resetting circle (%@) to offering: %@", circle, localError);
+        if (result == false) {
+            secerror("error resetting circle (%@) to offering: %@", circle, localError);
+        }
         if (localError && error && *error == NULL) {
             *error = localError;
             localError = NULL;
         }
+
+        CFReleaseNull(iCloudfpi);
         CFReleaseNull(localError);
         return result;
     }];

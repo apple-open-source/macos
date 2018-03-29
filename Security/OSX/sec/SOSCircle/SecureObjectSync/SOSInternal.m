@@ -58,8 +58,11 @@ const CFStringRef kIDSMessageToSendKey = CFSTR("MessageToSendKey");
 const CFStringRef kIDSMessageUniqueID = CFSTR("MessageID");
 const CFStringRef kIDSMessageRecipientPeerID = CFSTR("RecipientPeerID");
 const CFStringRef kIDSMessageRecipientDeviceID = CFSTR("RecipientDeviceID");
+const CFStringRef kIDSMessageSenderDeviceID = CFSTR("SendersDeviceID");
+
 const CFStringRef kIDSMessageUsesAckModel = CFSTR("UsesAckModel");
 const CFStringRef kSOSErrorDomain = CFSTR("com.apple.security.sos.error");
+const CFStringRef kSOSDSIDKey = CFSTR("AccountDSID");
 const CFStringRef SOSTransportMessageTypeIDSV2 = CFSTR("IDS2.0");
 const CFStringRef SOSTransportMessageTypeKVS = CFSTR("KVS");
 

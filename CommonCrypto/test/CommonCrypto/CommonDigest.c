@@ -172,21 +172,22 @@ static int testOriginalOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuf
     byteBuffer computedMD = mallocDigestByteBuffer(alg);
     int status = 0;
     CC_LONG inputLen = (input) ? (CC_LONG) strlen(input): 0;
-    
+    unsigned char* p;
     switch(alg) {
-        case kCCDigestMD2:		CC_MD2(input, inputLen, computedMD->bytes); break;
-        case kCCDigestMD4:		CC_MD4(input, inputLen, computedMD->bytes); break;
-        case kCCDigestMD5:		CC_MD5(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA1:     CC_SHA1(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA224:	CC_SHA224(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA256:	CC_SHA256(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA384:	CC_SHA384(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA512:	CC_SHA512(input, inputLen, computedMD->bytes); break;
+        case kCCDigestMD2:		p=CC_MD2(input, inputLen, computedMD->bytes); break;
+        case kCCDigestMD4:		p=CC_MD4(input, inputLen, computedMD->bytes); break;
+        case kCCDigestMD5:		p=CC_MD5(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA1:     p=CC_SHA1(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA224:	p=CC_SHA224(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA256:	p=CC_SHA256(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA384:	p=CC_SHA384(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA512:	p=CC_SHA512(input, inputLen, computedMD->bytes); break;
         default: {
             free(computedMD);
             return 1;
         } break;
     }
+    is(p,computedMD->bytes, "Return value");
     ok(status = expectedEqualsComputed(testString("Original OneShot Digest %s", alg), expected, computedMD), "Digest is as expected");
     free(computedMD);
     return status;
@@ -332,7 +333,9 @@ static int testNewOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuffer e
     int status = 0;
     size_t inputLen = (input) ? strlen(input): 0;
     
-    CCDigest(alg, (const uint8_t *) input, inputLen, computedMD->bytes);
+    is(CCDigest(alg, (const uint8_t *) NULL, inputLen,  computedMD->bytes),(inputLen==0)?0:kCCParamError, "NULL data return value");
+    is(CCDigest(alg, (const uint8_t *) input, inputLen, NULL),kCCParamError, "NULL output return value");
+    is(CCDigest(alg, (const uint8_t *) input, inputLen, computedMD->bytes),0, "Digest return value");
     ok(status = expectedEqualsComputed(testString("New OneShot Digest %s", alg), expected, computedMD), "Digest is as expected");
     free(computedMD);
     return status;
@@ -479,17 +482,17 @@ static int testDigests(DigestVector *dv) {
     return status;
 }
 
-static size_t testsPerVector = 242;
+static size_t testsPerVector = 286;
 
 int CommonDigest(int __unused argc, char *const * __unused argv) {
-	plan_tests((int) (dvLen*testsPerVector+2));
-    
+	plan_tests((int) (dvLen*testsPerVector+4));
+    is(CC_SHA256(NULL, 1, (unsigned char *)1),NULL, "NULL data");
+    is(CC_SHA256(NULL, 0, NULL),NULL, "NULL output");
     is(CCDigestGetOutputSize(20),(size_t)kCCUnimplemented, "Out of bound by one");
     is(CCDigestGetOutputSize(500),(size_t)kCCUnimplemented, "Out of bound by a lot");
     
     for(size_t testcase = 0; testcase < dvLen; testcase++) {
-        // diag("Test %lu\n", testcase + 1);
-        ok(testDigests(&dv[testcase]), "Successful full test of Digest Vector");
+        ok(testDigests(&dv[testcase]), "Testcase %d", testcase);
     }
     return 0;
 }

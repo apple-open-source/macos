@@ -71,6 +71,7 @@ class IOFWUserVectorCommand;
 class IOFWAsyncPHYCommand;
 class IOFWPHYPacketListener;
 class IOFWUserPHYPacketListener;
+class IOFireWireUserClient;
 
 #if FIRELOGCORE
 class IOFireLog;
@@ -306,7 +307,7 @@ private:
     IOFWDuplicateGUIDRec		* 	fFirstGUID;
     
 protected:
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
     
 public:
 
@@ -362,19 +363,19 @@ protected:
 
     virtual bool 									init ( 
 																IOFireWireController * 	primary );
-	virtual	void 									free ();
-	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const ;	
-	virtual UInt8									getMaxRec( void );
+	virtual	void 									free (void) APPLE_KEXT_OVERRIDE;
+	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const APPLE_KEXT_OVERRIDE;
+	virtual UInt8									getMaxRec( void ) APPLE_KEXT_OVERRIDE;
 	
-	virtual UInt64 getFireWirePhysicalAddressMask( void );
-	virtual UInt32 getFireWirePhysicalAddressBits( void );
-	virtual UInt64 getFireWirePhysicalBufferMask( void );
-	virtual UInt32 getFireWirePhysicalBufferBits( void );
+	virtual UInt64 getFireWirePhysicalAddressMask( void ) APPLE_KEXT_OVERRIDE;
+	virtual UInt32 getFireWirePhysicalAddressBits( void ) APPLE_KEXT_OVERRIDE;
+	virtual UInt64 getFireWirePhysicalBufferMask( void ) APPLE_KEXT_OVERRIDE;
+	virtual UInt32 getFireWirePhysicalBufferBits( void ) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction );
-	virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction );
+	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
+	virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOFWUserObjectExporter * getSessionRefExporter( void );
+	virtual IOFWUserObjectExporter * getSessionRefExporter( void ) APPLE_KEXT_OVERRIDE;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 0);
@@ -467,7 +468,8 @@ protected:
 	friend class IOFWAsyncPHYCommand;
 	friend class IOFWUserPHYPacketListener;
 	friend class IOFWAsyncStreamReceiver;	
-	
+    friend class IOFireWireUserClient;
+    
 #if FIRELOGCORE
 	friend class IOFireLog;
 #endif
@@ -660,23 +662,23 @@ protected:
     virtual IOReturn allocAddress(IOFWAddressSpace *space);
     virtual void freeAddress(IOFWAddressSpace *space);
 
-	IOFireWireBusAux * createAuxiliary( void );
+	IOFireWireBusAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
 	
 public:
 
     // Initialization
     virtual bool init(IOFireWireLink *fwim);
-    virtual void free();
-    virtual bool start(IOService *provider);
-    virtual void stop( IOService * provider );
-    virtual bool finalize( IOOptionBits options );
-    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
+    virtual bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool finalize( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
+    virtual bool requestTerminate( IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
 	// Power management
-    virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
+    virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice ) APPLE_KEXT_OVERRIDE;
 
     // Implement IOService::getWorkLoop
-    virtual IOWorkLoop *getWorkLoop() const;
+    virtual IOWorkLoop *getWorkLoop() const APPLE_KEXT_OVERRIDE;
 
     // Allocate struct for tracking a transaction
     virtual AsyncPendingTrans *allocTrans(IOFWAsyncCommand *cmd=NULL);
@@ -684,15 +686,15 @@ public:
 
     // Really public methods
 
-    virtual IOReturn getCycleTime(UInt32 &cycleTime);
-    virtual IOReturn getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime);
+    virtual IOReturn getCycleTime(UInt32 &cycleTime) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime) APPLE_KEXT_OVERRIDE;
     
     // Methods to manipulate the local Config ROM
-    virtual IOReturn AddUnitDirectory(IOLocalConfigDirectory *unitDir);
-    virtual IOReturn RemoveUnitDirectory(IOLocalConfigDirectory *unitDir);
+    virtual IOReturn AddUnitDirectory(IOLocalConfigDirectory *unitDir) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn RemoveUnitDirectory(IOLocalConfigDirectory *unitDir) APPLE_KEXT_OVERRIDE;
 
     // Cause a bus reset
-    virtual IOReturn resetBus();
+    virtual IOReturn resetBus(void) APPLE_KEXT_OVERRIDE;
 
     // Send async request packets
     virtual IOReturn asyncRead(	UInt32 				generation, 
@@ -759,7 +761,7 @@ public:
     virtual IOReturn handleAsyncTimeout(IOFWAsyncCommand *cmd);
 
     // Convert a firewire nodeID into the IOFireWireDevice for it
-    virtual IOFireWireDevice * nodeIDtoDevice(UInt32 generation, UInt16 nodeID);
+    virtual IOFireWireDevice * nodeIDtoDevice(UInt32 generation, UInt16 nodeID) APPLE_KEXT_OVERRIDE;
 
     // Add/remove a channel from the list informed of bus resets
     virtual void addAllocatedChannel(IOFWIsochChannel *channel);
@@ -775,7 +777,7 @@ public:
     virtual IOFWIsochChannel *createIsochChannel(
 	bool doIRM, UInt32 packetSize, IOFWSpeed prefSpeed,
 	FWIsochChannelForceStopNotificationProc stopProc=NULL,
-	void *stopRefCon=NULL);
+	void *stopRefCon=NULL) APPLE_KEXT_OVERRIDE;
 
     // Create a local isochronous port to run the given DCL program
     // if task is 0, the DCL program is for the kernel task,
@@ -783,20 +785,20 @@ public:
     // opcodes is also pointer valid in the specified task.
     virtual IOFWLocalIsochPort *createLocalIsochPort(bool talking,
         DCLCommand* opcodes, DCLTaskInfo *info = 0,
-	UInt32 startEvent = 0, UInt32 startState = 0, UInt32 startMask = 0);
+	UInt32 startEvent = 0, UInt32 startState = 0, UInt32 startMask = 0) APPLE_KEXT_OVERRIDE;
 
     // Execute specified function on workloop after specified delay
     // Returned command is for delay, call it's cancel() function to cancel timeout.
-    virtual IOFWDelayCommand * createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, void *refcon);
+    virtual IOFWDelayCommand * createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, void *refcon) APPLE_KEXT_OVERRIDE;
 
-    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
+    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem) APPLE_KEXT_OVERRIDE;
     virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
-                                FWReadCallback reader, FWWriteCallback writer, void *refcon);
+                                FWReadCallback reader, FWWriteCallback writer, void *refcon) APPLE_KEXT_OVERRIDE;
 
     // Extract info about the async request 
-    virtual bool isLockRequest(IOFWRequestRefCon refcon);
-    virtual bool isQuadRequest(IOFWRequestRefCon refcon);
-    virtual UInt32 getExtendedTCode(IOFWRequestRefCon refcon);
+    virtual bool isLockRequest(IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
+    virtual bool isQuadRequest(IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
+    virtual UInt32 getExtendedTCode(IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
     
     // Inline accessors for protected member variables
     IOFWCmdQ &getTimeoutQ();
@@ -816,21 +818,21 @@ public:
     IOFWSpeed FWSpeed(UInt16 nodeA, UInt16 nodeB) const;
 
     // How big (as a power of two) can packets sent to/received from the node be?
-    virtual int maxPackLog(bool forSend, UInt16 nodeAddress) const;
+    virtual int maxPackLog(bool forSend, UInt16 nodeAddress) const APPLE_KEXT_OVERRIDE;
 
     // How big (as a power of two) can packets sent from A to B be?
-    virtual int maxPackLog(UInt16 nodeA, UInt16 nodeB) const;
+    virtual int maxPackLog(UInt16 nodeA, UInt16 nodeB) const APPLE_KEXT_OVERRIDE;
 
    // Force given node to be root (via root holdoff Phy packet)
-    virtual IOReturn makeRoot(UInt32 generation, UInt16 nodeID) ;
+    virtual IOReturn makeRoot(UInt32 generation, UInt16 nodeID) APPLE_KEXT_OVERRIDE;
 
     virtual IOFWPseudoAddressSpace *createInitialAddressSpace(UInt32 addressLo, UInt32 len,
-                                FWReadCallback reader, FWWriteCallback writer, void *refcon);
+                                FWReadCallback reader, FWWriteCallback writer, void *refcon) APPLE_KEXT_OVERRIDE;
     
-    virtual IOFWAddressSpace *getAddressSpace(FWAddress address);
+    virtual IOFWAddressSpace *getAddressSpace(FWAddress address) APPLE_KEXT_OVERRIDE;
     
     // Extract info about the async request - was the request ack'ed complete already?
-    virtual bool isCompleteRequest(IOFWRequestRefCon refcon);
+    virtual bool isCompleteRequest(IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
 
     // Are we currently scanning the bus?
     bool scanningBus() const;
@@ -851,7 +853,7 @@ public:
 
     virtual IOFWAsyncStreamCommand * createAsyncStreamCommand( UInt32 generation,
     			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
-				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon);
+				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon) APPLE_KEXT_OVERRIDE;
     
 	virtual	IOReturn asyncStreamWrite(UInt32 generation,
                     int speed, int tag, int sync, int channel,
@@ -887,10 +889,10 @@ protected:
 	virtual UInt32 countNodeIDChildren( UInt16 nodeID, int hub_port = 0, int * hubChildRemainder = NULL, bool * hubParentFlag = NULL );
 
 public:
-	virtual UInt32 hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress );
-	virtual UInt32 hopCount(UInt16 nodeAAddress );
+	virtual UInt32 hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress ) APPLE_KEXT_OVERRIDE;
+	virtual UInt32 hopCount(UInt16 nodeAAddress ) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOFireWirePowerManager * getBusPowerManager( void );
+	virtual IOFireWirePowerManager * getBusPowerManager( void ) APPLE_KEXT_OVERRIDE;
 
 protected:
 	virtual void handleARxReqIntComplete();
@@ -944,7 +946,7 @@ public:
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );
 #else
-    virtual void systemWillShutdown( IOOptionBits specifier );
+    virtual void systemWillShutdown( IOOptionBits specifier ) APPLE_KEXT_OVERRIDE;
 #endif
 
 	IOReturn beginIOCriticalSection( void );
@@ -1070,7 +1072,7 @@ public:
 public:
     virtual IOFWAsyncStreamCommand * createAsyncStreamCommand( UInt32 generation,
     			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
-				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon, bool	failOnReset);
+				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon, bool	failOnReset) APPLE_KEXT_OVERRIDE;
 
 private:
 	void addToIRMAllocationSet(IOFireWireIRMAllocation *anObject);

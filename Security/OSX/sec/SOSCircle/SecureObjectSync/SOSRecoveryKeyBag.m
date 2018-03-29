@@ -171,6 +171,8 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator,
     require_action_quiet(account, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Null Account Object"), NULL, error));
     CFStringRef dsid = NULL;
     dsid = asString(SOSAccountGetValue((__bridge SOSAccount*)account, kSOSDSIDKey, NULL), error);
+    require_action_quiet(dsid, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get dsid for recovery keybag components"), NULL, error));
+
     gencount = SOSGenerationCreate();
     
     require_action_quiet(pubData && dsid && gencount, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get recovery keybag components"), NULL, error));

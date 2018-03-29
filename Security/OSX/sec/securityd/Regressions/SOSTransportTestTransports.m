@@ -46,6 +46,18 @@ CFMutableArrayRef message_transports = NULL;
     return self;
 }
 
+-(void)dealloc {
+    if(self) {
+        CFReleaseNull(self->_changes);
+        CFReleaseNull(self->_circleName);
+    }
+}
+
+- (void)setChanges:(CFMutableDictionaryRef)changes
+{
+    CFRetainAssign(self->_changes, changes);
+}
+
 -(bool) SOSTransportKeyParameterHandleKeyParameterChanges:(CKKeyParameterTest*) transport  data:(CFDataRef) data err:(CFErrorRef) error
 {
     SOSAccount* acct = transport.account;
@@ -268,7 +280,7 @@ bool SOSTransportCircleTestRemovePendingChange(SOSCircleStorageTransportTest* tr
     return SOSAccountHandleRetirementMessages(self.account, circle_retirement_messages_table, error);
 }
 
--(CFArrayRef) handleCircleMessagesAndReturnHandledCopy:(CFMutableDictionaryRef) circle_circle_messages_table err:(CFErrorRef *)error
+-(CFArrayRef)CF_RETURNS_RETAINED handleCircleMessagesAndReturnHandledCopy:(CFMutableDictionaryRef) circle_circle_messages_table err:(CFErrorRef *)error
 {
 CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFDictionaryForEach(circle_circle_messages_table, ^(const void *key, const void *value) {
@@ -318,6 +330,11 @@ SOSAccount* SOSTransportCircleTestGetAccount(SOSCircleStorageTransportTest* tran
     }
 
     return self;
+}
+
+- (void)setChanges:(CFMutableDictionaryRef)changes
+{
+    CFRetainAssign(self->_changes, changes);
 }
 
 -(CFIndex) SOSTransportMessageGetTransportType
@@ -445,15 +462,17 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
 
         if (peerID) {
             SOSEngineWithPeerID((SOSEngineRef)transport.engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
-                SOSEnginePeerMessageSentBlock sent = NULL;
+                SOSEnginePeerMessageSentCallback* sentCallback = NULL;
                 CFDataRef message_to_send = NULL;
-                bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, false, &sent, error);
+                bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, false, &sentCallback, error);
                 if (message_to_send)    {
                     CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message_to_send, NULL);
                     CFDictionarySetValue(SOSTransportMessageKVSTestGetChanges(transport), (__bridge CFStringRef)self->circleName, peer_dict);
-                    SOSPeerCoderConsume(&sent, ok);
+                    SOSEngineMessageCallCallback(sentCallback, ok);
                     CFReleaseSafe(peer_dict);
                 }
+
+                SOSEngineFreeMessageCallback(sentCallback);
                 CFReleaseSafe(message_to_send);
             });
          }
@@ -842,15 +861,16 @@ void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt
 
 }
 
-static SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* a, CFStringRef name, CFStringRef accountName)
+static CF_RETURNS_RETAINED SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* a, CFStringRef name, CFStringRef accountName)
 {
     CFErrorRef localError = NULL;
     SOSAccountTrustClassic *trust = a.trust;
 
-    SOSCircleRef circle = [a.trust getCircle:&localError];
+    SOSCircleRef circle = CFRetainSafe([a.trust getCircle:&localError]);
     if(!circle || isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle)){
         secnotice("circle", "Error retrieving the circle: %@", localError);
         CFReleaseNull(localError);
+        CFReleaseNull(circle);
 
         circle = SOSCircleCreate(kCFAllocatorDefault, name, &localError);
         if (circle){
@@ -883,7 +903,7 @@ bool SOSAccountEnsureFactoryCirclesTest(SOSAccount* a, CFStringRef accountName)
         CFStringRef circle_name = SOSDataSourceFactoryCopyName(a.factory);
         if(!circle_name)
             return result;
-        SOSAccountEnsureCircleTest(a, (CFStringRef)circle_name, accountName);
+        CFReleaseSafe(SOSAccountEnsureCircleTest(a, (CFStringRef)circle_name, accountName));
 
         CFReleaseNull(circle_name);
         result = true;

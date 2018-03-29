@@ -51,7 +51,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
         that contains the item class code.
 */
 extern const CFStringRef kSecClass
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @enum Class Value Constants
@@ -66,15 +66,15 @@ extern const CFStringRef kSecClass
     @constant kSecClassIdentity Specifies identity items.
 */
 extern const CFStringRef kSecClassInternetPassword
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecClassGenericPassword
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecClassCertificate
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecClassKey
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecClassIdentity
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 
 /*!
     @enum Attribute Key Constants
@@ -447,113 +447,113 @@ extern const CFStringRef kSecClassIdentity
         backed by device's Secure Enclave. iOS only.
  */
 extern const CFStringRef kSecAttrAccessible
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccess
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrAccessControl
-    __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+    API_AVAILABLE(macos(10.10), ios(8.0));
 extern const CFStringRef kSecAttrAccessGroup
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_3_0);
+    API_AVAILABLE(macos(10.9), ios(3.0));
 extern const CFStringRef kSecAttrSynchronizable
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+    API_AVAILABLE(macos(10.9), ios(7.0));
 extern const CFStringRef kSecAttrSynchronizableAny
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+    API_AVAILABLE(macos(10.9), ios(7.0));
 extern const CFStringRef kSecAttrCreationDate
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrModificationDate
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrDescription
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrComment
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCreator
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrType
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrLabel
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIsInvisible
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIsNegative
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAccount
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrService
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrGeneric
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrSecurityDomain
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrServer
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocol
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationType
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrPort
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrPath
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrSubject
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIssuer
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrSerialNumber
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrSubjectKeyID
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrPublicKeyHash
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCertificateType
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCertificateEncoding
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrKeyClass
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrApplicationLabel
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIsPermanent
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIsSensitive
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrIsExtractable
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrApplicationTag
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrKeyType
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrPRF
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrSalt
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrRounds
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeySizeInBits
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrEffectiveKeySize
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanEncrypt
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanDecrypt
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanDerive
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanSign
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanVerify
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanWrap
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrCanUnwrap
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrSyncViewHint
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 extern const CFStringRef kSecAttrTokenID
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.12), ios(9.0));
 extern const CFStringRef kSecAttrPersistantReference
-    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+    API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 extern const CFStringRef kSecAttrPersistentReference
-__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+    API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 
 /*!
     @enum kSecAttrAccessible Value Constants
@@ -604,19 +604,19 @@ __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AV
         restored to a new device, these items will be missing.
 */
 extern const CFStringRef kSecAttrAccessibleWhenUnlocked
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAfterFirstUnlock
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAlways
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
-    __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+    API_AVAILABLE(macos(10.10), ios(8.0));
 extern const CFStringRef kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAlwaysThisDeviceOnly
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 
 /*!
     @enum kSecAttrProtocol Value Constants
@@ -656,67 +656,67 @@ extern const CFStringRef kSecAttrAccessibleAlwaysThisDeviceOnly
     @constant kSecAttrProtocolPOP3S.
 */
 extern const CFStringRef kSecAttrProtocolFTP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolFTPAccount
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolHTTP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolIRC
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolNNTP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolPOP3
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolSMTP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolSOCKS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolIMAP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolLDAP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolAppleTalk
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolAFP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolTelnet
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolSSH
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolFTPS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolHTTPS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolHTTPProxy
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolHTTPSProxy
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolFTPProxy
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolSMB
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolRTSP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolRTSPProxy
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolDAAP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolEPPC
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolIPP
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolNNTPS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolLDAPS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolTelnetS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolIMAPS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolIRCS
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrProtocolPOP3S
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @enum kSecAttrAuthenticationType Value Constants
@@ -733,21 +733,21 @@ extern const CFStringRef kSecAttrProtocolPOP3S
     @constant kSecAttrAuthenticationTypeDefault.
 */
 extern const CFStringRef kSecAttrAuthenticationTypeNTLM
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeMSN
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeDPA
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeRPA
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeHTTPBasic
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeHTTPDigest
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeHTMLForm
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecAttrAuthenticationTypeDefault
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @enum kSecAttrKeyClass Value Constants
@@ -759,11 +759,11 @@ extern const CFStringRef kSecAttrAuthenticationTypeDefault
     @constant kSecAttrKeyClassSymmetric.
 */
 extern const CFStringRef kSecAttrKeyClassPublic
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecAttrKeyClassPrivate
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecAttrKeyClassSymmetric
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 
 /*!
     @enum kSecAttrKeyType Value Constants
@@ -781,27 +781,27 @@ extern const CFStringRef kSecAttrKeyClassSymmetric
     @constant kSecAttrKeyTypeECDSA (deprecated; use kSecAttrKeyTypeEC instead.) (OSX only)
 */
 extern const CFStringRef kSecAttrKeyTypeRSA
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.7), ios(2.0));
 extern const CFStringRef kSecAttrKeyTypeDSA
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeAES
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeDES
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyType3DES
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeRC4
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeRC2
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeCAST
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeECDSA
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrKeyTypeEC
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+    API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandom
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+    API_AVAILABLE(macos(10.12), ios(10.0));
 
 /*
      @enum kSecAttrPRF Value Constants
@@ -814,15 +814,15 @@ extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandom
      @constant kSecAttrPRFHmacAlgSHA512
 */
 extern const CFStringRef kSecAttrPRFHmacAlgSHA1
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrPRFHmacAlgSHA224
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrPRFHmacAlgSHA256
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrPRFHmacAlgSHA384
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecAttrPRFHmacAlgSHA512
-      __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+      API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 
 
 /*!
@@ -890,39 +890,39 @@ extern const CFStringRef kSecAttrPRFHmacAlgSHA512
         key.
 */
 extern const CFStringRef kSecMatchPolicy
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchItemList
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchSearchList
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchIssuers
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchEmailAddressIfPresent
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchSubjectContains
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchSubjectStartsWith
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecMatchSubjectEndsWith
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecMatchSubjectWholeString
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecMatchCaseInsensitive
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchDiacriticInsensitive
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecMatchWidthInsensitive
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecMatchTrustedOnly
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchValidOnDate
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchLimit
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchLimitOne
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecMatchLimitAll
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 
 /*!
@@ -952,13 +952,13 @@ extern const CFStringRef kSecMatchLimitAll
         persistent reference to an item (CFDataRef) should be returned.
 */
 extern const CFStringRef kSecReturnData
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecReturnAttributes
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecReturnRef
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecReturnPersistentRef
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 
 /*!
@@ -979,11 +979,11 @@ extern const CFStringRef kSecReturnPersistentRef
         even a different application) to retrieve the item referenced by it.
 */
 extern const CFStringRef kSecValueData
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecValueRef
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecValuePersistentRef
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 
 /*!
@@ -1021,17 +1021,17 @@ extern const CFStringRef kSecValuePersistentRef
           keychain operations.
 */
 extern const CFStringRef kSecUseItemList
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 extern const CFStringRef kSecUseKeychain
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecUseOperationPrompt
-    __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+    API_AVAILABLE(macos(10.10), ios(8.0));
 extern const CFStringRef kSecUseNoAuthenticationUI
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_10, __MAC_10_11, __IPHONE_8_0, __IPHONE_9_0, "Use a kSecUseAuthenticationUI instead.");
+    API_DEPRECATED("Use kSecUseAuthenticationUI instead.", macos(10.10, 10.11), ios(8.0, 9.0));
 extern const CFStringRef kSecUseAuthenticationUI
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 extern const CFStringRef kSecUseAuthenticationContext
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 
 /*!
     @enum kSecUseAuthenticationUI Value Constants
@@ -1049,11 +1049,11 @@ extern const CFStringRef kSecUseAuthenticationContext
         only with SecItemCopyMatching.
 */
 extern const CFStringRef kSecUseAuthenticationUIAllow
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 extern const CFStringRef kSecUseAuthenticationUIFail
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 extern const CFStringRef kSecUseAuthenticationUISkip
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.11), ios(9.0));
 
 /*!
      @enum kSecAttrTokenID Value Constants
@@ -1069,7 +1069,7 @@ extern const CFStringRef kSecUseAuthenticationUISkip
          possible to import pregenerated keys to kSecAttrTokenIDSecureEnclave token.
 */
 extern const CFStringRef kSecAttrTokenIDSecureEnclave
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+    API_AVAILABLE(macos(10.12), ios(9.0));
 
 /*!
      @enum kSecAttrAccessGroup Value Constants
@@ -1082,7 +1082,7 @@ extern const CFStringRef kSecAttrTokenIDSecureEnclave
          be able to access items from external tokens.
 */
 extern const CFStringRef kSecAttrAccessGroupToken
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+    API_AVAILABLE(macos(10.12), ios(10.0));
 
 /*!
     @function SecItemCopyMatching
@@ -1147,7 +1147,7 @@ extern const CFStringRef kSecAttrAccessGroupToken
     of the same type.
 */
 OSStatus SecItemCopyMatching(CFDictionaryRef query, CFTypeRef * __nullable CF_RETURNS_RETAINED result)
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @function SecItemAdd
@@ -1188,7 +1188,7 @@ OSStatus SecItemCopyMatching(CFDictionaryRef query, CFTypeRef * __nullable CF_RE
         On OSX, the added item is returned.
 */
 OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef * __nullable CF_RETURNS_RETAINED result)
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @function SecItemUpdate
@@ -1207,7 +1207,7 @@ OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef * __nullable CF_RETURN
         pairs to the query dictionary.
 */
 OSStatus SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 /*!
     @function SecItemDelete
@@ -1238,7 +1238,7 @@ OSStatus SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate
         undefined.
 */
 OSStatus SecItemDelete(CFDictionaryRef query)
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+    API_AVAILABLE(macos(10.6), ios(2.0));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,7 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
+#include <xpc/xpc.h>
 
 __BEGIN_DECLS
 
@@ -245,9 +246,35 @@ Boolean SecTrustIsExpiredOnly(SecTrustRef trust)
 __nullable CF_RETURNS_RETAINED
 CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
 
-OSStatus SecTrustGetOTAPKIAssetVersionNumber(int* versionNumber);
+/*
+ @function SecTrustGetTrustStoreVersionNumber
+ @abstract Ask trustd what trust store version it is using.
+ @param error A returned error if trustd failed to answer.
+ @result The current version of the trust store. 0 upon failure.
+ */
+uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
 
-OSStatus SecTrustOTAPKIGetUpdatedAsset(int* didUpdateAsset);
+/*
+ @function SecTrustOTAPKIGetUpdatedAsset
+ @abstract Trigger trustd to fetch a new trust supplementals asset right now.
+ @param error A returned error if trustd failed to update the asset.
+ @result The current version of the update, regardless of the success of the update.
+ @discussion This function blocks up to 1 minute until trustd has finished with the
+ asset download and update. You should use the error parameter to determine whether
+ the update was was successful. The current asset version is always returned.
+ */
+uint64_t SecTrustOTAPKIGetUpdatedAsset(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+/*!
+ @function SecTrustFlushResponseCache
+ @abstract Removes all OCSP responses from the per-user response cache.
+ @param error An optional pointer to an error object
+ @result A boolean value indicating whether the operation was successful.
+ @discussion If the error parameter is supplied, and the function returns false,
+ the caller is subsequently responsible for releasing the returned CFErrorRef.
+ */
+Boolean SecTrustFlushResponseCache(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
 
 /*!
  @function SecTrustSignedCertificateTimestampList
@@ -386,6 +413,38 @@ OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
  */
 OSStatus SecTrustSetPinningException(SecTrustRef trust)
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
+ @function SecTrustEvaluateWithError
+ @abstract Evaluates a trust reference synchronously.
+ @param trust A reference to the trust object to evaluate.
+ @param error A pointer to an error object
+ @result A boolean value indicating whether the certificate is trusted
+ @discussion This function will completely evaluate trust before returning,
+ possibly including network access to fetch intermediate certificates or to
+ perform revocation checking. Since this function can block during those
+ operations, you should call it from within a function that is placed on a
+ dispatch queue, or in a separate thread from your application's main
+ run loop.
+ If the certificate is trusted and the result is true, the error will be set to NULL.
+ If the certificate is not trusted or the evaluation was unable to complete, the result
+ will be false and the error will be set with a description of the failure.
+ The error contains a code for the most serious error encountered (if multiple trust
+ failures occurred). The localized description indicates the certificate with the most
+ serious problem and the type of error. The underlying error contains a localized
+ description of each certificate in the chain that had an error and all errors found
+ with that certificate.
+ */
+__attribute__((warn_unused_result)) bool
+SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
+
+/*!
+ @function SecTrustReportTLSAnalytics
+ @discussion This function MUST NOT be called outside of the TLS stack.
+*/
+bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttributes, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    __API_AVAILABLE(macos(10.13.4), ios(11.3), tvos(11.3), watchos(4.3));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

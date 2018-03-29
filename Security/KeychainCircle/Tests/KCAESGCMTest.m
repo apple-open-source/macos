@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 
 @interface KCAESGCMTest : XCTestCase
 
@@ -66,13 +67,10 @@
 }
 
 - (KCAESGCMDuplexSession*) archiveDearchive: (KCAESGCMDuplexSession*) original {
-    NSMutableData *data = [NSMutableData data];
-    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [archiver encodeObject:original forKey:@"Top"];
-    [archiver finishEncoding];
 
-    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:data];
-    unarchiver.requiresSecureCoding = YES;
+    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:archiver.encodedData error:nil];
 
     // Customize the unarchiver.
     KCAESGCMDuplexSession *result = [unarchiver decodeObjectForKey:@"Top"];

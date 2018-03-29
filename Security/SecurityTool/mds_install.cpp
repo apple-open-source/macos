@@ -23,6 +23,7 @@
  * mds_install.cpp
  */
 
+#include "security_tool.h"
 #include "mds_install.h"
 #include <security_cdsa_client/mdsclient.h>
 
@@ -31,7 +32,7 @@ mds_install(int argc, char * const *argv)
 {
 	if(argc != 1) {
 		/* crufty "show usage" return code */
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	try {

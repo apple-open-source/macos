@@ -42,11 +42,10 @@ struct DragItem final {
     DragSourceAction sourceAction { DragSourceActionNone };
     IntPoint eventPositionInContentCoordinates;
     IntPoint dragLocationInContentCoordinates;
-    IntPoint eventPositionInWindowCoordinates;
     IntPoint dragLocationInWindowCoordinates;
     String title;
     URL url;
-    IntRect elementBounds;
+    IntRect dragPreviewFrameInRootViewCoordinates;
 
     PasteboardWriterData data;
 
@@ -60,7 +59,7 @@ void DragItem::encode(Encoder& encoder) const
     // FIXME(173815): We should encode and decode PasteboardWriterData and platform drag image data
     // here too, as part of moving off of the legacy dragging codepath.
     encoder.encodeEnum(sourceAction);
-    encoder << imageAnchorPoint << eventPositionInContentCoordinates << dragLocationInContentCoordinates << eventPositionInWindowCoordinates << dragLocationInWindowCoordinates << title << url << elementBounds;
+    encoder << imageAnchorPoint << eventPositionInContentCoordinates << dragLocationInContentCoordinates << dragLocationInWindowCoordinates << title << url << dragPreviewFrameInRootViewCoordinates;
     bool hasIndicatorData = image.hasIndicatorData();
     encoder << hasIndicatorData;
     if (hasIndicatorData)
@@ -78,24 +77,23 @@ bool DragItem::decode(Decoder& decoder, DragItem& result)
         return false;
     if (!decoder.decode(result.dragLocationInContentCoordinates))
         return false;
-    if (!decoder.decode(result.eventPositionInWindowCoordinates))
-        return false;
     if (!decoder.decode(result.dragLocationInWindowCoordinates))
         return false;
     if (!decoder.decode(result.title))
         return false;
     if (!decoder.decode(result.url))
         return false;
-    if (!decoder.decode(result.elementBounds))
+    if (!decoder.decode(result.dragPreviewFrameInRootViewCoordinates))
         return false;
     bool hasIndicatorData;
     if (!decoder.decode(hasIndicatorData))
         return false;
     if (hasIndicatorData) {
-        TextIndicatorData indicatorData;
-        if (!decoder.decode(indicatorData))
+        std::optional<TextIndicatorData> indicatorData;
+        decoder >> indicatorData;
+        if (!indicatorData)
             return false;
-        result.image.setIndicatorData(indicatorData);
+        result.image.setIndicatorData(*indicatorData);
     }
     return true;
 }

@@ -34,12 +34,13 @@
 #include "ViewUpdateDispatcher.h"
 #include "WebInspectorInterruptDispatcher.h"
 #include <WebCore/ActivityState.h>
-#include <WebCore/HysteresisActivity.h>
-#include <WebCore/SessionID.h>
 #include <WebCore/Timer.h>
+#include <pal/HysteresisActivity.h>
+#include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefCounter.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/AtomicStringHash.h>
 
@@ -56,17 +57,26 @@ namespace API {
 class Object;
 }
 
+namespace PAL {
+class SessionID;
+}
+
 namespace WebCore {
 class ApplicationCacheStorage;
 class CPUMonitor;
 class CertificateInfo;
 class PageGroup;
 class ResourceRequest;
-class SessionID;
 class UserGestureToken;
+struct MessagePortIdentifier;
+struct MessageWithMessagePorts;
 struct PluginInfo;
 struct SecurityOriginData;
 struct SoupNetworkProxySettings;
+
+#if ENABLE(SERVICE_WORKER)
+struct ServiceWorkerContextData;
+#endif
 }
 
 namespace WebKit {
@@ -80,13 +90,14 @@ class ObjCObjectGraph;
 class UserData;
 class WaylandCompositorDisplay;
 class WebAutomationSessionProxy;
+class WebCacheStorageProvider;
 class WebConnectionToUIProcess;
 class WebFrame;
-class WebIconDatabaseProxy;
 class WebLoaderStrategy;
 class WebPage;
 class WebPageGroupProxy;
 class WebProcessSupplement;
+class WebToStorageProcessConnection;
 enum class WebsiteDataType;
 struct WebPageCreationParameters;
 struct WebPageGroupData;
@@ -94,10 +105,6 @@ struct WebPreferencesStore;
 struct WebProcessCreationParameters;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
-
-#if ENABLE(DATABASE_PROCESS)
-class WebToDatabaseProcessConnection;
-#endif
 
 class WebProcess : public ChildProcess {
 public:
@@ -112,7 +119,7 @@ public:
     template <typename T>
     void addSupplement()
     {
-        m_supplements.add(T::supplementName(), std::make_unique<T>(this));
+        m_supplements.add(T::supplementName(), std::make_unique<T>(*this));
     }
 
     WebConnectionToUIProcess* webConnectionToUIProcess() const { return m_webConnection.get(); }
@@ -129,8 +136,8 @@ public:
 #endif
 
     bool shouldPlugInAutoStartFromOrigin(WebPage&, const String& pageOrigin, const String& pluginOrigin, const String& mimeType);
-    void plugInDidStartFromOrigin(const String& pageOrigin, const String& pluginOrigin, const String& mimeType, WebCore::SessionID);
-    void plugInDidReceiveUserInteraction(const String& pageOrigin, const String& pluginOrigin, const String& mimeType, WebCore::SessionID);
+    void plugInDidStartFromOrigin(const String& pageOrigin, const String& pluginOrigin, const String& mimeType, PAL::SessionID);
+    void plugInDidReceiveUserInteraction(const String& pageOrigin, const String& pluginOrigin, const String& mimeType, PAL::SessionID);
     void setPluginLoadClientPolicy(uint8_t policy, const String& host, const String& bundleIdentifier, const String& versionString);
     void resetPluginLoadClientPolicies(const HashMap<String, HashMap<String, HashMap<String, uint8_t>>>&);
     void clearPluginClientPolicies();
@@ -160,7 +167,7 @@ public:
 
     EventDispatcher& eventDispatcher() { return *m_eventDispatcher; }
 
-    NetworkProcessConnection& networkConnection();
+    NetworkProcessConnection& ensureNetworkProcessConnection();
     void networkProcessConnectionClosed(NetworkProcessConnection*);
     WebLoaderStrategy& webLoaderStrategy();
 
@@ -168,17 +175,15 @@ public:
     LibWebRTCNetwork& libWebRTCNetwork();
 #endif
 
-#if ENABLE(DATABASE_PROCESS)
-    void webToDatabaseProcessConnectionClosed(WebToDatabaseProcessConnection*);
-    WebToDatabaseProcessConnection* webToDatabaseProcessConnection();
-#endif
+    void webToStorageProcessConnectionClosed(WebToStorageProcessConnection*);
+    WebToStorageProcessConnection* existingWebToStorageProcessConnection() { return m_webToStorageProcessConnection.get(); }
+    WebToStorageProcessConnection& ensureWebToStorageProcessConnection(PAL::SessionID initialSessionID);
 
     void setCacheModel(uint32_t);
 
-    void ensurePrivateBrowsingSession(WebCore::SessionID);
     void ensureLegacyPrivateBrowsingSessionInNetworkProcess();
     void addWebsiteDataStore(WebsiteDataStoreParameters&&);
-    void destroySession(WebCore::SessionID);
+    void destroySession(PAL::SessionID);
 
     void pageDidEnterWindow(uint64_t pageID);
     void pageWillLeaveWindow(uint64_t pageID);
@@ -228,6 +233,12 @@ public:
 
     WebAutomationSessionProxy* automationSessionProxy() { return m_automationSessionProxy.get(); }
 
+    WebCacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider.get(); }
+
+#if PLATFORM(IOS)
+    void accessibilityProcessSuspendedNotification(bool);
+#endif
+
 private:
     WebProcess();
     ~WebProcess();
@@ -265,16 +276,16 @@ private:
     void userPreferredLanguagesChanged(const Vector<String>&) const;
     void fullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled);
 
-    bool isPlugInAutoStartOriginHash(unsigned plugInOriginHash, WebCore::SessionID);
-    void didAddPlugInAutoStartOriginHash(unsigned plugInOriginHash, double expirationTime, WebCore::SessionID);
+    bool isPlugInAutoStartOriginHash(unsigned plugInOriginHash, PAL::SessionID);
+    void didAddPlugInAutoStartOriginHash(unsigned plugInOriginHash, double expirationTime, PAL::SessionID);
     void resetPlugInAutoStartOriginDefaultHashes(const HashMap<unsigned, double>& hashes);
-    void resetPlugInAutoStartOriginHashes(const HashMap<WebCore::SessionID, HashMap<unsigned, double>>& hashes);
+    void resetPlugInAutoStartOriginHashes(const HashMap<PAL::SessionID, HashMap<unsigned, double>>& hashes);
 
     void platformSetCacheModel(CacheModel);
 
     void setEnhancedAccessibility(bool);
     
-    void startMemorySampler(const SandboxExtension::Handle&, const String&, const double);
+    void startMemorySampler(SandboxExtension::Handle&&, const String&, const double);
     void stopMemorySampler();
     
     void getWebCoreStatistics(uint64_t callbackID);
@@ -284,21 +295,31 @@ private:
     void mainThreadPing();
     void backgroundResponsivenessPing();
 
+    void syncIPCMessageWhileWaitingForSyncReplyForTesting();
+
+    void didTakeAllMessagesForPort(Vector<WebCore::MessageWithMessagePorts>&& messages, uint64_t messageCallbackIdentifier, uint64_t messageBatchIdentifier);
+    void checkProcessLocalPortForActivity(const WebCore::MessagePortIdentifier&, uint64_t callbackIdentifier);
+    void didCheckRemotePortForActivity(uint64_t callbackIdentifier, bool hasActivity);
+    void messagesAvailableForPort(const WebCore::MessagePortIdentifier&);
+
 #if ENABLE(GAMEPAD)
     void setInitialGamepads(const Vector<GamepadData>&);
     void gamepadConnected(const GamepadData&);
     void gamepadDisconnected(unsigned index);
 #endif
-
 #if USE(SOUP)
     void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
+#endif
+#if ENABLE(SERVICE_WORKER)
+    void establishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&, PAL::SessionID);
+    void registerServiceWorkerClients(PAL::SessionID);
 #endif
 
     void releasePageCache();
 
-    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, WebsiteData&);
-    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins);
+    void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WebsiteData&);
+    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince);
+    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins);
 
     void setMemoryCacheDisabled(bool);
 
@@ -358,7 +379,7 @@ private:
 #endif
     RefPtr<WebInspectorInterruptDispatcher> m_webInspectorInterruptDispatcher;
 
-    HashMap<WebCore::SessionID, HashMap<unsigned, double>> m_plugInAutoStartOriginHashes;
+    HashMap<PAL::SessionID, HashMap<unsigned, double>> m_plugInAutoStartOriginHashes;
     HashSet<String> m_plugInAutoStartOrigins;
 
     bool m_hasSetCacheModel { false };
@@ -377,25 +398,21 @@ private:
 
     TextCheckerState m_textCheckerState;
 
-    WebIconDatabaseProxy& m_iconDatabaseProxy;
-
-    void ensureNetworkProcessConnection();
     RefPtr<NetworkProcessConnection> m_networkProcessConnection;
     WebLoaderStrategy& m_webLoaderStrategy;
+
+    Ref<WebCacheStorageProvider> m_cacheStorageProvider;
 
 #if USE(LIBWEBRTC)
     std::unique_ptr<LibWebRTCNetwork> m_libWebRTCNetwork;
 #endif
 
     HashSet<String> m_dnsPrefetchedHosts;
-    WebCore::HysteresisActivity m_dnsPrefetchHystereris;
+    PAL::HysteresisActivity m_dnsPrefetchHystereris;
 
     std::unique_ptr<WebAutomationSessionProxy> m_automationSessionProxy;
 
-#if ENABLE(DATABASE_PROCESS)
-    void ensureWebToDatabaseProcessConnection();
-    RefPtr<WebToDatabaseProcessConnection> m_webToDatabaseProcessConnection;
-#endif
+    RefPtr<WebToStorageProcessConnection> m_webToStorageProcessConnection;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     RefPtr<PluginProcessConnectionManager> m_pluginProcessConnectionManager;
@@ -416,7 +433,10 @@ private:
     WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
 #endif
 
-    unsigned m_pagesMarkingLayersAsVolatile { 0 };
+    enum PageMarkingLayersAsVolatileCounterType { };
+    using PageMarkingLayersAsVolatileCounter = RefCounter<PageMarkingLayersAsVolatileCounterType>;
+    std::unique_ptr<PageMarkingLayersAsVolatileCounter> m_pageMarkingLayersAsVolatileCounter;
+
     bool m_suppressMemoryPressureHandler { false };
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::CPUMonitor> m_cpuMonitor;

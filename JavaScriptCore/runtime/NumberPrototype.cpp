@@ -29,13 +29,14 @@
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "JSString.h"
+#include "ParseInt.h"
 #include "Uint16WithFraction.h"
 #include <wtf/dtoa.h>
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
 #include <wtf/dtoa/double-conversion.h>
 
-using namespace WTF::double_conversion;
+using DoubleToStringConverter = WTF::double_conversion::DoubleToStringConverter;
 
 // To avoid conflict with WTF::StringBuilder.
 typedef WTF::double_conversion::StringBuilder DoubleConversionStringBuilder;
@@ -58,7 +59,6 @@ const ClassInfo NumberPrototype::s_info = { "Number", &NumberObject::s_info, &nu
 
 /* Source for NumberPrototype.lut.h
 @begin numberPrototypeTable
-  toString          numberProtoFuncToString         DontEnum|Function 1 NumberPrototypeToStringIntrinsic
   toLocaleString    numberProtoFuncToLocaleString   DontEnum|Function 0
   valueOf           numberProtoFuncValueOf          DontEnum|Function 0
   toFixed           numberProtoFuncToFixed          DontEnum|Function 1
@@ -79,10 +79,9 @@ void NumberPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     Base::finishCreation(vm);
     setInternalValue(vm, jsNumber(0));
 
+    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toString, numberProtoFuncToString, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, NumberPrototypeToStringIntrinsic);
 #if ENABLE(INTL)
-    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toLocaleString", numberPrototypeToLocaleStringCodeGenerator, DontEnum);
-#else
-    UNUSED_PARAM(globalObject);
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toLocaleString", numberPrototypeToLocaleStringCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 #endif // ENABLE(INTL)
 
     ASSERT(inherits(vm, info()));
@@ -141,9 +140,6 @@ static ALWAYS_INLINE bool getIntegerArgumentInRange(ExecState* exec, int low, in
 // fo any number of digits an IEEE number may require to represent.
 typedef char RadixBuffer[2180];
 
-// Mapping from integers 0..35 to digit identifying this value, for radix 2..36.
-static const char radixDigits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-
 static inline char* int52ToStringWithRadix(char* startOfResultString, int64_t int52Value, unsigned radix)
 {
     bool negative = false;
@@ -165,7 +161,7 @@ static inline char* int52ToStringWithRadix(char* startOfResultString, int64_t in
     return startOfResultString;
 }
 
-static char* toStringWithRadix(RadixBuffer& buffer, double originalNumber, unsigned radix)
+static char* toStringWithRadixInternal(RadixBuffer& buffer, double originalNumber, unsigned radix)
 {
     ASSERT(std::isfinite(originalNumber));
     ASSERT(radix >= 2 && radix <= 36);
@@ -359,7 +355,7 @@ static char* toStringWithRadix(RadixBuffer& buffer, double originalNumber, unsig
     return startOfResultString;
 }
 
-static String toStringWithRadix(int32_t number, unsigned radix)
+static String toStringWithRadixInternal(int32_t number, unsigned radix)
 {
     LChar buf[1 + 32]; // Worst case is radix == 2, which gives us 32 digits + sign.
     LChar* end = std::end(buf);
@@ -369,19 +365,36 @@ static String toStringWithRadix(int32_t number, unsigned radix)
     uint32_t positiveNumber = number;
     if (number < 0) {
         negative = true;
-        positiveNumber = -number;
+        positiveNumber = static_cast<uint32_t>(-static_cast<int64_t>(number));
     }
 
-    while (positiveNumber) {
+    // Always loop at least once, to emit at least '0'.
+    do {
         uint32_t index = positiveNumber % radix;
         ASSERT(index < sizeof(radixDigits));
         *--p = static_cast<LChar>(radixDigits[index]);
         positiveNumber /= radix;
-    }
+    } while (positiveNumber);
+
     if (negative)
         *--p = '-';
 
     return String(p, static_cast<unsigned>(end - p));
+}
+
+String toStringWithRadix(double doubleValue, int32_t radix)
+{
+    ASSERT(2 <= radix && radix <= 36);
+
+    int32_t integerValue = static_cast<int32_t>(doubleValue);
+    if (integerValue == doubleValue)
+        return toStringWithRadixInternal(integerValue, radix);
+
+    if (radix == 10 || !std::isfinite(doubleValue))
+        return String::numberToStringECMAScript(doubleValue);
+
+    RadixBuffer buffer;
+    return toStringWithRadixInternal(buffer, doubleValue, radix);
 }
 
 // toExponential converts a number to a string, always formatting as an exponential.
@@ -520,7 +533,7 @@ static ALWAYS_INLINE JSString* int32ToStringInternal(VM& vm, int32_t value, int3
     if (radix == 10)
         return jsNontrivialString(&vm, vm.numericStrings.add(value));
 
-    return jsNontrivialString(&vm, toStringWithRadix(value, radix));
+    return jsNontrivialString(&vm, toStringWithRadixInternal(value, radix));
 
 }
 
@@ -539,7 +552,7 @@ static ALWAYS_INLINE JSString* numberToStringInternal(VM& vm, double doubleValue
         return jsNontrivialString(&vm, String::numberToStringECMAScript(doubleValue));
 
     RadixBuffer buffer;
-    return jsString(&vm, toStringWithRadix(buffer, doubleValue, radix));
+    return jsString(&vm, toStringWithRadixInternal(buffer, doubleValue, radix));
 }
 
 JSString* int32ToString(VM& vm, int32_t value, int32_t radix)
@@ -585,9 +598,11 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncToString(ExecState* exec)
         return throwVMTypeError(exec, scope);
 
     int32_t radix = extractRadixFromArgs(exec);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
     if (radix < 2 || radix > 36)
         return throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("toString() radix argument must be between 2 and 36")));
 
+    scope.release();
     return JSValue::encode(numberToStringInternal(vm, doubleValue, radix));
 }
 

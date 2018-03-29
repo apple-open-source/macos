@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011-2017  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -14,8 +14,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id$ */
 
 /*! \file */
 
@@ -32,6 +30,7 @@
 #include <isc/string.h>
 #include <isc/task.h>
 #include <isc/time.h>
+#include <isc/types.h>
 #include <isc/util.h>
 
 #include <dns/db.h>
@@ -67,7 +66,7 @@
 	} while (0)
 
 struct dns_master_style {
-	unsigned int flags;		/* DNS_STYLEFLAG_* */
+	dns_masterstyle_flags_t flags;		/* DNS_STYLEFLAG_* */
 	unsigned int ttl_column;
 	unsigned int class_column;
 	unsigned int type_column;
@@ -153,6 +152,7 @@ dns_master_style_cache = {
 	DNS_STYLEFLAG_OMIT_OWNER |
 	DNS_STYLEFLAG_OMIT_CLASS |
 	DNS_STYLEFLAG_MULTILINE |
+	DNS_STYLEFLAG_RRCOMMENT |
 	DNS_STYLEFLAG_TRUST |
 	DNS_STYLEFLAG_NCACHE,
 	24, 32, 32, 40, 80, 8, UINT_MAX
@@ -173,6 +173,18 @@ dns_master_style_debug = {
 	24, 32, 40, 48, 80, 8, UINT_MAX
 };
 
+/*%
+ * Similar, but with each line commented out.
+ */
+LIBDNS_EXTERNAL_DATA const dns_master_style_t
+dns_master_style_comment = {
+	DNS_STYLEFLAG_REL_OWNER |
+	DNS_STYLEFLAG_MULTILINE |
+	DNS_STYLEFLAG_RRCOMMENT |
+	DNS_STYLEFLAG_COMMENTDATA,
+	24, 32, 40, 48, 80, 8, UINT_MAX
+};
+
 
 #define N_SPACES 10
 static char spaces[N_SPACES+1] = "          ";
@@ -180,7 +192,6 @@ static char spaces[N_SPACES+1] = "          ";
 #define N_TABS 10
 static char tabs[N_TABS+1] = "\t\t\t\t\t\t\t\t\t\t";
 
-#ifdef BIND9
 struct dns_dumpctx {
 	unsigned int		magic;
 	isc_mem_t		*mctx;
@@ -209,7 +220,6 @@ struct dns_dumpctx {
 					    dns_totext_ctx_t *ctx,
 					    isc_buffer_t *buffer, FILE *f);
 };
-#endif /* BIND9 */
 
 #define NXDOMAIN(x) (((x)->attributes & DNS_RDATASETATTR_NXDOMAIN) != 0)
 
@@ -305,6 +315,14 @@ totext_ctx_init(const dns_master_style_t *style, dns_totext_ctx_t *ctx) {
 			return (DNS_R_TEXTTOOLONG);
 		r.base[0] = '\n';
 		isc_buffer_add(&buf, 1);
+
+		if ((ctx->style.flags & DNS_STYLEFLAG_COMMENTDATA) != 0) {
+			isc_buffer_availableregion(&buf, &r);
+			if (r.length < 1)
+				return (DNS_R_TEXTTOOLONG);
+			r.base[0] = ';';
+			isc_buffer_add(&buf, 1);
+		}
 
 		result = indent(&col, ctx->style.rdata_column,
 				ctx->style.tab_width, &buf);
@@ -443,6 +461,12 @@ rdataset_totext(dns_rdataset_t *rdataset,
 		column = 0;
 
 		/*
+		 * Comment?
+		 */
+		if ((ctx->style.flags & DNS_STYLEFLAG_COMMENTDATA) != 0)
+			RETERR(str_totext(";", target));
+
+		/*
 		 * Owner name.
 		 */
 		if (owner_name != NULL &&
@@ -562,6 +586,7 @@ rdataset_totext(dns_rdataset_t *rdataset,
 
 			RETERR(dns_rdata_tofmttext(&rdata,
 						   ctx->origin,
+						   (unsigned int)
 						   ctx->style.flags,
 						   ctx->style.line_length -
 						       ctx->style.rdata_column,
@@ -730,7 +755,6 @@ dns_master_questiontotext(dns_name_t *owner_name,
 				ISC_FALSE, target));
 }
 
-#ifdef BIND9
 /*
  * Print an rdataset.  'buffer' is a scratch buffer, which must have been
  * dynamically allocated by the caller.  It must be large enough to
@@ -1088,6 +1112,21 @@ dump_rdatasets_raw(isc_mem_t *mctx, dns_name_t *name,
 	return (result);
 }
 
+static isc_result_t
+dump_rdatasets_map(isc_mem_t *mctx, dns_name_t *name,
+		   dns_rdatasetiter_t *rdsiter, dns_totext_ctx_t *ctx,
+		   isc_buffer_t *buffer, FILE *f)
+{
+	UNUSED(mctx);
+	UNUSED(name);
+	UNUSED(rdsiter);
+	UNUSED(ctx);
+	UNUSED(buffer);
+	UNUSED(f);
+
+	return (ISC_R_NOTIMPLEMENTED);
+}
+
 /*
  * Initial size of text conversion buffer.  The buffer is used
  * for several purposes: converting origin names, rdatasets,
@@ -1330,6 +1369,9 @@ dumpctx_create(isc_mem_t *mctx, dns_db_t *db, dns_dbversion_t *version,
 	case dns_masterformat_raw:
 		dctx->dumpsets = dump_rdatasets_raw;
 		break;
+	case dns_masterformat_map:
+		dctx->dumpsets = dump_rdatasets_map;
+		break;
 	default:
 		INSIST(0);
 		break;
@@ -1380,16 +1422,100 @@ dumpctx_create(isc_mem_t *mctx, dns_db_t *db, dns_dbversion_t *version,
 }
 
 static isc_result_t
-dumptostreaminc(dns_dumpctx_t *dctx) {
-	isc_result_t result;
+writeheader(dns_dumpctx_t *dctx) {
+	isc_result_t result = ISC_R_SUCCESS;
 	isc_buffer_t buffer;
 	char *bufmem;
 	isc_region_t r;
+	dns_masterrawheader_t rawheader;
+	isc_uint32_t rawversion, now32;
+
+	bufmem = isc_mem_get(dctx->mctx, initial_buffer_length);
+	if (bufmem == NULL)
+		return (ISC_R_NOMEMORY);
+
+	isc_buffer_init(&buffer, bufmem, initial_buffer_length);
+
+	switch (dctx->format) {
+	case dns_masterformat_text:
+		/*
+		 * If the database has cache semantics, output an
+		 * RFC2540 $DATE directive so that the TTLs can be
+		 * adjusted when it is reloaded.  For zones it is not
+		 * really needed, and it would make the file
+		 * incompatible with pre-RFC2540 software, so we omit
+		 * it in the zone case.
+		 */
+		if (dctx->do_date) {
+			result = dns_time32_totext(dctx->now, &buffer);
+			RUNTIME_CHECK(result == ISC_R_SUCCESS);
+			isc_buffer_usedregion(&buffer, &r);
+			fprintf(dctx->f, "$DATE %.*s\n",
+				(int) r.length, (char *) r.base);
+		}
+		break;
+	case dns_masterformat_raw:
+	case dns_masterformat_map:
+		r.base = (unsigned char *)&rawheader;
+		r.length = sizeof(rawheader);
+		isc_buffer_region(&buffer, &r);
+#if !defined(STDTIME_ON_32BITS) || (STDTIME_ON_32BITS + 0) != 1
+		/*
+		 * We assume isc_stdtime_t is a 32-bit integer,
+		 * which should be the case on most platforms.
+		 * If it turns out to be uncommon, we'll need
+		 * to bump the version number and revise the
+		 * header format.
+		 */
+		isc_log_write(dns_lctx,
+			      ISC_LOGCATEGORY_GENERAL,
+			      DNS_LOGMODULE_MASTERDUMP,
+			      ISC_LOG_INFO,
+			      "dumping master file in raw "
+			      "format: stdtime is not 32bits");
+		now32 = 0;
+#else
+		now32 = dctx->now;
+#endif
+		rawversion = 1;
+		if ((dctx->header.flags & DNS_MASTERRAW_COMPAT) != 0)
+			rawversion = 0;
+
+		isc_buffer_putuint32(&buffer, dctx->format);
+		isc_buffer_putuint32(&buffer, rawversion);
+		isc_buffer_putuint32(&buffer, now32);
+
+		if (rawversion == 1) {
+			isc_buffer_putuint32(&buffer, dctx->header.flags);
+			isc_buffer_putuint32(&buffer,
+					     dctx->header.sourceserial);
+			isc_buffer_putuint32(&buffer, dctx->header.lastxfrin);
+		}
+
+		INSIST(isc_buffer_usedlength(&buffer) <= sizeof(rawheader));
+		result = isc_stdio_write(buffer.base, 1,
+					 isc_buffer_usedlength(&buffer),
+					 dctx->f, NULL);
+		if (result != ISC_R_SUCCESS)
+			break;
+
+		break;
+	default:
+		INSIST(0);
+	}
+
+	isc_mem_put(dctx->mctx, buffer.base, buffer.length);
+	return (result);
+}
+
+static isc_result_t
+dumptostreaminc(dns_dumpctx_t *dctx) {
+	isc_result_t result = ISC_R_SUCCESS;
+	isc_buffer_t buffer;
+	char *bufmem;
 	dns_name_t *name;
 	dns_fixedname_t fixname;
 	unsigned int nodes;
-	dns_masterrawheader_t rawheader;
-	isc_uint32_t rawversion, now32;
 	isc_time_t start;
 
 	bufmem = isc_mem_get(dctx->mctx, initial_buffer_length);
@@ -1402,76 +1528,24 @@ dumptostreaminc(dns_dumpctx_t *dctx) {
 	name = dns_fixedname_name(&fixname);
 
 	if (dctx->first) {
-		switch (dctx->format) {
-		case dns_masterformat_text:
-			/*
-			 * If the database has cache semantics, output an
-			 * RFC2540 $DATE directive so that the TTLs can be
-			 * adjusted when it is reloaded.  For zones it is not
-			 * really needed, and it would make the file
-			 * incompatible with pre-RFC2540 software, so we omit
-			 * it in the zone case.
-			 */
-			if (dctx->do_date) {
-				result = dns_time32_totext(dctx->now, &buffer);
-				RUNTIME_CHECK(result == ISC_R_SUCCESS);
-				isc_buffer_usedregion(&buffer, &r);
-				fprintf(dctx->f, "$DATE %.*s\n",
-					(int) r.length, (char *) r.base);
-			}
-			break;
-		case dns_masterformat_raw:
-			r.base = (unsigned char *)&rawheader;
-			r.length = sizeof(rawheader);
-			isc_buffer_region(&buffer, &r);
-#if !defined(STDTIME_ON_32BITS) || (STDTIME_ON_32BITS + 0) != 1
-			/*
-			 * We assume isc_stdtime_t is a 32-bit integer,
-			 * which should be the case on most cases.
-			 * If it turns out to be uncommon, we'll need
-			 * to bump the version number and revise the
-			 * header format.
-			 */
-			isc_log_write(dns_lctx,
-				      ISC_LOGCATEGORY_GENERAL,
-				      DNS_LOGMODULE_MASTERDUMP,
-				      ISC_LOG_INFO,
-				      "dumping master file in raw "
-				      "format: stdtime is not 32bits");
-			now32 = 0;
-#else
-			now32 = dctx->now;
-#endif
-			rawversion = 1;
-			if ((dctx->header.flags & DNS_MASTERRAW_COMPAT) != 0)
-				rawversion = 0;
-			isc_buffer_putuint32(&buffer, dns_masterformat_raw);
-			isc_buffer_putuint32(&buffer, rawversion);
-			isc_buffer_putuint32(&buffer, now32);
+		CHECK(writeheader(dctx));
 
-			if (rawversion == 1) {
-				isc_buffer_putuint32(&buffer,
-						     dctx->header.flags);
-				isc_buffer_putuint32(&buffer,
-						     dctx->header.sourceserial);
-				isc_buffer_putuint32(&buffer,
-						     dctx->header.lastxfrin);
-			}
-
-			INSIST(isc_buffer_usedlength(&buffer) <=
-			       sizeof(rawheader));
-			result = isc_stdio_write(buffer.base, 1,
-						 isc_buffer_usedlength(&buffer),
-						 dctx->f, NULL);
-			if (result != ISC_R_SUCCESS)
-				return (result);
-			isc_buffer_clear(&buffer);
-			break;
-		default:
-			INSIST(0);
+		/*
+		 * Fast format is not currently written incrementally,
+		 * so we make the call to dns_db_serialize() here.
+		 * If the database is anything other than an rbtdb,
+		 * this should result in not implemented
+		 */
+		if (dctx->format == dns_masterformat_map) {
+			result = dns_db_serialize(dctx->db, dctx->version,
+						  dctx->f);
+			goto cleanup;
 		}
 
 		result = dns_dbiterator_first(dctx->dbiter);
+		if (result != ISC_R_SUCCESS && result != ISC_R_NOMORE)
+			goto cleanup;
+
 		dctx->first = ISC_FALSE;
 	} else
 		result = ISC_R_SUCCESS;
@@ -1490,7 +1564,8 @@ dumptostreaminc(dns_dumpctx_t *dctx) {
 				dns_fixedname_name(&dctx->tctx.origin_fixname);
 			result = dns_dbiterator_origin(dctx->dbiter, origin);
 			RUNTIME_CHECK(result == ISC_R_SUCCESS);
-			if ((dctx->tctx.style.flags & DNS_STYLEFLAG_REL_DATA) != 0)
+			if ((dctx->tctx.style.flags &
+			     DNS_STYLEFLAG_REL_DATA) != 0)
 				dctx->tctx.origin = origin;
 			dctx->tctx.neworigin = origin;
 		}
@@ -1498,14 +1573,14 @@ dumptostreaminc(dns_dumpctx_t *dctx) {
 					     dctx->now, &rdsiter);
 		if (result != ISC_R_SUCCESS) {
 			dns_db_detachnode(dctx->db, &node);
-			goto fail;
+			goto cleanup;
 		}
 		result = (dctx->dumpsets)(dctx->mctx, name, rdsiter,
 					  &dctx->tctx, &buffer, dctx->f);
 		dns_rdatasetiter_destroy(&rdsiter);
 		if (result != ISC_R_SUCCESS) {
 			dns_db_detachnode(dctx->db, &node);
-			goto fail;
+			goto cleanup;
 		}
 		dns_db_detachnode(dctx->db, &node);
 		result = dns_dbiterator_next(dctx->dbiter);
@@ -1548,13 +1623,13 @@ dumptostreaminc(dns_dumpctx_t *dctx) {
 			isc_log_write(dns_lctx, ISC_LOGCATEGORY_GENERAL,
 				      DNS_LOGMODULE_MASTERDUMP,
 				      ISC_LOG_DEBUG(1),
-				      "dumptostreaminc(%p) new nodes -> %d\n",
+				      "dumptostreaminc(%p) new nodes -> %d",
 				      dctx, dctx->nodes);
 		}
 		result = DNS_R_CONTINUE;
 	} else if (result == ISC_R_NOMORE)
 		result = ISC_R_SUCCESS;
- fail:
+ cleanup:
 	RUNTIME_CHECK(dns_dbiterator_pause(dctx->dbiter) == ISC_R_SUCCESS);
 	isc_mem_put(dctx->mctx, buffer.base, buffer.length);
 	return (result);
@@ -1886,7 +1961,6 @@ dns_master_dumpnode(isc_mem_t *mctx, dns_db_t *db, dns_dbversion_t *version,
 
 	return (result);
 }
-#endif /* BIND9 */
 
 isc_result_t
 dns_master_stylecreate(dns_master_style_t **stylep, unsigned int flags,

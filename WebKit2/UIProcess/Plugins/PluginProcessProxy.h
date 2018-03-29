@@ -49,7 +49,7 @@ class PluginProcessManager;
 class WebProcessProxy;
 struct PluginProcessCreationParameters;
 
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLUGIN_ARCHITECTURE(UNIX)
 struct RawPluginMetaData {
     String name;
     String description;
@@ -79,7 +79,7 @@ public:
     void getPluginProcessConnection(Ref<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>&&);
 
     void fetchWebsiteData(WTF::Function<void (Vector<String>)>&& completionHandler);
-    void deleteWebsiteData(std::chrono::system_clock::time_point modifiedSince, WTF::Function<void ()>&& completionHandler);
+    void deleteWebsiteData(WallTime modifiedSince, WTF::Function<void ()>&& completionHandler);
     void deleteWebsiteDataForHostNames(const Vector<String>& hostNames, WTF::Function<void ()>&& completionHandler);
 
     bool isValid() const { return m_connection; }
@@ -89,7 +89,7 @@ public:
 
 #endif
 
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLUGIN_ARCHITECTURE(UNIX)
     static bool scanPlugin(const String& pluginPath, RawPluginMetaData& result);
 #endif
 
@@ -155,7 +155,7 @@ private:
     HashMap<uint64_t, WTF::Function<void (Vector<String>)>> m_pendingFetchWebsiteDataCallbacks;
 
     struct DeleteWebsiteDataRequest {
-        std::chrono::system_clock::time_point modifiedSince;
+        WallTime modifiedSince;
         uint64_t callbackID;
     };
     Vector<DeleteWebsiteDataRequest> m_pendingDeleteWebsiteDataRequests;

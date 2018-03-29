@@ -121,7 +121,9 @@ bool AppleRAIDMember::start(IOService * provider)
     if (!isRAIDSet()) {
 
 	assert(provider);
-	arTarget = (IOMedia *)provider;
+	arTarget = (IOMedia *)OSDynamicCast(IOMedia, provider);
+
+	if (arTarget == NULL) return false;
 
 	if (super::start(provider) == false) return false;
 

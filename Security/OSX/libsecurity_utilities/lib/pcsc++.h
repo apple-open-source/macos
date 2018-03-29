@@ -38,6 +38,7 @@
 #include <security_utilities/errors.h>
 #include <security_utilities/transactions.h>
 #include <security_utilities/debugging.h>
+#include <security_utilities/debugging_internal.h>
 #include <PCSC/winscard.h>
 #include <vector>
 #include <string>

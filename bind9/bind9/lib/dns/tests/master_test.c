@@ -22,9 +22,11 @@
 
 #include <atf-c.h>
 
+#include <stdio.h>
 #include <unistd.h>
 
 #include <isc/print.h>
+#include <isc/xml.h>
 
 #include <dns/cache.h>
 #include <dns/callbacks.h>
@@ -48,6 +50,12 @@
 
 static dns_masterrawheader_t header;
 static isc_boolean_t headerset;
+
+dns_name_t dns_origin;
+char origin[sizeof(TEST_ORIGIN)];
+unsigned char name_buf[BUFLEN];
+dns_rdatacallbacks_t callbacks;
+char *include_file = NULL;
 
 static isc_result_t
 add_callback(void *arg, dns_name_t *owner, dns_rdataset_t *dataset);
@@ -76,19 +84,14 @@ rawdata_callback(dns_zone_t *zone, dns_masterrawheader_t *h) {
 	headerset = ISC_TRUE;
 }
 
-static int
-test_master(const char *testfile, dns_masterformat_t format,
-	    void (*warn)(struct dns_rdatacallbacks *, const char *, ...),
-	    void (*error)(struct dns_rdatacallbacks *, const char *, ...))
+static isc_result_t
+setup_master(void (*warn)(struct dns_rdatacallbacks *, const char *, ...),
+	     void (*error)(struct dns_rdatacallbacks *, const char *, ...))
 {
 	isc_result_t		result;
 	int			len;
-	char			origin[sizeof(TEST_ORIGIN)];
-	dns_name_t		dns_origin;
 	isc_buffer_t		source;
 	isc_buffer_t		target;
-	unsigned char		name_buf[BUFLEN];
-	dns_rdatacallbacks_t	callbacks;
 
 	strcpy(origin, TEST_ORIGIN);
 	len = strlen(origin);
@@ -113,10 +116,30 @@ test_master(const char *testfile, dns_masterformat_t format,
 	if (error != NULL)
 		callbacks.error = error;
 	headerset = ISC_FALSE;
+	return (result);
+}
+
+static isc_result_t
+test_master(const char *testfile, dns_masterformat_t format,
+	    void (*warn)(struct dns_rdatacallbacks *, const char *, ...),
+	    void (*error)(struct dns_rdatacallbacks *, const char *, ...))
+{
+	isc_result_t		result;
+
+	result = setup_master(warn, error);
+	if (result != ISC_R_SUCCESS)
+		return(result);
+
 	result = dns_master_loadfile2(testfile, &dns_origin, &dns_origin,
 				      dns_rdataclass_in, ISC_TRUE,
 				      &callbacks, mctx, format);
 	return (result);
+}
+
+static void
+include_callback(const char *filename, void *arg) {
+	char **argp = (char **) arg;
+	*argp = isc_mem_strdup(mctx, filename);
 }
 
 /*
@@ -344,6 +367,39 @@ ATF_TC_BODY(include, tc) {
 	dns_test_end();
 }
 
+/* Include file list test */
+ATF_TC(master_includelist);
+ATF_TC_HEAD(master_includelist, tc) {
+	atf_tc_set_md_var(tc, "descr", "dns_master_loadfile4() returns "
+				       "names of included file");
+}
+ATF_TC_BODY(master_includelist, tc) {
+	isc_result_t result;
+	char *filename = NULL;
+
+	UNUSED(tc);
+
+	result = dns_test_begin(NULL, ISC_FALSE);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	result = setup_master(NULL, NULL);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	result = dns_master_loadfile4("testdata/master/master8.data",
+				      &dns_origin, &dns_origin,
+				      dns_rdataclass_in, 0, ISC_TRUE,
+				      &callbacks, include_callback,
+				      &filename, mctx, dns_masterformat_text);
+	ATF_CHECK_EQ(result, DNS_R_SEENINCLUDE);
+	ATF_CHECK(filename != NULL);
+	if (filename != NULL) {
+		ATF_CHECK_STREQ(filename, "testdata/master/master7.data");
+		isc_mem_free(mctx, filename);
+	}
+
+	dns_test_end();
+}
+
 /* Include failure test */
 ATF_TC(includefail);
 ATF_TC_HEAD(includefail, tc) {
@@ -425,12 +481,10 @@ ATF_TC_BODY(totext, tc) {
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
 
 	/* First, test with an empty rdataset */
+	dns_rdatalist_init(&rdatalist);
 	rdatalist.rdclass = dns_rdataclass_in;
 	rdatalist.type = dns_rdatatype_none;
 	rdatalist.covers = dns_rdatatype_none;
-	rdatalist.ttl = 0;
-	ISC_LIST_INIT(rdatalist.rdata);
-	ISC_LINK_INIT(&rdatalist, link);
 
 	dns_rdataset_init(&rdataset);
 	result = dns_rdatalist_tordataset(&rdatalist, &rdataset);
@@ -598,7 +652,6 @@ ATF_TC_BODY(neworigin, tc) {
 
 	warn_expect_value = "record with inherited owner";
 	warn_expect_result = ISC_FALSE;
-
 	result = test_master("testdata/master/master17.data",
 			     dns_masterformat_text, warn_expect, NULL);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
@@ -620,6 +673,7 @@ ATF_TP_ADD_TCS(tp) {
 	ATF_TP_ADD_TC(tp, dnskey);
 	ATF_TP_ADD_TC(tp, dnsnokey);
 	ATF_TP_ADD_TC(tp, include);
+	ATF_TP_ADD_TC(tp, master_includelist);
 	ATF_TP_ADD_TC(tp, includefail);
 	ATF_TP_ADD_TC(tp, blanklines);
 	ATF_TP_ADD_TC(tp, leadingzero);

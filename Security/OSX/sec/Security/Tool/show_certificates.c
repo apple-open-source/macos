@@ -53,6 +53,7 @@
 #include <Security/SecTrustPriv.h>
 #include <Security/SecInternal.h>
 #include <Security/SecTrustStore.h>
+#include <Security/SecTrustSettings.h>
 
 #include <SecurityTool/readline.h>
 
@@ -172,7 +173,7 @@ int keychain_show_certificates(int argc, char * const *argv)
             break;
         case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
   
@@ -291,6 +292,64 @@ int keychain_show_certificates(int argc, char * const *argv)
 	return result;
 }
 
+static bool isSettingWithResult(CFDictionaryRef setting, SecTrustSettingsResult result) {
+    CFNumberRef value = CFDictionaryGetValue(setting, kSecTrustSettingsResult);
+    if (!isNumberOfType(value, kCFNumberSInt64Type)) {
+        return false;
+    }
+    int64_t setting_result = 0;
+    if (!CFNumberGetValue(value, kCFNumberSInt64Type, &setting_result) ||
+        (setting_result != result)) {
+        return false;
+    }
+    return true;
+}
+
+static bool isUnconstrainedSettingWithResult(CFDictionaryRef setting, SecTrustSettingsResult result) {
+    if (!isDictionary(setting) || (CFDictionaryGetCount(setting) != 1)) {
+        return false;
+    }
+
+    return isSettingWithResult(setting, result);
+}
+
+static bool isDenyTrustSetting(CFArrayRef trust_settings) {
+    if (CFArrayGetCount(trust_settings) != 1) {
+        return false;
+    }
+
+    return isUnconstrainedSettingWithResult(CFArrayGetValueAtIndex(trust_settings, 0),
+                                            kSecTrustSettingsResultDeny);
+}
+
+static bool isPartialSSLTrustSetting(CFArrayRef trust_settings) {
+    if (CFArrayGetCount(trust_settings) != 2) {
+        return false;
+    }
+
+    /* Second setting is a blanket "Trust" */
+    if (!isUnconstrainedSettingWithResult(CFArrayGetValueAtIndex(trust_settings, 1),
+                                          kSecTrustSettingsResultTrustRoot) &&
+        !isUnconstrainedSettingWithResult(CFArrayGetValueAtIndex(trust_settings, 1),
+                                          kSecTrustSettingsResultTrustAsRoot)) {
+        return false;
+    }
+
+    /* First setting is "upspecified" for SSL policy */
+    CFDictionaryRef setting = CFArrayGetValueAtIndex(trust_settings, 0);
+    if (!isDictionary(setting) || (CFDictionaryGetCount(setting) < 2)) {
+        return false;
+    }
+    if (!isSettingWithResult(setting, kSecTrustSettingsResultUnspecified)) {
+        return false;
+    }
+    if (!CFEqualSafe(CFDictionaryGetValue(setting, kSecTrustSettingsPolicy), kSecPolicyAppleSSL)) {
+        return false;
+    }
+
+    return true;
+}
+
 int trust_store_show_certificates(int argc, char * const *argv)
 {
     int ch, result = 0;
@@ -326,7 +385,7 @@ int trust_store_show_certificates(int argc, char * const *argv)
                 break;
             case '?':
             default:
-                return 2; /* @@@ Return 2 triggers usage message. */
+                return SHOW_USAGE_MESSAGE;
         }
     }
 
@@ -402,13 +461,27 @@ int trust_store_show_certificates(int argc, char * const *argv)
                 CFReleaseNull(cert);
                 return 1;
             }
-            // place-holder until there are actual trust settings
-            CFStringRef settings = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), trust_settings);
-            char *settingsStr = NULL;
-            settingsStr = CFStringToCString(settings);
-            fprintf(stdout, "%s\n", settingsStr);
-            free(settingsStr);
-            CFRelease(settings);
+
+            /* These are some trust settings configs used by ManagedConfiguration on iOS */
+            if (CFArrayGetCount(trust_settings) == 0) {
+                /* Full trust */
+                fprintf(stdout, "Full trust enabled\n");
+            } else if (isDenyTrustSetting(trust_settings)) {
+                fprintf(stdout, "Administrator blacklisted\n");
+            } else if (isPartialSSLTrustSetting(trust_settings)) {
+                fprintf(stdout, "Partial trust enabled\n");
+            } else {
+                CFStringRef settings = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), trust_settings);
+                if (settings) {
+                    char *settingsStr = CFStringToCString(settings);
+                    if (settingsStr) {
+                        fprintf(stdout, "Unknown trust settings:\n%s\n", settingsStr);
+                        free(settingsStr);
+                    }
+                    CFRelease(settings);
+                }
+            }
+
 
         }
         printf("*******************************************************\n");

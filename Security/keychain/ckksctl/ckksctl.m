@@ -33,13 +33,44 @@ static void nsprintf(NSString *fmt, ...)
 #endif
 }
 
+static NSDictionary* flattenNSErrorsInDictionary(NSDictionary* dict) {
+    if(!dict) {
+        return nil;
+    }
+    NSMutableDictionary* mutDict = [dict mutableCopy];
+    for(id key in mutDict.allKeys) {
+        id obj = mutDict[key];
+        if([obj isKindOfClass:[NSError class]]) {
+            NSError* obje = (NSError*) obj;
+            NSMutableDictionary* newErrorDict = [@{@"code": @(obje.code), @"domain": obje.domain} mutableCopy];
+            newErrorDict[@"userInfo"] = flattenNSErrorsInDictionary(obje.userInfo);
+            mutDict[key] = newErrorDict;
+        } else if(![NSJSONSerialization isValidJSONObject:obj]) {
+            mutDict[key] = [obj description];
+        }
+    }
+    return mutDict;
+}
+
 static void print_result(NSDictionary *dict, bool json_flag)
 {
     if (json_flag) {
         NSError *err;
+
+        // NSErrors don't know how to JSON-ify themselves, for some reason
+        // This will flatten a single layer of them
+        if(![NSJSONSerialization isValidJSONObject:dict]) {
+            dict = flattenNSErrorsInDictionary(dict);
+        }
+
+        if(![NSJSONSerialization isValidJSONObject:dict]) {
+            printf("Still unsure how to JSONify the following object:\n");
+            print_dict(dict, 0);
+        }
+
         NSData *json = [NSJSONSerialization dataWithJSONObject:dict
-                options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
-                error:&err];
+                                                       options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
+                                                         error:&err];
         if (!json) {
             NSLog(@"error: %@", err.localizedDescription);
         } else {
@@ -128,7 +159,8 @@ static void print_entry(id k, id v, int ind)
     return perfDict;
 }
 
-- (void)resetLocal: (NSString*)view {
+- (long)resetLocal:(NSString*)view {
+    __block long ret = 0;
 #if OCTAGON
     printf("Beginning local reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -137,19 +169,24 @@ static void print_entry(id k, id v, int ind)
                           reply:^(NSError *error) {
                               if(error == NULL) {
                                   printf("reset complete.\n");
+                                  ret = 0;
                               } else {
                                   nsprintf(@"reset error: %@\n", error);
+                                  ret = error.code;
                               }
                               dispatch_semaphore_signal(sema);
                           }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 2)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        return -1;
     }
 #endif // OCTAGON
+    return ret;
 }
 
-- (void)resetCloudKit: (NSString*)view {
+- (long)resetCloudKit:(NSString*)view {
+    __block long ret = 0;
 #if OCTAGON
     printf("Beginning CloudKit reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -157,19 +194,24 @@ static void print_entry(id k, id v, int ind)
     [self.control rpcResetCloudKit:view reply:^(NSError* error){
         if(error == NULL) {
             printf("CloudKit Reset complete.\n");
+            ret = 0;
         } else {
             nsprintf(@"Reset error: %@\n", error);
+            ret = error.code;
         }
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        return -1;
     }
 #endif // OCTAON
+    return ret;
 }
 
-- (void)resync: (NSString*)view {
+- (long)resync:(NSString*)view {
+    __block long ret = 0;
 #if OCTAGON
     printf("Beginning resync for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -177,79 +219,20 @@ static void print_entry(id k, id v, int ind)
     [self.control rpcResync:view reply:^(NSError* error){
         if(error == NULL) {
             printf("resync success.\n");
+            ret = 0;
         } else {
             nsprintf(@"resync errored: %@\n", error);
+            ret = error.code;
         }
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 2)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        return -1;
     }
 #endif // OCTAGON
-}
-
-- (void)getAnalyticsSysdiagnose
-{
-    printf("Getting analytics sysdiagnose....\n");
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-
-    [self.control rpcGetAnalyticsSysdiagnoseWithReply:^(NSString* sysdiagnose, NSError* error) {
-        if (sysdiagnose && !error) {
-            nsprintf(@"Analytics sysdiagnose:\n\n%@", sysdiagnose);
-        }
-        else {
-            nsprintf(@"error retrieving sysdiagnose: %@", error);
-        }
-
-        dispatch_semaphore_signal(sema);
-    }];
-
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-    }
-}
-
-- (void)getAnalyticsJSON
-{
-    printf("Getting analytics json....\n");
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    
-    [self.control rpcGetAnalyticsJSONWithReply:^(NSData* json, NSError* error) {
-        if (json && !error) {
-            nsprintf(@"Analytics JSON:\n\n%@", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
-        }
-        else {
-            nsprintf(@"error retrieving JSON: %@", error);
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-    }
-}
-
-- (void)forceAnalyticsUpload
-{
-    printf("Uploading....\n");
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    
-    [self.control rpcForceUploadAnalyticsWithReply:^(BOOL success, NSError* error) {
-        if (success) {
-            nsprintf(@"successfully uploaded analytics data");
-        }
-        else {
-            nsprintf(@"error uploading analytics: %@", error);
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-    }
+    return ret;
 }
 
 - (NSDictionary<NSString *, id> *)fetchStatus: (NSString*) view {
@@ -273,7 +256,7 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 5)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
         status[@"error"] = @"timed out";
     }
 #endif // OCTAGON
@@ -300,6 +283,9 @@ static void print_entry(id k, id v, int ind)
             NSString* selfPeersError = pop(global, @"selfPeersError");
             NSArray* trustedPeers = pop(global, @"trustedPeers");
             NSString* trustedPeersError = pop(global, @"trustedPeersError");
+            NSString* reachability = pop(global, @"reachability");
+            NSString* ckdeviceID = pop(global, @"ckdeviceID");
+            NSString* ckdeviceIDError = pop(global, @"ckdeviceIDError");
 
             printf("================================================================================\n\n");
             printf("Global state:\n\n");
@@ -311,6 +297,10 @@ static void print_entry(id k, id v, int ind)
             if(![trustedPeersError isEqual: [NSNull null]]) {
                 printf("Trusted Peers Error:  %s\n", [[trustedPeersError description] UTF8String]);
             }
+            printf("Reachability:         %s\n", [[reachability description] UTF8String]);
+            printf("CK DeviceID:          %s\n", [[ckdeviceID description] UTF8String]);
+            printf("CK DeviceID Error:    %s\n", [[ckdeviceIDError description] UTF8String]);
+
             printf("\n");
         }
 
@@ -328,7 +318,6 @@ static void print_entry(id k, id v, int ind)
             NSString* lockStateTracker = pop(status,@"lockstatetracker");
             NSString* accountTracker = pop(status,@"accounttracker");
             NSString* fetcher = pop(status,@"fetcher");
-            NSString* setup = pop(status,@"setup");
             NSString* zoneCreated = pop(status,@"zoneCreated");
             NSString* zoneCreatedError = pop(status,@"zoneCreatedError");
             NSString* zoneSubscribed = pop(status,@"zoneSubscribed");
@@ -340,6 +329,9 @@ static void print_entry(id k, id v, int ind)
             NSString* currentTLK =    pop(status,@"currentTLK");
             NSString* currentClassA = pop(status,@"currentClassA");
             NSString* currentClassC = pop(status,@"currentClassC");
+            NSString* currentTLKPtr =     pop(status,@"currentTLKPtr");
+            NSString* currentClassAPtr = pop(status,@"currentClassAPtr");
+            NSString* currentClassCPtr = pop(status,@"currentClassCPtr");
             NSString* currentManifestGeneration = pop(status,@"currentManifestGen");
 
             NSDictionary* oqe = pop(status,@"oqe");
@@ -351,7 +343,6 @@ static void print_entry(id k, id v, int ind)
 
 
             NSString* zoneSetupOperation                  = pop(status,@"zoneSetupOperation");
-            NSString* viewSetupOperation                  = pop(status,@"viewSetupOperation");
             NSString* keyStateOperation                   = pop(status,@"keyStateOperation");
             NSString* lastIncomingQueueOperation          = pop(status,@"lastIncomingQueueOperation");
             NSString* lastNewTLKOperation                 = pop(status,@"lastNewTLKOperation");
@@ -371,7 +362,6 @@ static void print_entry(id k, id v, int ind)
 
             printf("CloudKit account:     %s\n", [accountStatus UTF8String]);
             printf("Account tracker:      %s\n", [accountTracker UTF8String]);
-            printf("Ran setup operation:  %s\n", [setup UTF8String]);
 
             if(!([zoneCreated isEqualToString:@"yes"] && [zoneSubscribed isEqualToString:@"yes"])) {
                 printf("CK Zone Created:            %s\n", [[zoneCreated description] UTF8String]);
@@ -389,9 +379,15 @@ static void print_entry(id k, id v, int ind)
             }
             printf("Lock state:           %s\n", [lockStateTracker UTF8String]);
 
-            printf("Current TLK:          %s\n", [currentTLK    isEqual: [NSNull null]] ? "null" : [currentTLK    UTF8String]);
-            printf("Current ClassA:       %s\n", [currentClassA isEqual: [NSNull null]] ? "null" : [currentClassA UTF8String]);
-            printf("Current ClassC:       %s\n", [currentClassC isEqual: [NSNull null]] ? "null" : [currentClassC UTF8String]);
+            printf("Current TLK:          %s\n", ![currentTLK    isEqual: [NSNull null]]
+                   ? [currentTLK    UTF8String]
+                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentTLKPtr] UTF8String]);
+            printf("Current ClassA:       %s\n", ![currentClassA isEqual: [NSNull null]]
+                   ? [currentClassA UTF8String]
+                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassAPtr] UTF8String]);
+            printf("Current ClassC:       %s\n", ![currentClassC isEqual: [NSNull null]]
+                   ? [currentClassC UTF8String]
+                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassCPtr] UTF8String]);
 
             printf("TLK shares:           %s\n", [[tlkshares description] UTF8String]);
 
@@ -405,7 +401,6 @@ static void print_entry(id k, id v, int ind)
 
             printf("zone change fetcher:                 %s\n", [[fetcher description] UTF8String]);
             printf("zoneSetupOperation:                  %s\n", [zoneSetupOperation                  isEqual: [NSNull null]] ? "never" : [zoneSetupOperation                  UTF8String]);
-            printf("viewSetupOperation:                  %s\n", [viewSetupOperation                  isEqual: [NSNull null]] ? "never" : [viewSetupOperation                  UTF8String]);
             printf("keyStateOperation:                   %s\n", [keyStateOperation                   isEqual: [NSNull null]] ? "never" : [keyStateOperation                   UTF8String]);
             printf("lastIncomingQueueOperation:          %s\n", [lastIncomingQueueOperation          isEqual: [NSNull null]] ? "never" : [lastIncomingQueueOperation          UTF8String]);
             printf("lastNewTLKOperation:                 %s\n", [lastNewTLKOperation                 isEqual: [NSNull null]] ? "never" : [lastNewTLKOperation                 UTF8String]);
@@ -423,21 +418,24 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 5)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
     }
 #endif // OCTAGON
 }
 
-- (void)fetch: (NSString*) view {
+- (long)fetch:(NSString*)view {
+    __block long ret = 0;
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
     [self.control rpcFetchAndProcessChanges:view reply:^(NSError* error) {
         if(error) {
             printf("Error fetching: %s\n", [[error description] UTF8String]);
+            ret = (error.code == 0 ? -1 : error.code);
         } else {
             printf("Complete.\n");
+            ret = 0;
         }
 
         dispatch_semaphore_signal(sema);
@@ -445,19 +443,24 @@ static void print_entry(id k, id v, int ind)
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        return -1;
     }
 #endif // OCTAGON
+    return ret;
 }
 
-- (void)push: (NSString*) view {
+- (long)push:(NSString*)view {
+    __block long ret = 0;
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
     [self.control rpcPushOutgoingChanges:view reply:^(NSError* error) {
         if(error) {
             printf("Error pushing: %s\n", [[error description] UTF8String]);
+            ret = (error.code == 0 ? -1 : error.code);
         } else {
             printf("Complete.\n");
+            ret = 0;
         }
 
         dispatch_semaphore_signal(sema);
@@ -465,8 +468,10 @@ static void print_entry(id k, id v, int ind)
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        return -1;
     }
 #endif // OCTAGON
+    return ret;
 }
 
 @end
@@ -480,9 +485,6 @@ static int resetCloudKit = false;
 static int fetch = false;
 static int push = false;
 static int json = false;
-static int getAnalyticsSysdiagnose = false;
-static int getAnalyticsJSON = false;
-static int uploadAnalytics = false;
 
 static char* viewArg = NULL;
 
@@ -499,9 +501,6 @@ int main(int argc, char **argv)
         { .command="resync", .flag=&resync, .flagval=true, .description="Resync all data with what's in CloudKit"},
         { .command="reset", .flag=&reset, .flagval=true, .description="All local data will be wiped, and data refetched from CloudKit"},
         { .command="reset-cloudkit", .flag=&resetCloudKit, .flagval=true, .description="All data in CloudKit will be removed and replaced with what's local"},
-        { .command="get-analytics-sysdiagnose", .flag=&getAnalyticsSysdiagnose, .flagval=true, .description="Retrieve the current sysdiagnose dump for CKKS analytics"},
-        { .command="get-analytics", .flag=&getAnalyticsJSON, .flagval=true, .description="Retrieve the current JSON blob that would be uploaded to the logging server if an upload occurred now"},
-        { .command="upload-analytics", .flag=&uploadAnalytics, .flagval=true, .description="Force an upload of analytics data to cloud server"},
         {}
     };
 
@@ -546,27 +545,22 @@ int main(int argc, char **argv)
             if(!json) {
                 [ctl printHumanReadableStatus:view];
             }
+            return 0;
         } else if(perfCounters) {
             NSMutableDictionary *statusDict = [[NSMutableDictionary alloc] init];
             statusDict[@"performance"] = [ctl fetchPerformanceCounters];
             print_result(statusDict, false);
 
         } else if(fetch) {
-            [ctl fetch:view];
+            return (int)[ctl fetch:view];
         } else if(push) {
-            [ctl push:view];
+            return (int)[ctl push:view];
         } else if(reset) {
-            [ctl resetLocal:view];
+            return (int)[ctl resetLocal:view];
         } else if(resetCloudKit) {
-            [ctl resetCloudKit:view];
+            return (int)[ctl resetCloudKit:view];
         } else if(resync) {
-            [ctl resync:view];
-        } else if(getAnalyticsSysdiagnose) {
-            [ctl getAnalyticsSysdiagnose];
-        } else if(getAnalyticsJSON) {
-            [ctl getAnalyticsJSON];
-        } else if(uploadAnalytics) {
-            [ctl forceAnalyticsUpload];
+            return (int)[ctl resync:view];
         } else {
             print_usage(&args);
             return -1;

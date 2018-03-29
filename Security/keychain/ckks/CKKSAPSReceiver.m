@@ -65,7 +65,7 @@
     static dispatch_queue_t aps_dispatch_queue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        aps_dispatch_queue = dispatch_queue_create("aps-callback-queue", DISPATCH_QUEUE_SERIAL);
+        aps_dispatch_queue = dispatch_queue_create("aps-callback-queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     });
     return aps_dispatch_queue;
 }

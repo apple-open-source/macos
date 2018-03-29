@@ -77,26 +77,26 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(acl);
 
-    // ACL with protection and kSecAccessControlTouchIDCurrentSet
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlTouchIDCurrentSet, &error);
+    // ACL with protection and kSecAccessControlBiometryCurrentSet
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryCurrentSet, &error);
     ok(acl != NULL, "SecAccessControlCreateWithFlags: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(acl);
 
     // ACL with protection and flags
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlTouchIDAny | kSecAccessControlDevicePasscode | kSecAccessControlOr, &error);
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlOr, &error);
     ok(acl != NULL, "SecAccessControlCreateWithFlags: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(acl);
 
     // ACL with protection and flags
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlTouchIDAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd, &error);
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd, &error);
     ok(acl != NULL, "SecAccessControlCreateWithFlags: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(acl);
 
     // ACL with protection and flags
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlTouchIDAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
     ok(acl != NULL, "SecAccessControlCreateWithFlags: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(acl);
@@ -114,7 +114,7 @@ static void tests(void)
     CFReleaseNull(acl);
 
     // negative test of ACL with protection and, kSecAccessControlUserPresence can be in combination with kSecAccessControlApplicationPassword and kSecAccessControlPrivateKeyUsage
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlUserPresence | kSecAccessControlTouchIDAny, &error);
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlUserPresence | kSecAccessControlBiometryAny, &error);
     ok(acl == NULL, "SecAccessControlCreateWithFlag wrong combination of flags");
     CFReleaseNull(error);
     CFReleaseNull(acl);
@@ -170,17 +170,17 @@ static void tests(void)
     CFUUIDRef uuid = CFUUIDCreate(allocator);
     CFStringRef uuidString = CFUUIDCreateString(allocator, uuid);
     CFDataRef uuidData = CFStringCreateExternalRepresentation(allocator, uuidString, kCFStringEncodingUTF8, 0);
-    SecAccessConstraintRef touchID = SecAccessConstraintCreateTouchIDCurrentSet(allocator, uuidData, uuidData);
-    // TouchID constraint
-    ok(touchID != NULL, "SecAccessConstraintCreateTouchID: %@", error);
-    ok(isDictionary(touchID), "SecAccessConstraintCreateTouchID");
-    ok(CFDictionaryGetValue(touchID, CFSTR(kACMKeyAclConstraintBio)), "SecAccessConstraintCreateTouchID");
-    CFDictionaryRef bioRef = CFDictionaryGetValue(touchID, CFSTR(kACMKeyAclConstraintBio));
-    ok(isDictionary(bioRef), "SecAccessConstraintCreateTouchID");
-    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioCatacombUUID)), uuidData, "SecAccessConstraintCreateTouchID");
-    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioDatabaseHash)), uuidData, "SecAccessConstraintCreateTouchID");
+    SecAccessConstraintRef biometry = SecAccessConstraintCreateBiometryCurrentSet(allocator, uuidData, uuidData);
+    // Biometry constraint
+    ok(biometry != NULL, "SecAccessConstraintCreateBiometry: %@", error);
+    ok(isDictionary(biometry), "SecAccessConstraintCreateBiometry");
+    ok(CFDictionaryGetValue(biometry, CFSTR(kACMKeyAclConstraintBio)), "SecAccessConstraintCreateBiometry");
+    CFDictionaryRef bioRef = CFDictionaryGetValue(biometry, CFSTR(kACMKeyAclConstraintBio));
+    ok(isDictionary(bioRef), "SecAccessConstraintCreateBiometry");
+    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioCatacombUUID)), uuidData, "SecAccessConstraintCreateBiometry");
+    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioDatabaseHash)), uuidData, "SecAccessConstraintCreateBiometry");
     CFReleaseNull(error);
-    CFReleaseNull(touchID);
+    CFReleaseNull(biometry);
     CFReleaseNull(uuidData);
     CFReleaseNull(uuidString);
     CFReleaseNull(uuid);
@@ -188,22 +188,22 @@ static void tests(void)
     uuid = CFUUIDCreate(allocator);
     uuidString = CFUUIDCreateString(allocator, uuid);
     uuidData = CFStringCreateExternalRepresentation(allocator, uuidString, kCFStringEncodingUTF8, 0);
-    touchID = SecAccessConstraintCreateTouchIDAny(allocator, uuidData);
-    // TouchID constraint
-    ok(touchID != NULL, "SecAccessConstraintCreateTouchID: %@", error);
-    ok(isDictionary(touchID), "SecAccessConstraintCreateTouchID");
-    ok(CFDictionaryGetValue(touchID, CFSTR(kACMKeyAclConstraintBio)), "SecAccessConstraintCreateTouchID");
-    bioRef = CFDictionaryGetValue(touchID, CFSTR(kACMKeyAclConstraintBio));
-    ok(isDictionary(bioRef), "SecAccessConstraintCreateTouchID");
-    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioCatacombUUID)), uuidData, "SecAccessConstraintCreateTouchID");
+    biometry = SecAccessConstraintCreateBiometryAny(allocator, uuidData);
+    // Biometry constraint
+    ok(biometry != NULL, "SecAccessConstraintCreateBiometry: %@", error);
+    ok(isDictionary(biometry), "SecAccessConstraintCreateBiometry");
+    ok(CFDictionaryGetValue(biometry, CFSTR(kACMKeyAclConstraintBio)), "SecAccessConstraintCreateBiometry");
+    bioRef = CFDictionaryGetValue(biometry, CFSTR(kACMKeyAclConstraintBio));
+    ok(isDictionary(bioRef), "SecAccessConstraintCreateBiometry");
+    is(CFDictionaryGetValue(bioRef, CFSTR(kACMKeyAclParamBioCatacombUUID)), uuidData, "SecAccessConstraintCreateBiometry");
     CFReleaseNull(error);
-    // CFReleaseNull(touchID); touchID will be used in later tests
+    // CFReleaseNull(biometry); biometry will be used in later tests
     CFReleaseNull(uuidData);
     CFReleaseNull(uuidString);
     CFReleaseNull(uuid);
 
     // KofN constraint
-    CFTypeRef constraints_array[] = { passcode, touchID };
+    CFTypeRef constraints_array[] = { passcode, biometry };
     CFArrayRef constraintsArray = CFArrayCreate(allocator, constraints_array, array_size(constraints_array), &kCFTypeArrayCallBacks);
     SecAccessConstraintRef kofn = SecAccessConstraintCreateKofN(allocator, 1, constraintsArray, &error);
     ok(kofn != NULL, "SecAccessConstraintCreateKofN: %@", error);
@@ -221,14 +221,14 @@ static void tests(void)
     CFReleaseNull(passcode);
 
     // Add ACL constraint for operation
-    result = SecAccessControlAddConstraintForOperation(acl, kAKSKeyOpDecrypt, touchID, &error);
+    result = SecAccessControlAddConstraintForOperation(acl, kAKSKeyOpDecrypt, biometry, &error);
     ok(result, "SecAccessControlAddConstraintForOperation: %@", error);
     CFReleaseNull(error);
 
     // Get ACL operation constraint
     SecAccessConstraintRef constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpDecrypt);
-    is(constraint, touchID, "SecAccessControlGetConstraint");
-    CFReleaseNull(touchID);
+    is(constraint, biometry, "SecAccessControlGetConstraint");
+    CFReleaseNull(biometry);
 
     // Add ACL constraint for operation (kCFBooleanTrue)
     result = SecAccessControlAddConstraintForOperation(acl, kAKSKeyOpDecrypt, kCFBooleanTrue, &error);

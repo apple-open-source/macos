@@ -115,6 +115,18 @@
         [self addDependency:op];
     }
 }
+
+- (void)removeDependenciesUponCompletion
+{
+    __weak __typeof(self) weakSelf = self;
+    self.completionBlock = ^{
+        __strong __typeof(weakSelf) strongSelf = weakSelf;
+        for (NSOperation *op in strongSelf.dependencies) {
+            [strongSelf removeDependency:op];
+        }
+    };
+}
+
 @end
 
 @implementation NSBlockOperation (CKKSUsefulConstructorOperation)

@@ -25,6 +25,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3F8612A81F44E594005C0C7F /* GMetric.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8612A61F44E594005C0C7F /* GMetric.cpp */; };
+		3F8612A91F44E594005C0C7F /* GMetric.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 3F8612A71F44E594005C0C7F /* GMetric.hpp */; };
+		3F8612B51F4CD852005C0C7F /* iogctl.m in Sources */ = {isa = PBXBuildFile; fileRef = 3F8612B41F4CD852005C0C7F /* iogctl.m */; };
+		3F8F971E1F3A876F00C236A6 /* GTraceTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* GTraceTypes.h */; };
+		3F8F97211F3A98B700C236A6 /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
 		72E5E80C1EA01BCA000FEB21 /* GTrace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72E5E8081EA01B28000FEB21 /* GTrace.cpp */; };
 		72E5E8151EA01D66000FEB21 /* GTrace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72E5E8081EA01B28000FEB21 /* GTrace.cpp */; };
 		A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488E600BB00FE11CA2A5F /* IOBootFramebuffer.h */; };
@@ -140,6 +145,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		3F8612B01F4CD852005C0C7F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		A68335BD0D450E6600307FE3 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -312,6 +326,14 @@
 		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
 		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
 		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
+		3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GMetricTypes.h; path = GMetric/GMetricTypes.h; sourceTree = SOURCE_ROOT; };
+		3F8612A61F44E594005C0C7F /* GMetric.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = GMetric.cpp; path = GMetric/GMetric.cpp; sourceTree = SOURCE_ROOT; };
+		3F8612A71F44E594005C0C7F /* GMetric.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = GMetric.hpp; path = IOGraphicsFamily/GMetric.hpp; sourceTree = SOURCE_ROOT; };
+		3F8612B21F4CD852005C0C7F /* iogctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iogctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F8612B41F4CD852005C0C7F /* iogctl.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = iogctl.m; path = tools/iogctl.m; sourceTree = "<group>"; };
+		3F8F971D1F3A876F00C236A6 /* GTraceTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GTraceTypes.h; path = GTrace/GTraceTypes.h; sourceTree = SOURCE_ROOT; };
+		3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOGDiagnoseUtils.h; sourceTree = "<group>"; };
+		3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOGDiagnoseUtils.cpp; sourceTree = "<group>"; };
 		72037F051E4D0641008F9C6C /* IOGraphicsKTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOGraphicsKTrace.h; sourceTree = "<group>"; };
 		72E5E8071EA01B1B000FEB21 /* GTrace.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = GTrace.hpp; path = GTrace/GTrace.hpp; sourceTree = SOURCE_ROOT; };
 		72E5E8081EA01B28000FEB21 /* GTrace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GTrace.cpp; path = GTrace/GTrace.cpp; sourceTree = SOURCE_ROOT; };
@@ -335,6 +357,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		3F8612AF1F4CD852005C0C7F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A68335930D450E6600307FE3 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -363,6 +392,7 @@
 		015488CD00BAFF6C11CA2A5F = {
 			isa = PBXGroup;
 			children = (
+				3F8612B31F4CD852005C0C7F /* tools */,
 				C026C4751E044B550061BD4A /* iogdiagnose */,
 				015488CF00BB000A11CA2A5F /* Products */,
 				015488E200BB00FE11CA2A5F /* IOGraphicsFamily */,
@@ -381,6 +411,7 @@
 				A68335E20D450E6600307FE3 /* Headers */,
 				A68335F50D450E6600307FE3 /* IONDRVSupport Headers */,
 				C026C4741E044B550061BD4A /* iogdiagnose */,
+				3F8612B21F4CD852005C0C7F /* iogctl */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -401,6 +432,7 @@
 				015488EF00BB00FE11CA2A5F /* IOGraphicsDevice.cpp */,
 				03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */,
 				72E5E8081EA01B28000FEB21 /* GTrace.cpp */,
+				3F8612A61F44E594005C0C7F /* GMetric.cpp */,
 			);
 			path = IOGraphicsFamily;
 			sourceTree = "<group>";
@@ -476,6 +508,23 @@
 			path = ndrvsupport;
 			sourceTree = "<group>";
 		};
+		3F8612B31F4CD852005C0C7F /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				3F8612B41F4CD852005C0C7F /* iogctl.m */,
+			);
+			name = tools;
+			sourceTree = "<group>";
+		};
+		3F8F97231F3AA31300C236A6 /* IOGDiagnoseUtils */ = {
+			isa = PBXGroup;
+			children = (
+				3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */,
+				3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.h */,
+			);
+			path = IOGDiagnoseUtils;
+			sourceTree = "<group>";
+		};
 		72E5E80F1EA01C0A000FEB21 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -496,6 +545,9 @@
 				C026C46F1E044B360061BD4A /* IOGraphicsPrivate.h */,
 				72037F051E4D0641008F9C6C /* IOGraphicsKTrace.h */,
 				72E5E8071EA01B1B000FEB21 /* GTrace.hpp */,
+				3F8F971D1F3A876F00C236A6 /* GTraceTypes.h */,
+				3F8612A71F44E594005C0C7F /* GMetric.hpp */,
+				3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */,
 			);
 			name = "Private Headers";
 			sourceTree = "<group>";
@@ -514,6 +566,7 @@
 		C026C4751E044B550061BD4A /* iogdiagnose */ = {
 			isa = PBXGroup;
 			children = (
+				3F8F97231F3AA31300C236A6 /* IOGDiagnoseUtils */,
 				C026C47E1E044E440061BD4A /* iogdiagnose.cpp */,
 				C026C47C1E044D1E0061BD4A /* IOKit.framework */,
 			);
@@ -527,6 +580,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3F8612A91F44E594005C0C7F /* GMetric.hpp in Headers */,
+				3F8F971E1F3A876F00C236A6 /* GTraceTypes.h in Headers */,
 				A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */,
 				A68335770D450E6600307FE3 /* IOCursorBlits.h in Headers */,
 				A68335780D450E6600307FE3 /* IODisplayWrangler.h in Headers */,
@@ -580,6 +635,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		3F8612B11F4CD852005C0C7F /* iogctl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F8612B91F4CD852005C0C7F /* Build configuration list for PBXNativeTarget "iogctl" */;
+			buildPhases = (
+				3F8612AE1F4CD852005C0C7F /* Sources */,
+				3F8612AF1F4CD852005C0C7F /* Frameworks */,
+				3F8612B01F4CD852005C0C7F /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iogctl;
+			productName = iogctl;
+			productReference = 3F8612B21F4CD852005C0C7F /* iogctl */;
+			productType = "com.apple.product-type.tool";
+		};
 		A68335730D450E6600307FE3 /* IOGraphicsFamily */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A68335950D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphicsFamily" */;
@@ -685,6 +757,9 @@
 			attributes = {
 				LastUpgradeCheck = 0820;
 				TargetAttributes = {
+					3F8612B11F4CD852005C0C7F = {
+						CreatedOnToolsVersion = 9.0;
+					};
 					C026C4731E044B550061BD4A = {
 						CreatedOnToolsVersion = 7.3.1;
 					};
@@ -708,6 +783,7 @@
 				A68335B50D450E6600307FE3 /* IOGraphics Headers */,
 				A68335E40D450E6600307FE3 /* IONDRVSupport Headers */,
 				C026C4731E044B550061BD4A /* iogdiagnose */,
+				3F8612B11F4CD852005C0C7F /* iogctl */,
 			);
 		};
 /* End PBXProject section */
@@ -730,6 +806,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		3F8612AE1F4CD852005C0C7F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3F8612B51F4CD852005C0C7F /* iogctl.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A68335880D450E6600307FE3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -744,6 +828,7 @@
 				A683358F0D450E6600307FE3 /* IOFramebufferUserClient.cpp in Sources */,
 				A68335900D450E6600307FE3 /* IOGraphicsDevice.cpp in Sources */,
 				A68335910D450E6600307FE3 /* IOI2CInterface.cpp in Sources */,
+				3F8612A81F44E594005C0C7F /* GMetric.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -762,6 +847,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C026C47F1E044E440061BD4A /* iogdiagnose.cpp in Sources */,
+				3F8F97211F3A98B700C236A6 /* IOGDiagnoseUtils.cpp in Sources */,
 				72E5E8151EA01D66000FEB21 /* GTrace.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -797,6 +883,160 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		3F8612B61F4CD852005C0C7F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Development;
+		};
+		3F8612B71F4CD852005C0C7F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Deployment;
+		};
+		3F8612B81F4CD852005C0C7F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Default;
+		};
 		A68335490D450E1000307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -940,11 +1180,18 @@
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
+					"APPLE_KEXT_ASSERTIONS=1",
+					"ENABLE_TELEMETRY=1",
+					"IOG_GMETRIC=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1460,6 +1707,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3F8612B91F4CD852005C0C7F /* Build configuration list for PBXNativeTarget "iogctl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3F8612B61F4CD852005C0C7F /* Development */,
+				3F8612B71F4CD852005C0C7F /* Deployment */,
+				3F8612B81F4CD852005C0C7F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		A683355B0D450E1000307FE3 /* Build configuration list for PBXProject "IOGraphics" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

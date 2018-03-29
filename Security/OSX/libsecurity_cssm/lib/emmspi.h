@@ -85,13 +85,6 @@ enum {
 	CSSM_HINT_ADDRESS_SP =		1 << 1
 };
 
-CSSM_RETURN CSSMAPI
-ModuleManagerAuthenticate (CSSM_KEY_HIERARCHY KeyHierarchy,
-                           const CSSM_GUID *CssmGuid,
-                           const CSSM_GUID *AppGuid,
-                           CSSM_MANAGER_REGISTRATION_INFO_PTR FunctionTable)
-						DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-
 #pragma clang diagnostic pop
 
 #ifdef __cplusplus

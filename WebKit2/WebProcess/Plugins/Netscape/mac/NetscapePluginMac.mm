@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +35,9 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/MachSendRight.h>
 #import <WebCore/NotImplemented.h>
-#import <WebKitSystemInterface.h>
 #import <objc/runtime.h>
+#import <pal/spi/mac/HIToolboxSPI.h>
+#import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/StringView.h>
 
@@ -157,7 +158,6 @@ NPBool NetscapePlugin::convertPoint(double sourceX, double sourceY, NPCoordinate
     return false;
 }
 
-
 NPError NetscapePlugin::popUpContextMenu(NPMenu* npMenu)
 {
     if (!m_currentMouseEvent)
@@ -167,7 +167,7 @@ NPError NetscapePlugin::popUpContextMenu(NPMenu* npMenu)
     if (!convertPoint(m_currentMouseEvent->data.mouse.pluginX, m_currentMouseEvent->data.mouse.pluginY, NPCoordinateSpacePlugin, screenX, screenY, NPCoordinateSpaceScreen))
         ASSERT_NOT_REACHED();
 
-    WKPopupContextMenu(reinterpret_cast<NSMenu *>(npMenu), NSMakePoint(screenX, screenY));
+    _NSPopUpCarbonMenu3(reinterpret_cast<NSMenu *>(npMenu), nil, nil, NSMakePoint(screenX, screenY), -1, nil, 0, nil, NSPopUpMenuTypeContext, nil);
     return NPERR_NO_ERROR;
 }
 
@@ -988,6 +988,21 @@ static bool convertStringToKeyCodes(StringView string, ScriptCode scriptCode, Ve
 }
 #endif
 
+#ifndef NP_NO_CARBON
+static ScriptCode scriptCodeFromCurrentKeyboardInputSource()
+{
+    ScriptCode scriptCode = smRoman;
+    auto inputSource = adoptCF(TISCopyCurrentKeyboardInputSource());
+
+    CFTypeRef scriptCodeNumber = TSMGetInputSourceProperty((TSMInputSourceRef)inputSource.get(), kTSMInputSourcePropertyScriptCode);
+    ASSERT(CFGetTypeID(scriptCodeNumber) == CFNumberGetTypeID());
+    if (scriptCodeNumber)
+        CFNumberGetValue((CFNumberRef)scriptCodeNumber, kCFNumberSInt16Type, &scriptCode);
+
+    return scriptCode;
+}
+#endif
+
 void NetscapePlugin::sendComplexTextInput(const String& textInput)
 {
     if (!m_pluginWantsLegacyCocoaTextInput) {
@@ -1011,7 +1026,7 @@ void NetscapePlugin::sendComplexTextInput(const String& textInput)
     }
 #ifndef NP_NO_CARBON
     case NPEventModelCarbon: {
-        ScriptCode scriptCode = WKGetScriptCodeFromCurrentKeyboardInputSource();
+        ScriptCode scriptCode = scriptCodeFromCurrentKeyboardInputSource();
         Vector<UInt8> keyCodes;
 
         if (!convertStringToKeyCodes(textInput, scriptCode, keyCodes))

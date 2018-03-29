@@ -1597,6 +1597,12 @@ gui_mch_get_color(char_u *name)
     return gui_get_color_cmn(name);
 }
 
+    guicolor_T
+gui_mch_get_rgb_color(int r, int g, int b)
+{
+    return gui_get_rgb_color_cmn(r, g, b);
+}
+
 /*
  * Return OK if the key with the termcap name "name" is supported.
  */
@@ -1834,6 +1840,7 @@ process_message(void)
 	{
 	    trash_input_buf();
 	    got_int = TRUE;
+	    ctrl_break_was_pressed = TRUE;
 	    string[0] = Ctrl_C;
 	    add_to_input_buf(string, 1);
 	}
@@ -2066,20 +2073,23 @@ gui_mch_wait_for_chars(int wtime)
 	did_add_timer = FALSE;
 #endif
 #ifdef MESSAGE_QUEUE
-	/* Check channel while waiting message. */
+	/* Check channel I/O while waiting for a message. */
 	for (;;)
 	{
 	    MSG msg;
 
 	    parse_queued_messages();
 
-	    if (pPeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)
-		|| MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT)
-								!= WAIT_TIMEOUT)
+	    if (pPeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE))
+	    {
+		process_message();
+		break;
+	    }
+	    else if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT)
+							       != WAIT_TIMEOUT)
 		break;
 	}
-#endif
-
+#else
 	/*
 	 * Don't use gui_mch_update() because then we will spin-lock until a
 	 * char arrives, instead we use GetMessage() to hang until an
@@ -2087,6 +2097,7 @@ gui_mch_wait_for_chars(int wtime)
 	 * returning as soon as it contains a single char -- webb
 	 */
 	process_message();
+#endif
 
 	if (input_available())
 	{
@@ -2936,13 +2947,11 @@ _OnActivateApp(
     return MyWindowProc(hwnd, WM_ACTIVATEAPP, fActivate, (DWORD)dwThreadId);
 }
 
-#if defined(FEAT_WINDOWS) || defined(PROTO)
     void
 gui_mch_destroy_scrollbar(scrollbar_T *sb)
 {
     DestroyWindow(sb->id);
 }
-#endif
 
 /*
  * Get current mouse coordinates in text window.
@@ -3376,8 +3385,9 @@ gui_mch_maximized(void)
 }
 
 /*
- * Called when the font changed while the window is maximized.  Compute the
- * new Rows and Columns.  This is like resizing the window.
+ * Called when the font changed while the window is maximized or GO_KEEPWINSIZE
+ * is set.  Compute the new Rows and Columns.  This is like resizing the
+ * window.
  */
     void
 gui_mch_newfont(void)
@@ -3774,12 +3784,11 @@ _OnDropFiles(
     HWND hwnd UNUSED,
     HDROP hDrop)
 {
-#ifdef FEAT_WINDOWS
-# define BUFPATHLEN _MAX_PATH
-# define DRAGQVAL 0xFFFFFFFF
-# ifdef FEAT_MBYTE
+#define BUFPATHLEN _MAX_PATH
+#define DRAGQVAL 0xFFFFFFFF
+#ifdef FEAT_MBYTE
     WCHAR   wszFile[BUFPATHLEN];
-# endif
+#endif
     char    szFile[BUFPATHLEN];
     UINT    cFiles = DragQueryFile(hDrop, DRAGQVAL, NULL, 0);
     UINT    i;
@@ -3800,11 +3809,11 @@ _OnDropFiles(
     if (fnames != NULL)
 	for (i = 0; i < cFiles; ++i)
 	{
-# ifdef FEAT_MBYTE
+#ifdef FEAT_MBYTE
 	    if (DragQueryFileW(hDrop, i, wszFile, BUFPATHLEN) > 0)
 		fnames[i] = utf16_to_enc(wszFile, NULL);
 	    else
-# endif
+#endif
 	    {
 		DragQueryFile(hDrop, i, szFile, BUFPATHLEN);
 		fnames[i] = vim_strsave((char_u *)szFile);
@@ -3826,7 +3835,6 @@ _OnDropFiles(
 
 	s_need_activate = TRUE;
     }
-#endif
 }
 
     static int
@@ -4377,7 +4385,7 @@ add_dialog_element(
 	WORD clss,
 	const char *caption);
 static LPWORD lpwAlign(LPWORD);
-static int nCopyAnsiToWideChar(LPWORD, LPSTR);
+static int nCopyAnsiToWideChar(LPWORD, LPSTR, BOOL);
 #if defined(FEAT_MENU) && defined(FEAT_TEAROFF)
 static void gui_mch_tearoff(char_u *title, vimmenu_T *menu, int initX, int initY);
 #endif
@@ -5452,9 +5460,7 @@ gui_mch_init(void)
 #endif
     s_hdc = GetDC(s_textArea);
 
-#ifdef FEAT_WINDOWS
     DragAcceptFiles(s_hwnd, TRUE);
-#endif
 
     /* Do we need to bother with this? */
     /* m_fMouseAvail = GetSystemMetrics(SM_MOUSEPRESENT); */
@@ -5770,7 +5776,7 @@ _OnImeNotify(HWND hWnd, DWORD dwCommand, DWORD dwData UNUSED)
 		State &= ~LANGMAP;
 		if (State & INSERT)
 		{
-#if defined(FEAT_WINDOWS) && defined(FEAT_KEYMAP)
+#if defined(FEAT_KEYMAP)
 		    /* Unshown 'keymap' in status lines */
 		    if (curbuf->b_p_iminsert == B_IMODE_LMAP)
 		    {
@@ -6290,8 +6296,8 @@ gui_mch_draw_string(
 
     if (enc_utf8 && n < len && unicodebuf != NULL)
     {
-	/* Output UTF-8 characters.  Caller has already separated
-	 * composing characters. */
+	/* Output UTF-8 characters.  Composing characters should be
+	 * handled here. */
 	int		i;
 	int		wlen;	/* string length in words */
 	int		clen;	/* string length in characters */
@@ -6315,9 +6321,16 @@ gui_mch_draw_string(
 	    {
 		unicodebuf[wlen++] = c;
 	    }
-	    cw = utf_char2cells(c);
-	    if (cw > 2)		/* don't use 4 for unprintable char */
-		cw = 1;
+
+	    if (utf_iscomposing(c))
+		cw = 0;
+	    else
+	    {
+		cw = utf_char2cells(c);
+		if (cw > 2)		/* don't use 4 for unprintable char */
+		    cw = 1;
+	    }
+
 	    if (unicodepdy != NULL)
 	    {
 		/* Use unicodepdy to make characters fit as we expect, even
@@ -6332,7 +6345,7 @@ gui_mch_draw_string(
 		    unicodepdy[wlen - 1] = cw * gui.char_width;
 	    }
 	    cells += cw;
-	    i += utfc_ptr2len_len(text + i, len - i);
+	    i += utf_ptr2len_len(text + i, len - i);
 	    ++clen;
 	}
 #if defined(FEAT_DIRECTX)
@@ -6410,6 +6423,18 @@ gui_mch_draw_string(
 	y = FILL_Y(row + 1) - 1;
 	if (p_linespace > 1)
 	    y -= p_linespace - 1;
+	MoveToEx(s_hdc, FILL_X(col), y, NULL);
+	/* Note: LineTo() excludes the last pixel in the line. */
+	LineTo(s_hdc, FILL_X(col + len), y);
+	DeleteObject(SelectObject(s_hdc, old_pen));
+    }
+
+    /* Strikethrough */
+    if (flags & DRAW_STRIKE)
+    {
+	hpen = CreatePen(PS_SOLID, 1, gui.currSpColor);
+	old_pen = SelectObject(s_hdc, hpen);
+	y = FILL_Y(row + 1) - gui.char_height/2;
 	MoveToEx(s_hdc, FILL_X(col), y, NULL);
 	/* Note: LineTo() excludes the last pixel in the line. */
 	LineTo(s_hdc, FILL_X(col + len), y);
@@ -6591,7 +6616,7 @@ gui_make_popup(char_u *path_name, int mouse_pos)
 	}
 	else if (curwin != NULL)
 	{
-	    p.x += TEXT_X(W_WINCOL(curwin) + curwin->w_wcol + 1);
+	    p.x += TEXT_X(curwin->w_wincol + curwin->w_wcol + 1);
 	    p.y += TEXT_Y(W_WINROW(curwin) + curwin->w_wrow + 1);
 	}
 	msg_scroll = FALSE;
@@ -7267,9 +7292,8 @@ gui_mch_dialog(
     add_word(0);	// Class
 
     /* copy the title of the dialog */
-    nchar = nCopyAnsiToWideChar(p, (title ?
-				    (LPSTR)title :
-				    (LPSTR)("Vim "VIM_VERSION_MEDIUM)));
+    nchar = nCopyAnsiToWideChar(p, (title ? (LPSTR)title
+				   : (LPSTR)("Vim "VIM_VERSION_MEDIUM)), TRUE);
     p += nchar;
 
     if (s_usenewlook)
@@ -7281,13 +7305,13 @@ gui_mch_dialog(
 	    /* point size */
 	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
 		    GetDeviceCaps(hdc, LOGPIXELSY));
-	    nchar = nCopyAnsiToWideChar(p, TEXT(lfSysmenu.lfFaceName));
+	    nchar = nCopyAnsiToWideChar(p, lfSysmenu.lfFaceName, FALSE);
 	}
 	else
 #endif
 	{
 	    *p++ = DLG_FONT_POINT_SIZE;		// point size
-	    nchar = nCopyAnsiToWideChar(p, TEXT(DLG_FONT_NAME));
+	    nchar = nCopyAnsiToWideChar(p, DLG_FONT_NAME, FALSE);
 	}
 	p += nchar;
     }
@@ -7468,7 +7492,7 @@ add_dialog_element(
     *p++ = (WORD)0xffff;
     *p++ = clss;			//2 more here
 
-    nchar = nCopyAnsiToWideChar(p, (LPSTR)caption); //strlen(caption)+1
+    nchar = nCopyAnsiToWideChar(p, (LPSTR)caption, TRUE); //strlen(caption)+1
     p += nchar;
 
     *p++ = 0;  // advance pointer over nExtraStuff WORD   - 2 more
@@ -7500,11 +7524,13 @@ lpwAlign(
  * parameter as wide character (16-bits / char) string, and returns integer
  * number of wide characters (words) in string (including the trailing wide
  * char NULL).  Partly taken from the Win32SDK samples.
- */
+ * If "use_enc" is TRUE, 'encoding' is used for "lpAnsiIn". If FALSE, current
+ * ACP is used for "lpAnsiIn". */
     static int
 nCopyAnsiToWideChar(
     LPWORD lpWCStr,
-    LPSTR lpAnsiIn)
+    LPSTR lpAnsiIn,
+    BOOL use_enc)
 {
     int		nChar = 0;
 #ifdef FEAT_MBYTE
@@ -7512,7 +7538,7 @@ nCopyAnsiToWideChar(
     int		i;
     WCHAR	*wn;
 
-    if (enc_codepage == 0 && (int)GetACP() != enc_codepage)
+    if (use_enc && enc_codepage >= 0 && (int)GetACP() != enc_codepage)
     {
 	/* Not a codepage, use our own conversion function. */
 	wn = enc_to_utf16((char_u *)lpAnsiIn, NULL);
@@ -7550,6 +7576,26 @@ nCopyAnsiToWideChar(
 
 #ifdef FEAT_TEAROFF
 /*
+ * Lookup menu handle from "menu_id".
+ */
+    static HMENU
+tearoff_lookup_menuhandle(
+    vimmenu_T *menu,
+    WORD menu_id)
+{
+    for ( ; menu != NULL; menu = menu->next)
+    {
+	if (menu->modes == 0)	/* this menu has just been deleted */
+	    continue;
+	if (menu_is_separator(menu->dname))
+	    continue;
+	if ((WORD)((long_u)(menu->submenu_id) | (DWORD)0x8000) == menu_id)
+	    return menu->submenu_id;
+    }
+    return NULL;
+}
+
+/*
  * The callback function for all the modeless dialogs that make up the
  * "tearoff menus" Very simple - forward button presses (to fool Vim into
  * thinking its menus have been clicked), and go away when closed.
@@ -7562,7 +7608,10 @@ tearoff_callback(
     LPARAM lParam)
 {
     if (message == WM_INITDIALOG)
+    {
+	SetWindowLongPtr(hwnd, DWLP_USER, (LONG_PTR)lParam);
 	return (TRUE);
+    }
 
     /* May show the mouse pointer again. */
     HandleMouseHide(message, lParam);
@@ -7576,8 +7625,11 @@ tearoff_callback(
 
 	    if (GetCursorPos(&mp) && GetWindowRect(hwnd, &rect))
 	    {
+		vimmenu_T *menu;
+
+		menu = (vimmenu_T*)GetWindowLongPtr(hwnd, DWLP_USER);
 		(void)TrackPopupMenu(
-			 (HMENU)(long_u)(LOWORD(wParam) ^ 0x8000),
+			 tearoff_lookup_menuhandle(menu, LOWORD(wParam)),
 			 TPM_LEFTALIGN | TPM_LEFTBUTTON,
 			 (int)rect.right - 8,
 			 (int)mp.y,
@@ -7689,6 +7741,7 @@ gui_mch_tearoff(
     WORD	dlgwidth;
     WORD	menuID;
     vimmenu_T	*pmenu;
+    vimmenu_T	*top_menu;
     vimmenu_T	*the_menu = menu;
     HWND	hwnd;
     HDC		hdc;
@@ -7835,8 +7888,8 @@ gui_mch_tearoff(
 
     /* copy the title of the dialog */
     nchar = nCopyAnsiToWideChar(p, ((*title)
-				    ? (LPSTR)title
-				    : (LPSTR)("Vim "VIM_VERSION_MEDIUM)));
+			    ? (LPSTR)title
+			    : (LPSTR)("Vim "VIM_VERSION_MEDIUM)), TRUE);
     p += nchar;
 
     if (s_usenewlook)
@@ -7848,13 +7901,13 @@ gui_mch_tearoff(
 	    /* point size */
 	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
 		    GetDeviceCaps(hdc, LOGPIXELSY));
-	    nchar = nCopyAnsiToWideChar(p, TEXT(lfSysmenu.lfFaceName));
+	    nchar = nCopyAnsiToWideChar(p, lfSysmenu.lfFaceName, FALSE);
 	}
 	else
 #endif
 	{
 	    *p++ = DLG_FONT_POINT_SIZE;		// point size
-	    nchar = nCopyAnsiToWideChar (p, TEXT(DLG_FONT_NAME));
+	    nchar = nCopyAnsiToWideChar(p, DLG_FONT_NAME, FALSE);
 	}
 	p += nchar;
     }
@@ -7867,6 +7920,7 @@ gui_mch_tearoff(
 	menu = menu->children->next;
     else
 	menu = menu->children;
+    top_menu = menu;
     for ( ; menu != NULL; menu = menu->next)
     {
 	if (menu->modes == 0)	/* this menu has just been deleted */
@@ -7977,11 +8031,12 @@ gui_mch_tearoff(
 
 
     /* show modelessly */
-    the_menu->tearoff_handle = CreateDialogIndirect(
+    the_menu->tearoff_handle = CreateDialogIndirectParam(
 	    s_hinst,
 	    (LPDLGTEMPLATE)pdlgtemplate,
 	    s_hwnd,
-	    (DLGPROC)tearoff_callback);
+	    (DLGPROC)tearoff_callback,
+	    (LPARAM)top_menu);
 
     LocalFree(LocalHandle(pdlgtemplate));
     SelectFont(hdc, oldFont);
@@ -8133,6 +8188,34 @@ initialise_tabline(void)
 # endif
 }
 
+/*
+ * Get tabpage_T from POINT.
+ */
+    static tabpage_T *
+GetTabFromPoint(
+    HWND    hWnd,
+    POINT   pt)
+{
+    tabpage_T	*ptp = NULL;
+
+    if (gui_mch_showing_tabline())
+    {
+	TCHITTESTINFO htinfo;
+	htinfo.pt = pt;
+	/* ignore if a window under cusor is not tabcontrol. */
+	if (s_tabhwnd == hWnd)
+	{
+	    int idx = TabCtrl_HitTest(s_tabhwnd, &htinfo);
+	    if (idx != -1)
+		ptp = find_tabpage(idx + 1);
+	}
+    }
+    return ptp;
+}
+
+static POINT	    s_pt = {0, 0};
+static HCURSOR      s_hCursor = NULL;
+
     static LRESULT CALLBACK
 tabline_wndproc(
     HWND hwnd,
@@ -8140,7 +8223,73 @@ tabline_wndproc(
     WPARAM wParam,
     LPARAM lParam)
 {
+    POINT	pt;
+    tabpage_T	*tp;
+    RECT	rect;
+    int		nCenter;
+    int		idx0;
+    int		idx1;
+
     HandleMouseHide(uMsg, lParam);
+
+    switch (uMsg)
+    {
+	case WM_LBUTTONDOWN:
+	    {
+		s_pt.x = GET_X_LPARAM(lParam);
+		s_pt.y = GET_Y_LPARAM(lParam);
+		SetCapture(hwnd);
+		s_hCursor = GetCursor(); /* backup default cursor */
+		break;
+	    }
+	case WM_MOUSEMOVE:
+	    if (GetCapture() == hwnd
+		    && ((wParam & MK_LBUTTON)) != 0)
+	    {
+		pt.x = GET_X_LPARAM(lParam);
+		pt.y = s_pt.y;
+		if (abs(pt.x - s_pt.x) > GetSystemMetrics(SM_CXDRAG))
+		{
+		    SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+
+		    tp = GetTabFromPoint(hwnd, pt);
+		    if (tp != NULL)
+		    {
+			idx0 = tabpage_index(curtab) - 1;
+			idx1 = tabpage_index(tp) - 1;
+
+			TabCtrl_GetItemRect(hwnd, idx1, &rect);
+			nCenter = rect.left + (rect.right - rect.left) / 2;
+
+			/* Check if the mouse cursor goes over the center of
+			 * the next tab to prevent "flickering". */
+			if ((idx0 < idx1) && (nCenter < pt.x))
+			{
+			    tabpage_move(idx1 + 1);
+			    update_screen(0);
+			}
+			else if ((idx1 < idx0) && (pt.x < nCenter))
+			{
+			    tabpage_move(idx1);
+			    update_screen(0);
+			}
+		    }
+		}
+	    }
+	    break;
+	case WM_LBUTTONUP:
+	    {
+		if (GetCapture() == hwnd)
+		{
+		    SetCursor(s_hCursor);
+		    ReleaseCapture();
+		}
+		break;
+	    }
+	default:
+	    break;
+    }
+
     return CallWindowProc(s_tabline_wndproc, hwnd, uMsg, wParam, lParam);
 }
 #endif

@@ -36,6 +36,7 @@
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
+#include <wtf/LoggerHelper.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
 
@@ -46,6 +47,9 @@ class InbandTextTrackPrivateAVF;
 class GenericCueData;
 
 class MediaPlayerPrivateAVFoundation : public MediaPlayerPrivateInterface, public AVFInbandTrackParent
+#if !RELEASE_LOG_DISABLED
+    , private LoggerHelper
+#endif
 {
 public:
     virtual void repaint();
@@ -144,11 +148,18 @@ public:
     static bool extractKeyURIKeyIDAndCertificateFromInitData(Uint8Array* initData, String& keyURI, String& keyID, RefPtr<Uint8Array>& certificate);
 #endif
 
+#if !RELEASE_LOG_DISABLED
+    const Logger& logger() const final { return m_logger.get(); }
+    const char* logClassName() const override { return "MediaPlayerPrivateAVFoundation"; }
+    const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
+    WTFLogChannel& logChannel() const final;
+#endif
+
 protected:
     explicit MediaPlayerPrivateAVFoundation(MediaPlayer*);
     virtual ~MediaPlayerPrivateAVFoundation();
 
-    WeakPtr<MediaPlayerPrivateAVFoundation> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+    WeakPtr<MediaPlayerPrivateAVFoundation> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
 
     // MediaPlayerPrivatePrivateInterface overrides.
     void load(const String& url) override;
@@ -204,8 +215,10 @@ protected:
     bool supportsScanning() const override { return true; }
     unsigned long long fileSize() const override { return totalBytes(); }
 
+    bool hasSingleSecurityOrigin() const override;
+
     // Required interfaces for concrete derived classes.
-    virtual void createAVAssetForURL(const String&) = 0;
+    virtual void createAVAssetForURL(const URL&) = 0;
     virtual void createAVPlayer() = 0;
     virtual void createAVPlayerItem() = 0;
 
@@ -259,6 +272,7 @@ protected:
     virtual bool hasLayerRenderer() const = 0;
 
     virtual void updateVideoLayerGravity() = 0;
+    virtual void resolvedURLChanged() = 0;
 
     static bool isUnsupportedMIMEType(const String&);
     static const HashSet<String, ASCIICaseInsensitiveHash>& staticMIMETypeList();
@@ -311,7 +325,8 @@ protected:
     void clearTextTracks();
     Vector<RefPtr<InbandTextTrackPrivateAVF>> m_textTracks;
 
-    virtual URL resolvedURL() const;
+    void setResolvedURL(URL&&);
+    const URL& resolvedURL() const { return m_resolvedURL; }
 
 private:
     MediaPlayer* m_player;
@@ -328,8 +343,17 @@ private:
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
 
-    String m_assetURL;
+    URL m_assetURL;
+    URL m_resolvedURL;
+    RefPtr<SecurityOrigin> m_requestedOrigin;
+    RefPtr<SecurityOrigin> m_resolvedOrigin;
+
     MediaPlayer::Preload m_preload;
+
+#if !RELEASE_LOG_DISABLED
+    Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 
     FloatSize m_cachedNaturalSize;
     mutable MediaTime m_cachedMaxTimeLoaded;

@@ -30,7 +30,7 @@
  */
 
 // for kextd_main
-int kextd_watch_volumes(int sourcePriority/*, CFRunLoopRef runloop*/);
+int kextd_watch_volumes(void);
 int kextd_giveup_volwatch();
 void kextd_stop_volwatch();
 

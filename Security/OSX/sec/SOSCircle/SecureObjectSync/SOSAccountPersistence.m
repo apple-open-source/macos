@@ -352,6 +352,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
                                        *der_p, der_end);
         
         if (*der_p == 0) {
+            CFReleaseNull(bKey);
             CFReleaseNull(expansion);
             return NULL;
         }
@@ -361,8 +362,10 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
         }
         CFReleaseNull(expansion);
     }
-    if(bKey != NULL)
+    if(bKey) {
         [account setBackup_key:[[NSData alloc] initWithData:(__bridge NSData * _Nonnull)(bKey)]];
+    }
+    CFReleaseNull(bKey);
 
     require_action_quiet(*der_p && *der_p == der_end, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Didn't consume all bytes v7"), (error != NULL) ? *error : NULL, error));
@@ -462,8 +465,10 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
         // if UpdateFullPeerInfo did something - we need to make sure we have the right Ref
         SOSPeerInfoRef myPI = account.peerInfo;
         CFStringRef transportTypeInflatedFromDER = SOSPeerInfoCopyTransportType(myPI);
-        if (CFStringCompare(transportTypeInflatedFromDER, CFSTR("IDS"), 0) == 0 || CFStringCompare(transportTypeInflatedFromDER, CFSTR("KVS"), 0) == 0)
-            SOSFullPeerInfoUpdateTransportType(identity, SOSTransportMessageTypeIDSV2, NULL); //update the transport type to the current IDS V2 type
+
+        if(CFStringCompare(transportTypeInflatedFromDER, CFSTR("KVS"), 0) != 0){
+            SOSFullPeerInfoUpdateTransportType(identity, SOSTransportMessageTypeKVS, NULL);
+        }
 
         CFReleaseNull(transportTypeInflatedFromDER);
     }
@@ -472,6 +477,7 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
     SOSAccountEnsureRecoveryRing(account);
 
     [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountCreateFromDER");
         account.key_interests_need_updating = true;
     }];
 

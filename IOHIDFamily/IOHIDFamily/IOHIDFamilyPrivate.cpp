@@ -401,6 +401,9 @@ void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
         intptr_t event = nxEventType;
         ioSys->message(kIOHIDSystemActivityTickle, sender, (void*)event);
     }
+#else
+    (void)nxEventType;
+    (void)sender;
 #endif
 }
 

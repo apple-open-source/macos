@@ -81,7 +81,7 @@ std::unique_ptr<ContentFilter> ContentFilter::create(DocumentLoader& documentLoa
     return std::make_unique<ContentFilter>(WTFMove(filters), documentLoader);
 }
 
-ContentFilter::ContentFilter(Container contentFilters, DocumentLoader& documentLoader)
+ContentFilter::ContentFilter(Container&& contentFilters, DocumentLoader& documentLoader)
     : m_contentFilters { WTFMove(contentFilters) }
     , m_documentLoader { documentLoader }
 {
@@ -253,14 +253,10 @@ void ContentFilter::deliverResourceData(CachedResource& resource)
 
 static const URL& blockedPageURL()
 {
-    static LazyNeverDestroyed<URL> blockedPageURL;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
+    static const auto blockedPageURL = makeNeverDestroyed([] () -> URL {
         auto webCoreBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebCore"));
-        auto blockedPageCFURL = adoptCF(CFBundleCopyResourceURL(webCoreBundle, CFSTR("ContentFilterBlockedPage"), CFSTR("html"), nullptr));
-        blockedPageURL.construct(blockedPageCFURL.get());
-    });
-
+        return adoptCF(CFBundleCopyResourceURL(webCoreBundle, CFSTR("ContentFilterBlockedPage"), CFSTR("html"), nullptr)).get();
+    }());
     return blockedPageURL;
 }
 

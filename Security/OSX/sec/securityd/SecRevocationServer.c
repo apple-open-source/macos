@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,6 +26,8 @@
  */
 
 #include <AssertMacros.h>
+
+#include <mach/mach_time.h>
 
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificateInternal.h>
@@ -182,7 +184,7 @@ static bool SecOCSPSingleResponseProcess(SecOCSPSingleResponseRef this,
             SInt32 reason = this->crlReason;
             CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
             SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
-                                  cfreason, true, kSecTrustResultFatalTrustFailure);
+                                  cfreason, true);
             if (rvc->builder) {
                 CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
                 if (info) {
@@ -221,7 +223,7 @@ typedef void (^SecOCSPEvaluationCompleted)(SecTrustResultType tr);
 
 static void
 SecOCSPEvaluateCompleted(const void *userData,
-                         SecCertificatePathRef chain, CFArrayRef details, CFDictionaryRef info,
+                         CFArrayRef chain, CFArrayRef details, CFDictionaryRef info,
                          SecTrustResultType result) {
     SecOCSPEvaluationCompleted evaluated = (SecOCSPEvaluationCompleted)userData;
     evaluated(result);
@@ -359,9 +361,6 @@ static void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspRe
     require_quiet(!rvc->ocspSingleResponse || rvc->ocspSingleResponse->thisUpdate < sr->thisUpdate, errOut);
 
     CFAbsoluteTime verifyTime = CFAbsoluteTimeGetCurrent();
-    /* TODO: If the responder doesn't have the ocsp-nocheck extension we should
-     check whether the leaf was revoked (we are already checking the rest of
-     the chain). */
     /* Check the OCSP response signature and verify the response. */
     require_quiet(SecOCSPResponseVerify(ocspResponse, rvc,
                                         sr->certStatus == CS_Revoked ? SecOCSPResponseProducedAt(ocspResponse) : verifyTime), errOut);
@@ -401,6 +400,11 @@ errOut:
 static void SecOCSPFetchCompleted(asynchttp_t *http, CFTimeInterval maxAge) {
     SecORVCRef rvc = (SecORVCRef)http->info;
     SecPathBuilderRef builder = rvc->builder;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
+    if (analytics) {
+        /* Add the time this fetch took to complete to the total time */
+        analytics->ocsp_fetch_time += (mach_absolute_time() - http->start_time);
+    }
     SecOCSPResponseRef ocspResponse = NULL;
     if (http->response) {
         CFDataRef data = CFHTTPMessageCopyBody(http->response);
@@ -411,10 +415,19 @@ static void SecOCSPFetchCompleted(asynchttp_t *http, CFTimeInterval maxAge) {
         }
     }
 
+    if ((!http->response || !ocspResponse) && analytics) {
+        /* We didn't get any data back, so the fetch failed */
+        analytics->ocsp_fetch_failed++;
+    }
+
     SecORVCConsumeOCSPResponse(rvc, ocspResponse, maxAge, true);
     // TODO: maybe we should set the cache-control: false in the http header and try again if the response is stale
 
     if (!rvc->done) {
+        if (analytics && ocspResponse) {
+            /* We got an OCSP response that didn't pass validation */
+            analytics-> ocsp_validation_failed = true;
+        }
         /* Clear the data for the next response. */
         asynchttp_free(http);
         SecORVCFetchNext(rvc);
@@ -548,9 +561,7 @@ static CFURLRef SecCRVCGetNextDistributionPoint(SecCRVCRef rvc) {
 static void SecCRVCGetCRLStatus(SecCRVCRef rvc) {
     SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
     SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-    SecCertificatePathRef nonVCpath = SecCertificatePathVCCopyCertificatePath(path);
-    CFArrayRef serializedCertPath = SecCertificatePathCreateSerialized(nonVCpath, NULL);
-    CFReleaseNull(nonVCpath);
+    CFArrayRef serializedCertPath = SecCertificatePathVCCreateSerialized(path);
     secdebug("rvc", "searching CRL cache for cert: %ld", rvc->certIX);
     rvc->status = SecTrustLegacyCRLStatus(cert, serializedCertPath, rvc->distributionPoint);
     CFReleaseNull(serializedCertPath);
@@ -577,9 +588,7 @@ static bool SecCRVCFetchNext(SecCRVCRef rvc) {
     while ((rvc->distributionPoint = SecCRVCGetNextDistributionPoint(rvc))) {
         SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
         SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-        SecCertificatePathRef nonVCpath = SecCertificatePathVCCopyCertificatePath(path);
-        CFArrayRef serializedCertPath = SecCertificatePathCreateSerialized(nonVCpath, NULL);
-        CFReleaseNull(nonVCpath);
+        CFArrayRef serializedCertPath = SecCertificatePathVCCreateSerialized(path);
         secinfo("rvc", "fetching CRL for cert: %ld", rvc->certIX);
         if (!SecTrustLegacyCRLFetch(&rvc->async_ocspd, rvc->distributionPoint,
                                     CFAbsoluteTimeGetCurrent(), cert, serializedCertPath)) {
@@ -611,7 +620,7 @@ static void SecCRVCUpdatePVC(SecCRVCRef rvc) {
         SInt32 reason = 0; // unspecified, since ocspd didn't tell us
         CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
         SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
-                              cfreason, true, kSecTrustResultFatalTrustFailure);
+                              cfreason, true);
         if (rvc->builder) {
             CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
             if (info) {
@@ -626,6 +635,11 @@ static void SecCRVCUpdatePVC(SecCRVCRef rvc) {
 static void SecCRVCFetchCompleted(async_ocspd_t *ocspd) {
     SecCRVCRef rvc = ocspd->info;
     SecPathBuilderRef builder = rvc->builder;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
+    if (analytics) {
+        /* Add the time this fetch took to complete to the total time */
+        analytics->crl_fetch_time += (mach_absolute_time() - ocspd->start_time);
+    }
     /* we got a response indicating that the CRL was checked */
     if (ocspd->response == errSecSuccess || ocspd->response == errSecCertificateRevoked) {
         rvc->status = ocspd->response;
@@ -639,6 +653,10 @@ static void SecCRVCFetchCompleted(async_ocspd_t *ocspd) {
             SecPathBuilderStep(builder);
         }
     } else {
+        if (analytics) {
+            /* We didn't get any data back, so the fetch failed */
+            analytics->crl_fetch_failed++;
+        }
         if(SecCRVCFetchNext(rvc)) {
             if (!SecPathBuilderDecrementAsyncJobCount(builder)) {
                 secdebug("rvc", "done with all async jobs");
@@ -671,10 +689,14 @@ static SecCRVCRef SecCRVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFInde
 
 static bool SecRVCShouldCheckCRL(SecRVCRef rvc) {
     CFStringRef revocation_method = SecPathBuilderGetRevocationMethod(rvc->builder);
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
     if (revocation_method &&
         CFEqual(kSecPolicyCheckRevocationCRL, revocation_method)) {
         /* Our client insists on CRLs */
         secinfo("rvc", "client told us to check CRL");
+        if (analytics) {
+            analytics->crl_client = true;
+        }
         return true;
     }
     SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
@@ -684,6 +706,9 @@ static bool SecRVCShouldCheckCRL(SecRVCRef rvc) {
         /* The cert doesn't have OCSP responders and the client didn't specifically ask for OCSP.
          * This logic will skip the CRL cache check if the client didn't ask for revocation checking */
         secinfo("rvc", "client told us to check revocation and CRL is only option for cert: %ld", rvc->certIX);
+        if (analytics) {
+            analytics->crl_cert = true;
+        }
         return true;
     }
     return false;
@@ -744,65 +769,182 @@ static bool SecRVCShouldCheckOCSP(SecRVCRef rvc) {
 }
 #endif
 
-static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
+static void SecRVCProcessValidDateConstraints(SecRVCRef rvc) {
     if (!rvc || !rvc->valid_info || !rvc->builder) {
         return;
     }
-    SecValidInfoFormat format = rvc->valid_info->format;
-    bool valid = rvc->valid_info->valid;
-    bool noCACheck = rvc->valid_info->noCACheck;
-    bool checkOCSP = rvc->valid_info->checkOCSP;
-    bool complete = rvc->valid_info->complete;
-    bool isOnList = rvc->valid_info->isOnList;
-    bool definitive = false;
+    if (!rvc->valid_info->hasDateConstraints) {
+        return;
+    }
+    SecCertificateRef certificate = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
+    if (!certificate) {
+        return;
+    }
+    CFAbsoluteTime certIssued = SecCertificateNotValidBefore(certificate);
+    CFAbsoluteTime caNotBefore = -3155760000.0; /* default: 1901-01-01 00:00:00-0000 */
+    CFAbsoluteTime caNotAfter = 31556908800.0;  /* default: 3001-01-01 00:00:00-0000 */
+    if (rvc->valid_info->notBeforeDate) {
+        caNotBefore = CFDateGetAbsoluteTime(rvc->valid_info->notBeforeDate);
+    }
+    if (rvc->valid_info->notAfterDate) {
+        caNotAfter = CFDateGetAbsoluteTime(rvc->valid_info->notAfterDate);
+        /* per the Valid specification, if this date is in the past, we need to check CT. */
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        if (caNotAfter < now) {
+            rvc->valid_info->requireCT = true;
+        }
+    }
+    if ((certIssued < caNotBefore) && (rvc->certIX > 0)) {
+        /* not-before constraint is only applied to leaf certificate, for now. */
+        return;
+    }
 
-    if (format == kSecValidInfoFormatSerial || format == kSecValidInfoFormatSHA256) {
-        /* serial or hash list: could be blocked or allowed; could be incomplete */
-        if (((!valid && complete && isOnList) || (valid && complete && !isOnList)) && noCACheck) {
-            /* definitely revoked */
-            SInt32 reason = 0; /* unspecified, since the Valid db doesn't tell us */
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
+    if ((certIssued < caNotBefore) || (certIssued > caNotAfter)) {
+        /* We are outside the constrained validity period. */
+        secnotice("rvc", "certificate issuance date not within the allowed range for this CA%s",
+                  (rvc->valid_info->overridable) ? "" : " (non-recoverable error)");
+        if (analytics) {
+            analytics->valid_status |= TAValidDateContrainedRevoked;
+        }
+        if (rvc->valid_info->overridable) {
+            /* error is recoverable, treat certificate as untrusted
+               (note this date check is different from kSecPolicyCheckTemporalValidity) */
+            SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckGrayListedKey, rvc->certIX,
+                                          kCFBooleanFalse, true);
+        } else {
+            /* error is non-overridable, treat certificate as revoked */
+            SInt32 reason = 0; /* unspecified reason code */
             CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
             SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
-                                          cfreason, true, kSecTrustResultFatalTrustFailure);
+                                          cfreason, true);
             CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
             if (info) {
                 /* make the revocation reason available in the trust result */
                 CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
             }
             CFReleaseNull(cfreason);
-            definitive = true;
         }
-        else if (valid && complete && isOnList && noCACheck) {
+    } else if (analytics) {
+        analytics->valid_status |= TAValidDateConstrainedOK;
+    }
+}
+
+bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info) {
+        return false;
+    }
+    SecValidInfoRef info = rvc->valid_info;
+    /* outcomes as defined in Valid server specification */
+    if (info->format == kSecValidInfoFormatSerial ||
+        info->format == kSecValidInfoFormatSHA256) {
+        if (info->noCACheck || info->complete || info->isOnList) {
+            return true;
+        }
+    } else { /* info->format == kSecValidInfoFormatNto1 */
+        if (info->noCACheck || (info->complete && !info->isOnList)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SecRVCHasRevokedValidInfo(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info) {
+        return false;
+    }
+    SecValidInfoRef info = rvc->valid_info;
+    /* either not present on an allowlist, or present on a blocklist */
+    return (!info->isOnList && info->valid) || (info->isOnList && !info->valid);
+}
+
+void SecRVCSetRevokedResult(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info || !rvc->builder) {
+        return;
+    }
+    if (rvc->valid_info->overridable) {
+        /* error is recoverable, treat certificate as untrusted */
+        SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckGrayListedKey, rvc->certIX,
+                                      kCFBooleanFalse, true);
+        return;
+    }
+    /* error is fatal, treat certificate as revoked */
+    SInt32 reason = 0; /* unspecified, since the Valid db doesn't tell us */
+    CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
+    SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
+                                  cfreason, true);
+    CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
+    if (info) {
+        /* make the revocation reason available in the trust result */
+        CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
+    }
+    CFReleaseNull(cfreason);
+}
+
+static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info || !rvc->builder) {
+        return;
+    }
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
+    SecValidInfoRef info = rvc->valid_info;
+
+    bool definitive = SecRVCHasDefinitiveValidInfo(rvc);
+    bool revoked = SecRVCHasRevokedValidInfo(rvc);
+
+    /* set analytics */
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
+    if (analytics) {
+        if (revoked) {
+            analytics->valid_status |= definitive ? TAValidDefinitelyRevoked : TAValidProbablyRevoked;
+        } else {
+            analytics->valid_status |= definitive ? TAValidDefinitelyOK : TAValidProbablyOK;
+        }
+    }
+
+    /* Handle no-ca cases */
+    if (info->noCACheck) {
+        bool allowed = (info->valid && info->complete && info->isOnList);
+        if (revoked) {
+            /* definitely revoked */
+            SecRVCSetRevokedResult(rvc);
+        } else if (allowed) {
             /* definitely not revoked (allowlisted) */
-            SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-            if (path) {
-                SecCertificatePathVCSetIsAllowlisted(path, true);
-            } else {
-                secdebug("validupdate", "rvc: no certificate path for builder");
-            }
-            definitive = true;
+            SecCertificatePathVCSetIsAllowlisted(path, true);
         }
-        if (definitive) {
-            /* either definitely revoked or allowed; no need to check further. */
-            secdebug("validupdate", "rvc: definitely %s cert %" PRIdCFIndex,
-                     (valid && complete && isOnList) ? "allowed" : "revoked", rvc->certIX);
-            rvc->done = true;
-            return;
-        }
-        /* verify our info with the OCSP server */
-        checkOCSP = true;
+        /* no-ca is definitive; no need to check further. */
+        secdebug("validupdate", "rvc: definitely %s cert %" PRIdCFIndex,
+                 (allowed) ? "allowed" : "revoked", rvc->certIX);
+        rvc->done = true;
+        return;
     }
 
-    /* Handle non-definitive information.
-       We set rvc->done = true above ONLY if the result was definitive;
-       otherwise we require a revocation check for SSL usage.
-     */
-    if (format == kSecValidInfoFormatNto1) {
-        /* matched the filter */
-        checkOCSP = true;
+    /* Handle date constraints, if present.
+     * Note: a not-after date may set the CT requirement,
+     * so check requireCT after this function is called. */
+    SecRVCProcessValidDateConstraints(rvc);
+
+    /* Set CT requirement on path, if present. */
+    if (info->requireCT) {
+        if (analytics) {
+            analytics->valid_require_ct |= info->requireCT;
+        }
+        SecPathCTPolicy ctp = kSecPathCTRequired;
+        if (info->overridable) {
+            ctp = kSecPathCTRequiredOverridable;
+        }
+        SecCertificatePathVCSetRequiresCT(path, ctp);
     }
 
-    if (checkOCSP) {
+    /* Trigger OCSP for any non-definitive or revoked cases */
+    if (!definitive || revoked) {
+        info->checkOCSP = true;
+    }
+
+    if (info->checkOCSP) {
+        if (analytics) {
+            /* Valid DB results caused us to do OCSP */
+            analytics->valid_trigger_ocsp = true;
+        }
         CFIndex count = SecPathBuilderGetCertificateCount(rvc->builder);
         CFIndex issuerIX = rvc->certIX + 1;
         if (issuerIX >= count) {
@@ -831,7 +973,7 @@ static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
                     }
                 }
                 secdebug("validupdate", "rvc: %s%s cert %" PRIdCFIndex " (will check OCSP)",
-                         (complete) ? "" : "possibly ", (valid) ? "allowed" : "revoked",
+                         (info->complete) ? "" : "possibly ", (info->valid) ? "allowed" : "revoked",
                          rvc->certIX);
                 SecPathBuilderSetRevocationMethod(rvc->builder, kSecPolicyCheckRevocationAny);
             }
@@ -906,6 +1048,11 @@ static void SecRVCCheckRevocationCaches(SecRVCRef rvc) {
         SecORVCConsumeOCSPResponse(rvc->orvc,
                                    response,
                                    NULL_TIME, false);
+        TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
+        if (rvc->orvc->done && analytics) {
+            /* We found a valid OCSP response in the cache */
+            analytics->ocsp_cache_hit = true;
+        }
     }
 #if ENABLE_CRLS
     /* Don't check CRL cache if policy requested OCSP only */
@@ -925,6 +1072,7 @@ static void SecRVCUpdatePVC(SecRVCRef rvc) {
 
 static bool SecRVCFetchNext(SecRVCRef rvc) {
     bool OCSP_fetch_finished = true;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
     /* Don't send OCSP request only if CRLs enabled and policy requested CRL only */
     if (SecRVCShouldCheckOCSP(rvc)) {
         OCSP_fetch_finished &= SecORVCFetchNext(rvc->orvc);
@@ -932,6 +1080,10 @@ static bool SecRVCFetchNext(SecRVCRef rvc) {
     if (OCSP_fetch_finished) {
         /* we didn't start an OCSP background job for this cert */
         (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
+    } else if (analytics) {
+        /* We did a network OCSP fetch, set report appropriately */
+        analytics->ocsp_network = true;
+        analytics->ocsp_fetches++;
     }
 
 #if ENABLE_CRLS
@@ -946,6 +1098,9 @@ static bool SecRVCFetchNext(SecRVCRef rvc) {
     if (CRL_fetch_finished) {
         /* we didn't start a CRL background job for this cert */
         (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
+    } else if (analytics) {
+        /* We did a CRL fetch */
+        analytics->crl_fetches++;
     }
     OCSP_fetch_finished &= CRL_fetch_finished;
 #endif
@@ -1010,7 +1165,21 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
         }
 
         SecRVCInit(rvc, builder, certIX);
-        if (rvc->done){
+
+        /* RFC 6960: OCSP No-Check extension says that we shouldn't check revocation. */
+        if (SecCertificateHasMarkerExtension(SecCertificatePathVCGetCertificateAtIndex(path, certIX),
+                                             CFSTR("1.3.6.1.5.5.7.48.1.5"))) // id-pkix-ocsp-nocheck
+        {
+            secdebug("rvc", "skipping revocation checks for no-check cert: %ld", certIX);
+            TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
+            if (analytics) {
+                /* This certificate has OCSP No-Check, so add to reporting analytics */
+                analytics->ocsp_no_check = true;
+            }
+            rvc->done = true;
+        }
+
+        if (rvc->done) {
             continue;
         }
 

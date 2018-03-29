@@ -29,3 +29,9 @@ createStagedKext(OSKextRef theKext);
 
 CFArrayRef
 createStagedKextsFromURLs(CFArrayRef kextURLs, Boolean includeUnstaged);
+
+Boolean
+pruneStagingDirectory(void);
+
+Boolean
+clearStagingDirectory(void);

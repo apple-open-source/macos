@@ -97,8 +97,8 @@ firewire_inet_arp(
 {
 	mbuf_t	m;
 	errno_t	result;
-	register struct firewire_header *fwh;
-	register IP1394_ARP *fwa;
+	struct firewire_header *fwh;
+	IP1394_ARP *fwa;
 	const struct sockaddr_in* sender_ip = (const struct sockaddr_in*)sender_proto;
 	const struct sockaddr_in* target_ip = (const struct sockaddr_in*)target_proto;
 	char *datap;
@@ -313,8 +313,8 @@ static u_char digits[] = "0123456789abcdef";
 u_char *
 firewire_sprintf(register u_char *p, register u_char *ap)
 {	
-    register u_char *cp;
-    register int i;
+    u_char *cp;
+    int i;
 
         for (cp = p, i = 0; i < 8; i++) {
                 *cp++ = digits[*ap >> 4];

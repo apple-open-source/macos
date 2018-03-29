@@ -13,6 +13,10 @@
 #include <CoreFoundation/CFPlugInCOM.h>
 #endif
 
+#include <memory>
+#include <WirelessDiagnostics/AWDServerConnection.h>
+
+
 class IOHIDEventSystemStatistics
 {
 public:
@@ -47,12 +51,6 @@ private:
         uint32_t                    home_wake;
         uint32_t                    power_wake;
         uint32_t                    power_sleep;
-        uint32_t                    power;
-        uint32_t                    volume_increment;
-        uint32_t                    volume_decrement;
-        uint32_t                    power_filtered;
-        uint32_t                    volume_increment_filtered;
-        uint32_t                    volume_decrement_filtered;
         uint32_t                    high_latency;
     } Buttons;
 
@@ -81,6 +79,8 @@ private:
         uint32_t                    toggled_100_250ms;
         uint32_t                    toggled_250_500ms;
         uint32_t                    toggled_500_1000ms;
+        uint32_t                    unknownStateEnter;
+        uint32_t                    unknownStateExit;
     } HESStats;
 
     Buttons _pending_buttons;
@@ -93,11 +93,8 @@ private:
     CFMutableSetRef             _hesServices;
     
     IOHIDEventRef               _attachEvent;
-    
-    CFMutableArrayRef           _logStrings;
-    aslclient                   _asl;
-    int                         _logfd;
-    bool                        _logButtonFiltering;
+
+    std::shared_ptr<awd::AWDServerConnection> _awdConnection;
     
 private:
     static IOHIDSessionFilterPlugInInterface sIOHIDEventSystemStatisticsFtbl;

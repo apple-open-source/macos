@@ -31,7 +31,7 @@
 
 #import "MIMETypeRegistry.h"
 #import "UTIUtilities.h"
-#import "WebCoreSystemInterface.h"
+#import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
 
@@ -303,13 +303,15 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse, bool isMainResourceL
                 CFMutableStringRef mutableExtension = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, extension.get());
                 CFStringLowercase(mutableExtension, NULL);
                 extension = adoptCF(mutableExtension);
-                result = (CFStringRef) CFDictionaryGetValue(extensionMap, extension.get());
+                result = (CFStringRef)CFDictionaryGetValue(extensionMap, extension.get());
                 
                 if (!result) {
                     // If the Gatekeeper-based map doesn't have a MIME type, we'll try to figure out what it should be by
                     // looking up the file extension in the UTI maps.
                     RetainPtr<CFStringRef> uti = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, extension.get(), 0));
-                    result = mimeTypeFromUTITree(uti.get());
+                    String MIMEType = MIMETypeFromUTITree(uti.get());
+                    if (!MIMEType.isEmpty())
+                        result = MIMEType.createCFString();
                 }
             }
         }
@@ -325,26 +327,18 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse, bool isMainResourceL
 }
 #endif
 
-#if !USE(CFURLCONNECTION)
 NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLRequest *currentRequest, NSURLRequest *newRequest, NSURLResponse *redirectResponse)
 {
     if (redirectResponse)
         return redirectResponse;
 
-#if HAVE(CFNETWORK_IGNORE_HSTS)
-    if ([[[newRequest URL] scheme] isEqualToString:[[currentRequest URL] scheme]]
-        && !([newRequest respondsToSelector:@selector(_schemeWasUpgradedDueToDynamicHSTS)] && [newRequest _schemeWasUpgradedDueToDynamicHSTS]))
+    if ([[[newRequest URL] scheme] isEqualToString:[[currentRequest URL] scheme]] && !schemeWasUpgradedDueToDynamicHSTS(newRequest))
         return nil;
-#else
-    if ([[[newRequest URL] scheme] isEqualToString:[[currentRequest URL] scheme]])
-        return nil;
-#endif
 
     // If the new request is a different protocol than the current request, synthesize a redirect response.
     // This is critical for HSTS (<rdar://problem/14241270>).
     NSDictionary *synthesizedResponseHeaderFields = @{ @"Location": [[newRequest URL] absoluteString], @"Cache-Control": @"no-store" };
     return [[[NSHTTPURLResponse alloc] initWithURL:[currentRequest URL] statusCode:302 HTTPVersion:(NSString *)kCFHTTPVersion1_1 headerFields:synthesizedResponseHeaderFields] autorelease];
 }
-#endif
 
 }

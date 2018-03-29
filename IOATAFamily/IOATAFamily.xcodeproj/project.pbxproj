@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -39,6 +39,7 @@
 		52C1FFAC0DAD2D87006889B7 /* IOPCIATA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A26FFDDABCE7F000001 /* IOPCIATA.cpp */; settings = {ATTRIBUTES = (); }; };
 		52C1FFAE0DAD2D87006889B7 /* ATATimerEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0176C370002B79CE11CE156E /* ATATimerEventSource.cpp */; };
 		52C1FFAF0DAD2D87006889B7 /* IOATARegI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91829CD0197498808CA29FD /* IOATARegI386.cpp */; };
+		52CDE6A71FA2631E00AB9DE8 /* IOATAFamily.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */; };
 		E6A80C330FB12BE80037A814 /* IOATAFamilyPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E6A80C320FB12BE80037A814 /* IOATAFamilyPriv.h */; };
 /* End PBXBuildFile section */
 
@@ -95,9 +96,10 @@
 		019C1A36FFDDABCE7F000001 /* IOATAController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATAController.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A37FFDDABCE7F000001 /* IOATADevConfig.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevConfig.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A38FFDDABCE7F000001 /* IOATADevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevice.cpp; sourceTree = SOURCE_ROOT; };
-		2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOATAFamily.plist"; sourceTree = "<group>"; };
 		52C1FFB80DAD2D87006889B7 /* IOATAFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOATAFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOATAFamily.xcconfig; sourceTree = "<group>"; };
 		B91829CD0197498808CA29FD /* IOATARegI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATARegI386.cpp; sourceTree = "<group>"; };
 		B9D54E10019702DB08CA29FD /* IOATARegI386.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOATARegI386.h; sourceTree = "<group>"; };
 		E6A80C320FB12BE80037A814 /* IOATAFamilyPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOATAFamilyPriv.h; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 			children = (
 				019C1A25FFDDABCE7F000001 /* Drivers */,
 				247142CAFF3F8F9811CA285C /* Family */,
+				52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */,
 				52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */,
 				2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
@@ -223,6 +226,8 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = A5EDE05D09660D8400EFBE07 /* Build configuration list for PBXProject "IOATAFamily" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -244,6 +249,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52CDE6A71FA2631E00AB9DE8 /* IOATAFamily.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -303,7 +309,7 @@
 /* Begin XCBuildConfiguration section */
 		2A923B500E8CBDED00ED2357 /* Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 			};
@@ -311,6 +317,7 @@
 		};
 		2A923B510E8CBDED00ED2357 /* Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
@@ -342,6 +349,7 @@
 		};
 		52C1FFB40DAD2D87006889B7 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
@@ -376,6 +384,7 @@
 		};
 		52C1FFB50DAD2D87006889B7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -407,6 +416,7 @@
 		};
 		52C1FFB60DAD2D87006889B7 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -435,6 +445,7 @@
 		};
 		A5EDE05E09660D8400EFBE07 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 			};
@@ -442,6 +453,7 @@
 		};
 		A5EDE05F09660D8400EFBE07 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 			};
@@ -449,6 +461,7 @@
 		};
 		A5EDE06009660D8400EFBE07 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 52CDE6A61FA2631D00AB9DE8 /* IOATAFamily.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 			};

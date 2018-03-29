@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011, 2012, 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -38,7 +38,7 @@ fromtext_rrsig(ARGS_FROMTEXT) {
 	isc_buffer_t buffer;
 	isc_uint32_t time_signed, time_expire;
 
-	REQUIRE(type == 46);
+	REQUIRE(type == dns_rdatatype_rrsig);
 
 	UNUSED(type);
 	UNUSED(rdclass);
@@ -141,7 +141,8 @@ fromtext_rrsig(ARGS_FROMTEXT) {
 				      ISC_FALSE));
 	dns_name_init(&name, NULL);
 	buffer_fromregion(&buffer, &token.value.as_region);
-	origin = (origin != NULL) ? origin : dns_rootname;
+	if (origin == NULL)
+		origin = dns_rootname;
 	RETTOK(dns_name_fromtext(&name, &buffer, origin, options, target));
 
 	/*
@@ -161,7 +162,7 @@ totext_rrsig(ARGS_TOTEXT) {
 	unsigned long foot;
 	dns_name_t name;
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 	REQUIRE(rdata->length != 0);
 
 	dns_rdata_toregion(rdata, &sr);
@@ -248,11 +249,15 @@ totext_rrsig(ARGS_TOTEXT) {
 	 * Sig.
 	 */
 	RETERR(str_totext(tctx->linebreak, target));
-	if (tctx->width == 0)   /* No splitting */
-		RETERR(isc_base64_totext(&sr, 60, "", target));
-	else
-		RETERR(isc_base64_totext(&sr, tctx->width - 2,
-					 tctx->linebreak, target));
+	if ((tctx->flags & DNS_STYLEFLAG_NOCRYPTO) == 0) {
+		if (tctx->width == 0)   /* No splitting */
+			RETERR(isc_base64_totext(&sr, 60, "", target));
+		else
+			RETERR(isc_base64_totext(&sr, tctx->width - 2,
+						 tctx->linebreak, target));
+	} else
+		RETERR(str_totext("[omitted]", target));
+
 	if ((tctx->flags & DNS_STYLEFLAG_MULTILINE) != 0)
 		RETERR(str_totext(" )", target));
 
@@ -264,7 +269,7 @@ fromwire_rrsig(ARGS_FROMWIRE) {
 	isc_region_t sr;
 	dns_name_t name;
 
-	REQUIRE(type == 46);
+	REQUIRE(type == dns_rdatatype_rrsig);
 
 	UNUSED(type);
 	UNUSED(rdclass);
@@ -307,7 +312,7 @@ towire_rrsig(ARGS_TOWIRE) {
 	dns_name_t name;
 	dns_offsets_t offsets;
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 	REQUIRE(rdata->length != 0);
 
 	dns_compress_setmethods(cctx, DNS_COMPRESS_NONE);
@@ -345,7 +350,7 @@ compare_rrsig(ARGS_COMPARE) {
 
 	REQUIRE(rdata1->type == rdata2->type);
 	REQUIRE(rdata1->rdclass == rdata2->rdclass);
-	REQUIRE(rdata1->type == 46);
+	REQUIRE(rdata1->type == dns_rdatatype_rrsig);
 	REQUIRE(rdata1->length != 0);
 	REQUIRE(rdata2->length != 0);
 
@@ -358,7 +363,7 @@ static inline isc_result_t
 fromstruct_rrsig(ARGS_FROMSTRUCT) {
 	dns_rdata_rrsig_t *sig = source;
 
-	REQUIRE(type == 46);
+	REQUIRE(type == dns_rdatatype_rrsig);
 	REQUIRE(source != NULL);
 	REQUIRE(sig->common.rdtype == type);
 	REQUIRE(sig->common.rdclass == rdclass);
@@ -419,7 +424,7 @@ tostruct_rrsig(ARGS_TOSTRUCT) {
 	dns_rdata_rrsig_t *sig = target;
 	dns_name_t signer;
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 	REQUIRE(target != NULL);
 	REQUIRE(rdata->length != 0);
 
@@ -500,7 +505,7 @@ freestruct_rrsig(ARGS_FREESTRUCT) {
 	dns_rdata_rrsig_t *sig = (dns_rdata_rrsig_t *) source;
 
 	REQUIRE(source != NULL);
-	REQUIRE(sig->common.rdtype == 46);
+	REQUIRE(sig->common.rdtype == dns_rdatatype_rrsig);
 
 	if (sig->mctx == NULL)
 		return;
@@ -513,7 +518,7 @@ freestruct_rrsig(ARGS_FREESTRUCT) {
 
 static inline isc_result_t
 additionaldata_rrsig(ARGS_ADDLDATA) {
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 
 	UNUSED(rdata);
 	UNUSED(add);
@@ -525,7 +530,7 @@ additionaldata_rrsig(ARGS_ADDLDATA) {
 static inline isc_result_t
 digest_rrsig(ARGS_DIGEST) {
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 
 	UNUSED(rdata);
 	UNUSED(digest);
@@ -539,7 +544,7 @@ covers_rrsig(dns_rdata_t *rdata) {
 	dns_rdatatype_t type;
 	isc_region_t r;
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 
 	dns_rdata_toregion(rdata, &r);
 	type = uint16_fromregion(&r);
@@ -550,7 +555,7 @@ covers_rrsig(dns_rdata_t *rdata) {
 static inline isc_boolean_t
 checkowner_rrsig(ARGS_CHECKOWNER) {
 
-	REQUIRE(type == 46);
+	REQUIRE(type == dns_rdatatype_rrsig);
 
 	UNUSED(name);
 	UNUSED(type);
@@ -563,7 +568,7 @@ checkowner_rrsig(ARGS_CHECKOWNER) {
 static inline isc_boolean_t
 checknames_rrsig(ARGS_CHECKNAMES) {
 
-	REQUIRE(rdata->type == 46);
+	REQUIRE(rdata->type == dns_rdatatype_rrsig);
 
 	UNUSED(rdata);
 	UNUSED(owner);
@@ -582,7 +587,7 @@ casecompare_rrsig(ARGS_COMPARE) {
 
 	REQUIRE(rdata1->type == rdata2->type);
 	REQUIRE(rdata1->rdclass == rdata2->rdclass);
-	REQUIRE(rdata1->type == 46);
+	REQUIRE(rdata1->type == dns_rdatatype_rrsig);
 	REQUIRE(rdata1->length != 0);
 	REQUIRE(rdata2->length != 0);
 

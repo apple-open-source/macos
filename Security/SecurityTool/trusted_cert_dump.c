@@ -23,6 +23,8 @@
  * trusted_cert_dump.c
  */
 
+#include "security_tool.h"
+
 #include "trusted_cert_dump.h"
 #include "trusted_cert_utils.h"
 
@@ -218,12 +220,12 @@ trusted_cert_dump(int argc, char * const *argv)
 				break;
 			default:
 			case 'h':
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 
 	if(optind != argc) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	ortn = SecTrustSettingsCopyCertificates(domain, &certArray);

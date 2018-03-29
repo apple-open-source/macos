@@ -30,6 +30,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOEventSource.h>
 
 class   IOHIDSystem;
@@ -133,6 +134,7 @@ private:
         IOHIDAsyncReportQueue * asyncReportQueue;
         IOWorkLoop *            workLoop;
         IOEventSource *         eventSource;
+        IONotifier *            deviceNotify;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -705,9 +707,19 @@ public:
     on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 11);
     virtual OSArray * newDeviceUsagePairs();
-
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 12);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 13);
+    
+protected:
+    /*! @function createInterface
+     @abstract Creates an IOHIDInterface nub for the device to attach to.
+     @result true on success, false otherwise. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 12);
+    virtual bool createInterface(IOOptionBits options = 0);
+    
+    /*! @function destroyInterface
+     @abstract Destroys the IOHIDInterface nub attached to the device. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 13);
+    virtual void destroyInterface(IOOptionBits options = 0);
+    
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 14);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 15);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 16);

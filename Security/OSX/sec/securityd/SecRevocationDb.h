@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,17 +55,25 @@ typedef CF_ENUM(uint32_t, SecValidInfoFormat) {
 typedef struct __SecValidInfo *SecValidInfoRef;
 
 struct __SecValidInfo {
-    SecValidInfoFormat  format;     // format of per-issuer validity data
-    CFDataRef           certHash;   // SHA-256 hash of cert to which the following info applies
-    CFDataRef           issuerHash; // SHA-256 hash of issuing CA certificate
-    CFDataRef           anchorHash; // SHA-256 hash of anchor certificate (optional)
-    bool                isOnList;   // true if this cert was found on allow list or block list
-    bool                valid;      // true if this is an allow list, false if a block list
-    bool                complete;   // true if list is complete (i.e. status is definitive)
-    bool                checkOCSP;  // true if complete is false and OCSP check is required
-    bool                knownOnly;  // true if all intermediates under issuer must be found in database
-    bool                requireCT;  // true if this cert must have CT proof
-    bool                noCACheck;  // true if an entry does not require an OCSP check to accept
+    SecValidInfoFormat  format;               // format of per-issuer validity data
+    CFDataRef           certHash;             // SHA-256 hash of cert to which the following info applies
+    CFDataRef           issuerHash;           // SHA-256 hash of issuing CA certificate
+    CFDataRef           anchorHash;           // SHA-256 hash of anchor certificate (optional)
+    bool                isOnList;             // true if this cert was found on allow list or block list
+    bool                valid;                // true if this is an allow list, false if a block list
+    bool                complete;             // true if list is complete (i.e. status is definitive)
+    bool                checkOCSP;            // true if complete is false and OCSP check is required
+    bool                knownOnly;            // true if all intermediates under issuer must be found in database
+    bool                requireCT;            // true if this cert must have CT proof
+    bool                noCACheck;            // true if an entry does not require an OCSP check to accept
+    bool                overridable;          // true if the trust status is recoverable and can be overridden
+    bool                hasDateConstraints;   // true if this issuer has supplemental date constraints
+    bool                hasNameConstraints;   // true if this issuer has supplemental name constraints
+    bool                hasPolicyConstraints; // true if this issuer has policy constraints
+    CFDateRef           notBeforeDate;        // minimum notBefore for this certificate (if hasDateConstraints is true)
+    CFDateRef           notAfterDate;         // maximum notAfter for this certificate (if hasDateConstraints is true)
+    CFDataRef           nameConstraints;      // name constraints blob (if hasNameConstraints is true)
+    CFDataRef           policyConstraints;    // policy constraints blob (if policyConstraints is true)
 };
 
 /*!

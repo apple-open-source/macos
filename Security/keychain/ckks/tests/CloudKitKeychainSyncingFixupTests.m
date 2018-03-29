@@ -26,6 +26,7 @@
 #import <CloudKit/CloudKit.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
@@ -315,11 +316,9 @@
         CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:secondRecordID.recordName zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling second CKKSMirrorEntry from database");
 
-        NSMutableData* data = [NSMutableData data];
-        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
         [ckme.item.storedCKRecord encodeSystemFieldsWithCoder:archiver];
-        [archiver finishEncoding];
-        ckme.item.encodedCKRecord = data;
+        ckme.item.encodedCKRecord = archiver.encodedData;
 
         [ckme saveToDatabase:&error];
         XCTAssertNil(error, "No error saving system-fielded CKME back to database");

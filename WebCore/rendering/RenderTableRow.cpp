@@ -28,15 +28,19 @@
 #include "Document.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "LayoutState.h"
 #include "PaintInfo.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTableRow);
 
 RenderTableRow::RenderTableRow(Element& element, RenderStyle&& style)
     : RenderBox(element, WTFMove(style), 0)
@@ -106,7 +110,7 @@ const BorderValue& RenderTableRow::borderAdjoiningEndCell(const RenderTableCell&
     return style().borderEnd();
 }
 
-void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
+void RenderTableRow::addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild)
 {
     if (!is<RenderTableCell>(*child)) {
         RenderObject* last = beforeChild;
@@ -116,14 +120,14 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
             RenderTableCell& cell = downcast<RenderTableCell>(*last);
             if (beforeChild == &cell)
                 beforeChild = cell.firstChild();
-            cell.addChild(child, beforeChild);
+            cell.addChild(WTFMove(child), beforeChild);
             return;
         }
 
         if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
             RenderObject* cell = beforeChild->previousSibling();
             if (is<RenderTableCell>(cell) && cell->isAnonymous()) {
-                downcast<RenderTableCell>(*cell).addChild(child);
+                downcast<RenderTableCell>(*cell).addChild(WTFMove(child));
                 return;
             }
         }
@@ -132,21 +136,23 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
         if (last && last->parent() && last->parent()->isAnonymous() && !last->parent()->isBeforeOrAfterContent()) {
             // If beforeChild is inside an anonymous cell, insert into the cell.
             if (!is<RenderTableCell>(*last)) {
-                last->parent()->addChild(child, beforeChild);
+                last->parent()->addChild(WTFMove(child), beforeChild);
                 return;
             }
             // If beforeChild is inside an anonymous row, insert into the row.
             auto& parent = *last->parent();
             if (is<RenderTableRow>(parent)) {
-                auto* cell = RenderTableCell::createAnonymousWithParentRenderer(*this).release();
-                parent.addChild(cell, beforeChild);
-                cell->addChild(child);
+                auto newCell = RenderTableCell::createAnonymousWithParentRenderer(*this);
+                auto& cell = *newCell;
+                parent.addChild(WTFMove(newCell), beforeChild);
+                cell.addChild(WTFMove(child));
                 return;
             }
         }
-        auto* cell = RenderTableCell::createAnonymousWithParentRenderer(*this).release();
-        addChild(cell, beforeChild);
-        cell->addChild(child);
+        auto newCell = RenderTableCell::createAnonymousWithParentRenderer(*this);
+        auto& cell = *newCell;
+        addChild(WTFMove(newCell), beforeChild);
+        cell.addChild(WTFMove(child));
         return;
     } 
 
@@ -160,7 +166,7 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
         section->addCell(&cell, this);
 
     ASSERT(!beforeChild || is<RenderTableCell>(*beforeChild));
-    RenderBox::addChild(&cell, beforeChild);
+    RenderBox::addChild(WTFMove(child), beforeChild);
 
     if (beforeChild || nextRow())
         section()->setNeedsCellRecalc();
@@ -174,12 +180,13 @@ void RenderTableRow::layout()
     ASSERT(needsLayout());
 
     // Table rows do not add translation.
-    LayoutStateMaintainer statePusher(view(), *this, LayoutSize(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(*this, LayoutSize(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
 
-    bool paginated = view().layoutState()->isPaginated();
+    auto* layoutState = view().frameView().layoutContext().layoutState();
+    bool paginated = layoutState->isPaginated();
                 
     for (RenderTableCell* cell = firstCell(); cell; cell = cell->nextCell()) {
-        if (!cell->needsLayout() && paginated && (view().layoutState()->pageLogicalHeightChanged() || (view().layoutState()->pageLogicalHeight() && view().layoutState()->pageLogicalOffset(cell, cell->logicalTop()) != cell->pageLogicalOffset())))
+        if (!cell->needsLayout() && paginated && (layoutState->pageLogicalHeightChanged() || (layoutState->pageLogicalHeight() && layoutState->pageLogicalOffset(cell, cell->logicalTop()) != cell->pageLogicalOffset())))
             cell->setChildNeedsLayout(MarkOnlyThis);
 
         if (cell->needsLayout()) {
@@ -200,7 +207,6 @@ void RenderTableRow::layout()
             cell->repaint();
     }
 
-    statePusher.pop();
     // RenderTableSection::layoutRows will set our logical height and width later, so it calls updateLayerTransform().
     clearNeedsLayout();
 }
@@ -270,56 +276,50 @@ void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
     repaint();
 }
 
-std::unique_ptr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& document, const RenderStyle& style)
+RenderPtr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& document, const RenderStyle& style)
 {
-    auto row = std::make_unique<RenderTableRow>(document, RenderStyle::createAnonymousStyleWithDisplay(style, TABLE_ROW));
+    auto row = createRenderer<RenderTableRow>(document, RenderStyle::createAnonymousStyleWithDisplay(style, TABLE_ROW));
     row->initializeStyle();
     return row;
 }
 
-std::unique_ptr<RenderTableRow> RenderTableRow::createAnonymousWithParentRenderer(const RenderTableSection& parent)
+RenderPtr<RenderTableRow> RenderTableRow::createAnonymousWithParentRenderer(const RenderTableSection& parent)
 {
     return RenderTableRow::createTableRowWithStyle(parent.document(), parent.style());
 }
 
-void RenderTableRow::destroyAndCollapseAnonymousSiblingRows()
+void RenderTableRow::collapseAndDestroyAnonymousSiblingRows()
 {
-    auto collapseAnonymousSiblingRows = [&] {
-        auto* section = this->section();
-        if (!section)
+    auto* section = this->section();
+    if (!section)
+        return;
+
+    // All siblings generated?
+    for (auto* current = section->firstRow(); current; current = current->nextRow()) {
+        if (current == this)
+            continue;
+        if (!current->isAnonymous())
             return;
+    }
 
-        // All siblings generated?
-        for (auto* current = section->firstRow(); current; current = current->nextRow()) {
-            if (current == this)
-                continue;
-            if (!current->isAnonymous())
-                return;
-        }
-
-        RenderTableRow* rowToInsertInto = nullptr;
-        auto* currentRow = section->firstRow();
-        while (currentRow) {
-            if (currentRow == this) {
-                currentRow = currentRow->nextRow();
-                continue;
-            }
-            if (!rowToInsertInto) {
-                rowToInsertInto = currentRow;
-                currentRow = currentRow->nextRow();
-                continue;
-            }
-            currentRow->moveAllChildrenTo(rowToInsertInto);
-            auto* destroyThis = currentRow;
+    RenderTableRow* rowToInsertInto = nullptr;
+    auto* currentRow = section->firstRow();
+    while (currentRow) {
+        if (currentRow == this) {
             currentRow = currentRow->nextRow();
-            destroyThis->destroy();
+            continue;
         }
-        if (rowToInsertInto)
-            rowToInsertInto->setNeedsLayout();
-    };
-
-    collapseAnonymousSiblingRows();
-    destroy();
+        if (!rowToInsertInto) {
+            rowToInsertInto = currentRow;
+            currentRow = currentRow->nextRow();
+            continue;
+        }
+        currentRow->moveAllChildrenTo(rowToInsertInto, RenderBoxModelObject::NormalizeAfterInsertion::No);
+        auto toDestroy = section->takeChild(*currentRow);
+        currentRow = currentRow->nextRow();
+    }
+    if (rowToInsertInto)
+        rowToInsertInto->setNeedsLayout();
 }
 
 } // namespace WebCore

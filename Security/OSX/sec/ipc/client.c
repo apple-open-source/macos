@@ -38,6 +38,8 @@
 #include <sys/queue.h>
 #include <syslog.h>
 #include <vproc_priv.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecItem.h>
@@ -101,7 +103,7 @@ SecSecurityClientGet(void)
 {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        gClient.task = NULL,
+        gClient.task = NULL;
         gClient.accessGroups = SecServerCopyAccessGroups();
         gClient.allowSystemKeychain = true;
         gClient.allowSyncBubbleKeychain = true;
@@ -150,6 +152,15 @@ static const char *securityd_service_name(void) {
 	return kSecuritydXPCServiceName;
 }
 
+static uid_t target_uid = -1;
+
+void
+_SecSetSecuritydTargetUID(uid_t uid)
+{
+    target_uid = uid;
+}
+
+
 static xpc_connection_t securityd_create_connection(const char *name, uint64_t flags) {
     const char *serviceName = name;
     if (!serviceName) {
@@ -161,6 +172,9 @@ static xpc_connection_t securityd_create_connection(const char *name, uint64_t f
         const char *description = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
         secnotice("xpc", "got event: %s", description);
     });
+    if (target_uid != (uid_t)-1) {
+        xpc_connection_set_target_uid(connection, target_uid);
+    }
     xpc_connection_resume(connection);
     return connection;
 }
@@ -196,21 +210,23 @@ static xpc_connection_t trustd_connection(void) {
 }
 
 static bool is_trust_operation(enum SecXPCOperation op) {
-	switch (op) {
-		case sec_trust_store_contains_id:
-		case sec_trust_store_set_trust_settings_id:
-		case sec_trust_store_remove_certificate_id:
-		case sec_trust_evaluate_id:
-		case sec_trust_store_copy_all_id:
-		case sec_trust_store_copy_usage_constraints_id:
-        case sec_ota_pki_asset_version_id:
+    switch (op) {
+        case sec_trust_store_contains_id:
+        case sec_trust_store_set_trust_settings_id:
+        case sec_trust_store_remove_certificate_id:
+        case sec_trust_evaluate_id:
+        case sec_trust_store_copy_all_id:
+        case sec_trust_store_copy_usage_constraints_id:
+        case sec_ocsp_cache_flush_id:
+        case sec_ota_pki_trust_store_version_id:
         case kSecXPCOpOTAGetEscrowCertificates:
         case kSecXPCOpOTAPKIGetNewAsset:
-			return true;
-		default:
-			break;
-	}
-	return false;
+        case kSecXPCOpTLSAnaltyicsReport:
+            return true;
+        default:
+            break;
+    }
+    return false;
 }
 
 static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op) {
@@ -310,7 +326,9 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error) {
 #if TARGET_OS_IPHONE
     secdebug("xpc", "Talking to securityd failed with error: %@", localError);
 #else
+#if !defined(NDEBUG)
     uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
+#endif
     secdebug("xpc", "Talking to %s failed with error: %@",
              (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" : "secd", localError);
 #endif
@@ -325,7 +343,7 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error) {
 
 bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
                                 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
-                                bool (^handle_response)(xpc_object_t response, CFErrorRef* error)) {
+                                bool (^handle_response)(xpc_object_t _Nonnull response, CFErrorRef* error)) {
     xpc_object_t message = securityd_create_message(op, error);
     bool ok = false;
     if (message) {
@@ -461,16 +479,11 @@ _SecSecuritydCopyEndpoint(enum SecXPCOperation op, CFErrorRef *error)
 XPC_RETURNS_RETAINED xpc_endpoint_t
 _SecSecuritydCopyCKKSEndpoint(CFErrorRef *error)
 {
-    return _SecSecuritydCopyEndpoint(kSecXPCOpCKKSEndpoint, error);
+    return NULL;
 }
 
 XPC_RETURNS_RETAINED xpc_endpoint_t
-_SecSecuritydCopySOSStatusEndpoint(CFErrorRef *error)
+_SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error)
 {
-    return _SecSecuritydCopyEndpoint(kSecXPCOpSOSEndpoint, error);
+    return _SecSecuritydCopyEndpoint(kSecXPCOpKeychainControlEndpoint, error);
 }
-
-
-
-
-/* vi:set ts=4 sw=4 et: */

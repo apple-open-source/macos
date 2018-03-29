@@ -29,7 +29,7 @@
 -(BOOL) checkForFragmentation:(NSDictionary*)message id:(NSString*)fromID data:(NSData*)messageData;
 -(NSMutableDictionary*) combineMessage:(NSString*)deviceID peerID:(NSString*)peerID uuid:(NSString*)uuid;
 - (void)service:(IDSService *)service account:(IDSAccount *)account incomingMessage:(NSDictionary *)message fromID:(NSString *)fromID context:(IDSMessageContext *)context;
-- (void)sendMessageToSecurity:(NSMutableDictionary*)messageAndFromID fromID:(NSString*)fromID;
+-(void)sendMessageToSecurity:(NSMutableDictionary*)messageAndFromID fromID:(NSString*)fromID shouldSendAck:(NSString *)useAck peerID:(NSString*)peerID messageID:(NSString*)messageID deviceID:(NSString*)deviceID;
 - (void) handleAllPendingMessage;
 
 @end

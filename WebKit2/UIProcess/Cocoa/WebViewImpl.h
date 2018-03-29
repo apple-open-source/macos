@@ -23,24 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebViewImpl_h
-#define WebViewImpl_h
+#pragma once
 
 #if PLATFORM(MAC)
 
 #include "PluginComplexTextInputState.h"
 #include "WKDragDestinationAction.h"
 #include "WKLayoutMode.h"
+#include "WeakObjCPtr.h"
 #include "WebPageProxy.h"
 #include "_WKOverlayScrollbarStyle.h"
-#include <WebCore/AVKitSPI.h>
+#include <WebCore/PromisedBlobInfo.h>
 #include <WebCore/TextIndicatorWindow.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
+#include <pal/spi/cocoa/AVKitSPI.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
+using _WKRectEdge = NSUInteger;
+
+OBJC_CLASS NSAccessibilityRemoteUIElement;
 OBJC_CLASS NSImmediateActionGestureRecognizer;
 OBJC_CLASS NSTextInputContext;
 OBJC_CLASS NSView;
@@ -85,6 +89,7 @@ OBJC_CLASS WebPlaybackControlsManager;
 
 - (void)_web_dismissContentRelativeChildWindows;
 - (void)_web_dismissContentRelativeChildWindowsWithAnimation:(BOOL)animate;
+- (void)_web_editorStateDidChange;
 
 - (void)_web_gestureEventWasNotHandledByWebCore:(NSEvent *)event;
 
@@ -233,6 +238,10 @@ public:
     void setUnderlayColor(NSColor *);
     NSColor *underlayColor() const;
     NSColor *pageExtendedBackgroundColor() const;
+    
+    _WKRectEdge pinnedState();
+    _WKRectEdge rubberBandingEnabled();
+    void setRubberBandingEnabled(_WKRectEdge);
 
     void setOverlayScrollbarStyle(std::optional<WebCore::ScrollbarOverlayStyle> scrollbarStyle);
     std::optional<WebCore::ScrollbarOverlayStyle> overlayScrollbarStyle() const;
@@ -274,7 +283,7 @@ public:
     void closeFullScreenWindowController();
 #endif
     NSView *fullScreenPlaceholderView();
-    NSWindow *createFullScreenWindow();
+    NSWindow *fullScreenWindow();
 
     bool isEditable() const;
     bool executeSavedCommandBySelector(SEL);
@@ -407,9 +416,6 @@ public:
     void dragImageForView(NSView *, NSImage *, CGPoint clientPoint, bool linkDrag);
     void setFileAndURLTypes(NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *);
     void setPromisedDataForImage(WebCore::Image*, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::SharedBuffer* archiveBuffer, NSString *pasteboardName);
-#if ENABLE(ATTACHMENT_ELEMENT)
-    void setPromisedDataForAttachment(NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, NSString *pasteboardName);
-#endif
     void pasteboardChangedOwner(NSPasteboard *);
     void provideDataForPasteboard(NSPasteboard *, NSString *type);
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
@@ -529,6 +535,11 @@ public:
     void setIsCustomizingTouchBar(bool isCustomizingTouchBar) { m_isCustomizingTouchBar = isCustomizingTouchBar; };
 #endif // HAVE(TOUCH_BAR)
 
+    void prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo&);
+
+    bool beginBackSwipeForTesting();
+    bool completeBackSwipeForTesting();
+
 private:
 #if HAVE(TOUCH_BAR)
     void setUpTextTouchBar(NSTouchBar *);
@@ -566,7 +577,7 @@ private:
 #endif // ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 #endif // HAVE(TOUCH_BAR)
 
-    WeakPtr<WebViewImpl> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+    WeakPtr<WebViewImpl> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
 
     bool supportsArbitraryLayoutModes() const;
     float intrinsicDeviceScaleFactor() const;
@@ -599,7 +610,7 @@ private:
     void handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates);
 #endif
 
-    NSView <WebViewImplDelegate> *m_view;
+    WeakObjCPtr<NSView<WebViewImplDelegate>> m_view;
     std::unique_ptr<PageClient> m_pageClient;
     Ref<WebPageProxy> m_page;
 
@@ -692,7 +703,7 @@ private:
     bool m_allowsBackForwardNavigationGestures { false };
     bool m_allowsMagnification { false };
 
-    RetainPtr<id> m_remoteAccessibilityChild;
+    RetainPtr<NSAccessibilityRemoteUIElement> m_remoteAccessibilityChild;
 
     RefPtr<WebCore::Image> m_promisedImage;
     String m_promisedFilename;
@@ -729,5 +740,3 @@ private:
 } // namespace WebKit
 
 #endif // PLATFORM(MAC)
-
-#endif // WebViewImpl_h

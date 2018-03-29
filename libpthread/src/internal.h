@@ -507,6 +507,10 @@ PTHREAD_NOEXPORT
 void
 _pthread_key_global_init(const char *envp[]);
 
+PTHREAD_NOEXPORT
+void
+_pthread_mutex_global_init(const char *envp[], struct _pthread_registration_data *registration_data);
+
 PTHREAD_EXPORT
 void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
@@ -521,7 +525,7 @@ _pthread_main_thread_init(pthread_t p);
 
 PTHREAD_NOEXPORT
 void
-_pthread_bsdthread_init(void);
+_pthread_bsdthread_init(struct _pthread_registration_data *data);
 
 PTHREAD_NOEXPORT_VARIANT
 void

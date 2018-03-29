@@ -28,9 +28,8 @@
 
 #if ENABLE(SUBTLE_CRYPTO)
 
-#include "CryptoAlgorithmParameters.h"
+#include "CryptoAlgorithmPbkdf2Params.h"
 #include "CryptoKeyRaw.h"
-#include "ExceptionCode.h"
 
 namespace WebCore {
 
@@ -50,21 +49,25 @@ void CryptoAlgorithmPBKDF2::deriveBits(std::unique_ptr<CryptoAlgorithmParameters
         exceptionCallback(OperationError);
         return;
     }
-    platformDeriveBits(WTFMove(parameters), WTFMove(baseKey), length, WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
+
+    dispatchOperation(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
+        [parameters = WTFMove(parameters), baseKey = WTFMove(baseKey), length] {
+            return platformDeriveBits(downcast<CryptoAlgorithmPbkdf2Params>(*parameters), downcast<CryptoKeyRaw>(baseKey.get()), length);
+        });
 }
 
-void CryptoAlgorithmPBKDF2::importKey(SubtleCrypto::KeyFormat format, KeyData&& data, const std::unique_ptr<CryptoAlgorithmParameters>&& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmPBKDF2::importKey(CryptoKeyFormat format, KeyData&& data, const std::unique_ptr<CryptoAlgorithmParameters>&& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
-    if (format != SubtleCrypto::KeyFormat::Raw) {
-        exceptionCallback(NOT_SUPPORTED_ERR);
+    if (format != CryptoKeyFormat::Raw) {
+        exceptionCallback(NotSupportedError);
         return;
     }
     if (usages & (CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt | CryptoKeyUsageSign | CryptoKeyUsageVerify | CryptoKeyUsageWrapKey | CryptoKeyUsageUnwrapKey)) {
-        exceptionCallback(SYNTAX_ERR);
+        exceptionCallback(SyntaxError);
         return;
     }
     if (extractable) {
-        exceptionCallback(SYNTAX_ERR);
+        exceptionCallback(SyntaxError);
         return;
     }
 

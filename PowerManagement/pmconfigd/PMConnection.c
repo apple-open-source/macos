@@ -1811,23 +1811,22 @@ static void handleCanSleepMsg(void *messageData, CFStringRef sleepReason)
     idle_sleep = (CFStringCompare(sleepReason, CFSTR(kIOPMIdleSleepKey), 0) == kCFCompareEqualTo);
     /* Check for active TTYs due to ssh sessiosn */
     allow_sleep = TTYKeepAwakeConsiderAssertion( );
-    if (allow_sleep && idle_sleep && (!isA_DarkWakeState())) {
-        // If idle sleep and transition is from full wake -> darkwake
-        // check if sleep has to be prevented for upcoming sleep request
-        allow_sleep = (checkPendingWakeReqs(CHECK_UPCOMING|PREVENT_PURGING) ? false : true);
+    if (allow_sleep && idle_sleep) {
+        if (!isA_DarkWakeState()) {
+            // If idle sleep and transition is from full wake -> darkwake
+            // check if sleep has to be prevented for upcoming sleep request
+            allow_sleep = (checkPendingWakeReqs(CHECK_UPCOMING|PREVENT_PURGING) ? false : true);
+        }
+        allow_sleep &= checkForActivesByType(kDeclareSystemActivityType) ? false : true;
     }
 
     if (allow_sleep) {
-        if (CFStringCompare(sleepReason, CFSTR(kIOPMIdleSleepKey), 0) != kCFCompareEqualTo) {
-            lastcall_ts = mach_absolute_time();
-            gMachineStateRevertible = false;
-        }
+        lastcall_ts = mach_absolute_time();
+        gMachineStateRevertible = false;
         IOAllowPowerChange(gRootDomainConnect, (long)messageData);                
     }
     else
         IOCancelPowerChange(gRootDomainConnect, (long)messageData);                
-
-
 }
 
 static void setInitialSleepPreventersCount(int type)

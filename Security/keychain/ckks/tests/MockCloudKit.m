@@ -26,6 +26,7 @@
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
@@ -38,6 +39,7 @@
 @synthesize recordZonesToSave = _recordZonesToSave;
 @synthesize recordZoneIDsToDelete = _recordZoneIDsToDelete;
 @synthesize modifyRecordZonesCompletionBlock = _modifyRecordZonesCompletionBlock;
+@synthesize group = _group;
 
 - (instancetype)initWithRecordZonesToSave:(nullable NSArray<CKRecordZone *> *)recordZonesToSave recordZoneIDsToDelete:(nullable NSArray<CKRecordZoneID *> *)recordZoneIDsToDelete {
     if(self = [super init]) {
@@ -107,6 +109,7 @@
 
         if(zone) {
             // The zone exists. Its deletion will succeed.
+            [FakeCKModifyRecordZonesOperation ensureZoneDeletionAllowed:zone];
             ckdb[zoneID] = nil;
 
             if(!self.recordZoneIDsDeleted) {
@@ -136,6 +139,11 @@
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"+ckdb[] must be mocked out for use"]
                                  userInfo:nil];
+}
+
++(void)ensureZoneDeletionAllowed:(FakeCKZone*)zone {
+    // Shouldn't ever be called; will be mocked out
+    (void)zone;
 }
 @end
 
@@ -257,6 +265,13 @@
             return;
         }
 
+        SCNetworkReachabilityFlags reachabilityFlags = [CKKSReachabilityTracker getReachabilityFlags:NULL];
+        if ((reachabilityFlags & kSCNetworkReachabilityFlagsReachable) == 0) {
+            NSError *networkError = [NSError errorWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:NULL];
+            self.fetchRecordZoneChangesCompletionBlock(networkError);
+            return;
+        }
+
         // Not precisely correct in the case of multiple zone fetches. However, we don't currently do that, so it'll work for now.
         NSError* mockError = [zone popFetchChangesError];
         if(mockError) {
@@ -324,6 +339,7 @@
 @implementation FakeCKFetchRecordsOperation
 @synthesize recordIDs = _recordIDs;
 @synthesize desiredKeys = _desiredKeys;
+@synthesize configuration = _configuration;
 
 @synthesize perRecordProgressBlock = _perRecordProgressBlock;
 @synthesize perRecordCompletionBlock = _perRecordCompletionBlock;
@@ -342,7 +358,6 @@
     }
     return self;
 }
-
 
 - (void)main {
     FakeCKDatabase* ckdb = [FakeCKFetchRecordsOperation ckdb];

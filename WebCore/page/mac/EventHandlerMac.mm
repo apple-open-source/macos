@@ -60,7 +60,6 @@
 #include "Scrollbar.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
-#include "WebCoreSystemInterface.h"
 #include "WheelEventDeltaFilter.h"
 #include "WheelEventTestTrigger.h"
 #include <wtf/BlockObjCExceptions.h>
@@ -718,22 +717,6 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
     return m_activationEventNumber == event.eventNumber();
 }
 
-#if ENABLE(DRAG_SUPPORT)
-
-Ref<DataTransfer> EventHandler::createDraggingDataTransfer() const
-{
-    // Must be done before ondragstart adds types and data to the pboard,
-    // also done for security, as it erases data from the last drag.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    auto pasteboard = std::make_unique<Pasteboard>(NSDragPboard);
-#pragma clang diagnostic pop
-    pasteboard->clear();
-    return DataTransfer::createForDrag();
-}
-
-#endif
-
 bool EventHandler::tabsToAllFormControls(KeyboardEvent& event) const
 {
     Page* page = m_frame.page();
@@ -950,7 +933,7 @@ void EventHandler::platformPrepareForWheelEvents(const PlatformWheelEvent& wheel
             scrollableArea = scrollableAreaForEventTarget(wheelEventTarget.get());
         } else {
             scrollableContainer = findEnclosingScrollableContainer(wheelEventTarget.get(), wheelEvent.deltaX(), wheelEvent.deltaY());
-            if (scrollableContainer && !is<HTMLIFrameElement>(wheelEventTarget.get()))
+            if (scrollableContainer && !is<HTMLIFrameElement>(wheelEventTarget))
                 scrollableArea = scrollableAreaForContainerNode(*scrollableContainer);
             else {
                 scrollableContainer = view->frame().document()->bodyOrFrameset();
@@ -1107,8 +1090,7 @@ VisibleSelection EventHandler::selectClosestWordFromHitTestResultBasedOnLookup(c
     if (!m_frame.editor().behavior().shouldSelectBasedOnDictionaryLookup())
         return VisibleSelection();
 
-    NSDictionary *options = nil;
-    if (RefPtr<Range> range = DictionaryLookup::rangeAtHitTestResult(result, &options))
+    if (auto range = DictionaryLookup::rangeAtHitTestResult(result, nullptr))
         return VisibleSelection(*range);
 
     return VisibleSelection();
@@ -1159,7 +1141,7 @@ static IntSize autoscrollAdjustmentFactorForScreenBoundaries(const IntPoint& scr
     return adjustmentFactor;
 }
 
-IntPoint EventHandler::effectiveMousePositionForSelectionAutoscroll() const
+IntPoint EventHandler::targetPositionInWindowForSelectionAutoscroll() const
 {
     Page* page = m_frame.page();
     if (!page)

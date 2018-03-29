@@ -146,7 +146,7 @@ parse_algorithm(const char *name, CSSM_ALGORITHMS *algorithm)
 	else
 	{
 		sec_error("Invalid algorithm: %s", name);
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	return 0;
@@ -262,7 +262,7 @@ key_create_pair(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -279,7 +279,7 @@ key_create_pair(int argc, char * const *argv)
 		description  = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 	else if (argc != 0)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	else
 		description = CFStringCreateWithCString(NULL, "<key>", kCFStringEncodingUTF8);
 
@@ -560,7 +560,7 @@ csr_create(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -577,7 +577,7 @@ csr_create(int argc, char * const *argv)
 		description  = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 	else if (argc != 0)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	else
 		description = CFStringCreateWithCString(NULL, "<key>", kCFStringEncodingUTF8);
 

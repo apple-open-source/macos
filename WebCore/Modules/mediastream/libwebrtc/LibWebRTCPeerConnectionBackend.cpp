@@ -28,7 +28,6 @@
 #if USE(LIBWEBRTC)
 
 #include "Document.h"
-#include "ExceptionCode.h"
 #include "IceCandidate.h"
 #include "JSRTCStatsReport.h"
 #include "LibWebRTCDataChannelHandler.h"
@@ -55,9 +54,7 @@ CreatePeerConnectionBackend PeerConnectionBackend::create = createLibWebRTCPeerC
 
 static inline LibWebRTCProvider& libWebRTCProvider(RTCPeerConnection& peerConnection)
 {
-    ASSERT(peerConnection.scriptExecutionContext()->isDocument());
-    auto* page = static_cast<Document*>(peerConnection.scriptExecutionContext())->page();
-    return page->libWebRTCProvider();
+    return downcast<Document>(*peerConnection.scriptExecutionContext()).page()->libWebRTCProvider();
 }
 
 LibWebRTCPeerConnectionBackend::LibWebRTCPeerConnectionBackend(RTCPeerConnection& peerConnection)
@@ -66,9 +63,7 @@ LibWebRTCPeerConnectionBackend::LibWebRTCPeerConnectionBackend(RTCPeerConnection
 {
 }
 
-LibWebRTCPeerConnectionBackend::~LibWebRTCPeerConnectionBackend()
-{
-}
+LibWebRTCPeerConnectionBackend::~LibWebRTCPeerConnectionBackend() = default;
 
 static inline webrtc::PeerConnectionInterface::BundlePolicy bundlePolicyfromConfiguration(const MediaEndpointConfiguration& configuration)
 {
@@ -80,6 +75,9 @@ static inline webrtc::PeerConnectionInterface::BundlePolicy bundlePolicyfromConf
     case RTCBundlePolicy::Balanced:
         return webrtc::PeerConnectionInterface::kBundlePolicyBalanced;
     }
+
+    ASSERT_NOT_REACHED();
+    return webrtc::PeerConnectionInterface::kBundlePolicyMaxCompat;
 }
 
 static inline webrtc::PeerConnectionInterface::IceTransportsType iceTransportPolicyfromConfiguration(const MediaEndpointConfiguration& configuration)
@@ -90,6 +88,9 @@ static inline webrtc::PeerConnectionInterface::IceTransportsType iceTransportPol
     case RTCIceTransportPolicy::All:
         return webrtc::PeerConnectionInterface::kAll;
     }
+
+    ASSERT_NOT_REACHED();
+    return webrtc::PeerConnectionInterface::kNone;
 }
 
 static webrtc::PeerConnectionInterface::RTCConfiguration configurationFromMediaEndpointConfiguration(MediaEndpointConfiguration&& configuration)
@@ -176,7 +177,7 @@ void LibWebRTCPeerConnectionBackend::doCreateOffer(RTCOfferOptions&& options)
 void LibWebRTCPeerConnectionBackend::doCreateAnswer(RTCAnswerOptions&&)
 {
     if (!m_isRemoteDescriptionSet) {
-        createAnswerFailed(Exception { INVALID_STATE_ERR, "No remote description set" });
+        createAnswerFailed(Exception { InvalidStateError, "No remote description set" });
         return;
     }
     m_endpoint->doCreateAnswer();
@@ -191,6 +192,7 @@ void LibWebRTCPeerConnectionBackend::doStop()
 
     m_endpoint->stop();
 
+    m_statsPromises.clear();
     m_remoteStreams.clear();
     m_pendingReceivers.clear();
 }
@@ -373,34 +375,34 @@ void LibWebRTCPeerConnectionBackend::replaceTrack(RTCRtpSender& sender, Ref<Medi
     switch (currentTrack->source().type()) {
     case RealtimeMediaSource::Type::None:
         ASSERT_NOT_REACHED();
-        promise.reject(INVALID_MODIFICATION_ERR);
+        promise.reject(InvalidModificationError);
         break;
     case RealtimeMediaSource::Type::Audio: {
         for (auto& audioSource : m_audioSources) {
             if (&audioSource->source() == &currentTrack->privateTrack()) {
                 if (!audioSource->setSource(track->privateTrack())) {
-                    promise.reject(INVALID_MODIFICATION_ERR);
+                    promise.reject(InvalidModificationError);
                     return;
                 }
                 connection().enqueueReplaceTrackTask(sender, WTFMove(track), WTFMove(promise));
                 return;
             }
         }
-        promise.reject(INVALID_MODIFICATION_ERR);
+        promise.reject(InvalidModificationError);
         break;
     }
     case RealtimeMediaSource::Type::Video: {
         for (auto& videoSource : m_videoSources) {
             if (&videoSource->source() == &currentTrack->privateTrack()) {
                 if (!videoSource->setSource(track->privateTrack())) {
-                    promise.reject(INVALID_MODIFICATION_ERR);
+                    promise.reject(InvalidModificationError);
                     return;
                 }
                 connection().enqueueReplaceTrackTask(sender, WTFMove(track), WTFMove(promise));
                 return;
             }
         }
-        promise.reject(INVALID_MODIFICATION_ERR);
+        promise.reject(InvalidModificationError);
         break;
     }
     }

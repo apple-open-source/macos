@@ -37,6 +37,8 @@
 
 __BEGIN_DECLS
 
+#define ENABLE_IDS 0
+
 enum {
     // Public errors are first (See SOSCloudCircle)
 
@@ -85,7 +87,6 @@ typedef enum {
 
 extern const CFStringRef SOSTransportMessageTypeIDSV2;
 extern const CFStringRef SOSTransportMessageTypeKVS;
-extern const CFStringRef SOSTransportMessageTypeIDS;
 extern const CFStringRef kSOSDSIDKey;
 
 // Returns false unless errorCode is 0.
@@ -165,6 +166,7 @@ extern const CFStringRef kIDSMessageUniqueID;
 extern const CFStringRef kIDSMessageRecipientPeerID;
 extern const CFStringRef kIDSMessageRecipientDeviceID;
 extern const CFStringRef kIDSMessageUsesAckModel;
+extern const CFStringRef kIDSMessageSenderDeviceID;
 
 __END_DECLS
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2017  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,13 +15,12 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: thread.c,v 1.24 2007/06/19 23:47:19 tbox Exp $ */
-
 #include <config.h>
 
 #include <process.h>
 
 #include <isc/thread.h>
+#include <isc/util.h>
 
 isc_result_t
 isc_thread_create(isc_threadfunc_t start, isc_threadarg_t arg,
@@ -65,6 +64,12 @@ isc_thread_setconcurrency(unsigned int level) {
 	 * This is unnecessary on Win32 systems, but is here so that the
 	 * call exists
 	 */
+}
+
+void
+isc_thread_setname(isc_thread_t thread, const char *name) {
+	UNUSED(thread);
+	UNUSED(name);
 }
 
 void *

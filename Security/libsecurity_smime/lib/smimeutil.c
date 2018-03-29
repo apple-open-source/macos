@@ -758,8 +758,10 @@ static CFArrayRef CF_RETURNS_RETAINED copyCertsFromRawCerts(SecAsn1Item **rawCer
 
     for(dex=0; dex<numRawCerts; dex++) {
         certificate = SecCertificateCreateWithBytes(NULL, rawCerts[dex]->Data, rawCerts[dex]->Length);
-        CFArrayAppendValue(certs, certificate);
-        CFRelease(certificate);
+        if (certificate) {
+            CFArrayAppendValue(certs, certificate);
+            CFRelease(certificate);
+        }
         certificate = NULL;
     }
 
@@ -812,7 +814,7 @@ SecSMIMEGetCertFromEncryptionKeyPreference(SecAsn1Item **rawCerts, SecAsn1Item *
     }
 loser:
     if (tmppoolp) PORT_FreeArena(tmppoolp, PR_FALSE);
-    CFRelease(certs);
+    if (certs) CFRelease(certs);
     return cert;
 }
 

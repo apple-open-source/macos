@@ -29,8 +29,8 @@
 #define USE_FILE_LOCK 1
 #endif
 
-#if PLATFORM(WIN) && !USE(WINGDI)
-#include "WebCoreHeaderDetection.h"
+#if PLATFORM(WIN)
+#include <PALHeaderDetection.h>
 #endif
 
 #include "PlatformExportMacros.h"
@@ -71,12 +71,6 @@
 
 #include <wtf/DisallowCType.h>
 
-#if COMPILER(MSVC)
-#define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1
-#else
-#define SKIP_STATIC_CONSTRUCTORS_ON_GCC 1
-#endif
-
 #if PLATFORM(WIN)
 #if PLATFORM(WIN_CAIRO)
 #undef USE_CG
@@ -109,8 +103,6 @@ typedef float CGFloat;
 #endif
 #endif /* USE(CG) */
 
-// FIXME: Move this to JavaScriptCore/wtf/Platform.h, which is where we define USE_AVFOUNDATION on the Mac.
-// https://bugs.webkit.org/show_bug.cgi?id=67334
 #if PLATFORM(WIN) && USE(CG) && HAVE(AVCF)
 #define USE_AVFOUNDATION 1
 

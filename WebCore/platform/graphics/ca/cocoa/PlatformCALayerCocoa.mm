@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,13 +32,13 @@
 #import "LengthFunctions.h"
 #import "PlatformCAAnimationCocoa.h"
 #import "PlatformCAFilters.h"
-#import "QuartzCoreSPI.h"
 #import "ScrollbarThemeMac.h"
 #import "TileController.h"
 #import "TiledBacking.h"
 #import "WebActionDisablingCALayerDelegate.h"
 #import "WebCoreCALayerExtras.h"
 #import "WebGLLayer.h"
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/SoftLinking.h>
 #if ENABLE(WEBGPU)
 #import "WebGPULayer.h"
@@ -1145,7 +1145,10 @@ void PlatformCALayer::drawLayerContents(CGContextRef context, WebCore::PlatformC
     
     // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
     // the current NSGraphicsContext (e.g. NSCell drawing) get the right one.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:YES];
+#pragma clang diagnostic pop
     [NSGraphicsContext setCurrentContext:layerContext];
 #endif
     
@@ -1207,7 +1210,21 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::createCompatibleLayer(PlatformCALayer
 
 void PlatformCALayerCocoa::enumerateRectsBeingDrawn(CGContextRef context, void (^block)(CGRect))
 {
-    wkCALayerEnumerateRectsBeingDrawnWithBlock(m_layer.get(), context, block);
+    CGSRegionObj region = (CGSRegionObj)[m_layer regionBeingDrawn];
+    if (!region) {
+        block(CGContextGetClipBoundingBox(context));
+        return;
+    }
+
+    CGAffineTransform inverseTransform = CGAffineTransformInvert(CGContextGetCTM(context));
+    CGSRegionEnumeratorObj enumerator = CGSRegionEnumerator(region);
+    const CGRect* nextRect;
+    while ((nextRect = CGSNextRect(enumerator))) {
+        CGRect rectToDraw = CGRectApplyAffineTransform(*nextRect, inverseTransform);
+        block(rectToDraw);
+    }
+    
+    CGSReleaseRegionEnumerator(enumerator);
 }
 
 unsigned PlatformCALayerCocoa::backingStoreBytesPerPixel() const

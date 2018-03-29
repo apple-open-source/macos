@@ -3,6 +3,8 @@
 //
 //
 
+#include <sys/param.h>
+#include <sys/mount.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
@@ -87,12 +89,12 @@ badHierarchy:
 
 
 
-int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize, bool readOnly)
+int BLMountContainerVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize, bool readOnly)
 {
     int		ret;
     char    vartmpLoc[MAXPATHLEN];
     char	fulldevpath[MNAMELEN];
-    char	*newargv[11];
+    char	*newargv[13];
     char    *installEnv;
 	int		i;
     
@@ -122,9 +124,11 @@ int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint
     newargv[2] = "apfs";
     newargv[3] = "-o";
     newargv[4] = "perm";
-    newargv[5] = "-o";
-    newargv[6] = "nobrowse";
-	i = 7;
+	newargv[5] = "-o";
+	newargv[6] = "owners";
+    newargv[7] = "-o";
+    newargv[8] = "nobrowse";
+	i = 9;
 	if (readOnly) newargv[i++] = "-r";
     newargv[i++] = fulldevpath;
     newargv[i++] = mntPoint;
@@ -160,13 +164,21 @@ int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint
 
 
 
-int UnmountPrebootVolume(BLContextPtr context, char *mntPoint)
+int BLUnmountContainerVolume(BLContextPtr context, char *mntPoint)
 {
-    int ret;
-    char *newargv[3];
-    
+    int				err;
+    char			*newargv[3];
+	struct statfs	sfs;
+	
+	// We allow the passed-in path to be a general path, not just
+	// a mount point, so we first need to resolve it to a mount point
+	// or device.
+	if (statfs(mntPoint, &sfs) < 0) {
+		return errno;
+	}
+	
     newargv[0] = "/sbin/umount";
-    newargv[1] = mntPoint;
+    newargv[1] = sfs.f_mntfromname;
     newargv[2] = NULL;
     
     contextprintf(context, kBLLogLevelVerbose, "Executing \"%s\"\n", "/sbin/umount");
@@ -174,23 +186,23 @@ int UnmountPrebootVolume(BLContextPtr context, char *mntPoint)
     pid_t p = fork();
     if (p == 0) {
         setuid(geteuid());
-        ret = execv("/sbin/umount", newargv);
-        if(ret == -1) {
+        err = execv("/sbin/umount", newargv);
+        if (err == -1) {
             contextprintf(context, kBLLogLevelError,  "Could not exec %s\n", "/sbin/umount");
         }
         _exit(1);
     }
     
     do {
-        p = wait(&ret);
+        p = wait(&err);
     } while (p == -1 && errno == EINTR);
     
-    contextprintf(context, kBLLogLevelVerbose, "Returned %d\n", ret);
-    if(p == -1 || ret) {
+    contextprintf(context, kBLLogLevelVerbose, "Returned %d\n", err);
+    if(p == -1 || err) {
         contextprintf(context, kBLLogLevelError,  "%s returned non-0 exit status\n", "/sbin/umount");
         return 3;
     }
-    rmdir(mntPoint);
+    rmdir(sfs.f_mntonname);
     
     return 0;
 }

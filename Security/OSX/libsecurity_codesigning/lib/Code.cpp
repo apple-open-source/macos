@@ -255,6 +255,7 @@ void SecCode::changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation
 //
 SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 {
+#if TARGET_OS_OSX
 	// special case: with no attributes at all, return the root of trust
 	if (CFDictionaryGetCount(attributes) == 0)
 		return KernelCode::active()->retain();
@@ -280,6 +281,7 @@ SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 			return code.yield();
 		}
 	}
+#endif // TARGET_OS_OSX
 	MacOSError::throwMe(errSecCSNoSuchCode);
 }
 

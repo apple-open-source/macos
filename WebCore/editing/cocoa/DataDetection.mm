@@ -30,8 +30,6 @@
 
 #import "Attr.h"
 #import "CSSStyleDeclaration.h"
-#import "DataDetectorsSPI.h"
-#import "DataDetectorsUISPI.h"
 #import "Editing.h"
 #import "ElementAncestorIterator.h"
 #import "ElementTraversal.h"
@@ -50,6 +48,8 @@
 #import "TextIterator.h"
 #import "VisiblePosition.h"
 #import "VisibleUnits.h"
+#import <pal/spi/ios/DataDetectorsUISPI.h>
+#import <pal/spi/mac/DataDetectorsSPI.h>
 #import <wtf/text/StringBuilder.h>
 
 #import "DataDetectorsCoreSoftLink.h"
@@ -78,7 +78,8 @@ static RetainPtr<DDActionContext> detectItemAtPositionWithRange(VisiblePosition 
     RefPtr<Range> mainResultRange;
     CFIndex resultCount = CFArrayGetCount(results.get());
     for (CFIndex i = 0; i < resultCount; i++) {
-        DDResultRef result = (DDResultRef)CFArrayGetValueAtIndex(results.get(), i);
+        // FIXME: <rdar://problem/36241894> Implement checked cast for DDResultRef once DDResultGetTypeID() is available
+        DDResultRef result = static_cast<DDResultRef>(const_cast<CF_BRIDGED_TYPE(id) void*>(CFArrayGetValueAtIndex(results.get(), i)));
         CFRange resultRangeInContext = DDResultGetRange(result);
         if (hitLocation >= resultRangeInContext.location && (hitLocation - resultRangeInContext.location) < resultRangeInContext.length) {
             mainResult = result;
@@ -152,12 +153,18 @@ RetainPtr<DDActionContext> DataDetection::detectItemAroundHitTestResult(const Hi
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(IOS)
+
+bool DataDetection::canBePresentedByDataDetectors(const URL& url)
+{
+    return [softLink_DataDetectorsCore_DDURLTapAndHoldSchemes() containsObject:(NSString *)url.protocol().toStringWithoutCopying().convertToASCIILowercase()];
+}
+
 bool DataDetection::isDataDetectorLink(Element& element)
 {
     if (!is<HTMLAnchorElement>(element))
         return false;
 
-    return [softLink_DataDetectorsCore_DDURLTapAndHoldSchemes() containsObject:(NSString *)downcast<HTMLAnchorElement>(element).href().protocol().toStringWithoutCopying().convertToASCIILowercase()];
+    return canBePresentedByDataDetectors(downcast<HTMLAnchorElement>(element).href());
 }
 
 bool DataDetection::requiresExtendedContext(Element& element)

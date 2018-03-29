@@ -57,13 +57,13 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
     
-    virtual void free(void);
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
     
 public:
     // IOService overrides
-    virtual bool start(IOService *provider);
-	bool finalize(IOOptionBits options);
-    virtual IOReturn message(UInt32 type, IOService *provider, void *argument);
+    virtual bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+	bool finalize(IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn message(UInt32 type, IOService *provider, void *argument) APPLE_KEXT_OVERRIDE;
 
 /*!
     @function updateDrb

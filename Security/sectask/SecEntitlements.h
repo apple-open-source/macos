@@ -123,6 +123,9 @@ __BEGIN_DECLS
 /* Entitlement to control usage of deletion of keychain items on app uninstallation */
 #define kSecEntitlementPrivateUninstallDeletion CFSTR("com.apple.private.uninstall.deletion")
 
+/* Entitlement to control usage of deletion of keychain items wholesale */
+#define kSecEntitlementPrivateDeleteAll CFSTR("com.apple.private.security.delete.all")
+
 /* Entitlement to allow access to circle joining APIs in SOSCC */
 #define kSecEntitlementCircleJoin CFSTR("com.apple.private.keychain.circle.join")
 
@@ -151,6 +154,14 @@ __BEGIN_DECLS
 #define kSecEntitlementPrivateSysBound CFSTR("com.apple.private.keychain.sysbound")
 
 #define kSecEntitlementBackupTableOperationsDeleteAll CFSTR("com.apple.private.keychain.backuptableops.deleteall")
+
+/* Entitlement to allow executing keychain control actions */
+#define kSecEntitlementKeychainControl CFSTR("com.apple.private.keychain.keychaincontrol")
+
+#if __OBJC__
+/* Entitlement to control use of OT */
+#define kSecEntitlementPrivateOctagon @"com.apple.private.octagon"
+#endif
 
 __END_DECLS
 

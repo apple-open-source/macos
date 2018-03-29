@@ -2002,11 +2002,16 @@ BC_fetch_omaps_for_mount(const char *mount, struct BC_omap_history_mount *ohm)
 
 	DLOG("Received a total of %d omaps for mount %s", ohm->ohm_nomaps, uuid_string(ohm->ohm_uuid));
 	
+	if (otr.otr_records) {
+		free(otr.otr_records);
+	}
+
 	return ret;
 
 out:
-	if (otr.otr_records)
+	if (otr.otr_records) {
 		free(otr.otr_records);
+	}
 	ohm->ohm_nomaps = 0;
 	if (ohm->ohm_omaps) {
 		free(ohm->ohm_omaps);
@@ -2915,11 +2920,16 @@ stat_print_split____________________("bytes read", read_bytes);
 		u_int bytes_remaining_total = bytes_remaining_shared + bytes_remaining_nonshared;
 stat_print_split_percent____________(" bytes used", hit_bytes, read_bytes);
 stat_print_split_percent_nummanual__(" bytes remaining", bytes_remaining, read_bytes);
-stat_print_split_percent____________(" low priority bytes", read_bytes_lowpri, read_bytes);
 		if (total_stat(read_bytes_lowpri) > 0) {
-stat_print_split_percent____________("  lowpri bytes discarded", lowpri_discards, read_bytes_lowpri);
+			u_int read_bytes_highpri_nonshared = nonshared_stat(read_bytes) - nonshared_stat(read_bytes_lowpri);
+			u_int read_bytes_highpri_shared = shared_stat(read_bytes) - shared_stat(read_bytes_lowpri);
+stat_print_split_percent_nummanual__(" high priority bytes", read_bytes_highpri, read_bytes);
+stat_print_split_percent____________(" low priority bytes", read_bytes_lowpri, read_bytes);
 		}
 stat_print_split_percent____________(" bytes failed to read", read_errors_bytes, read_bytes);
+		if (total_stat(lowpri_discards) > 0) {
+stat_print_split_percent____________(" bytes discarded by lowpri", lowpri_discards, read_bytes);
+		}
 		if (total_stat(bypass_nocache_discards) > 0) {
 stat_print_split_percent____________(" bytes discarded by noncac", bypass_nocache_discards, read_bytes);
 		}

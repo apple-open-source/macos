@@ -23,16 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DownloadProxy_h
-#define DownloadProxy_h
+#pragma once
 
 #include "APIObject.h"
 #include "Connection.h"
 #include "DownloadID.h"
+#include "DownloadProxyMessages.h"
 #include "SandboxExtension.h"
 #include <WebCore/ResourceRequest.h>
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
+#include <wtf/WeakPtr.h>
 
 namespace API {
 class Data;
@@ -43,6 +44,7 @@ class AuthenticationChallenge;
 class ProtectionSpace;
 class ResourceError;
 class ResourceResponse;
+class URL;
 }
 
 namespace WebKit {
@@ -69,6 +71,15 @@ public:
     void didReceiveDownloadProxyMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveSyncDownloadProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
+    WebPageProxy* originatingPage() const;
+    void setOriginatingPage(WebPageProxy*);
+
+    void setRedirectChain(Vector<WebCore::URL>&& redirectChain) { m_redirectChain = WTFMove(redirectChain); }
+    const Vector<WebCore::URL>& redirectChain() const { return m_redirectChain; }
+
+    void setWasUserInitiated(bool value) { m_wasUserInitiated = value; }
+    bool wasUserInitiated() const { return m_wasUserInitiated; }
+
 private:
     explicit DownloadProxy(DownloadProxyMap&, WebProcessPool&, const WebCore::ResourceRequest&);
 
@@ -86,13 +97,9 @@ private:
     void didFinish();
     void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
     void didCancel(const IPC::DataReference& resumeData);
-#if USE(NETWORK_SESSION)
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void canAuthenticateAgainstProtectionSpace(const WebCore::ProtectionSpace&);
-#endif
-    void willSendRequest(const WebCore::ResourceRequest& redirectRequest, const WebCore::ResourceResponse& redirectResponse);
-#else
-    void decideDestinationWithSuggestedFilename(const String& filename, const String& mimeType, String& destination, bool& allowOverwrite, SandboxExtension::Handle& sandboxExtensionHandle);
+    void willSendRequest(WebCore::ResourceRequest&& redirectRequest, const WebCore::ResourceResponse& redirectResponse);
+#if !USE(NETWORK_SESSION)
+    void decideDestinationWithSuggestedFilename(const String& filename, const String& mimeType, Ref<Messages::DownloadProxy::DecideDestinationWithSuggestedFilename::DelayedReply>&&);
 #endif
     void decideDestinationWithSuggestedFilenameAsync(DownloadID, const String& suggestedFilename);
 
@@ -103,8 +110,10 @@ private:
     RefPtr<API::Data> m_resumeData;
     WebCore::ResourceRequest m_request;
     String m_suggestedFilename;
+
+    WeakPtr<WebPageProxy> m_originatingPage;
+    Vector<WebCore::URL> m_redirectChain;
+    bool m_wasUserInitiated { true };
 };
 
 } // namespace WebKit
-
-#endif // DownloadProxy_h

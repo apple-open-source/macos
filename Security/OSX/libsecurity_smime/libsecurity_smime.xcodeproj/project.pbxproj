@@ -69,11 +69,11 @@
 		4CDA0D6604200AE000CA2E66 /* cmssiginfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420403E9FC5B00A80181 /* cmssiginfo.c */; };
 		4CDA0D6704200B0F00CA2E66 /* smimeutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420F03E9FC5B00A80181 /* smimeutil.c */; };
 		4CEC5CDF042A721300CA2E66 /* cmspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CDE042A721300CA2E66 /* cmspriv.h */; };
-		4CEC5CE1042A722000CA2E66 /* cmstpriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CE0042A722000CA2E66 /* cmstpriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4CEC5CE1042A722000CA2E66 /* cmstpriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CE0042A722000CA2E66 /* cmstpriv.h */; };
 		4CEDC82106371B1700B7E254 /* SecCmsEncryptedData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEDC82006371B1700B7E254 /* SecCmsEncryptedData.h */; settings = {ATTRIBUTES = (); }; };
-		5232A822150AD71A00E6BB48 /* tsaSupportPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 5232A821150AD71A00E6BB48 /* tsaSupportPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5232A822150AD71A00E6BB48 /* tsaSupportPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 5232A821150AD71A00E6BB48 /* tsaSupportPriv.h */; };
 		52B609D514F4665700134209 /* tsaTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 52B609D314F4665700134209 /* tsaTemplates.c */; };
-		52B609D614F4665700134209 /* tsaTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B609D414F4665700134209 /* tsaTemplates.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52B609D614F4665700134209 /* tsaTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B609D414F4665700134209 /* tsaTemplates.h */; };
 		52D7A24A15092A0600CF48F7 /* tsaSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 52D7A24915092A0600CF48F7 /* tsaSupport.c */; };
 		52D7A24D15094B8B00CF48F7 /* tsaSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D7A24C15092AAD00CF48F7 /* tsaSupport.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AC62F5F418B4358B00704BBD /* smime-cms-test.c in Sources */ = {isa = PBXBuildFile; fileRef = ACBEE91018B420BC0021712D /* smime-cms-test.c */; };
@@ -337,6 +337,7 @@
 				4CEC5CDF042A721300CA2E66 /* cmspriv.h in Headers */,
 				4C27422203E9FC7600A80181 /* cmsreclist.h in Headers */,
 				4CEC5CE1042A722000CA2E66 /* cmstpriv.h in Headers */,
+				5232A822150AD71A00E6BB48 /* tsaSupportPriv.h in Headers */,
 				4CA51CE00420246F00CA2E66 /* cryptohi.h in Headers */,
 				4C8E16750438EF5700CA2E66 /* plhash.h in Headers */,
 				4CCC260E0635F1A200CBF0D4 /* SecCmsBase.h in Headers */,
@@ -355,10 +356,9 @@
 				4C8E167A0438EFD700CA2E66 /* secitem.h in Headers */,
 				4C8E16700438EEE700CA2E66 /* secoid.h in Headers */,
 				4C424BE8063F28F600E9831A /* SecSMIMEPriv.h in Headers */,
-				52B609D614F4665700134209 /* tsaTemplates.h in Headers */,
 				52D7A24D15094B8B00CF48F7 /* tsaSupport.h in Headers */,
 				ACBEE90E18B415B60021712D /* SecCMS.h in Headers */,
-				5232A822150AD71A00E6BB48 /* tsaSupportPriv.h in Headers */,
+				52B609D614F4665700134209 /* tsaTemplates.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

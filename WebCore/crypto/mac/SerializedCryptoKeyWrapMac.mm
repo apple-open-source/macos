@@ -37,7 +37,16 @@
 #include <wtf/CryptographicUtilities.h>
 #include <wtf/RetainPtr.h>
 
-#define USE_KEYCHAIN_ACCESS_CONTROL_LISTS (!PLATFORM(IOS))
+#if PLATFORM(IOS)
+#define USE_KEYCHAIN_ACCESS_CONTROL_LISTS 0
+#else
+#define USE_KEYCHAIN_ACCESS_CONTROL_LISTS 1
+#endif
+
+#if USE(KEYCHAIN_ACCESS_CONTROL_LISTS)
+#include <wtf/cf/TypeCastsCF.h>
+WTF_DECLARE_CF_TYPE_TRAIT(SecACL);
+#endif
 
 namespace WebCore {
 
@@ -99,7 +108,7 @@ static bool createAndStoreMasterKey(Vector<uint8_t>& masterKeyData)
     RetainPtr<SecAccessRef> access = adoptCF(accessRef);
 
     RetainPtr<CFArrayRef> acls = adoptCF(SecAccessCopyMatchingACLList(accessRef, kSecACLAuthorizationExportClear));
-    SecACLRef acl = (SecACLRef)CFArrayGetValueAtIndex(acls.get(), 0);
+    SecACLRef acl = checked_cf_cast<SecACLRef>(CFArrayGetValueAtIndex(acls.get(), 0));
 
     SecTrustedApplicationRef trustedAppRef;
     status = SecTrustedApplicationCreateFromPath(0, &trustedAppRef);

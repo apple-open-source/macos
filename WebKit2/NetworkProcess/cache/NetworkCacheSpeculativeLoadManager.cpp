@@ -34,7 +34,7 @@
 #include "NetworkCacheSubresourcesEntry.h"
 #include "NetworkProcess.h"
 #include <WebCore/DiagnosticLoggingKeys.h>
-#include <WebCore/HysteresisActivity.h>
+#include <pal/HysteresisActivity.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RefCounted.h>
@@ -46,7 +46,6 @@ namespace WebKit {
 namespace NetworkCache {
 
 using namespace WebCore;
-using namespace std::literals::chrono_literals;
 
 static const Seconds preloadedEntryLifetime { 10_s };
 
@@ -111,14 +110,14 @@ static inline ResourceRequest constructRevalidationRequest(const Key& key, const
     return revalidationRequest;
 }
 
-static bool responseNeedsRevalidation(const ResourceResponse& response, std::chrono::system_clock::time_point timestamp)
+static bool responseNeedsRevalidation(const ResourceResponse& response, WallTime timestamp)
 {
     if (response.cacheControlContainsNoCache())
         return true;
 
     auto age = computeCurrentAge(response, timestamp);
     auto lifetime = computeFreshnessLifetimeForHTTPFamily(response, timestamp);
-    return age - lifetime > 0ms;
+    return age - lifetime > 0_ms;
 }
 
 class SpeculativeLoadManager::ExpiringEntry {
@@ -207,7 +206,7 @@ private:
         : m_storage(storage)
         , m_mainResourceKey(mainResourceKey)
         , m_loadCompletionHandler(WTFMove(loadCompletionHandler))
-        , m_loadHysteresisActivity([this](HysteresisState state) { if (state == HysteresisState::Stopped) markLoadAsCompleted(); })
+        , m_loadHysteresisActivity([this](PAL::HysteresisState state) { if (state == PAL::HysteresisState::Stopped) markLoadAsCompleted(); })
     {
         m_loadHysteresisActivity.impulse();
     }
@@ -239,14 +238,15 @@ private:
     Key m_mainResourceKey;
     Vector<std::unique_ptr<SubresourceLoad>> m_subresourceLoads;
     WTF::Function<void()> m_loadCompletionHandler;
-    HysteresisActivity m_loadHysteresisActivity;
+    PAL::HysteresisActivity m_loadHysteresisActivity;
     std::unique_ptr<SubresourcesEntry> m_existingEntry;
     bool m_didFinishLoad { false };
     bool m_didRetrieveExistingEntry { false };
 };
 
-SpeculativeLoadManager::SpeculativeLoadManager(Storage& storage)
-    : m_storage(storage)
+SpeculativeLoadManager::SpeculativeLoadManager(Cache& cache, Storage& storage)
+    : m_cache(cache)
+    , m_storage(storage)
 {
 }
 
@@ -466,7 +466,7 @@ void SpeculativeLoadManager::revalidateSubresource(const SubresourceInfo& subres
 
     LOG(NetworkCacheSpeculativePreloading, "(NetworkProcess) Speculatively revalidating '%s':", key.identifier().utf8().data());
 
-    auto revalidator = std::make_unique<SpeculativeLoad>(frameID, revalidationRequest, WTFMove(entry), [this, key, revalidationRequest, frameID](std::unique_ptr<Entry> revalidatedEntry) {
+    auto revalidator = std::make_unique<SpeculativeLoad>(m_cache, frameID, revalidationRequest, WTFMove(entry), [this, key, revalidationRequest, frameID](std::unique_ptr<Entry> revalidatedEntry) {
         ASSERT(!revalidatedEntry || !revalidatedEntry->needsValidation());
         ASSERT(!revalidatedEntry || revalidatedEntry->key() == key);
 
@@ -494,24 +494,24 @@ static bool canRevalidate(const SubresourceInfo& subresourceInfo, const Entry* e
         return true;
     
     auto seenAge = subresourceInfo.lastSeen() - subresourceInfo.firstSeen();
-    if (seenAge == 0ms) {
+    if (seenAge == 0_ms) {
         LOG(NetworkCacheSpeculativePreloading, "Speculative load: Seen only once");
         return false;
     }
     
-    auto now = std::chrono::system_clock::now();
+    auto now = WallTime::now();
     auto firstSeenAge = now - subresourceInfo.firstSeen();
     auto lastSeenAge = now - subresourceInfo.lastSeen();
     // Sanity check.
-    if (seenAge <= 0ms || firstSeenAge <= 0ms || lastSeenAge <= 0ms)
+    if (seenAge <= 0_ms || firstSeenAge <= 0_ms || lastSeenAge <= 0_ms)
         return false;
     
     // Load full resources speculatively if they seem to stay the same.
     const auto minimumAgeRatioToLoad = 2. / 3;
     const auto recentMinimumAgeRatioToLoad = 1. / 3;
-    const auto recentThreshold = 5min;
+    const auto recentThreshold = 5_min;
     
-    auto ageRatio = std::chrono::duration_cast<std::chrono::duration<double>>(seenAge) / firstSeenAge;
+    auto ageRatio = seenAge / firstSeenAge;
     auto minimumAgeRatio = lastSeenAge > recentThreshold ? minimumAgeRatioToLoad : recentMinimumAgeRatioToLoad;
     
     LOG(NetworkCacheSpeculativePreloading, "Speculative load: ok=%d ageRatio=%f entry=%d", ageRatio > minimumAgeRatio, ageRatio, !!entry);

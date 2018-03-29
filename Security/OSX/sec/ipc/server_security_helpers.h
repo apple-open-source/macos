@@ -30,7 +30,7 @@
 CFTypeRef SecCreateLocalCFSecuritydXPCServer(void);
 void SecAddLocalSecuritydXPCFakeEntitlement(CFStringRef entitlement, CFTypeRef value);
 void SecResetLocalSecuritydXPCFakeEntitlements(void);
-XPC_RETURNS_RETAINED xpc_endpoint_t SecCreateSecuritydXPCServerEndpoint(CFErrorRef *error);
+void SecCreateSecuritydXPCServer(void);
 
 void fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t auditToken);
 CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task);

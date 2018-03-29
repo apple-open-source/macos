@@ -54,6 +54,7 @@ extern const char *kMessageKeyPeerID;
 extern const char *kMessageKeySendersPeerID;
 extern const char *kMessageKeyAccountUUID;
 extern const char *kOperationSendDeviceList;
+extern const char *kMessageKeySenderDeviceID;
 
 extern const char *kMessageContext;
 extern const char *kMessageKeyParameter;

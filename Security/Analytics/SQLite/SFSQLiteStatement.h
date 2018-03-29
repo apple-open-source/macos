@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __OBJC2__
+
 #import <Foundation/Foundation.h>
 #import <sqlite3.h>
 
@@ -70,3 +72,5 @@
 - (NSDictionary *)allObjectsByColumnName;
 
 @end
+
+#endif

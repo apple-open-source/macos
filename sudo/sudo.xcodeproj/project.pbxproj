@@ -22,6 +22,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		35461CEC2029F2CC0088CB9D /* bsm_audit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BD81C6AD2B9006A214E /* bsm_audit.c */; };
 		FE1D69001CC06B2F00EBFCDF /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE1D68FF1CC06B1A00EBFCDF /* gc.c */; };
 		FE801B8F1C6AB440006A214E /* conversation.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801AD31C6AB1A5006A214E /* conversation.c */; };
 		FE801B901C6AB440006A214E /* env_hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801AD41C6AB1A5006A214E /* env_hooks.c */; };
@@ -1687,6 +1688,7 @@
 				FE801D411C6AFC06006A214E /* redblack.c in Sources */,
 				FE801D381C6AFC06006A214E /* audit.c in Sources */,
 				FE801D431C6AFC06006A214E /* timestr.c in Sources */,
+				35461CEC2029F2CC0088CB9D /* bsm_audit.c in Sources */,
 				FE801D3D1C6AFC06006A214E /* match.c in Sources */,
 				FE801D3A1C6AFC06006A214E /* defaults.c in Sources */,
 				FE801D3F1C6AFC06006A214E /* pwutil.c in Sources */,

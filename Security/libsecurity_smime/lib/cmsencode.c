@@ -176,8 +176,10 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
 	    /* we're right before encoding the data (if we have some or not) */
 	    /* (for encrypted data, we're right before the contentEncAlg which may change */
 	    /*  in nss_cms_before_data because of IV calculation when setting up encryption) */
-	    if (nss_cms_before_data(p7ecx) != SECSuccess)
+            if (nss_cms_before_data(p7ecx) != SECSuccess) {
 		p7ecx->error = PORT_GetError();
+                PORT_SetError(0); // Clean the thread error since we've returned the error
+            }
 	}
 	if (before && dest == &(cinfo->rawContent)) {
 	    if (childtype == SEC_OID_PKCS7_DATA && (item = cinfo->content.data) != NULL)
@@ -188,8 +190,10 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
 		SEC_ASN1EncoderSetTakeFromBuf(p7ecx->ecx);
 	}
 	if (after && dest == &(cinfo->rawContent)) {
-	    if (nss_cms_after_data(p7ecx) != SECSuccess)
+            if (nss_cms_after_data(p7ecx) != SECSuccess) {
 		p7ecx->error = PORT_GetError();
+                PORT_SetError(0); // Clean the thread error since we've returned the error
+            }
 	    SEC_ASN1EncoderClearNotifyProc(p7ecx->ecx);	/* no need to get notified anymore */
 	}
 	break;
@@ -513,6 +517,9 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
     OSStatus result;
     SecCmsContentInfoRef cinfo;
 
+    /* Clear the thread error to clean up dirty threads */
+    PORT_SetError(0);
+
     SecCmsMessageSetEncodingParams(cmsg, pwfn, pwfn_arg, decrypt_key_cb, decrypt_key_cb_arg);
 
     p7ecx = (SecCmsEncoderRef)PORT_ZAlloc(sizeof(struct SecCmsEncoderStr));
@@ -561,6 +568,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
     if (p7ecx->ecx == NULL) {
         result = PORT_GetError();
 	PORT_Free(p7ecx);
+        PORT_SetError(0); // Clean the thread error since we've returned the error
         goto loser;
     }
     p7ecx->ecxupdated = PR_FALSE;
@@ -582,6 +590,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
     if (SEC_ASN1EncoderUpdate(p7ecx->ecx, NULL, 0) != SECSuccess) {
         result = PORT_GetError();
 	PORT_Free(p7ecx);
+        PORT_SetError(0); // Clean the thread error since we've returned the error
         goto loser;
     }
 
@@ -631,8 +640,10 @@ SecCmsEncoderUpdate(SecCmsEncoderRef p7ecx, const void *data, CFIndex len)
 
 	/*  hand it the data so it can encode it (let DER trickle up the chain) */
 	result = nss_cms_encoder_work_data(p7ecx, NULL, (const unsigned char *)data, len, PR_FALSE, PR_TRUE);
-        if (result)
+        if (result) {
             result = PORT_GetError();
+            PORT_SetError(0); // Clean the thread error since we've returned the error
+        }
     }
     return result;
 }
@@ -737,6 +748,7 @@ SecCmsEncoderFinish(SecCmsEncoderRef p7ecx)
 loser:
     SEC_ASN1EncoderFinish(p7ecx->ecx);
     PORT_Free (p7ecx);
+    PORT_SetError(0); // Clean the thread error since we've returned the error
     return result;
 }
 

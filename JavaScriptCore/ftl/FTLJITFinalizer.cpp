@@ -37,9 +37,7 @@
 
 namespace JSC { namespace FTL {
 
-using namespace DFG;
-
-JITFinalizer::JITFinalizer(Plan& plan)
+JITFinalizer::JITFinalizer(DFG::Plan& plan)
     : Finalizer(plan)
 {
 }
@@ -89,7 +87,7 @@ bool JITFinalizer::finalizeCommon()
     
     m_plan.codeBlock->setJITCode(*jitCode);
 
-    if (m_plan.compilation)
+    if (UNLIKELY(m_plan.compilation))
         m_plan.vm->m_perBytecodeProfiler->addCompilation(m_plan.codeBlock, *m_plan.compilation);
     
     return true;

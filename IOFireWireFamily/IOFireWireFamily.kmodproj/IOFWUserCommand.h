@@ -56,7 +56,7 @@ public:
 										const IOFireWireUserClient*			inUserClient ) ;
 
 	// --- free ----------------------------------										
-	virtual void				free() ;
+	virtual void				free(void) APPLE_KEXT_OVERRIDE;
 	
 	virtual void				setAsyncReference64(
 										OSAsyncReference64		inAsyncRef) ;	
@@ -113,12 +113,12 @@ public:
 	// --- init's --------------------------------
 	virtual bool				initWithSubmitParams(
 										const CommandSubmitParams*	inParams,
-										const IOFireWireUserClient*			inUserClient ) ;
+										const IOFireWireUserClient*			inUserClient ) APPLE_KEXT_OVERRIDE;
 
 	// --- IOFWCommand methods -------------------
 	virtual IOReturn			submit(
 										CommandSubmitParams*	inParams,
-										CommandSubmitResult*	outResult) ;
+										CommandSubmitResult*	outResult) APPLE_KEXT_OVERRIDE;
 } ;
 
 class IOFWUserWriteCommand: public IOFWUserCommand
@@ -129,12 +129,12 @@ public:
 	// --- init's --------------------------------
 	virtual bool				initWithSubmitParams(
 										const CommandSubmitParams*	inParams,
-										const IOFireWireUserClient*			inUserClient ) ;
+										const IOFireWireUserClient*			inUserClient ) APPLE_KEXT_OVERRIDE;
 
 	// --- IOFWCommand methods -------------------
 	virtual IOReturn			submit(
 										CommandSubmitParams*		inParams,
-										CommandSubmitResult*		outResult) ;
+										CommandSubmitResult*		outResult) APPLE_KEXT_OVERRIDE;
 
 } ;
 
@@ -154,14 +154,14 @@ public:
 	// --- init's --------------------------------
 	virtual bool				initWithSubmitParams(
 										const CommandSubmitParams*	inParams,
-										const IOFireWireUserClient*			inUserClient );
+										const IOFireWireUserClient*			inUserClient ) APPLE_KEXT_OVERRIDE;
 
-	virtual void				free();
+	virtual void				free(void) APPLE_KEXT_OVERRIDE;
 	
 	// --- IOFWCommand methods -------------------
 	virtual IOReturn			submit(
 										CommandSubmitParams*		inParams,
-										CommandSubmitResult*		outResult);
+										CommandSubmitResult*		outResult) APPLE_KEXT_OVERRIDE;
 
 	virtual IOFWAsyncPHYCommand *		getAsyncPHYCommand( void ) { return fPHYCommand;  }
 };
@@ -174,10 +174,10 @@ class IOFWUserCompareSwapCommand: public IOFWUserCommand
 		// --- init's --------------------------------
 		virtual bool				initWithSubmitParams(
 											const CommandSubmitParams*	inParams,
-											const IOFireWireUserClient*			inUserClient ) ;
+											const IOFireWireUserClient*			inUserClient ) APPLE_KEXT_OVERRIDE;
 		
 		// --- IOFWCommand methods -------------------
-		virtual IOReturn			submit( CommandSubmitParams* params, CommandSubmitResult* result ) ;
+		virtual IOReturn			submit( CommandSubmitParams* params, CommandSubmitResult* result ) APPLE_KEXT_OVERRIDE;
 		IOReturn					submit( CommandSubmitParams* params, CompareSwapSubmitResult* result ) ;
 		static void					asyncCompletion( void* refcon, IOReturn status, IOFireWireNub* device, 
 											IOFWCommand* fwCmd) ;
@@ -202,14 +202,14 @@ public:
 	// --- init's --------------------------------
 	virtual bool				initWithSubmitParams(
 										const CommandSubmitParams*	inParams,
-										const IOFireWireUserClient*	inUserClient );
+										const IOFireWireUserClient*	inUserClient ) APPLE_KEXT_OVERRIDE;
 
-	virtual void				free();
+	virtual void				free(void) APPLE_KEXT_OVERRIDE;
 	
 	// --- IOFWCommand methods -------------------
 	virtual IOReturn			submit(
 										CommandSubmitParams*		inParams,
-										CommandSubmitResult*		outResult);
+										CommandSubmitResult*		outResult) APPLE_KEXT_OVERRIDE;
 
 	virtual IOFWAsyncStreamCommand *		getAsyncStreamCommand( void ) { return fAsyncStreamCommand;  }
 };

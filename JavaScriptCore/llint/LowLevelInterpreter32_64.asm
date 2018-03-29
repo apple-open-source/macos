@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -125,8 +125,8 @@ macro doVMEntry(makeCall)
     storep vm, VMEntryRecord::m_vm[sp]
     loadp VM::topCallFrame[vm], t4
     storep t4, VMEntryRecord::m_prevTopCallFrame[sp]
-    loadp VM::topVMEntryFrame[vm], t4
-    storep t4, VMEntryRecord::m_prevTopVMEntryFrame[sp]
+    loadp VM::topEntryFrame[vm], t4
+    storep t4, VMEntryRecord::m_prevTopEntryFrame[sp]
 
     # Align stack pointer
     if X86_WIN or MIPS
@@ -189,8 +189,8 @@ macro doVMEntry(makeCall)
     loadp VMEntryRecord::m_vm[sp], t5
     loadp VMEntryRecord::m_prevTopCallFrame[sp], t4
     storep t4, VM::topCallFrame[t5]
-    loadp VMEntryRecord::m_prevTopVMEntryFrame[sp], t4
-    storep t4, VM::topVMEntryFrame[t5]
+    loadp VMEntryRecord::m_prevTopEntryFrame[sp], t4
+    storep t4, VM::topEntryFrame[t5]
 
     if ARMv7
         subp cfr, CalleeRegisterSaveSize, t5
@@ -241,7 +241,7 @@ macro doVMEntry(makeCall)
 
 .copyArgsDone:
     storep sp, VM::topCallFrame[vm]
-    storep cfr, VM::topVMEntryFrame[vm]
+    storep cfr, VM::topEntryFrame[vm]
 
     makeCall(entry, t3, t4)
 
@@ -255,8 +255,8 @@ macro doVMEntry(makeCall)
     loadp VMEntryRecord::m_vm[sp], t5
     loadp VMEntryRecord::m_prevTopCallFrame[sp], t4
     storep t4, VM::topCallFrame[t5]
-    loadp VMEntryRecord::m_prevTopVMEntryFrame[sp], t4
-    storep t4, VM::topVMEntryFrame[t5]
+    loadp VMEntryRecord::m_prevTopEntryFrame[sp], t4
+    storep t4, VM::topEntryFrame[t5]
 
     if ARMv7
         subp cfr, CalleeRegisterSaveSize, t5
@@ -307,7 +307,7 @@ end
 _handleUncaughtException:
     loadp Callee + PayloadOffset[cfr], t3
     andp MarkedBlockMask, t3
-    loadp MarkedBlock::m_vm[t3], t3
+    loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
     restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(t3, t0)
     loadp VM::callFrameForCatch[t3], cfr
     storep 0, VM::callFrameForCatch[t3]
@@ -324,8 +324,8 @@ _handleUncaughtException:
     loadp VMEntryRecord::m_vm[sp], t3
     loadp VMEntryRecord::m_prevTopCallFrame[sp], t5
     storep t5, VM::topCallFrame[t3]
-    loadp VMEntryRecord::m_prevTopVMEntryFrame[sp], t5
-    storep t5, VM::topVMEntryFrame[t3]
+    loadp VMEntryRecord::m_prevTopEntryFrame[sp], t5
+    storep t5, VM::topEntryFrame[t3]
 
     if ARMv7
         subp cfr, CalleeRegisterSaveSize, t3
@@ -579,20 +579,7 @@ macro functionArityCheck(doneLabel, slowPath)
     jmp _llint_throw_from_slow_path_trampoline
 
 .noError:
-    # r1 points to ArityCheckData.
-    loadp CommonSlowPaths::ArityCheckData::thunkToCall[r1], t3
-    btpz t3, .proceedInline
-    
-    loadp CommonSlowPaths::ArityCheckData::paddedStackSpace[r1], a0
-    call t3
-    if ASSERT_ENABLED
-        loadp ReturnPC[cfr], t0
-        loadp [t0], t0
-    end
-    jmp .continue
-
-.proceedInline:
-    loadi CommonSlowPaths::ArityCheckData::paddedStackSpace[r1], t1
+    move r1, t1 # r1 contains slotsToAdd.
     btiz t1, .continue
     loadi PayloadOffset + ArgumentCount[cfr], t2
     addi CallFrameHeaderSlots, t2
@@ -647,7 +634,7 @@ end
 macro branchIfException(label)
     loadp Callee + PayloadOffset[cfr], t3
     andp MarkedBlockMask, t3
-    loadp MarkedBlock::m_vm[t3], t3
+    loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
     btiz VM::m_exception[t3], .noException
     jmp label
 .noException:
@@ -672,7 +659,7 @@ _llint_op_enter:
     btinz t2, .opEnterLoop
 .opEnterDone:
     callOpcodeSlowPath(_slow_path_enter)
-    dispatch(1)
+    dispatch(constexpr op_enter_length)
 
 
 _llint_op_get_argument:
@@ -686,13 +673,13 @@ _llint_op_get_argument:
     storei t0, TagOffset[cfr, t1, 8]
     storei t3, PayloadOffset[cfr, t1, 8]
     valueProfile(t0, t3, 12, t1)
-    dispatch(4)
+    dispatch(constexpr op_get_argument_length)
 
 .opGetArgumentOutOfBounds:
     storei UndefinedTag, TagOffset[cfr, t1, 8]
     storei 0, PayloadOffset[cfr, t1, 8]
     valueProfile(UndefinedTag, 0, 12, t1)
-    dispatch(4)
+    dispatch(constexpr op_get_argument_length)
 
 
 _llint_op_argument_count:
@@ -703,7 +690,7 @@ _llint_op_argument_count:
     move Int32Tag, t1
     storei t1, TagOffset[cfr, t2, 8]
     storei t0, PayloadOffset[cfr, t2, 8]
-    dispatch(2)
+    dispatch(constexpr op_argument_count_length)
 
 
 _llint_op_get_scope:
@@ -713,7 +700,7 @@ _llint_op_get_scope:
     loadisFromInstruction(1, t1)
     storei CellTag, TagOffset[cfr, t1, 8]
     storei t0, PayloadOffset[cfr, t1, 8]
-    dispatch(2)
+    dispatch(constexpr op_get_scope_length)
 
 
 _llint_op_to_this:
@@ -724,11 +711,11 @@ _llint_op_to_this:
     bbneq JSCell::m_type[t0], FinalObjectType, .opToThisSlow
     loadpFromInstruction(2, t2)
     bpneq JSCell::m_structureID[t0], t2, .opToThisSlow
-    dispatch(4)
+    dispatch(constexpr op_to_this_length)
 
 .opToThisSlow:
     callOpcodeSlowPath(_slow_path_to_this)
-    dispatch(4)
+    dispatch(constexpr op_to_this_length)
 
 
 _llint_op_check_tdz:
@@ -739,7 +726,7 @@ _llint_op_check_tdz:
     callOpcodeSlowPath(_slow_path_throw_tdz_error)
 
 .opNotTDZ:
-    dispatch(2)
+    dispatch(constexpr op_check_tdz_length)
 
 
 _llint_op_mov:
@@ -749,7 +736,7 @@ _llint_op_mov:
     loadConstantOrVariable(t1, t2, t3)
     storei t2, TagOffset[cfr, t0, 8]
     storei t3, PayloadOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_mov_length)
 
 
 _llint_op_not:
@@ -761,11 +748,11 @@ _llint_op_not:
     xori 1, t3
     storei t2, TagOffset[cfr, t1, 8]
     storei t3, PayloadOffset[cfr, t1, 8]
-    dispatch(3)
+    dispatch(constexpr op_not_length)
 
 .opNotSlow:
     callOpcodeSlowPath(_slow_path_not)
-    dispatch(3)
+    dispatch(constexpr op_not_length)
 
 
 _llint_op_eq:
@@ -781,11 +768,11 @@ _llint_op_eq:
     cieq t0, t1, t0
     storei BooleanTag, TagOffset[cfr, t2, 8]
     storei t0, PayloadOffset[cfr, t2, 8]
-    dispatch(4)
+    dispatch(constexpr op_eq_length)
 
 .opEqSlow:
     callOpcodeSlowPath(_slow_path_eq)
-    dispatch(4)
+    dispatch(constexpr op_eq_length)
 
 
 _llint_op_eq_null:
@@ -812,7 +799,7 @@ _llint_op_eq_null:
 .opEqNullNotImmediate:
     storei BooleanTag, TagOffset[cfr, t3, 8]
     storei t1, PayloadOffset[cfr, t3, 8]
-    dispatch(3)
+    dispatch(constexpr op_eq_null_length)
 
 
 _llint_op_neq:
@@ -828,11 +815,11 @@ _llint_op_neq:
     cineq t0, t1, t0
     storei BooleanTag, TagOffset[cfr, t2, 8]
     storei t0, PayloadOffset[cfr, t2, 8]
-    dispatch(4)
+    dispatch(constexpr op_neq_length)
 
 .opNeqSlow:
     callOpcodeSlowPath(_slow_path_neq)
-    dispatch(4)
+    dispatch(constexpr op_neq_length)
     
 
 _llint_op_neq_null:
@@ -859,7 +846,7 @@ _llint_op_neq_null:
 .opNeqNullNotImmediate:
     storei BooleanTag, TagOffset[cfr, t3, 8]
     storei t1, PayloadOffset[cfr, t3, 8]
-    dispatch(3)
+    dispatch(constexpr op_neq_null_length)
 
 
 macro strictEq(equalityOperation, slowPath)
@@ -901,11 +888,11 @@ _llint_op_inc:
     loadi PayloadOffset[cfr, t0, 8], t1
     baddio 1, t1, .opIncSlow
     storei t1, PayloadOffset[cfr, t0, 8]
-    dispatch(2)
+    dispatch(constexpr op_inc_length)
 
 .opIncSlow:
     callOpcodeSlowPath(_slow_path_inc)
-    dispatch(2)
+    dispatch(constexpr op_inc_length)
 
 
 _llint_op_dec:
@@ -915,11 +902,11 @@ _llint_op_dec:
     loadi PayloadOffset[cfr, t0, 8], t1
     bsubio 1, t1, .opDecSlow
     storei t1, PayloadOffset[cfr, t0, 8]
-    dispatch(2)
+    dispatch(constexpr op_dec_length)
 
 .opDecSlow:
     callOpcodeSlowPath(_slow_path_dec)
-    dispatch(2)
+    dispatch(constexpr op_dec_length)
 
 
 _llint_op_to_number:
@@ -933,11 +920,11 @@ _llint_op_to_number:
     storei t2, TagOffset[cfr, t1, 8]
     storei t3, PayloadOffset[cfr, t1, 8]
     valueProfile(t2, t3, 12, t1)
-    dispatch(4)
+    dispatch(constexpr op_to_number_length)
 
 .opToNumberSlow:
     callOpcodeSlowPath(_slow_path_to_number)
-    dispatch(4)
+    dispatch(constexpr op_to_number_length)
 
 
 _llint_op_to_string:
@@ -950,11 +937,28 @@ _llint_op_to_string:
 .opToStringIsString:
     storei t2, TagOffset[cfr, t1, 8]
     storei t3, PayloadOffset[cfr, t1, 8]
-    dispatch(3)
+    dispatch(constexpr op_to_string_length)
 
 .opToStringSlow:
     callOpcodeSlowPath(_slow_path_to_string)
-    dispatch(3)
+    dispatch(constexpr op_to_string_length)
+
+
+_llint_op_to_object:
+    traceExecution()
+    loadi 8[PC], t0
+    loadi 4[PC], t1
+    loadConstantOrVariable(t0, t2, t3)
+    bineq t2, CellTag, .opToObjectSlow
+    bbb JSCell::m_type[t3], ObjectType, .opToObjectSlow
+    storei t2, TagOffset[cfr, t1, 8]
+    storei t3, PayloadOffset[cfr, t1, 8]
+    valueProfile(t2, t3, 16, t1)
+    dispatch(constexpr op_to_object_length)
+
+.opToObjectSlow:
+    callOpcodeSlowPath(_slow_path_to_object)
+    dispatch(constexpr op_to_object_length)
 
 
 _llint_op_negate:
@@ -970,7 +974,7 @@ _llint_op_negate:
     storei Int32Tag, TagOffset[cfr, t3, 8]
     storeisToInstruction(t0, 3)
     storei t2, PayloadOffset[cfr, t3, 8]
-    dispatch(4)
+    dispatch(constexpr op_negate_length)
 .opNegateSrcNotInt:
     bia t1, LowestTag, .opNegateSlow
     xori 0x80000000, t1
@@ -978,11 +982,11 @@ _llint_op_negate:
     storei t2, PayloadOffset[cfr, t3, 8]
     storeisToInstruction(t0, 3)
     storei t1, TagOffset[cfr, t3, 8]
-    dispatch(4)
+    dispatch(constexpr op_negate_length)
 
 .opNegateSlow:
     callOpcodeSlowPath(_slow_path_negate)
-    dispatch(4)
+    dispatch(constexpr op_negate_length)
 
 
 macro binaryOpCustomStore(integerOperationAndStore, doubleOperation, slowPath)
@@ -1125,7 +1129,7 @@ _llint_op_lshift:
     bitOp(
         macro (left, right) lshifti left, right end,
         _slow_path_lshift,
-        4)
+        constexpr op_lshift_length)
 
 
 _llint_op_rshift:
@@ -1133,7 +1137,7 @@ _llint_op_rshift:
     bitOp(
         macro (left, right) rshifti left, right end,
         _slow_path_rshift,
-        4)
+        constexpr op_rshift_length)
 
 
 _llint_op_urshift:
@@ -1141,7 +1145,7 @@ _llint_op_urshift:
     bitOp(
         macro (left, right) urshifti left, right end,
         _slow_path_urshift,
-        4)
+        constexpr op_urshift_length)
 
 
 _llint_op_unsigned:
@@ -1152,10 +1156,10 @@ _llint_op_unsigned:
     bilt t2, 0, .opUnsignedSlow
     storei t2, PayloadOffset[cfr, t0, 8]
     storei Int32Tag, TagOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_unsigned_length)
 .opUnsignedSlow:
     callOpcodeSlowPath(_slow_path_unsigned)
-    dispatch(3)
+    dispatch(constexpr op_unsigned_length)
 
 
 _llint_op_bitand:
@@ -1163,7 +1167,7 @@ _llint_op_bitand:
     bitOp(
         macro (left, right) andi left, right end,
         _slow_path_bitand,
-        5)
+        constexpr op_bitand_length)
 
 
 _llint_op_bitxor:
@@ -1171,7 +1175,7 @@ _llint_op_bitxor:
     bitOp(
         macro (left, right) xori left, right end,
         _slow_path_bitxor,
-        5)
+        constexpr op_bitxor_length)
 
 
 _llint_op_bitor:
@@ -1179,17 +1183,17 @@ _llint_op_bitor:
     bitOp(
         macro (left, right) ori left, right end,
         _slow_path_bitor,
-        5)
+        constexpr op_bitor_length)
 
 
 _llint_op_overrides_has_instance:
     traceExecution()
 
-    loadisFromInstruction(1, t3)
+    loadisFromStruct(OpOverridesHasInstance::m_dst, t3)
     storei BooleanTag, TagOffset[cfr, t3, 8]
 
     # First check if hasInstanceValue is the one on Function.prototype[Symbol.hasInstance]
-    loadisFromInstruction(3, t0)
+    loadisFromStruct(OpOverridesHasInstance::m_hasInstanceValue, t0)
     loadConstantOrVariablePayload(t0, CellTag, t2, .opOverrideshasInstanceValueNotCell)
     loadConstantOrVariable(t0, t1, t2)
     bineq t1, CellTag, .opOverrideshasInstanceValueNotCell
@@ -1201,21 +1205,21 @@ _llint_op_overrides_has_instance:
     bineq t1, t2, .opOverrideshasInstanceValueNotDefault
 
     # We know the constructor is a cell.
-    loadisFromInstruction(2, t0)
+    loadisFromStruct(OpOverridesHasInstance::m_constructor, t0)
     loadConstantOrVariablePayloadUnchecked(t0, t1)
     tbz JSCell::m_flags[t1], ImplementsDefaultHasInstance, t0
     storei t0, PayloadOffset[cfr, t3, 8]
-    dispatch(4)
+    dispatch(constexpr op_overrides_has_instance_length)
 
 .opOverrideshasInstanceValueNotCell:
 .opOverrideshasInstanceValueNotDefault:
     storei 1, PayloadOffset[cfr, t3, 8]
-    dispatch(4)
+    dispatch(constexpr op_overrides_has_instance_length)
 
 _llint_op_instanceof_custom:
     traceExecution()
     callOpcodeSlowPath(_llint_slow_path_instanceof_custom)
-    dispatch(5)
+    dispatch(constexpr op_instanceof_custom_length)
 
 
 _llint_op_is_empty:
@@ -1226,7 +1230,7 @@ _llint_op_is_empty:
     cieq t2, EmptyValueTag, t3
     storei BooleanTag, TagOffset[cfr, t0, 8]
     storei t3, PayloadOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_empty_length)
 
 
 _llint_op_is_undefined:
@@ -1238,19 +1242,19 @@ _llint_op_is_undefined:
     bieq t2, CellTag, .opIsUndefinedCell
     cieq t2, UndefinedTag, t3
     storei t3, PayloadOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_undefined_length)
 .opIsUndefinedCell:
     btbnz JSCell::m_flags[t3], MasqueradesAsUndefined, .opIsUndefinedMasqueradesAsUndefined
     move 0, t1
     storei t1, PayloadOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_undefined_length)
 .opIsUndefinedMasqueradesAsUndefined:
     loadp JSCell::m_structureID[t3], t1
     loadp CodeBlock[cfr], t3
     loadp CodeBlock::m_globalObject[t3], t3
     cpeq Structure::m_globalObject[t1], t3, t1
     storei t1, PayloadOffset[cfr, t0, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_undefined_length)
 
 
 _llint_op_is_boolean:
@@ -1261,7 +1265,7 @@ _llint_op_is_boolean:
     cieq t0, BooleanTag, t0
     storei BooleanTag, TagOffset[cfr, t2, 8]
     storei t0, PayloadOffset[cfr, t2, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_boolean_length)
 
 
 _llint_op_is_number:
@@ -1273,7 +1277,7 @@ _llint_op_is_number:
     addi 1, t0
     cib t0, LowestTag + 1, t1
     storei t1, PayloadOffset[cfr, t2, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_number_length)
 
 
 _llint_op_is_cell_with_type:
@@ -1286,10 +1290,10 @@ _llint_op_is_cell_with_type:
     loadi 12[PC], t0
     cbeq JSCell::m_type[t3], t0, t1
     storei t1, PayloadOffset[cfr, t2, 8]
-    dispatch(4)
+    dispatch(constexpr op_is_cell_with_type_length)
 .notCellCase:
     storep 0, PayloadOffset[cfr, t2, 8]
-    dispatch(4)
+    dispatch(constexpr op_is_cell_with_type_length)
 
 
 _llint_op_is_object:
@@ -1301,10 +1305,10 @@ _llint_op_is_object:
     bineq t0, CellTag, .opIsObjectNotCell
     cbaeq JSCell::m_type[t3], ObjectType, t1
     storei t1, PayloadOffset[cfr, t2, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_object_length)
 .opIsObjectNotCell:
     storep 0, PayloadOffset[cfr, t2, 8]
-    dispatch(3)
+    dispatch(constexpr op_is_object_length)
 
 
 macro loadPropertyAtVariableOffsetKnownNotInline(propertyOffset, objectAndStorage, tag, payload)
@@ -1360,11 +1364,11 @@ _llint_op_get_by_id:
     storei t0, TagOffset[cfr, t2, 8]
     storei t1, PayloadOffset[cfr, t2, 8]
     valueProfile(t0, t1, 32, t2)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_length)
 
 .opGetByIdSlow:
     callOpcodeSlowPath(_llint_slow_path_get_by_id)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_length)
 
 
 _llint_op_get_by_id_proto_load:
@@ -1380,11 +1384,11 @@ _llint_op_get_by_id_proto_load:
     storei t0, TagOffset[cfr, t2, 8]
     storei t1, PayloadOffset[cfr, t2, 8]
     valueProfile(t0, t1, 32, t2)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_proto_load_length)
 
 .opGetByIdProtoSlow:
     callOpcodeSlowPath(_llint_slow_path_get_by_id)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_proto_load_length)
 
 
 _llint_op_get_by_id_unset:
@@ -1397,11 +1401,11 @@ _llint_op_get_by_id_unset:
     storei UndefinedTag, TagOffset[cfr, t2, 8]
     storei 0, PayloadOffset[cfr, t2, 8]
     valueProfile(UndefinedTag, 0, 32, t2)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_unset_length)
 
 .opGetByIdUnsetSlow:
     callOpcodeSlowPath(_llint_slow_path_get_by_id)
-    dispatch(9)
+    dispatch(constexpr op_get_by_id_unset_length)
 
 
 _llint_op_get_array_length:
@@ -1420,11 +1424,11 @@ _llint_op_get_array_length:
     valueProfile(Int32Tag, t0, 32, t2)
     storep t0, PayloadOffset[cfr, t1, 8]
     storep Int32Tag, TagOffset[cfr, t1, 8]
-    dispatch(9)
+    dispatch(constexpr op_get_array_length_length)
 
 .opGetArrayLengthSlow:
     callOpcodeSlowPath(_llint_slow_path_get_by_id)
-    dispatch(9)
+    dispatch(constexpr op_get_array_length_length)
 
 
 _llint_op_put_by_id:
@@ -1549,7 +1553,7 @@ _llint_op_put_by_id:
     loadi 20[PC], t1
     storePropertyAtVariableOffset(t1, t0, t2, t3)
     writeBarrierOnOperand(1)
-    dispatch(9)
+    dispatch(constexpr op_put_by_id_length)
 
 .opPutByIdNotTransition:
     # The only thing live right now is t0, which holds the base.
@@ -1557,11 +1561,11 @@ _llint_op_put_by_id:
     loadConstantOrVariable(t1, t2, t3)
     loadi 20[PC], t1
     storePropertyAtVariableOffset(t1, t0, t2, t3)
-    dispatch(9)
+    dispatch(constexpr op_put_by_id_length)
 
 .opPutByIdSlow:
     callOpcodeSlowPath(_llint_slow_path_put_by_id)
-    dispatch(9)
+    dispatch(constexpr op_put_by_id_length)
 
 
 _llint_op_get_by_val:
@@ -1577,16 +1581,18 @@ _llint_op_get_by_val:
     andi IndexingShapeMask, t2
     bieq t2, Int32Shape, .opGetByValIsContiguous
     bineq t2, ContiguousShape, .opGetByValNotContiguous
+
 .opGetByValIsContiguous:
-    
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValSlow
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadi TagOffset[t3, t1, 8], t2
     loadi PayloadOffset[t3, t1, 8], t1
     jmp .opGetByValDone
 
 .opGetByValNotContiguous:
     bineq t2, DoubleShape, .opGetByValNotDouble
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValSlow
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadd [t3, t1, 8], ft0
     bdnequn ft0, ft0, .opGetByValSlow
     # FIXME: This could be massively optimized.
@@ -1597,25 +1603,23 @@ _llint_op_get_by_val:
 .opGetByValNotDouble:
     subi ArrayStorageShape, t2
     bia t2, SlowPutArrayStorageShape - ArrayStorageShape, .opGetByValSlow
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t3], .opGetByValSlow
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadi ArrayStorage::m_vector + TagOffset[t3, t1, 8], t2
     loadi ArrayStorage::m_vector + PayloadOffset[t3, t1, 8], t1
 
 .opGetByValDone:
     loadi 4[PC], t0
-    bieq t2, EmptyValueTag, .opGetByValOutOfBounds
+    bieq t2, EmptyValueTag, .opGetByValSlow
 .opGetByValNotEmpty:
     storei t2, TagOffset[cfr, t0, 8]
     storei t1, PayloadOffset[cfr, t0, 8]
     valueProfile(t2, t1, 20, t0)
-    dispatch(6)
+    dispatch(constexpr op_get_by_val_length)
 
-.opGetByValOutOfBounds:
-    loadpFromInstruction(4, t0)
-    storeb 1, ArrayProfile::m_outOfBounds[t0]
 .opGetByValSlow:
     callOpcodeSlowPath(_llint_slow_path_get_by_val)
-    dispatch(6)
+    dispatch(constexpr op_get_by_val_length)
 
 
 macro contiguousPutByVal(storeCallback)
@@ -1793,7 +1797,33 @@ _llint_op_jneq_ptr:
     storei 1, 16[PC]
     dispatchBranch(12[PC])
 .opJneqPtrFallThrough:
-    dispatch(5)
+    dispatch(constexpr op_jneq_ptr_length)
+
+
+macro compareUnsignedJump(integerCompare)
+    loadi 4[PC], t2
+    loadi 8[PC], t3
+    loadConstantOrVariable(t2, t0, t1)
+    loadConstantOrVariable2Reg(t3, t2, t3)
+    integerCompare(t1, t3, .jumpTarget)
+    dispatch(4)
+
+.jumpTarget:
+    dispatchBranch(12[PC])
+end
+
+
+macro compareUnsigned(integerCompareAndSet)
+    loadi 12[PC], t2
+    loadi 8[PC], t0
+    loadConstantOrVariable(t2, t3, t1)
+    loadConstantOrVariable2Reg(t0, t2, t0)
+    integerCompareAndSet(t0, t1, t0)
+    loadi 4[PC], t2
+    storei BooleanTag, TagOffset[cfr, t2, 8]
+    storei t0, PayloadOffset[cfr, t2, 8]
+    dispatch(4)
+end
 
 
 macro compare(integerCompare, doubleCompare, slowPath)
@@ -1952,11 +1982,11 @@ _llint_op_to_primitive:
 .opToPrimitiveIsImm:
     storei t1, TagOffset[cfr, t3, 8]
     storei t0, PayloadOffset[cfr, t3, 8]
-    dispatch(3)
+    dispatch(constexpr op_to_primitive_length)
 
 .opToPrimitiveSlowCase:
     callOpcodeSlowPath(_slow_path_to_primitive)
-    dispatch(3)
+    dispatch(constexpr op_to_primitive_length)
 
 
 _llint_op_catch:
@@ -1967,7 +1997,7 @@ _llint_op_catch:
     # and have set VM::targetInterpreterPCForThrow.
     loadp Callee + PayloadOffset[cfr], t3
     andp MarkedBlockMask, t3
-    loadp MarkedBlock::m_vm[t3], t3
+    loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
     restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(t3, t0)
     loadp VM::callFrameForCatch[t3], cfr
     storep 0, VM::callFrameForCatch[t3]
@@ -1982,7 +2012,7 @@ _llint_op_catch:
 .isCatchableException:
     loadp Callee + PayloadOffset[cfr], t3
     andp MarkedBlockMask, t3
-    loadp MarkedBlock::m_vm[t3], t3
+    loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
 
     loadi VM::m_exception[t3], t0
     storei 0, VM::m_exception[t3]
@@ -1997,7 +2027,10 @@ _llint_op_catch:
     storei t1, TagOffset[cfr, t2, 8]
 
     traceExecution()  # This needs to be here because we don't want to clobber t0, t1, t2, t3 above.
-    dispatch(3)
+
+    callOpcodeSlowPath(_llint_slow_path_profile_catch)
+
+    dispatch(constexpr op_catch_length)
 
 _llint_op_end:
     traceExecution()
@@ -2017,7 +2050,7 @@ _llint_throw_from_slow_path_trampoline:
     # This essentially emulates the JIT's throwing protocol.
     loadp Callee[cfr], t1
     andp MarkedBlockMask, t1
-    loadp MarkedBlock::m_vm[t1], t1
+    loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t1], t1
     copyCalleeSavesToVMEntryFrameCalleeSavesBuffer(t1, t2)
     jmp VM::targetMachinePCForThrow[t1]
 
@@ -2036,7 +2069,7 @@ macro nativeCallTrampoline(executableOffsetToFunction)
     if X86 or X86_WIN
         subp 8, sp # align stack pointer
         andp MarkedBlockMask, t1
-        loadp MarkedBlock::m_vm[t1], t3
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t1], t3
         storep cfr, VM::topCallFrame[t3]
         move cfr, a0  # a0 = ecx
         storep a0, [sp]
@@ -2046,13 +2079,20 @@ macro nativeCallTrampoline(executableOffsetToFunction)
         call executableOffsetToFunction[t1]
         loadp Callee + PayloadOffset[cfr], t3
         andp MarkedBlockMask, t3
-        loadp MarkedBlock::m_vm[t3], t3
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
         addp 8, sp
     elsif ARM or ARMv7 or ARMv7_TRADITIONAL or C_LOOP or MIPS
-        subp 8, sp # align stack pointer
+        if MIPS
+        # calling convention says to save stack space for 4 first registers in
+        # all cases. To match our 16-byte alignment, that means we need to
+        # take 24 bytes
+            subp 24, sp
+        else
+            subp 8, sp # align stack pointer
+        end
         # t1 already contains the Callee.
         andp MarkedBlockMask, t1
-        loadp MarkedBlock::m_vm[t1], t1
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t1], t1
         storep cfr, VM::topCallFrame[t1]
         move cfr, a0
         loadi Callee + PayloadOffset[cfr], t1
@@ -2065,8 +2105,12 @@ macro nativeCallTrampoline(executableOffsetToFunction)
         end
         loadp Callee + PayloadOffset[cfr], t3
         andp MarkedBlockMask, t3
-        loadp MarkedBlock::m_vm[t3], t3
-        addp 8, sp
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
+        if MIPS
+            addp 24, sp
+        else
+            addp 8, sp
+        end
     else
         error
     end
@@ -2077,6 +2121,64 @@ macro nativeCallTrampoline(executableOffsetToFunction)
     ret
 
 .handleException:
+if X86 or X86_WIN
+    subp 8, sp # align stack pointer
+end
+    storep cfr, VM::topCallFrame[t3]
+    jmp _llint_throw_from_slow_path_trampoline
+end
+
+
+macro internalFunctionCallTrampoline(offsetOfFunction)
+    functionPrologue()
+    storep 0, CodeBlock[cfr]
+    loadi Callee + PayloadOffset[cfr], t1
+    // Callee is still in t1 for code below
+    if X86 or X86_WIN
+        subp 8, sp # align stack pointer
+        andp MarkedBlockMask, t1
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t1], t3
+        storep cfr, VM::topCallFrame[t3]
+        move cfr, a0  # a0 = ecx
+        storep a0, [sp]
+        loadi Callee + PayloadOffset[cfr], t1
+        checkStackPointerAlignment(t3, 0xdead0001)
+        call offsetOfFunction[t1]
+        loadp Callee + PayloadOffset[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
+        addp 8, sp
+    elsif ARM or ARMv7 or ARMv7_TRADITIONAL or C_LOOP or MIPS
+        subp 8, sp # align stack pointer
+        # t1 already contains the Callee.
+        andp MarkedBlockMask, t1
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t1], t1
+        storep cfr, VM::topCallFrame[t1]
+        move cfr, a0
+        loadi Callee + PayloadOffset[cfr], t1
+        checkStackPointerAlignment(t3, 0xdead0001)
+        if C_LOOP
+            cloopCallNative offsetOfFunction[t1]
+        else
+            call offsetOfFunction[t1]
+        end
+        loadp Callee + PayloadOffset[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
+        addp 8, sp
+    else
+        error
+    end
+
+    btinz VM::m_exception[t3], .handleException
+
+    functionEpilogue()
+    ret
+
+.handleException:
+if X86 or X86_WIN
+    subp 8, sp # align stack pointer
+end
     storep cfr, VM::topCallFrame[t3]
     jmp _llint_throw_from_slow_path_trampoline
 end
@@ -2203,8 +2305,8 @@ end
 
 macro getClosureVar()
     loadisFromInstruction(6, t3)
-    loadp JSEnvironmentRecord_variables + TagOffset[t0, t3, 8], t1
-    loadp JSEnvironmentRecord_variables + PayloadOffset[t0, t3, 8], t2
+    loadp JSLexicalEnvironment_variables + TagOffset[t0, t3, 8], t1
+    loadp JSLexicalEnvironment_variables + PayloadOffset[t0, t3, 8], t2
     valueProfile(t1, t2, 28, t0)
     loadisFromInstruction(1, t0)
     storei t1, TagOffset[cfr, t0, 8]
@@ -2295,8 +2397,8 @@ macro putClosureVar()
     loadisFromInstruction(3, t1)
     loadConstantOrVariable(t1, t2, t3)
     loadisFromInstruction(6, t1)
-    storei t2, JSEnvironmentRecord_variables + TagOffset[t0, t1, 8]
-    storei t3, JSEnvironmentRecord_variables + PayloadOffset[t0, t1, 8]
+    storei t2, JSLexicalEnvironment_variables + TagOffset[t0, t1, 8]
+    storei t3, JSLexicalEnvironment_variables + PayloadOffset[t0, t1, 8]
 end
 
 macro putLocalClosureVar()
@@ -2307,8 +2409,8 @@ macro putLocalClosureVar()
     notifyWrite(t5, .pDynamic)
 .noVariableWatchpointSet:
     loadisFromInstruction(6, t1)
-    storei t2, JSEnvironmentRecord_variables + TagOffset[t0, t1, 8]
-    storei t3, JSEnvironmentRecord_variables + PayloadOffset[t0, t1, 8]
+    storei t2, JSLexicalEnvironment_variables + TagOffset[t0, t1, 8]
+    storei t3, JSLexicalEnvironment_variables + PayloadOffset[t0, t1, 8]
 end
 
 
@@ -2430,7 +2532,8 @@ _llint_op_get_parent_scope:
 _llint_op_profile_type:
     traceExecution()
     loadp CodeBlock[cfr], t1
-    loadp CodeBlock::m_vm[t1], t1
+    loadp CodeBlock::m_poisonedVM[t1], t1
+    unpoison(_g_CodeBlockPoison, t1, t2)
     # t1 is holding the pointer to the typeProfilerLog.
     loadp VM::m_typeProfilerLog[t1], t1
 

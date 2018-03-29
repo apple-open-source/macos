@@ -51,13 +51,16 @@ struct D2D_POINT_2F;
 typedef D2D_POINT_2F D2D1_POINT_2F;
 #endif
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class AffineTransform;
 class TransformationMatrix;
 class IntPoint;
 class IntSize;
-class TextStream;
 
 class FloatPoint {
 public:
@@ -68,7 +71,7 @@ public:
 
     static FloatPoint zero() { return FloatPoint(); }
 
-    static FloatPoint narrowPrecision(double x, double y);
+    WEBCORE_EXPORT static FloatPoint narrowPrecision(double x, double y);
 
     float x() const { return m_x; }
     float y() const { return m_y; }
@@ -124,12 +127,12 @@ public:
         m_y *= scaleY;
     }
 
-    FloatPoint scaled(float scale)
+    FloatPoint scaled(float scale) const
     {
         return { m_x * scale, m_y * scale };
     }
 
-    FloatPoint scaled(float scaleX, float scaleY)
+    FloatPoint scaled(float scaleX, float scaleY) const
     {
         return { m_x * scaleX, m_y * scaleY };
     }
@@ -294,7 +297,7 @@ inline bool areEssentiallyEqual(const FloatPoint& a, const FloatPoint& b)
     return WTF::areEssentiallyEqual(a.x(), b.x()) && WTF::areEssentiallyEqual(a.y(), b.y());
 }
 
-WEBCORE_EXPORT TextStream& operator<<(TextStream&, const FloatPoint&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const FloatPoint&);
 
 }
 

@@ -41,6 +41,7 @@ class RenderRubyText;
 // See RenderRuby.h for further comments on the structure
 
 class RenderRubyRun final : public RenderBlockFlow {
+    WTF_MAKE_ISO_ALLOCATED(RenderRubyRun);
 public:
     RenderRubyRun(Document&, RenderStyle&&);
     virtual ~RenderRubyRun();
@@ -56,15 +57,14 @@ public:
     void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
 
     bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
-    void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
-    void removeChild(RenderObject&) override;
+    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
+    RenderPtr<RenderObject> takeChild(RenderObject&) override;
 
     RenderBlock* firstLineBlock() const override;
-    void updateFirstLetter(RenderTreeMutationIsAllowed = RenderTreeMutationIsAllowed::Yes) override;
 
     void getOverhang(bool firstLine, RenderObject* startRenderer, RenderObject* endRenderer, float& startOverhang, float& endOverhang) const;
 
-    static RenderRubyRun* staticCreateRubyRun(const RenderObject* parentRuby);
+    static RenderPtr<RenderRubyRun> staticCreateRubyRun(const RenderObject* parentRuby);
     
     void updatePriorContextFromCachedBreakIterator(LazyLineBreakIterator&) const;
     void setCachedPriorCharacters(UChar last, UChar secondToLast)
@@ -75,7 +75,7 @@ public:
     bool canBreakBefore(const LazyLineBreakIterator&) const;
     
 protected:
-    RenderRubyBase* createRubyBase() const;
+    RenderPtr<RenderRubyBase> createRubyBase() const;
 
 private:
     bool isRubyRun() const override { return true; }

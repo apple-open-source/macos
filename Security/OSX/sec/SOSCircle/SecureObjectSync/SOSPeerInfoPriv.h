@@ -27,7 +27,7 @@ struct __OpaqueSOSPeerInfo {
     CFMutableDictionaryRef  v2Dictionary;
 };
 
-SOSPeerInfoRef SOSPeerInfoAllocate(CFAllocatorRef allocator);
+CF_RETURNS_RETAINED SOSPeerInfoRef SOSPeerInfoAllocate(CFAllocatorRef allocator);
 bool SOSPeerInfoSign(SecKeyRef privKey, SOSPeerInfoRef peer, CFErrorRef *error);
 bool SOSPeerInfoVerify(SOSPeerInfoRef peer, CFErrorRef *error);
 void SOSPeerInfoSetVersionNumber(SOSPeerInfoRef pi, int version);

@@ -64,20 +64,20 @@ void WebGeolocationClient::setEnableHighAccuracy(bool enabled)
     WebProcess::singleton().supplement<WebGeolocationManager>()->setEnableHighAccuracyForPage(m_page, enabled);
 }
 
-GeolocationPosition* WebGeolocationClient::lastPosition()
+std::optional<GeolocationPosition> WebGeolocationClient::lastPosition()
 {
     // FIXME: Implement this.
-    return 0;
+    return std::nullopt;
 }
 
-void WebGeolocationClient::requestPermission(Geolocation* geolocation)
+void WebGeolocationClient::requestPermission(Geolocation& geolocation)
 {
-    m_page->geolocationPermissionRequestManager().startRequestForGeolocation(geolocation);
+    m_page.geolocationPermissionRequestManager().startRequestForGeolocation(geolocation);
 }
 
-void WebGeolocationClient::cancelPermissionRequest(Geolocation* geolocation)
+void WebGeolocationClient::cancelPermissionRequest(Geolocation& geolocation)
 {
-    m_page->geolocationPermissionRequestManager().cancelRequestForGeolocation(geolocation);
+    m_page.geolocationPermissionRequestManager().cancelRequestForGeolocation(geolocation);
 }
 
 } // namespace WebKit

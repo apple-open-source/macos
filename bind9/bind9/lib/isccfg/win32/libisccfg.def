@@ -28,9 +28,11 @@ cfg_list_next
 cfg_listelt_value
 cfg_log_init
 cfg_lookingat_netaddr
+cfg_map_count
 cfg_map_get
 cfg_map_getname
 cfg_obj_asboolean
+cfg_obj_asfixedpoint
 cfg_obj_asnetprefix
 cfg_obj_assockaddr
 cfg_obj_asstring
@@ -39,6 +41,7 @@ cfg_obj_asuint64
 cfg_obj_attach
 cfg_obj_destroy
 cfg_obj_file
+cfg_obj_getdscp
 cfg_obj_isboolean
 cfg_obj_islist
 cfg_obj_ismap
@@ -57,8 +60,10 @@ cfg_parse_astring
 cfg_parse_boolean
 cfg_parse_bracketed_list
 cfg_parse_buffer
+cfg_parse_dscp
 cfg_parse_enum
 cfg_parse_file
+cfg_parse_fixedpoint
 cfg_parse_listelt
 cfg_parse_map
 cfg_parse_mapbody
@@ -88,6 +93,7 @@ cfg_print_boolean
 cfg_print_bracketed_list
 cfg_print_chars
 cfg_print_cstr
+cfg_print_fixedpoint
 cfg_print_grammar
 cfg_print_map
 cfg_print_mapbody
@@ -107,4 +113,37 @@ cfg_ungettoken
 
 ; Exported Data
 
+;cfg_rep_boolean
+;cfg_rep_fixedpoint
+;cfg_rep_list
+;cfg_rep_map
+;cfg_rep_netprefix
+;cfg_rep_percentage
+;cfg_rep_sockaddr
+;cfg_rep_string
+;cfg_rep_tuple
+;cfg_rep_uint32
+;cfg_rep_uint64
+;cfg_rep_void
+;cfg_type_astring
+;cfg_type_boolean
+;cfg_type_bracketed_text
+;cfg_type_fixedpoint
+;cfg_type_netaddr
+;cfg_type_netaddr4
+;cfg_type_netaddr4wild
+;cfg_type_netaddr6
+;cfg_type_netaddr6wild
+;cfg_type_netprefix
+;cfg_type_percentage
+;cfg_type_qstring
 ;cfg_type_rndcconf
+;cfg_type_sockaddr
+;cfg_type_sockaddrdscp
+;cfg_type_sstring
+;cfg_type_token
+;cfg_type_uint32
+;cfg_type_uint64
+;cfg_type_unsupported
+;cfg_type_ustring
+;cfg_type_void

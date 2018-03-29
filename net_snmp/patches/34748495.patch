@@ -1,0 +1,12 @@
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/mibII/var_route.c net-snmp-5.6.2.1.working/agent/mibgroup/mibII/var_route.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/mibII/var_route.c	2015-10-06 16:42:15.000000000 -0700
++++ net-snmp-5.6.2.1.working/agent/mibgroup/mibII/var_route.c	2017-09-29 14:02:03.000000000 -0700
+@@ -1739,7 +1739,7 @@
+          * from rtsock.c 
+          */
+ #define ROUNDUP(a) \
+-        ((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
++        ((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
+         sa = (struct sockaddr *) ((char *) sa + ROUNDUP(sa->sa_len));
+     }
+     if (!gotdest) {

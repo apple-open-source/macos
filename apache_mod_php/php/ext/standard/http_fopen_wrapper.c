@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -798,6 +798,10 @@ finish:
 						&& (*http_header_value == ' ' || *http_header_value == '\t')) {
 					http_header_value++;
 				}
+			} else {
+				/* There is no colon. Set the value to the end of the header line, which is
+				 * effectively an empty string. */
+				http_header_value = e;
 			}
 
 			if (!strncasecmp(http_header_line, "Location:", sizeof("Location:")-1)) {
@@ -814,11 +818,11 @@ finish:
 				strlcpy(location, http_header_value, sizeof(location));
 			} else if (!strncasecmp(http_header_line, "Content-Type:", sizeof("Content-Type:")-1)) {
 				php_stream_notify_info(context, PHP_STREAM_NOTIFY_MIME_TYPE_IS, http_header_value, 0);
-			} else if (!strncasecmp(http_header_line, "Content-Length:", sizeof("Content-Length")-1)) {
+			} else if (!strncasecmp(http_header_line, "Content-Length:", sizeof("Content-Length:")-1)) {
 				file_size = atoi(http_header_value);
 				php_stream_notify_file_size(context, file_size, http_header_line, 0);
 			} else if (
-				!strncasecmp(http_header_line, "Transfer-Encoding:", sizeof("Transfer-Encoding")-1)
+				!strncasecmp(http_header_line, "Transfer-Encoding:", sizeof("Transfer-Encoding:")-1)
 				&& !strncasecmp(http_header_value, "Chunked", sizeof("Chunked")-1)
 			) {
 

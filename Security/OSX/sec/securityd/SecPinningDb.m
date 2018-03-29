@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,12 +38,14 @@
 
 #if TARGET_OS_OSX
 #import <MobileAsset/MobileAsset.h>
+#include <sys/csr.h>
 #endif
 
 #import <Security/SecInternalReleasePriv.h>
 
 #import <securityd/OTATrustUtilities.h>
 #import <securityd/SecPinningDb.h>
+#import <securityd/SecTrustLoggingServer.h>
 
 #include "utilities/debugging.h"
 #include "utilities/sqlutils.h"
@@ -69,15 +71,6 @@ const CFStringRef kSecPinningDbKeyHostname = CFSTR("PinningHostname");
 const CFStringRef kSecPinningDbKeyPolicyName = CFSTR("PinningPolicyName");
 const CFStringRef kSecPinningDbKeyRules = CFSTR("PinningRules");
 
-#if !TARGET_OS_BRIDGE
-const NSString *PinningDbMobileAssetType = @"com.apple.MobileAsset.CertificatePinning";
-#define kSecPinningDbMobileAssetNotification "com.apple.MobileAsset.CertificatePinning.cached-metadata-updated"
-#endif
-
-#if TARGET_OS_OSX
-const NSUInteger PinningDbMobileAssetCompatibilityVersion = 1;
-#endif
-
 @interface SecPinningDb : NSObject
 @property (assign) SecDbRef db;
 @property dispatch_queue_t queue;
@@ -86,20 +79,6 @@ const NSUInteger PinningDbMobileAssetCompatibilityVersion = 1;
 - ( NSDictionary * _Nullable ) queryForDomain:(NSString *)domain;
 - ( NSDictionary * _Nullable ) queryForPolicyName:(NSString *)policyName;
 @end
-
-static bool isDbOwner() {
-#ifdef NO_SERVER
-    // Test app running as securityd
-#elif TARGET_OS_IPHONE
-    if (getuid() == 64) // _securityd
-#else
-    if (getuid() == 0)
-#endif
-        {
-            return true;
-        }
-    return false;
-}
 
 static inline bool isNSNumber(id nsType) {
     return nsType && [nsType isKindOfClass:[NSNumber class]];
@@ -326,16 +305,8 @@ static inline bool isNSDictionary(id nsType) {
         secerror("SecPinningDb: missing url for downloaded asset");
         return NO;
     }
-    NSURL* basePath = nil, *fileLoc = nil;
-    if (![localURL scheme]) {
-        /* MobileAsset provides the URL without the scheme. Fix it up. */
-        NSString *pathWithScheme = [[NSString alloc] initWithFormat:@"%@",localURL];
-        basePath = [NSURL fileURLWithPath:pathWithScheme isDirectory:YES];
-    } else {
-        basePath = localURL;
-    }
-    fileLoc = [NSURL URLWithString:@"CertificatePinning.plist"
-                       relativeToURL:basePath];
+    NSURL *fileLoc = [NSURL URLWithString:@"CertificatePinning.plist"
+                     relativeToURL:localURL];
     __block NSArray *pinningList = [NSArray arrayWithContentsOfURL:fileLoc];
     if (!pinningList) {
         secerror("SecPinningDb: unable to create pinning list from asset file: %@", fileLoc);
@@ -351,263 +322,42 @@ static inline bool isNSDictionary(id nsType) {
     /* Update Content */
     __block CFErrorRef error = NULL;
     __block BOOL ok = YES;
-    ok &= SecDbPerformWrite(_db, &error, ^(SecDbConnectionRef dbconn) {
-        ok &= [self updateDb:dbconn error:&error pinningList:pinningList updateSchema:NO updateContent:YES];
+    dispatch_sync(self->_queue, ^{
+        ok &= SecDbPerformWrite(self->_db, &error, ^(SecDbConnectionRef dbconn) {
+            ok &= [self updateDb:dbconn error:&error pinningList:pinningList updateSchema:NO updateContent:YES];
+        });
     });
 
-    if (error) {
+    if (!ok || error) {
         secerror("SecPinningDb: error installing updated pinning list version %@: %@", [pinningList objectAtIndex:0], error);
+        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+                                       withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                      withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
+                                                       TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationWrite) }];
         CFReleaseNull(error);
     }
 
     return ok;
 }
-
-#if TARGET_OS_OSX
-const CFStringRef kSecSUPrefDomain = CFSTR("com.apple.SoftwareUpdate");
-const CFStringRef kSecSUScanPrefConfigDataInstallKey = CFSTR("ConfigDataInstall");
-#endif
-
-static BOOL PinningDbCanCheckMobileAsset(void) {
-    BOOL result = YES;
-#if TARGET_OS_OSX
-    /* Check the user's SU preferences to determine if "Install system data files" is off */
-    if (!CFPreferencesSynchronize(kSecSUPrefDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)) {
-        secerror("SecPinningDb: unable to synchronize SoftwareUpdate prefs");
-        return NO;
-    }
-
-    id value = nil;
-    if (CFPreferencesAppValueIsForced(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain)) {
-        value = CFBridgingRelease(CFPreferencesCopyAppValue(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain));
-    } else {
-        value = CFBridgingRelease(CFPreferencesCopyValue(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain,
-                                                         kCFPreferencesAnyUser, kCFPreferencesCurrentHost));
-    }
-    if (isNSNumber(value)) {
-        result = [value boolValue];
-    }
-
-    if (!result) { secnotice("pinningDb", "User has disabled system data installation."); }
-
-    /* MobileAsset.framework isn't mastered into the BaseSystem. Check that the MA classes are linked. */
-    if (![ASAssetQuery class] || ![ASAsset class] || ![MAAssetQuery class] || ![MAAsset class]) {
-        secnotice("PinningDb", "Weak linked MobileAsset framework missing.");
-        result = NO;
-    }
-#endif
-    return result;
-}
-
-#if TARGET_OS_IPHONE
-- (void) downloadPinningAsset:(BOOL __unused)isLocalOnly {
-    if (!PinningDbCanCheckMobileAsset()) {
-        secnotice("pinningDb", "MobileAsset disabled, skipping check.");
-        return;
-    }
-
-    secnotice("pinningDb", "begin MobileAsset query for catalog");
-    [MAAsset startCatalogDownload:(NSString *)PinningDbMobileAssetType then:^(MADownLoadResult result) {
-        if (result != MADownloadSucceesful) {
-            secerror("SecPinningDb: failed to download catalog: %ld", (long)result);
-            return;
-        }
-        MAAssetQuery *query = [[MAAssetQuery alloc] initWithType:(NSString *)PinningDbMobileAssetType];
-        [query augmentResultsWithState:true];
-
-        secnotice("pinningDb", "begin MobileAsset metadata sync request");
-        MAQueryResult queryResult = [query queryMetaDataSync];
-        if (queryResult != MAQuerySucceesful) {
-            secerror("SecPinningDb: failed to query MobileAsset metadata: %ld", (long)queryResult);
-            return;
-        }
-
-        if (!query.results) {
-            secerror("SecPinningDb: no results in MobileAsset query");
-            return;
-        }
-
-        for (MAAsset *asset in query.results) {
-            NSNumber *asset_version = [asset assetProperty:@"_ContentVersion"];
-            if (![self shouldUpdateContent:asset_version]) {
-                secdebug("pinningDb", "skipping asset because we already have _ContentVersion %@", asset_version);
-                continue;
-            }
-            switch(asset.state) {
-                default:
-                    secerror("SecPinningDb: unknown asset state %ld", (long)asset.state);
-                    continue;
-                case MAInstalled:
-                    /* The asset is already in the cache, get it from disk. */
-                    secdebug("pinningDb", "CertificatePinning asset already installed");
-                    if([self installDbFromURL:[asset getLocalUrl]]) {
-                        secnotice("pinningDb", "finished db update from installed asset. purging asset.");
-                        [asset purge:^(MAPurgeResult purge_result) {
-                            if (purge_result != MAPurgeSucceeded) {
-                                secerror("SecPinningDb: purge failed: %ld", (long)purge_result);
-                            }
-                        }];
-                    }
-                    break;
-                case MAUnknown:
-                    secerror("SecPinningDb: pinning asset is unknown");
-                    continue;
-                case MADownloading:
-                    secnotice("pinningDb", "pinning asset is downloading");
-                    /* fall through */
-                case MANotPresent:
-                    secnotice("pinningDb", "begin download of CertificatePinning asset");
-                    [asset startDownload:^(MADownLoadResult downloadResult) {
-                        if (downloadResult != MADownloadSucceesful) {
-                            secerror("SecPinningDb: failed to download pinning asset: %ld", (long)downloadResult);
-                            return;
-                        }
-                        if([self installDbFromURL:[asset getLocalUrl]]) {
-                            secnotice("pinningDb", "finished db update from installed asset. purging asset.");
-                            [asset purge:^(MAPurgeResult purge_result) {
-                                if (purge_result != MAPurgeSucceeded) {
-                                    secerror("SecPinningDb: purge failed: %ld", (long)purge_result);
-                                }
-                            }];
-                        }
-                    }];
-                    break;
-            }
-        }
-    }];
-}
-#else /* !TARGET_OS_IPHONE */
-/* <rdar://problem/30879827> MobileAssetV2 fails on macOS, so use V1 */
-- (void) downloadPinningAsset:(BOOL)isLocalOnly {
-    if (!PinningDbCanCheckMobileAsset()) {
-        secnotice("pinningDb", "MobileAsset disabled, skipping check.");
-        return;
-    }
-
-    ASAssetQuery *query = [[ASAssetQuery alloc] initWithAssetType:(NSString *)PinningDbMobileAssetType];
-    [query setQueriesLocalAssetInformationOnly:isLocalOnly]; // Omitting this leads to a notifcation loop.
-    NSError *error = nil;
-    NSArray<ASAsset *>*query_results = [query runQueryAndReturnError:&error];
-    if (!query_results) {
-        secerror("SecPinningDb: asset query failed: %@", error);
-        return;
-    }
-
-    for (ASAsset *asset in query_results) {
-        NSDictionary *attributes = [asset attributes];
-
-        NSNumber *compatibilityVersion = [attributes objectForKey:ASAttributeCompatibilityVersion];
-        if (!isNSNumber(compatibilityVersion) ||
-            [compatibilityVersion unsignedIntegerValue] != PinningDbMobileAssetCompatibilityVersion) {
-            secnotice("pinningDb", "Skipping asset with compatibility version %@", compatibilityVersion);
-            continue;
-        }
-
-        NSNumber *contentVersion = [attributes objectForKey:ASAttributeContentVersion];
-        if (!isNSNumber(contentVersion) || ![self shouldUpdateContent:contentVersion]) {
-            secnotice("pinningDb", "Skipping asset with content version %@", contentVersion);
-            continue;
-        }
-
-        ASProgressHandler pinningHandler = ^(NSDictionary *state, NSError *progressError){
-            if (progressError) {
-                secerror("SecPinningDb: asset download error: %@", progressError);
-                return;
-            }
-
-            if (!state) {
-                secerror("SecPinningDb: no asset state in progress handler");
-                return;
-            }
-
-            NSString *operationState = [state objectForKey:ASStateOperation];
-            secdebug("pinningDb", "Asset state is %@", operationState);
-
-            if (operationState && [operationState isEqualToString:ASOperationCompleted]) {
-                if ([self installDbFromURL:[asset localURL]]) {
-                    secnotice("pinningDb", "finished db update from installed asset. purging asset.");
-                    [asset purge:^(NSError *error) {
-                        if (error) {
-                            secerror("SecPinningDb: purge failed %@", error);
-                        }
-                    }];
-                }
-            }
-        };
-
-        switch ([asset state]) {
-            case ASAssetStateNotPresent:
-                secdebug("pinningDb", "CertificatePinning asset needs to be downloaded");
-                asset.progressHandler= pinningHandler;
-                asset.userInitiatedDownload = YES;
-                [asset beginDownloadWithOptions:@{ASDownloadOptionPriority : ASDownloadPriorityNormal}];
-                break;
-            case ASAssetStateInstalled:
-                /* The asset is already in the cache, get it from disk. */
-                secdebug("pinningDb", "CertificatePinning asset already installed");
-                if([self installDbFromURL:[asset localURL]]) {
-                    secnotice("pinningDb", "finished db update from installed asset. purging asset.");
-                    [asset purge:^(NSError *error) {
-                        if (error) {
-                            secerror("SecPinningDb: purge failed %@", error);
-                        }
-                    }];
-                }
-                break;
-            case ASAssetStatePaused:
-                secdebug("pinningDb", "CertificatePinning asset download paused");
-                asset.progressHandler = pinningHandler;
-                asset.userInitiatedDownload = YES;
-                if (![asset resumeDownloadAndReturnError:&error]) {
-                    secerror("SecPinningDb: failed to resume download of asset: %@", error);
-                }
-                break;
-            case ASAssetStateDownloading:
-                secdebug("pinningDb", "CertificatePinning asset downloading");
-                asset.progressHandler = pinningHandler;
-                asset.userInitiatedDownload = YES;
-                break;
-            default:
-                secerror("SecPinningDb: unhandled asset state %ld", (long)asset.state);
-                continue;
-        }
-    }
-}
-#endif /* !TARGET_OS_IPHONE */
-
-- (void) downloadPinningAsset {
-    [self downloadPinningAsset:NO];
-}
 #endif /* !TARGET_OS_BRIDGE */
 
-- (NSArray *) copyCurrentPinningList {
+- (NSArray *) copySystemPinningList {
     NSArray *pinningList = nil;
+    NSURL *pinningListURL = nil;
     /* Get the pinning list shipped with the OS */
     SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
     if (otapkiref) {
-        pinningList = CFBridgingRelease(SecOTAPKICopyPinningList(otapkiref));
+        pinningListURL = CFBridgingRelease(SecOTAPKICopyPinningList(otapkiref));
         CFReleaseNull(otapkiref);
+        if (!pinningListURL) {
+            secerror("SecPinningDb: failed to get pinning plist URL");
+        }
+        NSError *error = nil;
+        pinningList = [NSArray arrayWithContentsOfURL:pinningListURL error:&error];
         if (!pinningList) {
-            secerror("SecPinningDb: failed to read pinning plist from bundle");
+            secerror("SecPinningDb: failed to read pinning plist from bundle: %@", error);
         }
     }
-
-#if !TARGET_OS_BRIDGE
-    /* Asynchronously ask MobileAsset for most recent pinning list. */
-    dispatch_async(_queue, ^{
-        secnotice("pinningDb", "Initial check with MobileAsset for newer pinning asset");
-        [self downloadPinningAsset];
-    });
-
-    /* Register for changes in our asset */
-    if (PinningDbCanCheckMobileAsset()) {
-        int out_token = 0;
-        notify_register_dispatch(kSecPinningDbMobileAssetNotification, &out_token, self->_queue, ^(int __unused token) {
-            secnotice("pinningDb", "Got a notification about a new pinning asset.");
-            [self downloadPinningAsset:YES];
-        });
-    }
-#endif
 
     return pinningList;
 }
@@ -615,7 +365,7 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
 - (BOOL) updateDb:(SecDbConnectionRef)dbconn error:(CFErrorRef *)error pinningList:(NSArray *)pinningList
      updateSchema:(BOOL)updateSchema updateContent:(BOOL)updateContent
 {
-    if (!isDbOwner()) { return false; }
+    if (!SecOTAPKIIsSystemTrustd()) { return false; }
     secdebug("pinningDb", "updating or creating database");
 
     __block bool ok = true;
@@ -648,13 +398,17 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
 }
 
 - (SecDbRef) createAtPath {
-    bool readWrite = isDbOwner();
-    mode_t mode = 0644;
+    bool readWrite = SecOTAPKIIsSystemTrustd();
+#if TARGET_OS_OSX
+    mode_t mode = 0644; // Root trustd can rw. All other trustds need to read.
+#else
+    mode_t mode = 0600; // Only one trustd.
+#endif
 
     CFStringRef path = CFStringCreateWithCString(NULL, [_dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
     SecDbRef result = SecDbCreateWithOptions(path, mode, readWrite, readWrite, false,
          ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
-             if (!isDbOwner()) {
+             if (!SecOTAPKIIsSystemTrustd()) {
                  /* Non-owner process can't update the db, but it should get a db connection.
                   * @@@ Revisit if new schema version is needed by reader processes. */
                  return true;
@@ -666,7 +420,7 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
                  bool updateContent = false;
 
                  /* Get the pinning plist */
-                 NSArray *pinningList = [self copyCurrentPinningList];
+                 NSArray *pinningList = [self copySystemPinningList];
                  if (!pinningList) {
                      secerror("SecPinningDb: failed to find pinning plist in bundle");
                      ok = false;
@@ -680,6 +434,7 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
                  }
                  NSNumber *plist_version = [pinningList objectAtIndex:0];
                  NSNumber *db_version = [self getContentVersion:dbconn error:error];
+                 secnotice("pinningDb", "Opening db with version %@", db_version);
                  if (!db_version || [plist_version compare:db_version] == NSOrderedDescending) {
                      secnotice("pinningDb", "Updating pinning database content from version %@ to version %@",
                                db_version ? db_version : 0, plist_version);
@@ -695,9 +450,16 @@ static BOOL PinningDbCanCheckMobileAsset(void) {
 
                  if (updateContent || updateSchema) {
                      ok &= [self updateDb:dbconn error:error pinningList:pinningList updateSchema:updateSchema updateContent:updateContent];
+                     /* Since we updated the DB to match the list that shipped with the system,
+                      * reset the OTAPKI Asset version to the system asset version */
+                     (void)SecOTAPKIResetCurrentAssetVersion(NULL);
                  }
                  if (!ok) {
                      secerror("SecPinningDb: %s failed: %@", didCreate ? "Create" : "Open", error ? *error : NULL);
+                     [[TrustdHealthAnalytics logger] logHardError:(error ? (__bridge NSError *)*error : nil)
+                                                    withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                                   withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
+                                                                    TrustdHealthAnalyticsAttributeDatabaseOperation : didCreate ? @(TAOperationCreate) : @(TAOperationOpen)}];
                  }
              });
              return ok;
@@ -765,9 +527,10 @@ static void verify_create_path(const char *path)
         }
     }
 
+
     dispatch_once(&once, ^{
-        /* Only log system-wide pinning status once a minute */
-        action = sec_action_create("pinning logging charles", 60.0);
+        /* Only log system-wide pinning status once every five minutes */
+        action = sec_action_create("pinning logging charles", 5*60.0);
         sec_action_set_handler(action, ^{
             if (!SecIsInternalRelease()) {
                 secnotice("pinningQA", "could not disable pinning: not an internal release");
@@ -845,8 +608,12 @@ static void verify_create_path(const char *path)
         });
     });
 
-    if (error) {
+    if (!ok || error) {
         secerror("SecPinningDb: error querying DB for hostname: %@", error);
+        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+                                       withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                      withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
+                                                       TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
         CFReleaseNull(error);
     }
 
@@ -872,6 +639,8 @@ static void verify_create_path(const char *path)
         return nil;
     }
 
+    secinfo("SecPinningDb", "Fetching rules for policy named %@", policyName);
+
     /* Perform SELECT */
     __block bool ok = true;
     __block CFErrorRef error = NULL;
@@ -895,8 +664,12 @@ static void verify_create_path(const char *path)
         });
     });
 
-    if (error) {
+    if (!ok || error) {
         secerror("SecPinningDb: error querying DB for policyName: %@", error);
+        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+                                       withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                      withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
+                                                       TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
         CFReleaseNull(error);
     }
 
@@ -910,34 +683,70 @@ static void verify_create_path(const char *path)
 
 @end
 
+/* C interfaces */
 static SecPinningDb *pinningDb = nil;
 void SecPinningDbInitialize(void) {
+    /* Create the pinning object once per launch */
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        pinningDb = [[SecPinningDb alloc] init];
-        __block CFErrorRef error = NULL;
-        BOOL ok = SecDbPerformRead([pinningDb db], &error, ^(SecDbConnectionRef dbconn) {
-            NSNumber *contentVersion = [pinningDb getContentVersion:dbconn error:&error];
-            NSNumber *schemaVersion = [pinningDb getSchemaVersion:dbconn error:&error];
-            secinfo("pinningDb", "Database Schema: %@ Content: %@", schemaVersion, contentVersion);
-        });
-        if (!ok || error) {
-            secerror("SecPinningDb: unable to initialize db: %@", error);
+        @autoreleasepool {
+            pinningDb = [[SecPinningDb alloc] init];
+            __block CFErrorRef error = NULL;
+            BOOL ok = SecDbPerformRead([pinningDb db], &error, ^(SecDbConnectionRef dbconn) {
+                NSNumber *contentVersion = [pinningDb getContentVersion:dbconn error:&error];
+                NSNumber *schemaVersion = [pinningDb getSchemaVersion:dbconn error:&error];
+                secinfo("pinningDb", "Database Schema: %@ Content: %@", schemaVersion, contentVersion);
+            });
+            if (!ok || error) {
+                secerror("SecPinningDb: unable to initialize db: %@", error);
+                [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+                                               withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                              withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
+                                                               TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
+            }
+            CFReleaseNull(error);
         }
-        CFReleaseNull(error);
     });
 }
 
 CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef query) {
+    @autoreleasepool {
+        SecPinningDbInitialize();
+
+        NSDictionary *nsQuery = (__bridge NSDictionary*)query;
+        NSString *hostname = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyHostname];
+
+        NSDictionary *results = [pinningDb queryForDomain:hostname];
+        if (results) { return CFBridgingRetain(results); }
+        NSString *policyName = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyPolicyName];
+        results = [pinningDb queryForPolicyName:policyName];
+        if (!results) { return nil; }
+        return CFBridgingRetain(results);
+    }
+}
+
+#if !TARGET_OS_BRIDGE
+bool SecPinningDbUpdateFromURL(CFURLRef url) {
     SecPinningDbInitialize();
 
-    NSDictionary *nsQuery = (__bridge NSDictionary*)query;
-    NSString *hostname = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyHostname];
+    return [pinningDb installDbFromURL:(__bridge NSURL*)url];
+}
+#endif
 
-    NSDictionary *results = [pinningDb queryForDomain:hostname];
-    if (results) { return CFBridgingRetain(results); }
-    NSString *policyName = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyPolicyName];
-    results = [pinningDb queryForPolicyName:policyName];
-    if (!results) { return nil; }
-    return CFBridgingRetain(results);
+CFNumberRef SecPinningDbCopyContentVersion(void) {
+    @autoreleasepool {
+        __block CFErrorRef error = NULL;
+        __block NSNumber *contentVersion = nil;
+        BOOL ok = SecDbPerformRead([pinningDb db], &error, ^(SecDbConnectionRef dbconn) {
+            contentVersion = [pinningDb getContentVersion:dbconn error:&error];
+        });
+        if (!ok || error) {
+            secerror("SecPinningDb: unable to get content version: %@", error);
+        }
+        CFReleaseNull(error);
+        if (!contentVersion) {
+            contentVersion = [NSNumber numberWithInteger:0];
+        }
+        return CFBridgingRetain(contentVersion);
+    }
 }

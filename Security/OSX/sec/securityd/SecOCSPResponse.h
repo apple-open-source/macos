@@ -36,7 +36,6 @@
 #include <CoreFoundation/CFDate.h>
 #include <securityd/SecOCSPRequest.h>
 #include <security_asn1/ocspTemplates.h>
-#include <Security/SecCertificatePath.h>
 
 __BEGIN_DECLS
 
@@ -154,7 +153,7 @@ CFArrayRef SecOCSPSingleResponseCopySCTs(SecOCSPSingleResponseRef this);
 
 void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this);
 
-/* Returns the SecCertificatePathRef who's leaf signed this ocspResponse if
+/* Returns the SecCertificateRef whose leaf signed this ocspResponse if
    we can find one and NULL if we can't find a valid signer. The issuerPath
    contains the cert chain from the anchor to the certificate that issued the
    leaf certificate for which this ocspResponse is supposed to be valid. */

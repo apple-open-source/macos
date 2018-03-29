@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,9 @@
 #if ENABLE(APPLE_PAY)
 
 #import "DataReference.h"
-#import <WebCore/PassKitSPI.h>
 #import <WebCore/PaymentAuthorizationStatus.h>
+#import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
+#import <pal/spi/cocoa/PassKitSPI.h>
 #import <wtf/SoftLinking.h>
 
 #if PLATFORM(MAC)
@@ -50,13 +51,21 @@ namespace IPC {
 
 void ArgumentCoder<WebCore::Payment>::encode(Encoder& encoder, const WebCore::Payment& payment)
 {
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
     auto data = adoptNS([[NSMutableData alloc] init]);
     auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
 
     [archiver setRequiresSecureCoding:YES];
+#else
+    auto archiver = secureArchiver();
+#endif
 
     [archiver encodeObject:payment.pkPayment() forKey:NSKeyedArchiveRootObjectKey];
     [archiver finishEncoding];
+
+#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+    auto data = archiver.get().encodedData;
+#endif
 
     encoder << DataReference(static_cast<const uint8_t*>([data bytes]), [data length]);
 }
@@ -68,8 +77,7 @@ bool ArgumentCoder<WebCore::Payment>::decode(Decoder& decoder, WebCore::Payment&
         return false;
 
     auto data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(dataReference.data())) length:dataReference.size() freeWhenDone:NO]);
-    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData(data.get());
     @try {
         PKPayment *pkPayment = [unarchiver decodeObjectOfClass:getPKPaymentClass() forKey:NSKeyedArchiveRootObjectKey];
         payment = Payment(pkPayment);
@@ -88,25 +96,38 @@ void ArgumentCoder<WebCore::PaymentAuthorizationResult>::encode(Encoder& encoder
     encoder << result.errors;
 }
 
-bool ArgumentCoder<WebCore::PaymentAuthorizationResult>::decode(Decoder& decoder, WebCore::PaymentAuthorizationResult& result)
+std::optional<WebCore::PaymentAuthorizationResult> ArgumentCoder<WebCore::PaymentAuthorizationResult>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(result.status))
-        return false;
-    if (!decoder.decode(result.errors))
-        return false;
+    std::optional<PaymentAuthorizationStatus> status;
+    decoder >> status;
+    if (!status)
+        return std::nullopt;
 
-    return true;
+    std::optional<Vector<PaymentError>> errors;
+    decoder >> errors;
+    if (!errors)
+        return std::nullopt;
+    
+    return {{ WTFMove(*status), WTFMove(*errors) }};
 }
 
 void ArgumentCoder<WebCore::PaymentContact>::encode(Encoder& encoder, const WebCore::PaymentContact& paymentContact)
 {
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
     auto data = adoptNS([[NSMutableData alloc] init]);
     auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
 
     [archiver setRequiresSecureCoding:YES];
+#else
+    auto archiver = secureArchiver();
+#endif
 
     [archiver encodeObject:paymentContact.pkContact() forKey:NSKeyedArchiveRootObjectKey];
     [archiver finishEncoding];
+
+#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+    auto data = archiver.get().encodedData;
+#endif
 
     encoder << DataReference(static_cast<const uint8_t*>([data bytes]), [data length]);
 }
@@ -118,8 +139,7 @@ bool ArgumentCoder<WebCore::PaymentContact>::decode(Decoder& decoder, WebCore::P
         return false;
 
     auto data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(dataReference.data())) length:dataReference.size() freeWhenDone:NO]);
-    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData(data.get());
     @try {
         PKContact *pkContact = [unarchiver decodeObjectOfClass:getPKContactClass() forKey:NSKeyedArchiveRootObjectKey];
         paymentContact = PaymentContact(pkContact);
@@ -139,27 +159,43 @@ void ArgumentCoder<WebCore::PaymentError>::encode(Encoder& encoder, const WebCor
     encoder << error.contactField;
 }
 
-bool ArgumentCoder<WebCore::PaymentError>::decode(Decoder& decoder, WebCore::PaymentError& error)
+std::optional<WebCore::PaymentError> ArgumentCoder<WebCore::PaymentError>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(error.code))
-        return false;
-    if (!decoder.decode(error.message))
-        return false;
-    if (!decoder.decode(error.contactField))
-        return false;
+    std::optional<WebCore::PaymentError::Code> code;
+    decoder >> code;
+    if (!code)
+        return std::nullopt;
+    
+    std::optional<String> message;
+    decoder >> message;
+    if (!message)
+        return std::nullopt;
+    
+    std::optional<std::optional<WebCore::PaymentError::ContactField>> contactField;
+    decoder >> contactField;
+    if (!contactField)
+        return std::nullopt;
 
-    return true;
+    return {{ WTFMove(*code), WTFMove(*message), WTFMove(*contactField) }};
 }
 
 void ArgumentCoder<WebCore::PaymentMerchantSession>::encode(Encoder& encoder, const WebCore::PaymentMerchantSession& paymentMerchantSession)
 {
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
     auto data = adoptNS([[NSMutableData alloc] init]);
     auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
 
     [archiver setRequiresSecureCoding:YES];
+#else
+    auto archiver = secureArchiver();
+#endif
 
     [archiver encodeObject:paymentMerchantSession.pkPaymentMerchantSession() forKey:NSKeyedArchiveRootObjectKey];
     [archiver finishEncoding];
+
+#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+    auto data = archiver.get().encodedData;
+#endif
 
     encoder << DataReference(static_cast<const uint8_t*>([data bytes]), [data length]);
 }
@@ -171,8 +207,7 @@ bool ArgumentCoder<WebCore::PaymentMerchantSession>::decode(Decoder& decoder, We
         return false;
 
     auto data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(dataReference.data())) length:dataReference.size() freeWhenDone:NO]);
-    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData(data.get());
     @try {
         PKPaymentMerchantSession *pkPaymentMerchantSession = [unarchiver decodeObjectOfClass:getPKPaymentMerchantSessionClass() forKey:NSKeyedArchiveRootObjectKey];
         paymentMerchantSession = PaymentMerchantSession(pkPaymentMerchantSession);
@@ -182,19 +217,26 @@ bool ArgumentCoder<WebCore::PaymentMerchantSession>::decode(Decoder& decoder, We
     }
 
     [unarchiver finishDecoding];
-
     return true;
 }
 
 void ArgumentCoder<WebCore::PaymentMethod>::encode(Encoder& encoder, const WebCore::PaymentMethod& paymentMethod)
 {
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
     auto data = adoptNS([[NSMutableData alloc] init]);
     auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
 
     [archiver setRequiresSecureCoding:YES];
+#else
+    auto archiver = secureArchiver();
+#endif
 
     [archiver encodeObject:paymentMethod.pkPaymentMethod() forKey:NSKeyedArchiveRootObjectKey];
     [archiver finishEncoding];
+
+#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+    auto data = archiver.get().encodedData;
+#endif
 
     encoder << DataReference(static_cast<const uint8_t*>([data bytes]), [data length]);
 }
@@ -206,8 +248,7 @@ bool ArgumentCoder<WebCore::PaymentMethod>::decode(Decoder& decoder, WebCore::Pa
         return false;
 
     auto data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(dataReference.data())) length:dataReference.size() freeWhenDone:NO]);
-    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData(data.get());
     @try {
         PKPaymentMethod *pkPaymentMethod = [unarchiver decodeObjectOfClass:getPKPaymentMethodClass() forKey:NSKeyedArchiveRootObjectKey];
         paymentMethod = PaymentMethod(pkPaymentMethod);
@@ -225,15 +266,16 @@ void ArgumentCoder<WebCore::PaymentMethodUpdate>::encode(Encoder& encoder, const
     encoder << update.newTotalAndLineItems;
 }
 
-bool ArgumentCoder<WebCore::PaymentMethodUpdate>::decode(Decoder& decoder, WebCore::PaymentMethodUpdate& update)
+std::optional<WebCore::PaymentMethodUpdate> ArgumentCoder<WebCore::PaymentMethodUpdate>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(update.newTotalAndLineItems))
-        return false;
-
-    return true;
+    std::optional<ApplePaySessionPaymentRequest::TotalAndLineItems> newTotalAndLineItems;
+    decoder >> newTotalAndLineItems;
+    if (!newTotalAndLineItems)
+        return std::nullopt;
+    return {{ WTFMove(*newTotalAndLineItems) }};
 }
 
-void ArgumentCoder<PaymentRequest>::encode(Encoder& encoder, const PaymentRequest& request)
+void ArgumentCoder<ApplePaySessionPaymentRequest>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest& request)
 {
     encoder << request.countryCode();
     encoder << request.currencyCode();
@@ -249,9 +291,10 @@ void ArgumentCoder<PaymentRequest>::encode(Encoder& encoder, const PaymentReques
     encoder << request.total();
     encoder << request.applicationData();
     encoder << request.supportedCountries();
+    encoder.encodeEnum(request.requester());
 }
 
-bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& request)
+bool ArgumentCoder<ApplePaySessionPaymentRequest>::decode(Decoder& decoder, ApplePaySessionPaymentRequest& request)
 {
     String countryCode;
     if (!decoder.decode(countryCode))
@@ -263,7 +306,7 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
         return false;
     request.setCurrencyCode(currencyCode);
 
-    PaymentRequest::ContactFields requiredBillingContactFields;
+    ApplePaySessionPaymentRequest::ContactFields requiredBillingContactFields;
     if (!decoder.decode((requiredBillingContactFields)))
         return false;
     request.setRequiredBillingContactFields(requiredBillingContactFields);
@@ -273,7 +316,7 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
         return false;
     request.setBillingContact(billingContact);
 
-    PaymentRequest::ContactFields requiredShippingContactFields;
+    ApplePaySessionPaymentRequest::ContactFields requiredShippingContactFields;
     if (!decoder.decode((requiredShippingContactFields)))
         return false;
     request.setRequiredShippingContactFields(requiredShippingContactFields);
@@ -283,7 +326,7 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
         return false;
     request.setShippingContact(shippingContact);
 
-    PaymentRequest::MerchantCapabilities merchantCapabilities;
+    ApplePaySessionPaymentRequest::MerchantCapabilities merchantCapabilities;
     if (!decoder.decode(merchantCapabilities))
         return false;
     request.setMerchantCapabilities(merchantCapabilities);
@@ -293,25 +336,26 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
         return false;
     request.setSupportedNetworks(supportedNetworks);
 
-    PaymentRequest::ShippingType shippingType;
+    ApplePaySessionPaymentRequest::ShippingType shippingType;
     if (!decoder.decodeEnum(shippingType))
         return false;
     request.setShippingType(shippingType);
 
-    Vector<PaymentRequest::ShippingMethod> shippingMethods;
+    Vector<ApplePaySessionPaymentRequest::ShippingMethod> shippingMethods;
     if (!decoder.decode(shippingMethods))
         return false;
     request.setShippingMethods(shippingMethods);
 
-    Vector<PaymentRequest::LineItem> lineItems;
+    Vector<ApplePaySessionPaymentRequest::LineItem> lineItems;
     if (!decoder.decode(lineItems))
         return false;
     request.setLineItems(lineItems);
 
-    PaymentRequest::LineItem total;
-    if (!decoder.decode(total))
+    std::optional<ApplePaySessionPaymentRequest::LineItem> total;
+    decoder >> total;
+    if (!total)
         return false;
-    request.setTotal(total);
+    request.setTotal(*total);
 
     String applicationData;
     if (!decoder.decode(applicationData))
@@ -323,10 +367,15 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
         return false;
     request.setSupportedCountries(WTFMove(supportedCountries));
 
+    ApplePaySessionPaymentRequest::Requester requester;
+    if (!decoder.decodeEnum(requester))
+        return false;
+    request.setRequester(requester);
+
     return true;
 }
 
-void ArgumentCoder<PaymentRequest::ContactFields>::encode(Encoder& encoder, const PaymentRequest::ContactFields& contactFields)
+void ArgumentCoder<ApplePaySessionPaymentRequest::ContactFields>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest::ContactFields& contactFields)
 {
     encoder << contactFields.postalAddress;
     encoder << contactFields.phone;
@@ -335,7 +384,7 @@ void ArgumentCoder<PaymentRequest::ContactFields>::encode(Encoder& encoder, cons
     encoder << contactFields.phoneticName;
 }
 
-bool ArgumentCoder<PaymentRequest::ContactFields>::decode(Decoder& decoder, PaymentRequest::ContactFields& contactFields)
+bool ArgumentCoder<ApplePaySessionPaymentRequest::ContactFields>::decode(Decoder& decoder, ApplePaySessionPaymentRequest::ContactFields& contactFields)
 {
     if (!decoder.decode(contactFields.postalAddress))
         return false;
@@ -351,26 +400,27 @@ bool ArgumentCoder<PaymentRequest::ContactFields>::decode(Decoder& decoder, Paym
     return true;
 }
 
-void ArgumentCoder<PaymentRequest::LineItem>::encode(Encoder& encoder, const PaymentRequest::LineItem& lineItem)
+void ArgumentCoder<ApplePaySessionPaymentRequest::LineItem>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest::LineItem& lineItem)
 {
     encoder.encodeEnum(lineItem.type);
     encoder << lineItem.label;
     encoder << lineItem.amount;
 }
 
-bool ArgumentCoder<PaymentRequest::LineItem>::decode(Decoder& decoder, PaymentRequest::LineItem& lineItem)
+std::optional<ApplePaySessionPaymentRequest::LineItem> ArgumentCoder<ApplePaySessionPaymentRequest::LineItem>::decode(Decoder& decoder)
 {
+    WebCore::ApplePaySessionPaymentRequest::LineItem lineItem;
     if (!decoder.decodeEnum(lineItem.type))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(lineItem.label))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(lineItem.amount))
-        return false;
+        return std::nullopt;
 
-    return true;
+    return WTFMove(lineItem);
 }
 
-void ArgumentCoder<PaymentRequest::MerchantCapabilities>::encode(Encoder& encoder, const PaymentRequest::MerchantCapabilities& merchantCapabilities)
+void ArgumentCoder<ApplePaySessionPaymentRequest::MerchantCapabilities>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
 {
     encoder << merchantCapabilities.supports3DS;
     encoder << merchantCapabilities.supportsEMV;
@@ -378,7 +428,7 @@ void ArgumentCoder<PaymentRequest::MerchantCapabilities>::encode(Encoder& encode
     encoder << merchantCapabilities.supportsDebit;
 }
 
-bool ArgumentCoder<PaymentRequest::MerchantCapabilities>::decode(Decoder& decoder, PaymentRequest::MerchantCapabilities& merchantCapabilities)
+bool ArgumentCoder<ApplePaySessionPaymentRequest::MerchantCapabilities>::decode(Decoder& decoder, ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
 {
     if (!decoder.decode(merchantCapabilities.supports3DS))
         return false;
@@ -392,7 +442,7 @@ bool ArgumentCoder<PaymentRequest::MerchantCapabilities>::decode(Decoder& decode
     return true;
 }
 
-void ArgumentCoder<PaymentRequest::ShippingMethod>::encode(Encoder& encoder, const PaymentRequest::ShippingMethod& shippingMethod)
+void ArgumentCoder<ApplePaySessionPaymentRequest::ShippingMethod>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest::ShippingMethod& shippingMethod)
 {
     encoder << shippingMethod.label;
     encoder << shippingMethod.detail;
@@ -400,32 +450,39 @@ void ArgumentCoder<PaymentRequest::ShippingMethod>::encode(Encoder& encoder, con
     encoder << shippingMethod.identifier;
 }
 
-bool ArgumentCoder<PaymentRequest::ShippingMethod>::decode(Decoder& decoder, PaymentRequest::ShippingMethod& shippingMethod)
+std::optional<ApplePaySessionPaymentRequest::ShippingMethod> ArgumentCoder<ApplePaySessionPaymentRequest::ShippingMethod>::decode(Decoder& decoder)
 {
+    ApplePaySessionPaymentRequest::ShippingMethod shippingMethod;
     if (!decoder.decode(shippingMethod.label))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(shippingMethod.detail))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(shippingMethod.amount))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(shippingMethod.identifier))
-        return false;
-    return true;
+        return std::nullopt;
+    return WTFMove(shippingMethod);
 }
 
-void ArgumentCoder<PaymentRequest::TotalAndLineItems>::encode(Encoder& encoder, const PaymentRequest::TotalAndLineItems& totalAndLineItems)
+void ArgumentCoder<ApplePaySessionPaymentRequest::TotalAndLineItems>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest::TotalAndLineItems& totalAndLineItems)
 {
     encoder << totalAndLineItems.total;
     encoder << totalAndLineItems.lineItems;
 }
 
-bool ArgumentCoder<PaymentRequest::TotalAndLineItems>::decode(Decoder& decoder, PaymentRequest::TotalAndLineItems& totalAndLineItems)
+std::optional<ApplePaySessionPaymentRequest::TotalAndLineItems> ArgumentCoder<ApplePaySessionPaymentRequest::TotalAndLineItems>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(totalAndLineItems.total))
-        return false;
-    if (!decoder.decode(totalAndLineItems.lineItems))
-        return false;
-    return true;
+    std::optional<ApplePaySessionPaymentRequest::LineItem> total;
+    decoder >> total;
+    if (!total)
+        return std::nullopt;
+    
+    std::optional<Vector<ApplePaySessionPaymentRequest::LineItem>> lineItems;
+    decoder >> lineItems;
+    if (!lineItems)
+        return std::nullopt;
+    
+    return {{ WTFMove(*total), WTFMove(*lineItems) }};
 }
 
 void ArgumentCoder<WebCore::ShippingContactUpdate>::encode(Encoder& encoder, const WebCore::ShippingContactUpdate& update)
@@ -435,16 +492,24 @@ void ArgumentCoder<WebCore::ShippingContactUpdate>::encode(Encoder& encoder, con
     encoder << update.newTotalAndLineItems;
 }
 
-bool ArgumentCoder<WebCore::ShippingContactUpdate>::decode(Decoder& decoder, WebCore::ShippingContactUpdate& update)
+std::optional<WebCore::ShippingContactUpdate> ArgumentCoder<WebCore::ShippingContactUpdate>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(update.errors))
-        return false;
-    if (!decoder.decode(update.newShippingMethods))
-        return false;
-    if (!decoder.decode(update.newTotalAndLineItems))
-        return false;
-
-    return true;
+    std::optional<Vector<PaymentError>> errors;
+    decoder >> errors;
+    if (!errors)
+        return std::nullopt;
+    
+    std::optional<Vector<ApplePaySessionPaymentRequest::ShippingMethod>> newShippingMethods;
+    decoder >> newShippingMethods;
+    if (!newShippingMethods)
+        return std::nullopt;
+    
+    std::optional<ApplePaySessionPaymentRequest::TotalAndLineItems> newTotalAndLineItems;
+    decoder >> newTotalAndLineItems;
+    if (!newTotalAndLineItems)
+        return std::nullopt;
+    
+    return {{ WTFMove(*errors), WTFMove(*newShippingMethods), WTFMove(*newTotalAndLineItems) }};
 }
 
 void ArgumentCoder<WebCore::ShippingMethodUpdate>::encode(Encoder& encoder, const WebCore::ShippingMethodUpdate& update)
@@ -452,12 +517,13 @@ void ArgumentCoder<WebCore::ShippingMethodUpdate>::encode(Encoder& encoder, cons
     encoder << update.newTotalAndLineItems;
 }
 
-bool ArgumentCoder<WebCore::ShippingMethodUpdate>::decode(Decoder& decoder, WebCore::ShippingMethodUpdate& update)
+std::optional<WebCore::ShippingMethodUpdate> ArgumentCoder<WebCore::ShippingMethodUpdate>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(update.newTotalAndLineItems))
-        return false;
-
-    return true;
+    std::optional<ApplePaySessionPaymentRequest::TotalAndLineItems> newTotalAndLineItems;
+    decoder >> newTotalAndLineItems;
+    if (!newTotalAndLineItems)
+        return std::nullopt;
+    return {{ WTFMove(*newTotalAndLineItems) }};
 }
 
 }

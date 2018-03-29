@@ -31,6 +31,7 @@
 #import "APIPageConfiguration.h"
 #import "AccessibilityIOS.h"
 #import "ApplicationStateTracker.h"
+#import "FullscreenClient.h"
 #import "InputViewUpdateDeferrer.h"
 #import "Logging.h"
 #import "PageClientImplIOS.h"
@@ -50,7 +51,6 @@
 #import "WebKit2Initialize.h"
 #import "WebPageGroup.h"
 #import "WebProcessPool.h"
-#import "WebSystemInterface.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
 #import <CoreGraphics/CoreGraphics.h>
@@ -59,10 +59,10 @@
 #import <WebCore/InspectorOverlay.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
-#import <WebCore/QuartzCoreSPI.h>
-#import <WebCore/TextStream.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/text/TextStream.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -200,6 +200,10 @@ private:
     _page->setIntrinsicDeviceScaleFactor(screenScaleFactor([UIScreen mainScreen]));
     _page->setUseFixedLayout(true);
     _page->setDelegatesScrolling(true);
+
+#if ENABLE(FULLSCREEN_API) && WK_API_ENABLED
+    _page->setFullscreenClient(std::make_unique<WebKit::FullscreenClient>(_webView));
+#endif
 
     WebProcessPool::statistics().wkViewCount++;
 

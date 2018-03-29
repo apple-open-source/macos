@@ -33,18 +33,27 @@
 #import "WKProcessPool.h"
 #import "WeakObjCPtr.h"
 #import "WebAutomationSession.h"
+#import "_WKAutomationSessionConfiguration.h"
 #import "_WKAutomationSessionDelegate.h"
 
 @implementation _WKAutomationSession {
+    RetainPtr<_WKAutomationSessionConfiguration> _configuration;
     WebKit::WeakObjCPtr<id <_WKAutomationSessionDelegate>> _delegate;
 }
 
 - (instancetype)init
 {
+    return [self initWithConfiguration:[[[_WKAutomationSessionConfiguration alloc] init] autorelease]];
+}
+
+- (instancetype)initWithConfiguration:(_WKAutomationSessionConfiguration *)configuration
+{
     if (!(self = [super init]))
         return nil;
 
     API::Object::constructInWrapper<WebKit::WebAutomationSession>(self);
+
+    _configuration = adoptNS([configuration copy]);
 
     return self;
 }
@@ -78,9 +87,19 @@
     _session->setSessionIdentifier(sessionIdentifier);
 }
 
+- (_WKAutomationSessionConfiguration *)configuration
+{
+    return [[_configuration copy] autorelease];
+}
+
 - (BOOL)isPaired
 {
     return _session->isPaired();
+}
+
+- (BOOL)isSimulatingUserInteraction
+{
+    return _session->isSimulatingUserInteraction();
 }
 
 #if PLATFORM(MAC)

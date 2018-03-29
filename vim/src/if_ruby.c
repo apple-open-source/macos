@@ -127,7 +127,7 @@
 #undef _
 
 /* T_DATA defined both by Ruby and Mac header files, hack around it... */
-#if defined(MACOS_X_UNIX) || defined(macintosh)
+#if defined(MACOS_X)
 # define __OPENTRANSPORT__
 # define __OPENTRANSPORTPROTOCOL__
 # define __OPENTRANSPORTPROVIDERS__
@@ -260,7 +260,8 @@ static void ruby_vim_init(void);
 # endif
 # define rb_lastline_get			dll_rb_lastline_get
 # define rb_lastline_set			dll_rb_lastline_set
-# define rb_load_protect			dll_rb_load_protect
+# define rb_protect			dll_rb_protect
+# define rb_load			dll_rb_load
 # ifndef RUBY19_OR_LATER
 #  define rb_num2long			dll_rb_num2long
 # endif
@@ -385,7 +386,8 @@ static unsigned long (*dll_rb_num2uint) (VALUE);
 # endif
 static VALUE (*dll_rb_lastline_get) (void);
 static void (*dll_rb_lastline_set) (VALUE);
-static void (*dll_rb_load_protect) (VALUE, int, int*);
+static void (*dll_rb_protect) (VALUE (*)(VALUE), int, int*);
+static void (*dll_rb_load) (VALUE, int);
 static long (*dll_rb_num2long) (VALUE);
 static unsigned long (*dll_rb_num2ulong) (VALUE);
 static VALUE (*dll_rb_obj_alloc) (VALUE);
@@ -577,7 +579,8 @@ static struct
 # endif
     {"rb_lastline_get", (RUBY_PROC*)&dll_rb_lastline_get},
     {"rb_lastline_set", (RUBY_PROC*)&dll_rb_lastline_set},
-    {"rb_load_protect", (RUBY_PROC*)&dll_rb_load_protect},
+    {"rb_protect", (RUBY_PROC*)&dll_rb_protect},
+    {"rb_load", (RUBY_PROC*)&dll_rb_load},
     {"rb_num2long", (RUBY_PROC*)&dll_rb_num2long},
     {"rb_num2ulong", (RUBY_PROC*)&dll_rb_num2ulong},
     {"rb_obj_alloc", (RUBY_PROC*)&dll_rb_obj_alloc},
@@ -840,7 +843,8 @@ void ex_rubyfile(exarg_T *eap)
 
     if (ensure_ruby_initialized())
     {
-	rb_load_protect(rb_str_new2((char *) eap->arg), 0, &state);
+	rb_protect((VALUE (*)(VALUE))rb_load, rb_str_new2((char *)eap->arg),
+								       &state);
 	if (state) error_print(state);
     }
 }
@@ -891,7 +895,7 @@ static int ensure_ruby_initialized(void)
 #ifdef RUBY19_OR_LATER
 	    {
 		int dummy_argc = 2;
-		char *dummy_argv[] = {"vim-ruby", "-e0"};
+		char *dummy_argv[] = {"vim-ruby", "-e_=0"};
 		ruby_options(dummy_argc, dummy_argv);
 	    }
 	    ruby_script("vim-ruby");
@@ -993,7 +997,7 @@ static VALUE vim_message(VALUE self UNUSED, VALUE str)
     if (RSTRING_LEN(str) > 0)
     {
 	/* Only do this when the string isn't empty, alloc(0) causes trouble. */
-	buff = ALLOCA_N(char, RSTRING_LEN(str));
+	buff = ALLOCA_N(char, RSTRING_LEN(str) + 1);
 	strcpy(buff, RSTRING_PTR(str));
 	p = strchr(buff, '\n');
 	if (p) *p = '\0';
@@ -1433,16 +1437,12 @@ static VALUE current_line_number(void)
 
 static VALUE window_s_count(void)
 {
-#ifdef FEAT_WINDOWS
     win_T	*w;
     int n = 0;
 
     FOR_ALL_WINDOWS(w)
 	n++;
     return INT2NUM(n);
-#else
-    return INT2NUM(1);
-#endif
 }
 
 static VALUE window_s_aref(VALUE self UNUSED, VALUE num)
@@ -1450,11 +1450,7 @@ static VALUE window_s_aref(VALUE self UNUSED, VALUE num)
     win_T *w;
     int n = NUM2INT(num);
 
-#ifndef FEAT_WINDOWS
-    w = curwin;
-#else
     for (w = firstwin; w != NULL; w = w->w_next, --n)
-#endif
 	if (n == 0)
 	    return window_new(w);
     return Qnil;
@@ -1487,19 +1483,17 @@ static VALUE window_set_height(VALUE self, VALUE height)
 
 static VALUE window_width(VALUE self UNUSED)
 {
-    return INT2NUM(W_WIDTH(get_win(self)));
+    return INT2NUM(get_win(self)->w_width);
 }
 
 static VALUE window_set_width(VALUE self UNUSED, VALUE width)
 {
-#ifdef FEAT_WINDOWS
     win_T *win = get_win(self);
     win_T *savewin = curwin;
 
     curwin = win;
     win_setwidth(NUM2INT(width));
     curwin = savewin;
-#endif
     return width;
 }
 

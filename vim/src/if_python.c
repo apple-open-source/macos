@@ -70,10 +70,6 @@
 # undef PY_SSIZE_T_CLEAN
 #endif
 
-#if defined(MACOS) && !defined(MACOS_X_UNIX)
-# include "macglue.h"
-# include <CodeFragments.h>
-#endif
 #undef main /* Defined in python.h - aargh */
 #undef HAVE_FCNTL_H /* Clash with os_win32.h */
 
@@ -779,6 +775,7 @@ get_exceptions(void)
 
 static int initialised = 0;
 #define PYINITIALISED initialised
+static int python_end_called = FALSE;
 
 #define DESTRUCTOR_FINISH(self) self->ob_type->tp_free((PyObject*)self);
 
@@ -878,6 +875,7 @@ python_end(void)
     if (recurse != 0)
 	return;
 
+    python_end_called = TRUE;
     ++recurse;
 
 #ifdef DYNAMIC_PYTHON
@@ -946,11 +944,7 @@ Python_Init(void)
 	Py_NoSiteFlag++;
 #endif
 
-#if !defined(MACOS) || defined(MACOS_X_UNIX)
 	Py_Initialize();
-#else
-	PyMac_Initialize();
-#endif
 
 #if defined(PY_VERSION_HEX) && PY_VERSION_HEX >= 0x02070000
 	/* 'import site' explicitly. */
@@ -1022,9 +1016,6 @@ DoPyCommand(const char *cmd, rangeinitializer init_range, runner run, void *arg)
 #ifndef PY_CAN_RECURSE
     static int		recursive = 0;
 #endif
-#if defined(MACOS) && !defined(MACOS_X_UNIX)
-    GrafPtr		oldPort;
-#endif
 #if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
     char		*saved_locale;
 #endif
@@ -1040,13 +1031,9 @@ DoPyCommand(const char *cmd, rangeinitializer init_range, runner run, void *arg)
     }
     ++recursive;
 #endif
+    if (python_end_called)
+	return;
 
-#if defined(MACOS) && !defined(MACOS_X_UNIX)
-    GetPort(&oldPort);
-    /* Check if the Python library is available */
-    if ((Ptr)PyMac_Initialize == (Ptr)kUnresolvedCFragSymbolAddress)
-	goto theend;
-#endif
     if (Python_Init())
 	goto theend;
 
@@ -1095,9 +1082,6 @@ DoPyCommand(const char *cmd, rangeinitializer init_range, runner run, void *arg)
 
     Python_Lock_Vim();		    /* enter vim */
     PythonIO_Flush();
-#if defined(MACOS) && !defined(MACOS_X_UNIX)
-    SetPort(oldPort);
-#endif
 
 theend:
 #ifndef PY_CAN_RECURSE
@@ -1434,7 +1418,6 @@ python_buffer_free(buf_T *buf)
     }
 }
 
-#if defined(FEAT_WINDOWS) || defined(PROTO)
     void
 python_window_free(win_T *win)
 {
@@ -1456,7 +1439,6 @@ python_tabpage_free(tabpage_T *tab)
 	TAB_PYTHON_REF(tab) = NULL;
     }
 }
-#endif
 
     static int
 PythonMod_Init(void)
@@ -1568,7 +1550,7 @@ do_pyeval (char_u *str, typval_T *rettv)
 	    (rangeinitializer) init_range_eval,
 	    (runner) run_eval,
 	    (void *) rettv);
-    switch(rettv->v_type)
+    switch (rettv->v_type)
     {
 	case VAR_DICT: ++rettv->vval.v_dict->dv_refcount; break;
 	case VAR_LIST: ++rettv->vval.v_list->lv_refcount; break;

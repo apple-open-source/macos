@@ -46,17 +46,56 @@ CF_IMPLICIT_BRIDGING_ENABLED
 CFTypeID SecAccessControlGetTypeID(void)
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
-typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
-    kSecAccessControlUserPresence           = 1 << 0,                                 // User presence policy using biometry or Passcode. Biometry does not have to be available or enrolled. Item is still accessible by Touch ID even if fingers are added or removed. Item is still accessible by Face ID if user is re-enrolled.
-    kSecAccessControlTouchIDAny             CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 1,   // Constraint: Touch ID (any finger) or Face ID. Touch ID or Face ID must be available. With Touch ID at least one finger must be enrolled. With Face ID user has to be enrolled. Item is still accessible by Touch ID even if fingers are added or removed. Item is still accessible by Face ID if user is re-enrolled.
-    kSecAccessControlTouchIDCurrentSet      CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 3,   // Constraint: Touch ID from the set of currently enrolled fingers. Touch ID must be available and at least one finger must be enrolled. When fingers are added or removed, the item is invalidated. When Face ID is re-enrolled this item is invalidated.
-    kSecAccessControlDevicePasscode         CF_ENUM_AVAILABLE(10_11, 9_0) = 1u << 4,   // Constraint: Device passcode
-    kSecAccessControlOr                     CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 14,  // Constraint logic operation: when using more than one constraint, at least one of them must be satisfied.
-    kSecAccessControlAnd                    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 15,  // Constraint logic operation: when using more than one constraint, all must be satisfied.
-    kSecAccessControlPrivateKeyUsage        CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 30,  // Create access control for private key operations (i.e. sign operation)
-    kSecAccessControlApplicationPassword    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 31,  // Security: Application provided password for data encryption key generation. This is not a constraint but additional item encryption mechanism.
-} __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+/*!
+ @typedef SecAccessControlCreateFlags
+ 
+ @constant kSecAccessControlUserPresence
+ User presence policy using biometry or Passcode. Biometry does not have to be available or enrolled. Item is still
+ accessible by Touch ID even if fingers are added or removed. Item is still accessible by Face ID if user is re-enrolled.
+ 
+ @constant kSecAccessControlBiometryAny
+ Constraint: Touch ID (any finger) or Face ID. Touch ID or Face ID must be available. With Touch ID
+ at least one finger must be enrolled. With Face ID user has to be enrolled. Item is still accessible by Touch ID even
+ if fingers are added or removed. Item is still accessible by Face ID if user is re-enrolled.
 
+ @constant kSecAccessControlTouchIDAny
+ Deprecated, please use kSecAccessControlBiometryAny instead.
+ 
+ @constant kSecAccessControlBiometryCurrentSet
+ Constraint: Touch ID from the set of currently enrolled fingers. Touch ID must be available and at least one finger must
+ be enrolled. When fingers are added or removed, the item is invalidated. When Face ID is re-enrolled this item is invalidated.
+
+ @constant kSecAccessControlTouchIDCurrentSet
+ Deprecated, please use kSecAccessControlBiometryCurrentSet instead.
+ 
+ @constant kSecAccessControlDevicePasscode
+ Constraint: Device passcode
+ 
+ @constant kSecAccessControlOr
+ Constraint logic operation: when using more than one constraint, at least one of them must be satisfied.
+ 
+ @constant kSecAccessControlAnd
+ Constraint logic operation: when using more than one constraint, all must be satisfied.
+ 
+ @constant kSecAccessControlPrivateKeyUsage
+ Create access control for private key operations (i.e. sign operation)
+ 
+ @constant kSecAccessControlApplicationPassword
+ Security: Application provided password for data encryption key generation. This is not a constraint but additional item
+ encryption mechanism.
+*/
+typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
+    kSecAccessControlUserPresence           = 1u << 0,
+    kSecAccessControlBiometryAny            CF_ENUM_AVAILABLE(10_13_4, 11_3) = 1u << 1,
+    kSecAccessControlTouchIDAny             API_DEPRECATED_WITH_REPLACEMENT("kSecAccessControlBiometryAny", macos(10.12.1, 10.13.4), ios(9.0, 11.3)) = 1u << 1,
+    kSecAccessControlBiometryCurrentSet     CF_ENUM_AVAILABLE(10_13_4, 11_3) = 1u << 3,
+    kSecAccessControlTouchIDCurrentSet      API_DEPRECATED_WITH_REPLACEMENT("kSecAccessControlBiometryCurrentSet", macos(10.12.1, 10.13.4), ios(9.0, 11.3)) = 1u << 3,
+    kSecAccessControlDevicePasscode         CF_ENUM_AVAILABLE(10_11, 9_0) = 1u << 4,
+    kSecAccessControlOr                     CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 14,
+    kSecAccessControlAnd                    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 15,
+    kSecAccessControlPrivateKeyUsage        CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 30,
+    kSecAccessControlApplicationPassword    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 31,
+} __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 /*!
  @function SecAccessControlCreateWithFlags

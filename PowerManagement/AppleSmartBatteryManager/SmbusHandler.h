@@ -43,6 +43,8 @@ private:
 
     void smbusCompletion(void *ref, IOSMBusTransaction *transaction);
     void smbusExternalTransactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    IOReturn getErrorCode(IOSMBusStatus status);
+
 public:
 
     IOReturn initialize ( AppleSmartBatteryManager *mgr );

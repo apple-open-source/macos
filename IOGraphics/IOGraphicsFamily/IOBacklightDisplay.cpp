@@ -365,7 +365,8 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 {
     IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
                DBG_FUNC_NONE,
-               0, powerState,
+               kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
+               powerState,
                0, DBG_IOG_SOURCE_APPLEBACKLIGHTDISPLAY,
                0, 0,
                0, 0);
@@ -571,7 +572,8 @@ void AppleBacklightDisplay::fadeAbort(void)
     {
         IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
                    DBG_FUNC_NONE,
-                   0, DBG_IOG_SOURCE_IODISPLAY,
+                   kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
+                   DBG_IOG_SOURCE_IODISPLAY,
                    0, 0,
                    0, 0,
                    0, 0);
@@ -656,7 +658,8 @@ void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
         {
             IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
                        DBG_FUNC_NONE,
-                       0, DBG_IOG_SOURCE_IODISPLAY,
+                       kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
+                       DBG_IOG_SOURCE_IODISPLAY,
                        0, 0,
                        0, 0,
                        0, 0);

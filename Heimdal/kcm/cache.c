@@ -226,6 +226,46 @@ kcm_ccache_get_uuids(krb5_context context,
     return 0;
 }
 
+krb5_error_code
+kcm_ccache_get_client_principals(krb5_context context,
+		     kcm_client *client,
+		     kcm_operation opcode,
+		     krb5_storage *sp)
+{
+    kcm_ccache p;
+    krb5_error_code ret = 0;
+
+    if (!CLIENT_IS_ROOT(client))
+	return EPERM;
+
+    HEIMDAL_MUTEX_lock(&ccache_mutex);
+
+    TAILQ_FOREACH(p, &ccache_head, members) {
+	char *name = NULL;
+
+	ret = krb5_unparse_name(context, p->client, &name);
+	if (ret)
+	    break;
+
+	ret = krb5_store_string(sp, name);
+	if (ret)
+	    break;
+
+	ret = krb5_store_int32(sp, p->session);
+	if (ret)
+	    break;
+
+	ret = krb5_store_int32(sp, (int32_t)p->creds->cred.times.endtime);
+	if (ret)
+	    break;
+
+	free(name);
+    }
+
+    HEIMDAL_MUTEX_unlock(&ccache_mutex);
+
+    return ret;
+}
 
 krb5_error_code
 kcm_debug_ccache(krb5_context context)

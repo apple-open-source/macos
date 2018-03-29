@@ -107,7 +107,9 @@ read_file(Elf *elf, char *file, char *label, read_cb_f *func, void *arg,
 
 	/* Reconstruction of type tree */
 	if ((si = symit_new(elf, file)) == NULL) {
+#if !defined(__APPLE__)
 		warning("%s has no symbol table - skipping", file);
+#endif
 		return (0);
 	}
 

@@ -1163,6 +1163,10 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
     if (CFDictionaryGetValue(parameters, kSecAttrTokenID) != NULL) {
         return SecKeyCreateCTKKey(allocator, parameters, error);
     }
+    else if (!keyData) {
+        SecError(errSecParam, error, CFSTR("Failed to provide key data to SecKeyCreateWithData"));
+        return NULL;
+    }
     /* First figure out the key type (algorithm). */
     CFIndex algorithm, class;
     CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
@@ -1231,13 +1235,33 @@ out:
     return key;
 }
 
+// Similar to CFErrorPropagate, but does not consult input value of *error, it can contain any garbage and if overwritten, previous value is never released.
+static inline bool SecKeyErrorPropagate(bool succeeded, CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) {
+    if (succeeded) {
+        return true;
+    } else {
+        if (error) {
+            *error = possibleError;
+        } else {
+            CFRelease(possibleError);
+        }
+        return false;
+    }
+}
+
 CFDataRef SecKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
     if (!key->key_class->copyExternalRepresentation) {
+        if (error != NULL) {
+            *error = NULL;
+        }
         SecError(errSecUnimplemented, error, CFSTR("export not implemented for key %@"), key);
         return NULL;
     }
 
-    return key->key_class->copyExternalRepresentation(key, error);
+    CFErrorRef localError = NULL;
+    CFDataRef result = key->key_class->copyExternalRepresentation(key, &localError);
+    SecKeyErrorPropagate(result != NULL, localError, error);
+    return result;
 }
 
 CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
@@ -1296,7 +1320,12 @@ fail:
 SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
     SecKeyRef privKey = NULL, pubKey = NULL;
     OSStatus status = SecKeyGeneratePair(parameters, &pubKey, &privKey);
-    SecError(status, error, CFSTR("Key generation failed, error %d"), (int)status);
+    if (status != errSecSuccess) {
+        if (error != NULL) {
+            *error = NULL;
+        }
+        SecError(status, error, CFSTR("Key generation failed, error %d"), (int)status);
+    }
     CFReleaseSafe(pubKey);
     return privKey;
 }
@@ -1311,8 +1340,14 @@ SecKeyRef SecKeyCreateDuplicate(SecKeyRef key) {
 
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
     if (key->key_class->version >= 4 && key->key_class->setParameter) {
-        return key->key_class->setParameter(key, name, value, error);
+        CFErrorRef localError = NULL;
+        Boolean result = key->key_class->setParameter(key, name, value, &localError);
+        SecKeyErrorPropagate(result, localError, error);
+        return result;
     } else {
+        if (error != NULL) {
+            *error = NULL;
+        }
         return SecError(errSecUnimplemented, error, CFSTR("setParameter not implemented for %@"), key);
     }
 }
@@ -1468,26 +1503,32 @@ static CFMutableArrayRef SecKeyCreateAlgorithmArray(SecKeyAlgorithm algorithm) {
 }
 
 CFDataRef SecKeyCreateSignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFErrorRef *error) {
+    CFErrorRef localError = NULL;
     SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, error);
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, &localError);
     SecKeyOperationContextDestroy(&context);
+    SecKeyErrorPropagate(result != NULL, localError, error);
     return result;
 }
 
 Boolean SecKeyVerifySignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef signedData, CFDataRef signature,
                               CFErrorRef *error) {
+    CFErrorRef localError = NULL;
     SecKeyOperationContext context = { key, kSecKeyOperationTypeVerify, SecKeyCreateAlgorithmArray(algorithm) };
-    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, signedData, signature, error);
+    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, signedData, signature, &localError);
     Boolean result = CFEqualSafe(res, kCFBooleanTrue);
     CFReleaseSafe(res);
     SecKeyOperationContextDestroy(&context);
+    SecKeyErrorPropagate(result, localError, error);
     return result;
 }
 
 CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plainText, CFErrorRef *error) {
+    CFErrorRef localError = NULL;
     SecKeyOperationContext context = { key, kSecKeyOperationTypeEncrypt, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plainText, NULL, error);
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plainText, NULL, &localError);
     SecKeyOperationContextDestroy(&context);
+    SecKeyErrorPropagate(result, localError, error);
     return result;
 }
 
@@ -1500,10 +1541,12 @@ CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CF
 
 CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, SecKeyRef publicKey,
                                       CFDictionaryRef parameters, CFErrorRef *error) {
+    CFErrorRef localError = NULL;
     CFDataRef publicKeyData = NULL, result = NULL;
     SecKeyOperationContext context = { key, kSecKeyOperationTypeKeyExchange, SecKeyCreateAlgorithmArray(algorithm) };
     require_quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
-    result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, error);
+    result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, &localError);
+    SecKeyErrorPropagate(result != NULL, localError, error);
 
 out:
     CFReleaseSafe(publicKeyData);

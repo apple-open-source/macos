@@ -69,6 +69,7 @@ void InspectorConsoleAgent::willDestroyFrontendAndBackend(DisconnectReason)
 void InspectorConsoleAgent::discardValues()
 {
     m_consoleMessages.clear();
+    m_expiredConsoleMessageCount = 0;
 }
 
 void InspectorConsoleAgent::enable(ErrorString&)
@@ -83,9 +84,11 @@ void InspectorConsoleAgent::enable(ErrorString&)
         expiredMessage.addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
     }
 
-    size_t messageCount = m_consoleMessages.size();
-    for (size_t i = 0; i < messageCount; ++i)
-        m_consoleMessages[i]->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
+    Vector<std::unique_ptr<ConsoleMessage>> messages;
+    m_consoleMessages.swap(messages);
+
+    for (size_t i = 0; i < messages.size(); ++i)
+        messages[i]->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
 }
 
 void InspectorConsoleAgent::disable(ErrorString&)
@@ -100,7 +103,6 @@ void InspectorConsoleAgent::clearMessages(ErrorString&)
 {
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
-    m_previousMessage = nullptr;
 
     m_injectedScriptManager.releaseObjectGroup(ASCIILiteral("console"));
 
@@ -182,7 +184,7 @@ void InspectorConsoleAgent::takeHeapSnapshot(const String& title)
 
 void InspectorConsoleAgent::count(JSC::ExecState* state, Ref<ScriptArguments>&& arguments)
 {
-    Ref<ScriptCallStack> callStack = createScriptCallStackForConsole(state, ScriptCallStack::maxCallStackSizeToCapture);
+    Ref<ScriptCallStack> callStack = createScriptCallStackForConsole(state);
 
     String title;
     String identifier;
@@ -218,21 +220,34 @@ void InspectorConsoleAgent::addConsoleMessage(std::unique_ptr<ConsoleMessage> co
     ASSERT(m_injectedScriptManager.inspectorEnvironment().developerExtrasEnabled());
     ASSERT_ARG(consoleMessage, consoleMessage);
 
-    if (m_previousMessage && !isGroupMessage(m_previousMessage->type()) && m_previousMessage->isEqual(consoleMessage.get())) {
-        m_previousMessage->incrementCount();
+    ConsoleMessage* previousMessage = m_consoleMessages.isEmpty() ? nullptr : m_consoleMessages.last().get();
+
+    if (previousMessage && !isGroupMessage(previousMessage->type()) && previousMessage->isEqual(consoleMessage.get())) {
+        previousMessage->incrementCount();
         if (m_enabled)
-            m_previousMessage->updateRepeatCountInConsole(*m_frontendDispatcher);
+            previousMessage->updateRepeatCountInConsole(*m_frontendDispatcher);
     } else {
-        m_previousMessage = consoleMessage.get();
+        ConsoleMessage* newMessage = consoleMessage.get();
         m_consoleMessages.append(WTFMove(consoleMessage));
         if (m_enabled)
-            m_previousMessage->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, true);
-    }
+            newMessage->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, true);
 
-    if (m_consoleMessages.size() >= maximumConsoleMessages) {
-        m_expiredConsoleMessageCount += expireConsoleMessagesStep;
-        m_consoleMessages.remove(0, expireConsoleMessagesStep);
+        if (m_consoleMessages.size() >= maximumConsoleMessages) {
+            m_expiredConsoleMessageCount += expireConsoleMessagesStep;
+            m_consoleMessages.remove(0, expireConsoleMessagesStep);
+        }
     }
+}
+
+void InspectorConsoleAgent::getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::Console::Channel>>& channels)
+{
+    // Default implementation has no logging channels.
+    channels = JSON::ArrayOf<Inspector::Protocol::Console::Channel>::create();
+}
+
+void InspectorConsoleAgent::setLoggingChannelLevel(ErrorString& errorString, const String&, const String&)
+{
+    errorString = ASCIILiteral("No such channel to enable");
 }
 
 } // namespace Inspector

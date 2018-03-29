@@ -27,11 +27,11 @@
 #include <IOKit/IOLib.h>
 #include "IOHIDElementPrivate.h"
 #include "IOHIDEventQueue.h"
-#include "IOHIDParserPriv.h"
+#include "IOHIDDescriptorParserPrivate.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include "AppleHIDUsageTables.h"
-
+#include "IOHIDUsageTables.h"
 
 #define IsRange() \
             (_usageMin != _usageMax)
@@ -1178,7 +1178,7 @@ bool IOHIDElementPrivate::processReport(
                 //Pass actual element size. (different fotr variable lenght reports)
                 _elementValue->totalSize = (_currentReportSizeBits + 7) / 8 + sizeof(*_elementValue) - sizeof(_elementValue->value);
                 //enqueueSize dword aligned
-                uint32_t  enqueueSize = (_elementValue->totalSize * 3 / 4) * 4;
+                uint32_t  enqueueSize = ((_elementValue->totalSize + 3) / 4) * 4;
                 if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll)) {
                     queue->enqueue( (void *) _elementValue, enqueueSize);
                 }

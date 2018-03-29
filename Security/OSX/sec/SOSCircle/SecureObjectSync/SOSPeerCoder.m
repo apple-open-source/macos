@@ -40,11 +40,6 @@
 #include <AssertMacros.h>
 #include "SOSInternal.h"
 
-void SOSPeerCoderConsume(SOSEnginePeerMessageSentBlock *sent, bool ok) {
-    if (*sent)
-        (*sent)(ok);
-}
-
 enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef coder, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error) {
     
     enum SOSCoderUnwrapStatus result = SOSCoderUnwrapError;
@@ -112,7 +107,7 @@ enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef
 xit:
     return result;
 }
-bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
+bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentCallback **sentCallback, CFErrorRef *error) {
     bool ok = false;
     secnotice("transport", "coder state: %@", coder);
     require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
@@ -120,7 +115,7 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, S
     if (SOSCoderCanWrap(coder)) {
         secinfo("transport", "%@ Coder can wrap, getting message from engine", peer_id);
         CFMutableDataRef codedMessage = NULL;
-        CFDataRef message = SOSEngineCreateMessage_locked(engine, txn, peer, attributeList, error, sent);
+        CFDataRef message = SOSEngineCreateMessage_locked(engine, txn, peer, attributeList, error, sentCallback);
         if (!message) {
             secnotice("transport", "%@ SOSEngineCreateMessage_locked failed: %@", peer_id, *error);
         } else if (CFDataGetLength(message) || SOSPeerMustSendMessage(peer)) {
@@ -143,10 +138,18 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, S
         *message_to_send = SOSCoderCopyPendingResponse(coder);
         SOSEngineSetCodersNeedSaving(engine, true);
         secinfo("transport", "%@ negotiating, %@", peer_id, (message_to_send && *message_to_send) ? CFSTR("sending negotiation message.") : CFSTR("waiting for negotiation message."));
-        *sent = ^(bool wasSent){
-            if (wasSent)
-                SOSCoderConsumeResponse(coder);
-        };
+
+        SOSEnginePeerMessageSentCallback* pmsc = malloc(sizeof(SOSEnginePeerMessageSentCallback));
+        memset(pmsc, 0, sizeof(SOSEnginePeerMessageSentCallback));
+
+        pmsc->coder = CFRetainSafe(coder);
+        SOSEngineMessageCallbackSetCallback(pmsc, ^(bool wasSent){
+            if (wasSent) {
+                SOSCoderConsumeResponse(pmsc->coder);
+            }
+        });
+
+        *sentCallback = pmsc;
         ok = true;
     }
     /*if coder state is in awaiting for message, then set a timer and restart if failure*/

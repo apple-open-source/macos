@@ -181,7 +181,7 @@ inet_firewire_pre_output(
         case AF_UNSPEC:
 		{
             mbuf_setflags(m, mbuf_flags(m) & ~MBUF_LOOP);
-            register struct firewire_header *fwh = (struct firewire_header *)dst_netaddr->sa_data;
+            struct firewire_header *fwh = (struct firewire_header *)dst_netaddr->sa_data;
 			(void)memcpy(edst, fwh->fw_dhost, FIREWIRE_ADDR_LEN);
             *(u_short *)type = fwh->fw_type;
 		}

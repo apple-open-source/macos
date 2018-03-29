@@ -435,16 +435,27 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 		if (port == 0) {
 			port = SSH_DEFAULT_PORT;
 		}
+		char port_string[8];
+		snprintf(port_string, sizeof(port_string), "%d", port);
+
 		debug("Connecting to %.200s port %d.", host, port);
+
 		dispatch_queue_t queue = dispatch_queue_create("OpenSSH.tcp_connection", NULL);
-		tcp_connection_t connection = tcp_connection_create(host, htons(port), queue);
-		dispatch_release(queue);
+		nw_endpoint_t endpoint = nw_endpoint_create_host(host, port_string);
+		nw_parameters_t parameters = nw_parameters_create();
 		if (want_keepalive) {
-			tcp_connection_set_keepalive(connection, true, 0, 0);
+			nw_parameters_set_keepalive_enabled(parameters, true);
 		}
 		if (family != AF_UNSPEC) {
-			tcp_connection_set_force_address_family(connection, family);
+			nw_parameters_set_required_address_family(parameters, family);
 		}
+#ifdef NW_HAS_PREFER_NO_PROXY
+		nw_parameters_set_prefer_no_proxy(parameters, true);
+#endif
+		tcp_connection_t connection = tcp_connection_create_with_endpoint_and_parameters(endpoint, parameters, queue);
+		network_release(endpoint);
+		network_release(parameters);
+		dispatch_release(queue);
 		tcp_connection_allow_client_socket_access(connection, true);
 		dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 		__block int ret = -1;

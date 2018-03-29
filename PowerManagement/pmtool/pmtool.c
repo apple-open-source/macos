@@ -53,6 +53,9 @@ struct args_struct {
     int     doIterations;
     int     iterationsCount;
     int     batteryLevel;
+    long    inactivityWindowStart;
+    long    inactivityWindowDuration;
+    long    standbyAccelerationDelay;
     
     /* If takeAssertionNamed != NULL; that implies our action is to take an assertion */
     CFStringRef         takeAssertionNamed;
@@ -214,9 +217,27 @@ static DTOption pmtool_options[] =
         no_argument, &args.standardSleepIntervals, 1}, kOptionType,
         "When set, pmtool will not accelerate DarkWake linger interval, or BackgroundTask interval. Usually testers want sleep & DarkWake cycles to occur as quickly as possible, without standard user delays; so if this setting isn't specified pmtool will call \'pmset btinterval 0\' and \'pmset dwlinterval 0\'.",
         { NULL }, { NULL } },
-    
+
+    // Adaptive Standby settings
+    { {kActionSetUserInactivityStart,
+          required_argument, &args.doAction[kActionInactivityWindowIndex], 1}, kActionType,
+        "Sets the start of user inactivity window to be used to accelerate entry to standby. The value(in seconds) indicates the start of inactivity window from now.\n   Providing negative value resets the inactivity window to system predicated window.\n\
+            Notes on setting the inactivity window:\n\
+            - The remaining window when system enters sleep should be greater than standby acceleration delay\n\
+            - The remaining window when system enters sleep should be greater than standby delay.\n\
+            - The standbydelay should be at least twice the standby acceleration delay\n",
+        { NULL }, { kOptionInactivityDuration, kOptionStandbyAccelerateDelay } },
+     { {kOptionInactivityDuration,
+          required_argument, &args.doAction[kOptionInactivityWindowDurationIndex], 1}, kActionType,
+        "Sets the duration of user inactivity window to be used to accelerate entry to standby",
+        { kActionSetUserInactivityStart }, { NULL } },
+    { {kOptionStandbyAccelerateDelay,
+        required_argument, &args.doAction[kOptionStandbyAccelerateDelayIndex], 1}, kActionType,
+        "Sets the minimum duration spent in normal sleep before accelerating to Standby",
+        { kActionSetUserInactivityStart }, { NULL } },
+
     { {"help", no_argument, NULL, 'h'}, kNilType, NULL, { NULL }, { NULL } },
-    
+
     { {NULL, 0, NULL, 0}, kNilType, NULL, { NULL }, { NULL } }
 };
 
@@ -250,6 +271,12 @@ int main(int argc, char *argv[])
     
     if (args.doAction[kActionResetBattIndex]) {
         sendSmartBatteryCommand(kSBSwitchToTrueCapacity, 0);
+        exit(1);
+    }
+
+    if (args.doAction[kActionInactivityWindowIndex]) {
+        sendInactivityWindowCommand(args.inactivityWindowStart,
+                                    args.inactivityWindowDuration, args.standbyAccelerationDelay);
         exit(1);
     }
 
@@ -552,6 +579,15 @@ static bool parse_it_all(int argc, char *argv[]) {
                 exit(1);
             }
         }
+        else if (arg && !strcmp(arg, kActionSetUserInactivityStart)) {
+            args.inactivityWindowStart = strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kOptionInactivityDuration)) {
+            args.inactivityWindowDuration = strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kOptionStandbyAccelerateDelay)) {
+            args.standbyAccelerationDelay = strtol(optarg, NULL, 0);
+        }
         
     } while (1);
     
@@ -562,6 +598,11 @@ static bool parse_it_all(int argc, char *argv[]) {
             printf("You must specify a time option for your assertion. See usage(); pass \"--now\" or \"--upondarkwake\"\n");
             exit(1);
         }
+    }
+    else if ((args.doAction[kOptionInactivityWindowDurationIndex] || args.doAction[kOptionStandbyAccelerateDelayIndex])
+             && (args.doAction[kActionInactivityWindowIndex] == 0)) {
+        printf("Option \'--%s\' is missing.\n", kActionSetUserInactivityStart);
+        exit(1);
     }
     
     return true;
@@ -1479,4 +1520,81 @@ bail:
     }
     
     return;
+}
+
+void processXpcEvent(xpc_object_t msg)
+{
+    xpc_type_t type = xpc_get_type(msg);
+
+    if (type == XPC_TYPE_DICTIONARY) {
+        printf("Unexpected xpc event\n");
+    }
+    else if (type == XPC_TYPE_ERROR) {
+        printf("Received xpc error\n");
+    }
+}
+
+
+static void sendInactivityWindowCommand(long start, long duration, long delay)
+{
+    xpc_object_t            desc = NULL;
+    xpc_object_t            msg = NULL;
+	xpc_object_t			connection;
+
+    if (geteuid() != 0) {
+        printf("Error: This command must be issued as root\n");
+        return;
+    }
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+    if (!connection) {
+        printf("Failed to open connection\n");
+        return;
+    }
+    xpc_connection_set_target_queue(connection, dispatch_get_main_queue());
+
+    xpc_connection_set_event_handler(connection,
+        ^(xpc_object_t msg ) {processXpcEvent(msg); });
+
+    xpc_connection_resume(connection);
+
+
+    desc = xpc_dictionary_create(NULL, NULL, 0);
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (desc && msg) {
+        xpc_dictionary_set_int64(desc, kInactivityWindowStart, start);
+        xpc_dictionary_set_int64(desc, kInactivityWindowDuration, duration);
+        xpc_dictionary_set_int64(desc, kStandbyAccelerationDelay, delay);
+        xpc_dictionary_set_value(msg, kInactivityWindowKey, desc);
+
+
+        xpc_connection_send_message_with_reply(connection, msg, dispatch_get_main_queue(), ^(xpc_object_t reply) {
+            if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
+                uint64_t err = xpc_dictionary_get_uint64(reply, kMsgReturnCode);
+                if (err == 0) {
+                    printf("Inactivity window set successfully\n");
+                }
+                else {
+                    printf("Failed to set inactivity window(err:0x%llx\n", err);
+                }
+            }
+            else {
+                printf("Received unknown response\n");
+            }
+            xpc_connection_cancel(connection);
+            exit(0);
+        });
+
+        dispatch_main();
+    }
+    else {
+        printf("Failed to create xpc objects to send message\n");
+    }
+    if (msg) {
+        xpc_release(msg);
+    }
+    if (desc) {
+        xpc_release(desc);
+    }
+
+    xpc_release(connection);
 }

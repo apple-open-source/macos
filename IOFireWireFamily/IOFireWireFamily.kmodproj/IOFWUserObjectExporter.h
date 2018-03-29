@@ -54,10 +54,10 @@
 			static IOFWUserObjectExporter *		createWithOwner( OSObject * owner );
 			bool								initWithOwner( OSObject * owner );
 
-			virtual bool			init();
+			virtual bool			init(void) APPLE_KEXT_OVERRIDE;
 	
-			virtual void			free ();
-			virtual bool			serialize ( OSSerialize * s ) const;
+			virtual void			free (void) APPLE_KEXT_OVERRIDE;
+			virtual bool			serialize ( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 			
 			// me
 			IOReturn				addObject ( OSObject * obj, CleanupFunction cleanup, IOFireWireLib::UserObjectHandle * outHandle );

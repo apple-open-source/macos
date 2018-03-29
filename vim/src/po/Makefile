@@ -22,6 +22,7 @@ LANGUAGES = \
 		ja \
 		ko \
 		ko.UTF-8 \
+                lv \
 		nb \
 		nl \
 		no \
@@ -63,6 +64,7 @@ MOFILES = \
 		ja.mo \
 		ko.mo \
 		ko.UTF-8.mo \
+                lv.mo \
 		nb.mo \
 		nl.mo \
 		no.mo \
@@ -238,7 +240,7 @@ sk.cp1250.po: sk.po
 zh_CN.cp936.po: zh_CN.UTF-8.po
 	rm -f zh_CN.cp936.po
 	iconv -f UTF-8 -t cp936 zh_CN.UTF-8.po | \
-		sed -e 's/charset=utf-8/charset=gbk/' -e 's/# Original translations/# Generated from zh_CN.po, DO NOT EDIT/' > zh_CN.cp936.po
+		sed -e 's/charset=utf-8/charset=gbk/' -e 's/# Original translations/# Generated from zh_CN.UTF-8.po, DO NOT EDIT/' > zh_CN.cp936.po
 
 # Convert ko.UTF-8.po to create ko.po.
 ko.po: ko.UTF-8.po

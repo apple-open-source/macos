@@ -26,8 +26,10 @@
 #include <ipc/securityd_client.h>
 #include <ipc/server_security_helpers.h>
 #include <ipc/server_endpoint.h>
+#include <os/transaction_private.h>
 
 #if OCTAGON
+#include "keychain/ckks/CloudKitCategories.h"
 #include <CloudKit/CloudKit_Private.h>
 // If your callbacks might pass back a CK error, you should use the XPCSanitizeError() spi on all branches at this layer.
 // Otherwise, XPC might crash on the other side if they haven't linked CloudKit.framework.
@@ -44,6 +46,20 @@
 #include <securityd/SecItemDb.h>
 
 #include "keychain/ckks/CKKSViewManager.h"
+
+@interface SecOSTransactionHolder : NSObject
+@property os_transaction_t transaction;
+- (instancetype)init:(os_transaction_t)transaction;
+@end
+
+@implementation SecOSTransactionHolder
+- (instancetype)init:(os_transaction_t)transaction {
+    if((self = [super init])) {
+        _transaction = transaction;
+    }
+    return self;
+}
+@end
 
 @implementation SecuritydXPCServer (SecuritydXPCProtocol)
 
@@ -65,6 +81,11 @@
         return;
     }
 
+#if OCTAGON
+    // Wait a bit for CKKS initialization in case of daemon start, but don't bail if it isn't up
+    [[CKKSViewManager manager].completedSecCKKSInitialize wait:10];
+#endif
+
     if(attributes[(id)kSecAttrDeriveSyncIDFromItemAttributes] ||
        attributes[(id)kSecAttrPCSPlaintextServiceIdentifier] ||
        attributes[(id)kSecAttrPCSPlaintextPublicKey] ||
@@ -81,13 +102,15 @@
     CFTypeRef cfresult = NULL;
 
     NSMutableDictionary* callbackQuery = [attributes mutableCopy];
+
+    // We probably need to figure out how to call os_transaction_needs_more_time on this transaction, but as this callback passes through C code, it's quite difficult
+    SecOSTransactionHolder* callbackTransaction = [[SecOSTransactionHolder alloc] init:os_transaction_create("com.apple.securityd.SecItemAddAndNotifyOnSync-callback")];
     callbackQuery[@"f_ckkscallback"] = ^void (bool didSync, CFErrorRef syncerror) {
-        [callback callCallback: didSync error: (__bridge NSError*)syncerror];
+        [callback callCallback:didSync error:XPCSanitizeError((__bridge NSError*)syncerror)];
+        callbackTransaction.transaction = nil;
     };
 
     _SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &_client, &cfresult, &cferror);
-
-    //TODO: ensure cferror can transit xpc
 
     // SecItemAdd returns Some CF Object, but NSXPC is pretty adamant that everything be a specific NS type. Split it up here:
     if(!cfresult) {
@@ -141,90 +164,33 @@
         return;
     }
 
-    __block SecDbItemRef newItem = NULL;
-    __block SecDbItemRef oldItem = NULL;
-
-    bool ok = kc_with_dbt(false, &cferror, ^bool (SecDbConnectionRef dbt) {
-        // Use a DB transaction to gain synchronization with all CKKS zones.
-        return kc_transaction_type(dbt, kSecDbExclusiveRemoteCKKSTransactionType, &cferror, ^bool {
-            Query *q = query_create_with_limit( (__bridge CFDictionaryRef) @{
-                                                                             (__bridge NSString *)kSecValuePersistentRef : newItemPersistentRef,
-                                                                             (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                                                             },
-                                               NULL,
-                                               1,
-                                               &cferror);
-            if(cferror) {
-                secerror("couldn't create query for new item pref: %@", cferror);
-                return false;
-            }
-
-            if(!SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
-                newItem = CFRetainSafe(item);
-            })) {
-                query_destroy(q, NULL);
-                secerror("couldn't run query for new item pref: %@", cferror);
-                return false;
-            }
-
-            if(!query_destroy(q, &cferror)) {
-                secerror("couldn't destroy query for new item pref: %@", cferror);
-                return false;
-            };
-
-            if(oldCurrentItemPersistentRef) {
-                q = query_create_with_limit( (__bridge CFDictionaryRef) @{
-                                                                          (__bridge NSString *)kSecValuePersistentRef : oldCurrentItemPersistentRef,
-                                                                          (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                                                          },
-                                            NULL,
-                                            1,
-                                            &cferror);
-                if(cferror) {
-                    secerror("couldn't create query: %@", cferror);
-                    return false;
-                }
-
-                if(!SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
-                    oldItem = CFRetainSafe(item);
-                })) {
-                    query_destroy(q, NULL);
-                    secerror("couldn't run query for old item pref: %@", cferror);
-                    return false;
-                }
-
-                if(!query_destroy(q, &cferror)) {
-                    secerror("couldn't destroy query for old item pref: %@", cferror);
-                    return false;
-                };
-            }
-
-            CKKSViewManager* manager = [CKKSViewManager manager];
-            if(!manager) {
-                secerror("SecItemSetCurrentItemAcrossAllDevices: no view manager?");
-                cferror = (CFErrorRef) CFBridgingRetain([NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"No view manager, cannot forward request"}]);
-                return false;
-            }
-            [manager setCurrentItemForAccessGroup:newItem
-                                             hash:newItemSHA1
-                                      accessGroup:accessGroup
-                                       identifier:identifier
-                                         viewHint:viewHint
-                                        replacing:oldItem
-                                             hash:oldItemSHA1
-                                         complete:complete];
-            return true;
-        });
-    });
-
-    CFReleaseNull(newItem);
-    CFReleaseNull(oldItem);
-
-    if(!ok) {
-        secnotice("ckks", "SecItemSetCurrentItemAcrossAllDevices failed due to: %@", cferror);
-        complete((__bridge NSError*) cferror);
+#if OCTAGON
+    // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
+    if([[CKKSViewManager manager].completedSecCKKSInitialize wait:10] != 0) {
+        secerror("SecItemSetCurrentItemAcrossAllDevices: CKKSViewManager not initialized?");
+        complete([NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS not yet initialized"]);
+        return;
     }
-    CFReleaseNull(cferror);
+#endif
+
+    CKKSViewManager* manager = [CKKSViewManager manager];
+    if(!manager) {
+        secerror("SecItemSetCurrentItemAcrossAllDevices: no view manager?");
+        complete([NSError errorWithDomain:CKKSErrorDomain
+                                     code:CKKSNotInitialized
+                              description:@"No view manager, cannot forward request"]);
+        return;
+    }
+
+    [manager setCurrentItemForAccessGroup:newItemPersistentRef
+                                     hash:newItemSHA1
+                              accessGroup:accessGroup
+                               identifier:identifier
+                                 viewHint:viewHint
+                                replacing:oldCurrentItemPersistentRef
+                                     hash:oldItemSHA1
+                                 complete:complete];
+    return;
 #else // ! OCTAGON
     xpcComplete([NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemSetCurrentItemAcrossAllDevices not implemented on this platform"}]);
 #endif // OCTAGON
@@ -264,6 +230,13 @@
         return;
     }
 
+    // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
+    if([[CKKSViewManager manager].completedSecCKKSInitialize wait:10] != 0) {
+        secerror("SecItemFetchCurrentItemAcrossAllDevices: CKKSViewManager not initialized?");
+        complete(NULL, [NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS not yet initialized"]);
+        return;
+    }
+
     [[CKKSViewManager manager] getCurrentItemForAccessGroup:accessGroup
                                                  identifier:identifier
                                                    viewHint:viewHint
@@ -275,9 +248,11 @@
                                                            return;
                                                        }
 
-                                                       // Find the persisent ref and return it.
-                                                       secnotice("ckkscurrent", "CKKS believes current item UUID for (%@,%@) is %@. Looking up persistent ref...", accessGroup, identifier, uuid);
-                                                       [self findItemPersistentRefByUUID:uuid complete:complete];
+                                                       // Find the persistent ref and return it.
+                                                       secinfo("ckkscurrent", "CKKS believes current item UUID for (%@,%@) is %@. Looking up persistent ref...", accessGroup, identifier, uuid);
+                                                       [self findItemPersistentRefByUUID:uuid
+                                                                      extraLoggingString:[NSString stringWithFormat:@"%@,%@", accessGroup, identifier]
+                                                                                complete:complete];
                                                    }];
 #else // ! OCTAGON
     xpcComplete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemFetchCurrentItemAcrossAllDevices not implemented on this platform"}]);
@@ -285,6 +260,7 @@
 }
 
 -(void)findItemPersistentRefByUUID:(NSString*)uuid
+                extraLoggingString:(NSString*)loggingStr
                           complete:(void (^) (NSData* persistentref, NSError* operror))xpcComplete
 {
     // The calling client might not handle CK types well. Sanitize!
@@ -329,9 +305,9 @@
     }
 
     if(result && !cferror) {
-        secnotice("ckkscurrent", "Found current item for (%@)", uuid);
+        secinfo("ckkscurrent", "Found current item for (%@: %@)", loggingStr, uuid);
     } else {
-        secerror("ckkscurrent: No current item for (%@): %@ %@", uuid, result, cferror);
+        secerror("ckkscurrent: No current item for (%@,%@): %@ %@", loggingStr, uuid, result, cferror);
     }
 
     complete((__bridge NSData*) result, (__bridge NSError*) cferror);

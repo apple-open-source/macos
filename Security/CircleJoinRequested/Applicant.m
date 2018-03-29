@@ -36,8 +36,8 @@
 
 -(void)dealloc
 {
-	if (self.rawPeerInfo) {
-		CFRelease(self.rawPeerInfo);
+	if (self->_rawPeerInfo) {
+		CFRelease(self->_rawPeerInfo);
 	}
 }
 

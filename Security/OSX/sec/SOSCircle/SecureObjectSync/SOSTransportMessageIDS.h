@@ -27,7 +27,7 @@ extern const CFStringRef kIDSMessageUniqueID;
 extern const CFStringRef kIDSMessageRecipientPeerID;
 extern const CFStringRef kIDSMessageRecipientDeviceID;
 extern const CFStringRef kIDSMessageUsesAckModel;
-
+extern const CFStringRef kIDSMessageSenderDeviceID;;
 
 @interface SOSMessageIDS : SOSMessage
 {

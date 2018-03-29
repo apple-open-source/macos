@@ -30,7 +30,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -58,7 +58,17 @@
 */
 
 #include "HIDMacTypes.h"
-#include <IOKit/hidsystem/IOHIDDescriptorParser.h>
+#include "IOHIDDescriptorParser.h"
+
+#if __has_include(<os/overflow.h>)
+#include <os/overflow.h>
+#elif __has_builtin(__builtin_add_overflow)
+#define os_add_overflow(a, b, c) __builtin_add_overflow(a, b, c)
+#define os_sub_overflow(a, b, c) __builtin_sub_overflow(a, b, c)
+#define os_mul_overflow(a, b, c) __builtin_mul_overflow(a, b, c)
+#else
+#error unsupported compiler
+#endif
 
 /* the following constants are from the USB HID Specification (www.usb.org)*/
 
@@ -187,10 +197,15 @@ enum {
 /*																				*/
 /*------------------------------------------------------------------------------*/
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfour-char-constants"
+
 enum
 {	
 	kHIDOSType			=	'hid '
 };
+
+#pragma clang diagnostic pop
 
 struct HIDItem
 {

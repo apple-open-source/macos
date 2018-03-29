@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -25,10 +25,15 @@
 
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <Winsock2.h>
+#endif
+
 #include <isc/base32.h>
 #include <isc/buffer.h>
 #include <isc/dir.h>
 #include <isc/entropy.h>
+#include <isc/file.h>
 #include <isc/heap.h>
 #include <isc/list.h>
 #include <isc/mem.h>
@@ -472,6 +477,8 @@ key_collision(dst_key_t *dstkey, dns_name_t *name, const char *dir,
 	isc_uint16_t id, oldid;
 	isc_uint32_t rid, roldid;
 	dns_secalg_t alg;
+	char filename[ISC_DIR_NAMEMAX];
+	isc_buffer_t fileb;
 
 	if (exact != NULL)
 		*exact = ISC_FALSE;
@@ -479,6 +486,28 @@ key_collision(dst_key_t *dstkey, dns_name_t *name, const char *dir,
 	id = dst_key_id(dstkey);
 	rid = dst_key_rid(dstkey);
 	alg = dst_key_alg(dstkey);
+
+	/*
+	 * For HMAC and Diffie Hellman just check if there is a
+	 * direct collision as they can't be revoked.  Additionally
+	 * dns_dnssec_findmatchingkeys only handles DNSKEY which is
+	 * not used for HMAC.
+	 */
+	switch (alg) {
+	case DST_ALG_HMACMD5:
+	case DST_ALG_HMACSHA1:
+	case DST_ALG_HMACSHA224:
+	case DST_ALG_HMACSHA256:
+	case DST_ALG_HMACSHA384:
+	case DST_ALG_HMACSHA512:
+	case DST_ALG_DH:
+		isc_buffer_init(&fileb, filename, sizeof(filename));
+		result = dst_key_buildfilename(dstkey, DST_TYPE_PRIVATE,
+					       dir, &fileb);
+		if (result != ISC_R_SUCCESS)
+			return (ISC_TRUE);
+		return (isc_file_exists(filename));
+	}
 
 	ISC_LIST_INIT(matchkeys);
 	result = dns_dnssec_findmatchingkeys(name, dir, mctx, &matchkeys);
@@ -1834,3 +1863,25 @@ verifyzone(dns_db_t *db, dns_dbversion_t *ver,
 		}
 	}
 }
+
+#ifdef _WIN32
+void
+InitSockets(void) {
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+
+	wVersionRequested = MAKEWORD(2, 0);
+
+	err = WSAStartup( wVersionRequested, &wsaData );
+	if (err != 0) {
+		fprintf(stderr, "WSAStartup() failed: %d\n", err);
+		exit(1);
+	}
+}
+
+void
+DestroySockets(void) {
+	WSACleanup();
+}
+#endif

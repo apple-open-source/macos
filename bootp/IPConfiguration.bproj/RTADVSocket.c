@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,10 +120,10 @@ struct RTADVSocket {
     RTADVSocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
     void *			receive_arg2;
-    boolean_t			router_lifetime_is_zero;
-    boolean_t			router_lifetime_is_maximum;
-    boolean_t			prefix_lifetime_is_infinite;
     boolean_t			router_source_address_collision;
+    uint16_t			router_lifetime;
+    uint32_t			prefix_preferred_lifetime;
+    uint32_t			prefix_valid_lifetime;
 };
 
 STATIC RTADVSocketGlobalsRef	S_globals;
@@ -442,7 +442,9 @@ find_dnssl(ptrlist_t * options_p, int * ret_len)
 #define ND_OPT_PREFIX_INFORMATION_LENGTH sizeof(struct nd_opt_prefix_info)
 
 STATIC void
-find_prefix_lifetime(ptrlist_t * options_p, uint32_t * prefix_lifetime)
+find_prefix_lifetimes(ptrlist_t * options_p,
+		      uint32_t * preferred_lifetime,
+		      uint32_t * valid_lifetime)
 {
     int					count;
     int					i;
@@ -464,7 +466,8 @@ find_prefix_lifetime(ptrlist_t * options_p, uint32_t * prefix_lifetime)
 	    || opt->nd_opt_pi_preferred_time == 0) {
 	    continue;
 	}
-	*prefix_lifetime = ntohl(opt->nd_opt_pi_valid_time);
+	*preferred_lifetime = ntohl(opt->nd_opt_pi_preferred_time);
+	*valid_lifetime = ntohl(opt->nd_opt_pi_valid_time);
 	break;
     }
     return;
@@ -474,7 +477,8 @@ STATIC void
 RTADVSocketReceiveDataInit(RTADVSocketReceiveDataRef data_p,
 			   const struct in6_addr * router_p,
 			   const struct nd_router_advert * ndra_p, int n,
-			   uint32_t * prefix_lifetime)
+			   uint32_t * preferred_lifetime,
+			   uint32_t * valid_lifetime)
 {
     ptrlist_t			options;
 
@@ -494,46 +498,11 @@ RTADVSocketReceiveDataInit(RTADVSocketReceiveDataRef data_p,
 	= find_source_link_address(&options, &data_p->router_hwaddr_len);
     data_p->dns_search_domains
 	= find_dnssl(&options, &data_p->dns_search_domains_len);
-    *prefix_lifetime = 0;
-    find_prefix_lifetime(&options, prefix_lifetime);
+    *preferred_lifetime = 0;
+    *valid_lifetime = 0;
+    find_prefix_lifetimes(&options, preferred_lifetime, valid_lifetime);
     ptrlist_free(&options);
     return;
-}
-
-STATIC void
-RTADVSocketSetRouterLifetimeIsZero(RTADVSocketRef sock, bool val)
-{
-    sock->router_lifetime_is_zero = val;
-}
-
-STATIC void
-RTADVSetRouterLifetimeIsZero(int if_index, bool val)
-{
-    RTADVSocketRef		sock;
-
-    sock = RTADVSocketFind(if_index);
-    if (sock == NULL || sock->receive_func == NULL) {
-	return;
-    }
-    RTADVSocketSetRouterLifetimeIsZero(sock, val);
-}
-
-STATIC void
-RTADVSocketSetRouterLifetimeIsMaximum(RTADVSocketRef sock, bool val)
-{
-    sock->router_lifetime_is_maximum = val;
-}
-
-STATIC void
-RTADVSocketSetPrefixLifetimeIsInfinite(RTADVSocketRef sock, bool val)
-{
-    sock->prefix_lifetime_is_infinite = val;
-}
-
-STATIC void
-RTADVSocketSetRouterSourceAddressCollision(RTADVSocketRef sock, bool val)
-{
-    sock->router_source_address_collision = val;
 }
 
 STATIC void
@@ -554,7 +523,7 @@ RTADVSocketCheckDuplicateAddress(RTADVSocketRef sock,
 	return;
     }
     if (IN6_ARE_ADDR_EQUAL(router_p, &sock->linklocal_addr)) {
-	RTADVSocketSetRouterSourceAddressCollision(sock, TRUE);
+	sock->router_source_address_collision = TRUE;
     }
 }
 
@@ -570,17 +539,11 @@ RTADVSocketDemux(int if_index, const struct in6_addr * router_p,
     }
     if (sock->receive_func != NULL) {
 	RTADVSocketReceiveData		data;
-	uint32_t			prefix_lifetime = 0;
 
-#define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
-	if (ndra_p->nd_ra_router_lifetime == ROUTER_LIFETIME_MAXIMUM) {
-	    RTADVSocketSetRouterLifetimeIsMaximum(sock, TRUE);
-	}
+	sock->router_lifetime = ntohs(ndra_p->nd_ra_router_lifetime);
 	RTADVSocketReceiveDataInit(&data, router_p, ndra_p, n,
-				   &prefix_lifetime);
-	if (prefix_lifetime == ND6_INFINITE_LIFETIME) {
-	    RTADVSocketSetPrefixLifetimeIsInfinite(sock, TRUE);
-	}
+				   &sock->prefix_preferred_lifetime,
+				   &sock->prefix_valid_lifetime);
 	RTADVSocketCheckDuplicateAddress(sock, router_p);
 	(*sock->receive_func)(sock->receive_arg1, sock->receive_arg2, &data);
     }
@@ -688,10 +651,6 @@ RTADVSocketRead(void * arg1, void * arg2)
     if (icmp_hdr->icmp6_code != 0) {
 	my_log(LOG_NOTICE, "RTADVSocket: invalid icmp code %d",
 	       icmp_hdr->icmp6_code);
-	return;
-    }
-    if (ndra_p->nd_ra_router_lifetime == 0) {
-	RTADVSetRouterLifetimeIsZero(pktinfo->ipi6_ifindex, TRUE);
 	return;
     }
     if (*hop_limit_p != ND_RTADV_HOP_LIMIT) {
@@ -888,10 +847,10 @@ RTADVSocketEnableReceive(RTADVSocketRef sock,
     if (RTADVSocketOpenSocket(sock) == FALSE) {
 	my_log_fl(LOG_NOTICE, "%s: failed", if_name(sock->if_p));
     }
-    RTADVSocketSetRouterLifetimeIsZero(sock, FALSE);
-    RTADVSocketSetRouterLifetimeIsMaximum(sock, FALSE);
-    RTADVSocketSetPrefixLifetimeIsInfinite(sock, FALSE);
-    RTADVSocketSetRouterSourceAddressCollision(sock, FALSE);
+    sock->router_lifetime = 0;
+    sock->router_source_address_collision = FALSE;
+    sock->prefix_preferred_lifetime = 0;
+    sock->prefix_valid_lifetime = 0;
     return;
 }
 
@@ -936,26 +895,26 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
     return (ret);
 }
 
-PRIVATE_EXTERN bool
-RTADVSocketRouterLifetimeIsZero(RTADVSocketRef sock)
+PRIVATE_EXTERN uint16_t
+RTADVSocketGetRouterLifetime(RTADVSocketRef sock)
 {
-    return (sock->router_lifetime_is_zero);
+    return (sock->router_lifetime);
+}
+
+uint32_t
+RTADVSocketGetPrefixPreferredLifetime(RTADVSocketRef sock)
+{
+    return (sock->prefix_preferred_lifetime);
+}
+
+uint32_t
+RTADVSocketGetPrefixValidLifetime(RTADVSocketRef sock)
+{
+    return (sock->prefix_valid_lifetime);
 }
 
 bool
-RTADVSocketRouterLifetimeIsMaximum(RTADVSocketRef sock)
-{
-    return (sock->router_lifetime_is_maximum);
-}
-
-bool
-RTADVSocketPrefixLifetimeIsInfinite(RTADVSocketRef sock)
-{
-    return (sock->prefix_lifetime_is_infinite);
-}
-
-bool
-RTADVSocketRouterSourceAddressCollision(RTADVSocketRef sock)
+RTADVSocketGetRouterSourceAddressCollision(RTADVSocketRef sock)
 {
     return (sock->router_source_address_collision);
 }

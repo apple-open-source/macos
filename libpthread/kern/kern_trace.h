@@ -33,6 +33,9 @@
  * /usr/share/misc/pthread.codes during build.
  */
 
+// userspace trace points force slow-paths, so must be compiled in
+#define ENABLE_USERSPACE_TRACE 0
+
 // pthread tracing subclasses
 # define _TRACE_SUB_DEFAULT 0
 # define _TRACE_SUB_WORKQUEUE 1
@@ -68,12 +71,21 @@ VM_UNSLIDE(void* ptr)
 # define PTHREAD_TRACE_WQ_REQ(x,a,b,c,d,e) \
 	{ if (pthread_debug_tracing) { KERNEL_DEBUG_CONSTANT(x, VM_UNSLIDE(a), VM_UNSLIDE(b), c, d, e); } }
 
-#endif
+#else // KERNEL
+
+#if ENABLE_USERSPACE_TRACE
+# include <sys/kdebug.h>
+# define PTHREAD_TRACE(x, a, b, c, d) kdebug_trace(TRACE_##x, a, b, c, d)
+#else // ENABLE_USERSPACE_TRACE
+# define PTHREAD_TRACE(x, a, b, c, d) do { } while(0)
+#endif // ENABLE_USERSPACE_TRACE
+
+#endif // KERNEL
 
 # define TRACE_CODE(name, subclass, code) \
 	static const int TRACE_##name = KDBG_CODE(DBG_PTHREAD, subclass, code)
 
-#else
+#else // _PTHREAD_BUILDING_CODES_
 /* When not included as a header, this file is pre-processed into perl source to generate
  * the pthread.codes file during build.
  */
@@ -82,7 +94,7 @@ VM_UNSLIDE(void* ptr)
 
 # define TRACE_CODE(name, subclass, code) \
 	printf("0x%x\t%s\n", ((DBG_PTHREAD << 24) | ((subclass & 0xff) << 16) | ((code & 0x3fff) << 2)), STR(name))
-#endif
+#endif // _PTHREAD_BUILDING_CODES_
 
 /* These defines translate into TRACE_<name> when used in source code, and are
  * pre-processed out to a codes file by the build system.
@@ -124,5 +136,7 @@ TRACE_CODE(psynch_mutex_ulock, _TRACE_SUB_MUTEX, 0x0);
 TRACE_CODE(psynch_mutex_utrylock_failed, _TRACE_SUB_MUTEX, 0x1);
 TRACE_CODE(psynch_mutex_uunlock, _TRACE_SUB_MUTEX, 0x2);
 TRACE_CODE(psynch_ksyn_incorrect_owner, _TRACE_SUB_MUTEX, 0x3);
+TRACE_CODE(psynch_mutex_lock_updatebits, _TRACE_SUB_MUTEX, 0x4);
+TRACE_CODE(psynch_mutex_unlock_updatebits, _TRACE_SUB_MUTEX, 0x5);
 
 #endif // _KERN_TRACE_H_

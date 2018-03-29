@@ -26,6 +26,8 @@
 #import "CKKSKey.h"
 #import "CKKSHealKeyHierarchyOperation.h"
 #import "CKKSGroupOperation.h"
+#import "CKKSAnalytics.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 #if OCTAGON
 
@@ -146,8 +148,8 @@
                     newTLK = topKey;
                 } else if(![newTLK.uuid isEqualToString: topKey.uuid]) {
                     ckkserror("ckksheal", ckks, "key hierarchy has split: there's two top keys. Currently we don't handle this situation.");
-                    [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: [NSError errorWithDomain:@"securityd"
-                                                                                                                         code:0
+                    [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: [NSError errorWithDomain:CKKSErrorDomain
+                                                                                                                         code:CKKSSplitKeyHierarchy
                                                                                                                      userInfo:@{NSLocalizedDescriptionKey:
                                                                                                                                     [NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]}]];
                     return true;
@@ -168,16 +170,7 @@
                 } else {
                     // Otherwise, something has gone horribly wrong. enter error state.
                     ckkserror("ckksheal", ckks, "CKKS claims %@ is not a valid TLK: %@", newTLK, error);
-                    NSError* newError = nil;
-                    if(error) {
-                        newError = [NSError errorWithDomain:@"securityd"
-                                                       code:0
-                                                   userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit", NSUnderlyingErrorKey: error}];
-                    } else {
-                        newError = [NSError errorWithDomain:@"securityd"
-                                                       code:0
-                                                   userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit"}];
-                    }
+                    NSError* newError = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
                     [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:newError];
                     return true;
                 }
@@ -220,9 +213,14 @@
                 newClassAKey = [CKKSKey randomKeyWrappedByParent:newTLK error:&error];
                 [newClassAKey saveKeyMaterialToKeychain:&error];
 
-                if(error) {
+                if(error && [ckks.lockStateTracker isLockedError:error]) {
+                    ckksnotice("ckksheal", ckks, "Couldn't create a new class A key, but keybag appears to be locked. Entering waitforunlock.");
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:error];
+                    return true;
+                } else if(error) {
                     ckkserror("ckksheal", ckks, "couldn't create new classA key: %@", error);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:[NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"couldn't create new classA key", NSUnderlyingErrorKey: error}]];
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
+                    return true;
                 }
 
                 keyset.classA = newClassAKey;
@@ -233,15 +231,22 @@
                 newClassCKey = [CKKSKey randomKeyWrappedByParent:newTLK error:&error];
                 [newClassCKey saveKeyMaterialToKeychain:&error];
 
-                if(error) {
-                    ckkserror("ckksheal", ckks, "couldn't create new classC key: %@", error);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:[NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"couldn't create new classC key", NSUnderlyingErrorKey: error}]];
+                if(error && [ckks.lockStateTracker isLockedError:error]) {
+                    ckksnotice("ckksheal", ckks, "Couldn't create a new class C key, but keybag appears to be locked. Entering waitforunlock.");
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:error];
+                    return true;
+                } else if(error) {
+                    ckkserror("ckksheal", ckks, "couldn't create new class C key: %@", error);
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
+                    return true;
                 }
 
                 keyset.classC = newClassCKey;
                 keyset.currentClassCPointer.currentKeyUUID = newClassCKey.uuid;
                 changedCurrentClassC = true;
             }
+
+            ckksnotice("ckksheal", ckks, "Attempting to move to new key hierarchy: %@", keyset);
 
             // Note: we never make a new TLK here. So, don't save it back to CloudKit.
             //if(newTLK) {
@@ -279,7 +284,7 @@
 
             // Kick off the CKOperation
 
-            ckksinfo("ckksheal", ckks, "Saving new keys %@ to cloudkit %@", recordsToSave, ckks.database);
+            ckksnotice("ckksheal", ckks, "Saving new records %@", recordsToSave);
 
             // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
             self.cloudkitModifyOperationFinished = [NSBlockOperation named:@"heal-cloudkit-modify-operation-finished" withBlock:^{}];
@@ -296,8 +301,7 @@
             modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
             modifyRecordsOp.atomic = YES;
             modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-            modifyRecordsOp.timeoutIntervalForRequest = 2;
-            modifyRecordsOp.qualityOfService = NSQualityOfServiceUtility;  // relatively important. Use Utility.
+            modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
             modifyRecordsOp.group = self.ckoperationGroup;
             ckksnotice("ckksheal", ckks, "Operation group is %@", self.ckoperationGroup);
 
@@ -323,8 +327,9 @@
 
                 ckksnotice("ckksheal", strongCKKS, "Completed Key Heal CloudKit operation with error: %@", error);
 
-                [strongCKKS dispatchSync: ^bool{
+                [strongCKKS dispatchSyncWithAccountKeys: ^bool{
                     if(error == nil) {
+                        [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy inView:ckks];
                         // Success. Persist the keys to the CKKS database.
 
                         // Save the new CKRecords to the before persisting to database
@@ -371,6 +376,7 @@
                         }
                     } else {
                         // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
+                        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy inView:ckks withAttributes:NULL];
                         ckkserror("ckksheal", strongCKKS, "couldn't save new key hierarchy to CloudKit: %@", error);
                         [strongCKKS _onqueueCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
                         [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateNewTLKsFailed withError: nil];
@@ -387,14 +393,18 @@
         }
 
         // Check if CKKS can recover this TLK.
-        [ckks _onqueueWithAccountKeysCheckTLK:keyset.tlk error:&error];
+        bool haveTLK = [ckks _onqueueWithAccountKeysCheckTLK:keyset.tlk error:&error];
         if(error && [ckks.lockStateTracker isLockedError:error]) {
             ckksnotice("ckkskey", ckks, "Failed to load TLK from keychain, keybag is locked. Entering waitforunlock: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
             return false;
-        } else if(error) {
-            ckkserror("ckksheal", ckks, "CKKS wasn't sure about TLK, triggering move to bad state: %@", error);
+        } else if(error && error.code == errSecItemNotFound) {
+            ckkserror("ckksheal", ckks, "CKKS couldn't find TLK, triggering move to wait state: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateWaitForTLK withError: nil];
+
+        } else if(!haveTLK) {
+            ckkserror("ckksheal", ckks, "CKKS errored examining TLK, triggering move to bad state: %@", error);
+            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
             return false;
         }
 

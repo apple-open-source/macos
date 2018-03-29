@@ -3,7 +3,7 @@
 #ifndef SOSKVSKEYS_H
 #define SOSKVSKEYS_H
 
-#include "SOSCircle.h"
+#include <Security/SecureObjectSync/SOSCircle.h>
 #include <Security/SecureObjectSync/SOSTransportMessageKVS.h>
 #include <Security/SecureObjectSync/SOSAccountPriv.h>
 //
@@ -21,7 +21,6 @@ typedef enum {
     kRingKey,
     kLastCircleKey,
     kLastKeyParameterKey,
-    kOTRConfig,
     kUnknownKey,
 } SOSKVSKeyType;
 

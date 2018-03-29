@@ -155,6 +155,14 @@ static io_iterator_t		S_iter			= MACH_PORT_NULL;
  */
 static IONotificationPortRef	S_notify		= NULL;
 
+/*
+ * S_preconfigured
+ *   An array of CFData(WatchedInfo) objects representing those
+ *   pre-configured interfaces that have been connected to the
+ *   system.
+ */
+static CFMutableArrayRef	S_preconfigured		= NULL;
+
 /* S_prev_active_list
  *   An array of CFDictionary's representing the previously
  *   named interfaces.
@@ -452,6 +460,9 @@ previouslyActiveInterfaces()
 
     return active;
 }
+
+static void
+updateInterfaces(void);
 
 static void
 updateStore(void)
@@ -1473,6 +1484,136 @@ builtinCount(CFArrayRef if_list, CFIndex last, CFNumberRef if_type)
     return n;
 }
 
+
+#pragma mark -
+#pragma mark Interface monitoring (e.g. watch for "detach")
+
+
+typedef struct WatchedInfo	*WatchedInfoRef;
+
+typedef void (*InterfaceUpdateCallBack)	(
+    CFDataRef			watched,
+    natural_t			messageType,
+    void			*messageArgument
+);
+
+typedef struct {
+    SCNetworkInterfaceRef	interface;
+    io_service_t		interface_node;
+    io_object_t			notification;
+    InterfaceUpdateCallBack	callback;
+} WatchedInfo;
+
+static void
+watcherRelease(CFDataRef watched);
+
+static void
+updateWatchedInterface(void *refCon, io_service_t service, natural_t messageType, void *messageArgument)
+{
+#pragma unused(service)
+#pragma unused(messageArgument)
+    switch (messageType) {
+	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	    CFDataRef	watched		= (CFDataRef)refCon;
+	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	    CFRetain(watched);
+	    watchedInfo->callback(watched, messageType, messageArgument);
+	    watcherRelease(watched);
+	    CFRelease(watched);
+	    break;
+	}
+
+	default :
+	    return;
+    }
+
+    return;
+}
+
+static CFDataRef
+watcherCreate(SCNetworkInterfaceRef interface, InterfaceUpdateCallBack callback)
+{
+    uint64_t		entryID;
+    io_service_t	interface_node;
+    kern_return_t	kr;
+    CFDictionaryRef	matching;
+    CFMutableDataRef	watched;
+    WatchedInfo		*watchedInfo;
+
+    // get the IORegistry node
+    entryID = _SCNetworkInterfaceGetIORegistryEntryID(interface);
+    matching = IORegistryEntryIDMatching(entryID);
+    interface_node = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    if (interface_node == MACH_PORT_NULL) {
+	// interface no longer present
+	return NULL;
+    }
+
+    // create [locked] interface watcher
+    watched = CFDataCreateMutable(NULL, sizeof(WatchedInfo));
+    CFDataSetLength(watched, sizeof(WatchedInfo));
+    watchedInfo = (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+    bzero(watchedInfo, sizeof(*watchedInfo));
+
+    // retain interface
+    watchedInfo->interface = CFRetain(interface);
+
+    // ... and the interface node
+    watchedInfo->interface_node = interface_node;
+
+    // ... and set the callback
+    watchedInfo->callback = callback;
+
+    kr = IOServiceAddInterestNotification(S_notify,			// IONotificationPortRef
+					  watchedInfo->interface_node,	// io_service_t
+					  kIOGeneralInterest,		// interestType
+					  updateWatchedInterface,	// IOServiceInterestCallback
+					  (void *)watched,		// refCon
+					  &watchedInfo->notification);	// notification
+    if (kr != KERN_SUCCESS) {
+	SC_log(LOG_ERR,
+	       "IOServiceAddInterestNotification() failed, kr =  0x%x",
+	       kr);
+	watcherRelease(watched);
+	CFRelease(watched);
+	return NULL;
+    }
+
+    return watched;
+}
+
+static void
+watcherRelease(CFDataRef watched)
+{
+    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+    // release watcher
+    if (watchedInfo->notification != IO_OBJECT_NULL) {
+	IOObjectRelease(watchedInfo->notification);
+	watchedInfo->notification = IO_OBJECT_NULL;
+    }
+
+    // release interface node
+    if (watchedInfo->interface_node != IO_OBJECT_NULL) {
+	IOObjectRelease(watchedInfo->interface_node);
+	watchedInfo->interface_node = IO_OBJECT_NULL;
+    }
+
+    // release interface
+    if (watchedInfo->interface != NULL) {
+	CFRelease(watchedInfo->interface);
+	watchedInfo->interface = NULL;
+    }
+
+    return;
+}
+
+
+#pragma mark -
+#pragma mark Locked device support [macOS]
+
+
 #if	!TARGET_OS_IPHONE
 static boolean_t
 blockNewInterfaces()
@@ -1562,6 +1703,11 @@ isConsoleLocked()
     return locked;
 }
 #endif	// !TARGET_OS_IPHONE
+
+
+#pragma mark -
+#pragma mark Interface naming
+
 
 static __inline__ boolean_t
 isQuiet(void)
@@ -1929,52 +2075,107 @@ updateNetworkConfiguration(CFArrayRef if_list)
 #endif	// !TARGET_OS_IPHONE
 
 static void
-updatePreConfigured(CFArrayRef interfaces)
+sharePreconfigured()
 {
-    CFIndex		i;
-    CFIndex		n;
-    CFMutableArrayRef	new_list    = NULL;
-    Boolean		updated	    = FALSE;
+    CFIndex	n;
+
+    n = (S_preconfigured != NULL) ? CFArrayGetCount(S_preconfigured) : 0;
+    if (n > 0) {
+	CFMutableArrayRef	preconfigured;
+
+	preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	for (CFIndex i = 0; i < n; i++) {
+	    CFStringRef	bsdName;
+	    CFDataRef	watched		= CFArrayGetValueAtIndex(S_preconfigured, i);
+	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	    bsdName = SCNetworkInterfaceGetBSDName(watchedInfo->interface);
+	    CFArrayAppendValue(preconfigured, bsdName);
+	}
+
+	CFDictionarySetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces, preconfigured);
+	CFRelease(preconfigured);
+    } else {
+	CFDictionaryRemoveValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces);
+    }
+
+    updateStore();
+
+    return;
+}
+
+static void
+preconfiguredInterfaceUpdated(CFDataRef watched, natural_t messageType, void *messageArgument)
+{
+    Boolean	updated		= FALSE;
+    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+#pragma unused(messageArgument)
+    switch (messageType) {
+	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	    SC_log(LOG_INFO, "[pre-configured] interface removed: %@",
+		   SCNetworkInterfaceGetBSDName(watchedInfo->interface));
+
+	    if (S_preconfigured != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(S_preconfigured);
+
+		i = CFArrayGetFirstIndexOfValue(S_preconfigured, CFRangeMake(0, n), watched);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(S_preconfigured, i);
+		    if (CFArrayGetCount(S_preconfigured) == 0) {
+			CFRelease(S_preconfigured);
+			S_preconfigured = NULL;
+		    }
+		    updated = TRUE;
+		}
+	    }
+
+	    break;
+	}
+
+	default :
+	    return;
+    }
+
+    if (updated) {
+	sharePreconfigured();
+    }
+
+    return;
+}
+
+static void
+updatePreConfiguredInterfaces(CFArrayRef interfaces)
+{
+    CFIndex	n;
+    Boolean	updated	= FALSE;
 
     n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
-    for (i = 0; i < n; i++) {
+    for (CFIndex i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
 
 	interface = CFArrayGetValueAtIndex(interfaces, i);
 	if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
-	    CFStringRef	bsdName;
+	    CFDataRef	watched;
 
-	    bsdName = SCNetworkInterfaceGetBSDName(interface);
-	    if (bsdName == NULL) {
-		continue;
-	    }
+	    watched = watcherCreate(interface, preconfiguredInterfaceUpdated);
+	    if (watched != NULL) {
+		SC_log(LOG_INFO, "watching [pre-configured] interface: %@",
+		       SCNetworkInterfaceGetBSDName(interface));
 
-	    // add pre-configured interface
-	    if (new_list == NULL) {
-		CFArrayRef	cur_list;
-
-		cur_list = CFDictionaryGetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces);
-		if (cur_list != NULL) {
-		    new_list = CFArrayCreateMutableCopy(NULL, 0, cur_list);
-		} else {
-		    new_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		if (S_preconfigured == NULL) {
+		    S_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
-	    }
-
-	    if (!CFArrayContainsValue(new_list, CFRangeMake(0, CFArrayGetCount(new_list)), bsdName)) {
-		CFArrayAppendValue(new_list, bsdName);
+		CFArrayAppendValue(S_preconfigured, watched);
 		updated = TRUE;
 	    }
 	}
     }
 
-    if (new_list != NULL) {
-	if (updated) {
-	    CFDictionarySetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces, new_list);
-	    updateStore();
-	}
-
-	CFRelease(new_list);
+    if (updated) {
+	sharePreconfigured();
     }
 
     return;
@@ -2001,7 +2202,7 @@ updateInterfaces()
     /*
      * Update the list of [Apple] pre-configured interfaces
      */
-    updatePreConfigured(S_iflist);
+    updatePreConfiguredInterfaces(S_iflist);
 
     if (isQuiet()) {
 	/*

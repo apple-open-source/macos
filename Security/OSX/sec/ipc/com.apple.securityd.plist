@@ -19,9 +19,17 @@
 	<string>com.apple.securityd</string>
 	<key>MachServices</key>
 	<dict>
+		<key>com.apple.security.octagon</key>
+		<true/>
 		<key>com.apple.securityd</key>
 		<true/>
 		<key>com.apple.securityd.aps</key>
+		<true/>
+		<key>com.apple.securityd.ckks</key>
+		<true/>
+		<key>com.apple.securityd.general</key>
+		<true/>
+		<key>com.apple.securityd.sos</key>
 		<true/>
 	</dict>
 	<key>ProgramArguments</key>

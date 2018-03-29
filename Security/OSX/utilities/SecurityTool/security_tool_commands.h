@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#define SHOW_USAGE_MESSAGE 2
 
 // This is included to make SECURITY_COMMAND macros result in declarations of
 // commands for use in SecurityTool
@@ -39,6 +40,5 @@
 #else
 #define SECURITY_COMMAND_MAC(name, function, parameters, description) extern int command_not_on_this_platform(int argc, char * const *argv);
 #endif
-
 
 #endif

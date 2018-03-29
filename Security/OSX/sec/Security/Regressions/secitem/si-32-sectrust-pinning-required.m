@@ -86,15 +86,18 @@ static void tests(void)
 
     policy = SecPolicyCreateSSL(true, CFSTR("openmarket.ess.apple.com"));
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    is(test_with_policy(policy), kSecTrustResultRecoverableTrustFailure, "Unpinned connection succeeeded when pinning required");
+    //%%% openmarket.ess.apple.com cert is now revoked, so expect a fatal result.
+    is(test_with_policy(policy), kSecTrustResultFatalTrustFailure, "Unpinned connection succeeeded when pinning required");
 
     policy = SecPolicyCreateAppleIDSServiceContext(CFSTR("openmarket.ess.apple.com"), NULL);
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    is(test_with_policy(policy), kSecTrustResultUnspecified, "Policy pinned connection failed when pinning required");
+    //%%% openmarket.ess.apple.com cert is now revoked, so expect a fatal result.
+    is(test_with_policy(policy), kSecTrustResultFatalTrustFailure, "Policy pinned connection failed when pinning required");
 
     policy = SecPolicyCreateSSL(true, CFSTR("profile.ess.apple.com"));
+    //%%% profile.ess.apple.com cert is now revoked, so expect a fatal result.
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide hostname pinned connection failed when pinning required");
+    is(test_with_policy(policy), kSecTrustResultFatalTrustFailure, "Systemwide hostname pinned connection failed when pinning required");
 
     NSDictionary *policy_properties = @{
                                         (__bridge NSString *)kSecPolicyName : @"openmarket.ess.apple.com",
@@ -102,11 +105,13 @@ static void tests(void)
                                         };
     policy = SecPolicyCreateWithProperties(kSecPolicyAppleSSL, (__bridge CFDictionaryRef)policy_properties);
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide policy name pinned connection failed when pinning required");
+    //%%% openmarket.ess.apple.com cert is now revoked, so expect a fatal result.
+    is(test_with_policy(policy), kSecTrustResultFatalTrustFailure, "Systemwide policy name pinned connection failed when pinning required");
 
     policy = SecPolicyCreateSSL(true, CFSTR("openmarket.ess.apple.com"));
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    is(test_with_policy_exception(policy, true), kSecTrustResultUnspecified, "Unpinned connection failed when pinning exception set");
+    //%%% openmarket.ess.apple.com cert is now revoked, so expect a fatal result.
+    is(test_with_policy_exception(policy, true), kSecTrustResultFatalTrustFailure, "Unpinned connection failed when pinning exception set");
 
     /* can I write an effective test for charles?? */
 }

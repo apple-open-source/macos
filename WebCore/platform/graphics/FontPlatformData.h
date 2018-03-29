@@ -36,7 +36,6 @@
 
 #if USE(CAIRO)
 #include "RefPtrCairo.h"
-#include <cairo.h>
 #endif
 
 #if USE(FREETYPE)
@@ -275,7 +274,7 @@ private:
 #endif
 };
 
-#if USE(APPKIT)
+#if USE(APPKIT) && defined(__OBJC__)
 
 // NSFonts and CTFontRefs are toll-free-bridged.
 inline CTFontRef toCTFont(NSFont *font)

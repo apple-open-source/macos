@@ -661,7 +661,7 @@ void hidPropertyCallback( void * target, void * context, CFStringRef property, C
 
     DEBUG_LOG("HID activity callback thru property callback. state:%d\n", state);
     if (state == 1) {
-        ts = 0;
+        ts = getMonotonicContinuousTime();
     }
     else if (state == 0) {
         ts = monotonicTS2Secs(__IOHIDEventSystemClientCopyIntegerProperty(CFSTR(kIOHIDLastActivityTimestampKey)));
@@ -669,13 +669,13 @@ void hidPropertyCallback( void * target, void * context, CFStringRef property, C
 
     // Evaluate on main queue
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (ts) {
-            gUserActive.lastHid_ts = ts;
-            gUserActive.hidActive = false;
-        }
-        else {
+        if (state == 1) {
             gUserActive.hidActive = true;
         }
+        else {
+            gUserActive.hidActive = false;
+        }
+        gUserActive.lastHid_ts = ts;
         evaluateHidIdleNotification();
     });
 }

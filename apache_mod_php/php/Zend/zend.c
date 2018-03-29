@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2018 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -157,7 +157,7 @@ ZEND_API zend_bool zend_dtrace_enabled;
 /* version information */
 static char *zend_version_info;
 static uint zend_version_info_length;
-#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2017 Zend Technologies\n"
+#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2018 Zend Technologies\n"
 #define PRINT_ZVAL_INDENT 4
 
 static void zend_print_zval_r_to_buf(smart_str *buf, zval *expr, int indent);
@@ -660,6 +660,10 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions) /
 	extern zend_php_scanner_globals language_scanner_globals;
 #endif
 
+#ifdef ZEND_WIN32
+	php_win32_cp_set_by_id(65001);
+#endif
+
 	start_memory_manager();
 
 	virtual_cwd_startup(); /* Could use shutdown to free the main cwd but it would just slow it down for CGI */
@@ -712,7 +716,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions) /
 	zend_compile_file = compile_file;
 	zend_execute_ex = execute_ex;
 	zend_execute_internal = NULL;
-#endif /* HAVE_SYS_SDT_H */
+#endif /* HAVE_DTRACE */
 	zend_compile_string = compile_string;
 	zend_throw_exception_hook = NULL;
 
@@ -912,6 +916,8 @@ void zend_set_utility_values(zend_utility_values *utility_values) /* {{{ */
 /* this should be compatible with the standard zenderror */
 ZEND_COLD void zenderror(const char *error) /* {{{ */
 {
+	CG(parse_error) = 0;
+
 	if (EG(exception)) {
 		/* An exception was thrown in the lexer, don't throw another in the parser. */
 		return;

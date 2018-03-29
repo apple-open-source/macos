@@ -25,18 +25,6 @@ typedef enum {
 } ringAction_t;
 
 #if !defined(NDEBUG)
-static const char *concordstring[] = {
-    "kSOSConcordanceTrusted",
-    "kSOSConcordanceGenOld",     // kSOSErrorReplay
-    "kSOSConcordanceNoUserSig",  // kSOSErrorBadSignature
-    "kSOSConcordanceNoUserKey",  // kSOSErrorNoKey
-    "kSOSConcordanceNoPeer",     // kSOSErrorPeerNotFound
-    "kSOSConcordanceBadUserSig", // kSOSErrorBadSignature
-    "kSOSConcordanceBadPeerSig", // kSOSErrorBadSignature
-    "kSOSConcordanceNoPeerSig",
-    "kSOSConcordanceWeSigned",
-};
-
 static const char * __unused actionstring[] = {
     "accept", "countersign", "leave", "revert", "modify", "ignore",
 };
@@ -222,7 +210,7 @@ errOut:
     self.fullPeerInfo = nil;
     
     self.departureCode = kSOSWithdrewMembership;
-    secnotice("resetToEmpty", "Reset Circle to empty by client request");
+    secnotice("circleOps", "Reset Circle to empty by client request");
     
     result &= [self modifyCircle:circleTransport err:error action:^bool(SOSCircleRef circle) {
         result = SOSCircleResetToEmpty(circle, error);
@@ -401,7 +389,8 @@ static bool SOSAccountBackupSliceKeyBagNeedsFix(SOSAccount* account, SOSBackupSl
     
     (void)concStr;
     
-    secdebug("ringSigning", "Decided on action [%s] based on concordance state [%s] and [%s] circle.", actionstring[ringAction], concordstring[concstat], userTrustedoldRing ? "trusted" : "untrusted");
+    secdebug("ringSigning", "Decided on action [%s] based on concordance state [%@] and [%s] circle.",
+             actionstring[ringAction], concStr, userTrustedoldRing ? "trusted" : "untrusted");
     
     SOSRingRef ringToPush = NULL;
     bool iWasInOldRing = peerID && SOSRingHasPeerID(oldRing, peerID);
@@ -519,6 +508,7 @@ static bool SOSAccountBackupSliceKeyBagNeedsFix(SOSAccount* account, SOSBackupSl
         
         if (writeUpdate)
             ringToPush = newRing;
+        secnotice("circleop", "Setting account.key_interests_need_updating to true in handleUpdateRing");
         account.key_interests_need_updating = true;
     }
     
@@ -594,6 +584,7 @@ errOut:
     CFReleaseNull(ring);
     retval = SOSAccountUpdateRing(account, newring, error);
 errOut:
+    CFReleaseNull(ring);
     CFReleaseNull(newring);
     return retval;
 }

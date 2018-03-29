@@ -40,6 +40,7 @@
 #include "accountCirclesViewsPrint.h"
 #import "CKKSControlProtocol.h"
 #import "SecItemPriv.h"
+#import "supdProtocol.h"
 
 #include <stdio.h>
 
@@ -99,16 +100,7 @@ circle_sysdiagnose(void)
 static void
 engine_sysdiagnose(void)
 {
-    [@"Engine state:\n" writeToStdOut];
-
-    CFErrorRef error = NULL;
-
-    if (!SOSCCForEachEngineStateAsString(&error, ^(CFStringRef oneStateString) {
-        [(__bridge NSString*) oneStateString writeToStdOut];
-        [@"\n" writeToStdOut];
-    })) {
-        [[NSString stringWithFormat: @"No engine state, got error: %@", error] writeToStdOut];
-    }
+    SOSCCDumpEngineInformation();
 }
 
 /*
@@ -247,52 +239,36 @@ idsproxy_sysdiagnose(void)
 }
 
 static void
-kvs_sysdiagnose(void) {
-    SOSLogSetOutputTo(NULL,NULL);
-    SOSCCDumpCircleKVSInformation(NULL);
-}
-
-
-static void
-ckks_analytics_sysdiagnose(void)
+analytics_sysdiagnose(void)
 {
-    CFErrorRef error = NULL;
-    xpc_endpoint_t xpcEndpoint = _SecSecuritydCopyCKKSEndpoint(&error);
-    if (!xpcEndpoint) {
-        [[NSString stringWithFormat:@"failed to get CKKSControl endpoint with error: %@\n", error] writeToStdErr];
+    NSXPCConnection* xpcConnection = [[NSXPCConnection alloc] initWithMachServiceName:@"com.apple.securityuploadd" options:NSXPCConnectionPrivileged];
+    if (!xpcConnection) {
+        [@"failed to setup xpc connection for securityuploadd\n" writeToStdErr];
         return;
     }
-
-    NSXPCInterface* xpcInterface = [NSXPCInterface interfaceWithProtocol:@protocol(CKKSControlProtocol)];
-    NSXPCListenerEndpoint* listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
-    [listenerEndpoint _setEndpoint:xpcEndpoint];
-
-    NSXPCConnection* xpcConnection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
-    if (!xpcConnection) {
-        [@"failed to setup xpc connection for CKKSControl\n" writeToStdErr];
-    }
-
-    xpcConnection.remoteObjectInterface = xpcInterface;
+    xpcConnection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(supdProtocol)];
     [xpcConnection resume];
-
+    
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
     [[xpcConnection remoteObjectProxyWithErrorHandler:^(NSError* rpcError) {
         [[NSString stringWithFormat:@"Error talking with daemon: %@\n", rpcError] writeToStdErr];
         dispatch_semaphore_signal(semaphore);
-    }] rpcGetAnalyticsSysdiagnoseWithReply:^(NSString* sysdiagnose, NSError* rpcError) {
-        if (sysdiagnose && !error) {
+    }] getSysdiagnoseDumpWithReply:^(NSString* sysdiagnose) {
+        if (sysdiagnose) {
             [[NSString stringWithFormat:@"\nAnalytics sysdiagnose:\n\n%@\n", sysdiagnose] writeToStdOut];
         }
-        else {
-            [[NSString stringWithFormat:@"error retrieving sysdiagnose: %@\n", rpcError] writeToStdErr];
-        }
-
         dispatch_semaphore_signal(semaphore);
     }];
-
+    
     if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
         [@"\n\nError: timed out waiting for response\n" writeToStdErr];
     }
+}
+
+static void
+kvs_sysdiagnose(void) {
+    SOSLogSetOutputTo(NULL,NULL);
+    SOSCCDumpCircleKVSInformation(NULL);
 }
 
 int
@@ -306,8 +282,8 @@ main(int argc, const char ** argv)
         homekit_sysdiagnose();
         unlock_sysdiagnose();
         idsproxy_sysdiagnose();
-        ckks_analytics_sysdiagnose();
-
+        analytics_sysdiagnose();
+        
         // Keep this one last
         kvs_sysdiagnose();
     }

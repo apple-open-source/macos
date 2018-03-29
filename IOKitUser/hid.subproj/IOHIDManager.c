@@ -32,7 +32,8 @@
 static IOHIDManagerRef  __IOHIDManagerCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
-static void             __IOHIDManagerRelease( CFTypeRef object );
+static void             __IOHIDManagerExtRelease( CFTypeRef object );
+static void             __IOHIDManagerIntRelease( CFTypeRef object );
 static void             __IOHIDManagerSetDeviceMatching(
                                 IOHIDManagerRef                 manager,
                                 CFDictionaryRef                 matching);
@@ -71,7 +72,7 @@ typedef struct __DeviceApplierArgs {
 
 typedef struct __IOHIDManager
 {
-    CFRuntimeBase                   cfBase;   // base CFType information
+    IOHIDObjectBase                 hidBase;
     
     CFMutableSetRef                 devices;
     CFMutableSetRef                 iterators;
@@ -106,18 +107,22 @@ typedef struct __IOHIDManager
 
 } __IOHIDManager, *__IOHIDManagerRef;
 
-static const CFRuntimeClass __IOHIDManagerClass = {
-    0,                      // version
-    "IOHIDManager",         // className
-    NULL,                   // init
-    NULL,                   // copy
-    __IOHIDManagerRelease,   // finalize
-    NULL,                   // equal
-    NULL,                   // hash
-    NULL,                   // copyFormattingDesc
-    NULL,
-    NULL,
-    NULL
+static const IOHIDObjectClass __IOHIDManagerClass = {
+    {
+        _kCFRuntimeCustomRefCount,  // version
+        "IOHIDManager",             // className
+        NULL,                       // init
+        NULL,                       // copy
+        __IOHIDManagerExtRelease,   // finalize
+        NULL,                       // equal
+        NULL,                       // hash
+        NULL,                       // copyFormattingDesc
+        NULL,                       // copyDebugDesc
+        NULL,                       // reclaim
+        _IOHIDObjectExtRetainCount  // refcount
+    },
+    _IOHIDObjectIntRetainCount,
+    __IOHIDManagerIntRelease
 };
 
 static pthread_once_t __sessionTypeInit = PTHREAD_ONCE_INIT;
@@ -128,7 +133,7 @@ static CFTypeID __kIOHIDManagerTypeID = _kCFRuntimeNotATypeID;
 //------------------------------------------------------------------------------
 void __IOHIDManagerRegister(void)
 {
-    __kIOHIDManagerTypeID = _CFRuntimeRegisterClass(&__IOHIDManagerClass);
+    __kIOHIDManagerTypeID = _CFRuntimeRegisterClass(&__IOHIDManagerClass.cfClass);
 }
 
 //------------------------------------------------------------------------------
@@ -138,31 +143,18 @@ IOHIDManagerRef __IOHIDManagerCreate(
                                 CFAllocatorRef              allocator, 
                                 CFAllocatorContext *        context __unused)
 {
-    IOHIDManagerRef manager = NULL;
-    void *          offset  = NULL;
     uint32_t        size;
-
+    
     /* allocate service */
-    size    = sizeof(__IOHIDManager) - sizeof(CFRuntimeBase);
-    manager = (IOHIDManagerRef)_CFRuntimeCreateInstance(
-                                                allocator, 
-                                                IOHIDManagerGetTypeID(), 
-                                                size, 
-                                                NULL);
+    size = sizeof(__IOHIDManager) - sizeof(CFRuntimeBase);
     
-    if (!manager)
-        return NULL;
-
-    offset = manager;
-    bzero(offset + sizeof(CFRuntimeBase), size);
-    
-    return manager;
+    return (IOHIDManagerRef)_IOHIDObjectCreateInstance(allocator, IOHIDManagerGetTypeID(), size, NULL);
 }
 
 //------------------------------------------------------------------------------
-// __IOHIDManagerRelease
+// __IOHIDManagerExtRelease
 //------------------------------------------------------------------------------
-void __IOHIDManagerRelease( CFTypeRef object )
+void __IOHIDManagerExtRelease( CFTypeRef object )
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)object;
     
@@ -181,7 +173,7 @@ void __IOHIDManagerRelease( CFTypeRef object )
         IOHIDManagerUnscheduleFromRunLoop(manager, manager->runLoop, manager->runLoopMode);
     }
         
-    // Destroy the notification
+    // Remove the notification
     if (manager->notifyPort) {
         CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
         if (source) {
@@ -190,9 +182,7 @@ void __IOHIDManagerRelease( CFTypeRef object )
                 CFRunLoopRemoveSource(manager->runLoop,
                                       source,
                                       manager->runLoopMode);
-            IONotificationPortDestroy(manager->notifyPort);
         }
-        manager->notifyPort = NULL;
     }
     
     if (manager->initEnumRunLoopSource) {
@@ -201,10 +191,27 @@ void __IOHIDManagerRelease( CFTypeRef object )
             CFRunLoopRemoveSource(manager->runLoop,
                                   manager->initEnumRunLoopSource,
                                   manager->runLoopMode);
+    }
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDManagerIntRelease
+//------------------------------------------------------------------------------
+void __IOHIDManagerIntRelease( CFTypeRef object )
+{
+    IOHIDManagerRef manager = (IOHIDManagerRef)object;
+    
+    // Destroy the notification
+    if ( manager->notifyPort ) {
+        IONotificationPortDestroy(manager->notifyPort);
+        manager->notifyPort = NULL;
+    }
+    
+    if ( manager->initEnumRunLoopSource ) {
         CFRelease(manager->initEnumRunLoopSource);
         manager->initEnumRunLoopSource = NULL;
     }
-
+    
     if ( manager->devices ) {
         CFRelease(manager->devices);
         manager->devices = NULL;
@@ -214,12 +221,12 @@ void __IOHIDManagerRelease( CFTypeRef object )
         CFRelease(manager->deviceInputBuffers);
         manager->deviceInputBuffers = NULL;
     }
-
+    
     if ( manager->iterators ) {
         CFRelease(manager->iterators);
         manager->iterators = NULL;
     }
-
+    
     if ( manager->properties ) {
         CFRelease(manager->properties);
         manager->properties = NULL;
@@ -323,7 +330,7 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
         device = IOHIDDeviceCreate(CFGetAllocator(manager), service);
         
         if ( device ) {
-            if ( !manager->devices ) {
+            if ( !manager->devices ) {                
                 manager->devices = CFSetCreateMutable(
                                                         CFGetAllocator(manager),
                                                         0, 

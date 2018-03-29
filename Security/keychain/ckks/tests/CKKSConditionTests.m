@@ -20,6 +20,7 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#if OCTAGON
 
 #import <XCTest/XCTest.h>
 #import <XCTest/XCTest.h>
@@ -69,7 +70,7 @@
         [expectation fulfill];
     });
 
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)), queue, ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(250 * NSEC_PER_MSEC)), queue, ^{
         [c fulfill];
     });
 
@@ -95,3 +96,5 @@
 }
 
 @end
+
+#endif /* OCTAGON */

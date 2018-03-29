@@ -90,7 +90,7 @@ keychain_show_info(int argc, char * const *argv)
 		}
 	}
 	else if (argc != 1)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 
 	result = do_keychain_show_info(keychainName);
 

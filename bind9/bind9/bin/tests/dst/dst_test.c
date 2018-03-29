@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2012, 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -26,10 +26,12 @@
 #include <isc/buffer.h>
 #include <isc/entropy.h>
 #include <isc/mem.h>
+#include <isc/print.h>
 #include <isc/region.h>
 #include <isc/string.h>		/* Required for HP/UX (and others?) */
 
 #include <dns/fixedname.h>
+#include <dns/log.h>
 #include <dns/name.h>
 #include <dns/result.h>
 
@@ -58,7 +60,8 @@ use(dst_key_t *key, isc_mem_t *mctx) {
 	isc_buffer_add(&databuf, strlen(data));
 	isc_buffer_usedregion(&databuf, &datareg);
 
-	ret = dst_context_create(key, mctx, &ctx);
+	ret = dst_context_create3(key, mctx,
+				  DNS_LOGCATEGORY_GENERAL, ISC_TRUE, &ctx);
 	if (ret != ISC_R_SUCCESS) {
 		printf("contextcreate(%d) returned: %s\n", dst_key_alg(key),
 		       isc_result_totext(ret));
@@ -78,7 +81,8 @@ use(dst_key_t *key, isc_mem_t *mctx) {
 
 	isc_buffer_forward(&sigbuf, 1);
 	isc_buffer_remainingregion(&sigbuf, &sigreg);
-	ret = dst_context_create(key, mctx, &ctx);
+	ret = dst_context_create3(key, mctx,
+				  DNS_LOGCATEGORY_GENERAL, ISC_FALSE, &ctx);
 	if (ret != ISC_R_SUCCESS) {
 		printf("contextcreate(%d) returned: %s\n", dst_key_alg(key),
 		       isc_result_totext(ret));

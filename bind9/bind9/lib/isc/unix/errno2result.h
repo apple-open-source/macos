@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2011, 2012, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,8 +15,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
-
 #ifndef UNIX_ERRNO2RESULT_H
 #define UNIX_ERRNO2RESULT_H 1
 
@@ -31,10 +29,11 @@
 
 ISC_LANG_BEGINDECLS
 
-#define isc__errno2result(x) isc___errno2result(x, __FILE__, __LINE__)
+#define isc__errno2result(x) isc___errno2result(x, ISC_TRUE, __FILE__, __LINE__)
 
 isc_result_t
-isc___errno2result(int posixerrno, const char *file, unsigned int line);
+isc___errno2result(int posixerrno, isc_boolean_t dolog,
+		   const char *file, unsigned int line);
 
 ISC_LANG_ENDDECLS
 

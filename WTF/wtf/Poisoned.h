@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,36 +27,12 @@
 
 #include <wtf/Assertions.h>
 
-#define ENABLE_POISON 1
+#include <cstddef>
+#include <utility>
+
 #define ENABLE_POISON_ASSERTS 0
 
-// Older versions of gcc and clang have a bug which results in build failures
-// when using template methods that take an argument of PoisonedImpl<K2, k2, T2>
-// when the KeyType is a uintptr_t (i.e. when we're using the Poisoned variant
-// of PoisonedImpl). This bug does not manifest for the ConstExprPoisoned variant.
-// In practice, we will likely only use these methods for instantiations of the
-// ConstExprPoisoned variant. Hence. this bug is not a show stopper.
-// That said, we'll define ENABLE_MIXED_POISON accordingly so that we can use
-// it to disable the affected tests when building with old compilers.
-
-#if OS(DARWIN)
-#define ENABLE_MIXED_POISON (__clang_major__ >= 9)
-#elif defined(__clang_major__)
-#define ENABLE_MIXED_POISON (__clang_major__ >= 4)
-#elif defined(__GNUC__)
-#include <features.h>
-#define ENABLE_MIXED_POISON (__GNUC_PREREQ(7, 2))
-#endif // !defined(__GNUC__)
-
-#ifndef ENABLE_MIXED_POISON
-#define ENABLE_MIXED_POISON 0 // Disable for everything else.
-#endif
-
-// Not currently supported for 32-bit or OS(WINDOWS) builds (because of missing llint support).
-// Make sure it's disabled.
-#if USE(JSVALUE32_64) || OS(WINDOWS)
-#undef ENABLE_POISON
-#define ENABLE_POISON 0
+#if !ENABLE(POISON)
 #undef ENABLE_POISON_ASSERTS
 #define ENABLE_POISON_ASSERTS 0
 #endif
@@ -86,27 +62,38 @@ asReference(T ptr) { return *ptr; }
 
 } // namespace PoisonedImplHelper
 
-template<typename KeyType, KeyType key, typename T, typename = std::enable_if_t<std::is_pointer<T>::value>>
-class PoisonedImpl {
-public:
-    PoisonedImpl() { }
+enum AlreadyPoisonedTag { AlreadyPoisoned };
 
-    PoisonedImpl(T ptr)
+template<uintptr_t& poisonKey>
+class Poison {
+public:
+    template<typename PoisonedType = void>
+    static uintptr_t key(const PoisonedType* = nullptr) { return poisonKey; }
+};
+
+template<typename Poison, typename T, typename = std::enable_if_t<std::is_pointer<T>::value>>
+class Poisoned {
+public:
+    static constexpr bool isPoisonedType = true;
+
+    Poisoned() { }
+
+    Poisoned(std::nullptr_t) { }
+
+    Poisoned(T ptr)
         : m_poisonedBits(poison(ptr))
     { }
 
-    PoisonedImpl(const PoisonedImpl&) = default;
+    Poisoned(const Poisoned&) = default;
 
-    template<typename K2, K2 k2, typename T2>
-    PoisonedImpl(const PoisonedImpl<K2, k2, T2>& other)
+    template<typename Other, typename = std::enable_if_t<Other::isPoisonedType>>
+    Poisoned(const Other& other)
         : m_poisonedBits(poison<T>(other.unpoisoned()))
     { }
 
-    PoisonedImpl(PoisonedImpl&& other)
-        : m_poisonedBits(WTFMove(other.m_poisonedBits))
-    { }
+    Poisoned(Poisoned&&) = default;
 
-    explicit PoisonedImpl(PoisonedBits poisonedBits)
+    explicit Poisoned(AlreadyPoisonedTag, PoisonedBits poisonedBits)
         : m_poisonedBits(poisonedBits)
     { }
 
@@ -138,47 +125,58 @@ public:
     bool operator!() const { return !m_poisonedBits; }
     explicit operator bool() const { return !!m_poisonedBits; }
 
-    bool operator==(const PoisonedImpl& b) const { return m_poisonedBits == b.m_poisonedBits; }
-    bool operator!=(const PoisonedImpl& b) const { return m_poisonedBits != b.m_poisonedBits; }
-    bool operator<(const PoisonedImpl& b) const { return m_poisonedBits < b.m_poisonedBits; }
-    bool operator<=(const PoisonedImpl& b) const { return m_poisonedBits <= b.m_poisonedBits; }
-    bool operator>(const PoisonedImpl& b) const { return m_poisonedBits > b.m_poisonedBits; }
-    bool operator>=(const PoisonedImpl& b) const { return m_poisonedBits >= b.m_poisonedBits; }
+    bool operator==(const Poisoned& b) const { return m_poisonedBits == b.m_poisonedBits; }
+    bool operator!=(const Poisoned& b) const { return m_poisonedBits != b.m_poisonedBits; }
 
-    template<typename U> bool operator==(U b) const { return unpoisoned<U>() == b; }
-    template<typename U> bool operator!=(U b) const { return unpoisoned<U>() != b; }
-    template<typename U> bool operator<(U b) const { return unpoisoned<U>() < b; }
-    template<typename U> bool operator<=(U b) const { return unpoisoned<U>() <= b; }
-    template<typename U> bool operator>(U b) const { return unpoisoned<U>() > b; }
-    template<typename U> bool operator>=(U b) const { return unpoisoned<U>() >= b; }
+    bool operator==(T b) const { return unpoisoned() == b; }
+    bool operator!=(T b) const { return unpoisoned() != b; }
+    bool operator<(T b) const { return unpoisoned() < b; }
+    bool operator<=(T b) const { return unpoisoned() <= b; }
+    bool operator>(T b) const { return unpoisoned() > b; }
+    bool operator>=(T b) const { return unpoisoned() >= b; }
 
-    PoisonedImpl& operator=(T ptr)
+    Poisoned& operator=(T ptr)
     {
         m_poisonedBits = poison(ptr);
         return *this;
     }
-    PoisonedImpl& operator=(const PoisonedImpl&) = default;
+    Poisoned& operator=(const Poisoned&) = default;
 
-    template<typename K2, K2 k2, typename T2>
-    PoisonedImpl& operator=(const PoisonedImpl<K2, k2, T2>& other)
+    Poisoned& operator=(std::nullptr_t)
+    {
+        clear();
+        return *this;
+    }
+
+    template<typename Other, typename = std::enable_if_t<Other::isPoisonedType>>
+    Poisoned& operator=(const Other& other)
     {
         m_poisonedBits = poison<T>(other.unpoisoned());
         return *this;
     }
 
-    void swap(PoisonedImpl& o)
+    void swap(Poisoned& other)
     {
-        std::swap(m_poisonedBits, o.m_poisonedBits);
+        std::swap(m_poisonedBits, other.m_poisonedBits);
     }
 
-    template<typename K2, K2 k2, typename T2>
-    void swap(PoisonedImpl<K2, k2, T2>& o)
+    void swap(std::nullptr_t) { clear(); }
+
+    template<typename Other, typename = std::enable_if_t<Other::isPoisonedType>>
+    void swap(Other& other)
     {
         T t1 = this->unpoisoned();
-        T2 t2 = o.unpoisoned();
+        T t2 = other.unpoisoned();
         std::swap(t1, t2);
         m_poisonedBits = poison(t1);
-        o = t2;
+        other.m_poisonedBits = other.poison(t2);
+    }
+
+    void swap(T& t2)
+    {
+        T t1 = this->unpoisoned();
+        std::swap(t1, t2);
+        m_poisonedBits = poison(t1);
     }
 
     template<class U>
@@ -190,48 +188,85 @@ public:
     }
 
 private:
+    template<typename U>
+    ALWAYS_INLINE PoisonedBits poison(U ptr) const { return poison<PoisonedBits>(this, bitwise_cast<uintptr_t>(ptr)); }
+    template<typename U = T>
+    ALWAYS_INLINE U unpoison(PoisonedBits poisonedBits) const { return unpoison<U>(this, poisonedBits); }
+
+    constexpr static PoisonedBits poison(const Poisoned*, std::nullptr_t) { return 0; }
 #if ENABLE(POISON)
     template<typename U>
-    ALWAYS_INLINE static PoisonedBits poison(U ptr) { return ptr ? bitwise_cast<PoisonedBits>(ptr) ^ key : 0; }
+    ALWAYS_INLINE static PoisonedBits poison(const Poisoned* thisPoisoned, U ptr) { return ptr ? bitwise_cast<PoisonedBits>(ptr) ^ Poison::key(thisPoisoned) : 0; }
     template<typename U = T>
-    ALWAYS_INLINE static U unpoison(PoisonedBits poisonedBits) { return poisonedBits ? bitwise_cast<U>(poisonedBits ^ key) : bitwise_cast<U>(0ll); }
+    ALWAYS_INLINE static U unpoison(const Poisoned* thisPoisoned, PoisonedBits poisonedBits) { return poisonedBits ? bitwise_cast<U>(poisonedBits ^ Poison::key(thisPoisoned)) : bitwise_cast<U>(0ll); }
 #else
     template<typename U>
-    ALWAYS_INLINE static PoisonedBits poison(U ptr) { return bitwise_cast<PoisonedBits>(ptr); }
+    ALWAYS_INLINE static PoisonedBits poison(const Poisoned*, U ptr) { return bitwise_cast<PoisonedBits>(ptr); }
     template<typename U = T>
-    ALWAYS_INLINE static U unpoison(PoisonedBits poisonedBits) { return bitwise_cast<U>(poisonedBits); }
+    ALWAYS_INLINE static U unpoison(const Poisoned*, PoisonedBits poisonedBits) { return bitwise_cast<U>(poisonedBits); }
 #endif
 
     PoisonedBits m_poisonedBits { 0 };
+
+    template<typename, typename, typename> friend class Poisoned;
 };
 
-template<typename K1, K1 k1, typename T1, typename K2, K2 k2, typename T2>
-inline void swap(PoisonedImpl<K1, k1, T1>& a, PoisonedImpl<K2, k2, T2>& b)
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType && !std::is_same<T, U>::value>>
+inline bool operator==(const T& a, const U& b) { return a.unpoisoned() == b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType && !std::is_same<T, U>::value>>
+inline bool operator!=(const T& a, const U& b) { return a.unpoisoned() != b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType>>
+inline bool operator<(const T& a, const U& b) { return a.unpoisoned() < b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType>>
+inline bool operator<=(const T& a, const U& b) { return a.unpoisoned() <= b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType>>
+inline bool operator>(const T& a, const U& b) { return a.unpoisoned() > b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType && U::isPoisonedType>>
+inline bool operator>=(const T& a, const U& b) { return a.unpoisoned() >= b.unpoisoned(); }
+
+template<typename T, typename U, typename = std::enable_if_t<T::isPoisonedType>>
+inline void swap(T& a, U& b)
 {
     a.swap(b);
 }
 
 WTF_EXPORT_PRIVATE uintptr_t makePoison();
 
-inline constexpr uintptr_t makePoison(uint32_t key)
-{
-#if ENABLE(POISON)
-    return static_cast<uintptr_t>(0x80000000 | key) << 32;
-#else
-    return (void)key, 0;
-#endif
-}
+template<typename Poison, typename T>
+struct PoisonedPtrTraits {
+    using StorageType = Poisoned<Poison, T*>;
 
-template<uintptr_t& key, typename T>
-using Poisoned = PoisonedImpl<uintptr_t&, key, T>;
+    template<class U> static ALWAYS_INLINE T* exchange(StorageType& ptr, U&& newValue) { return ptr.exchange(newValue); }
 
-template<uint32_t key, typename T>
-using ConstExprPoisoned = PoisonedImpl<uintptr_t, makePoison(key), T>;
+    template<typename Other>
+    static ALWAYS_INLINE void swap(Poisoned<Poison, T*>& a, Other& b) { a.swap(b); }
+
+    static ALWAYS_INLINE T* unwrap(const StorageType& ptr) { return ptr.unpoisoned(); }
+};
+
+template<typename Poison, typename T>
+struct PoisonedValueTraits {
+    using StorageType = Poisoned<Poison, T>;
+
+    template<class U> static ALWAYS_INLINE T exchange(StorageType& val, U&& newValue) { return val.exchange(newValue); }
+
+    template<typename Other>
+    static ALWAYS_INLINE void swap(Poisoned<Poison, T>& a, Other& b) { a.swap(b); }
+
+    static ALWAYS_INLINE T unwrap(const StorageType& val) { return val.unpoisoned(); }
+};
 
 } // namespace WTF
 
-using WTF::ConstExprPoisoned;
+using WTF::AlreadyPoisoned;
+using WTF::Poison;
 using WTF::Poisoned;
 using WTF::PoisonedBits;
+using WTF::PoisonedPtrTraits;
+using WTF::PoisonedValueTraits;
 using WTF::makePoison;
-

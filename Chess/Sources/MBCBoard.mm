@@ -388,7 +388,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
             NSString *     moves   = [dict objectForKey:@"Moves"];
             fVariant               = [doc variant];
 
-            if (fen || moves)
+            if (fen.length > 0 || moves.length > 0)
                 [self setFen:fen holding:holding moves:moves];
         }]];
 }
@@ -948,7 +948,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 - (void) setFen:(NSString *)fen holding:(NSString *)holding 
 	moves:(NSString *)moves
 {
-	if (moves && [moves length] > 0) {
+	if (moves.length > 0) {
 		//
 		// We prefer to restore the game by replaying the moves
 		//

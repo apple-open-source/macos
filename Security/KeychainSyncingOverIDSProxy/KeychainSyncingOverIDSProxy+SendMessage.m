@@ -54,19 +54,19 @@ static NSString *const IDSSendMessageOptionForceEncryptionOffKey = @"IDSSendMess
 static NSString *const kIDSNumberOfFragments = @"NumberOfIDSMessageFragments";
 static NSString *const kIDSFragmentIndex = @"kFragmentIndex";
 static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
-static NSString *const kIDSDeviceID = @"deviceID";
+static NSString *const kIDSMessageSendersDeviceID = @"SendersDeviceID";
 
+static NSString *const kIDSDeviceID = @"deviceID";
 static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms leeway for handling unhandled messages.
-static const int64_t timeout = 3ull;
+static const int64_t timeout = 5ull;
 static const int64_t KVS_BACKOFF = 5;
 
 static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
 
-
 @implementation KeychainSyncingOverIDSProxy (SendMessage)
 
-
--(bool) chunkAndSendKeychainPayload:(NSData*)keychainData deviceID:(NSString*)deviceName ourPeerID:(NSString*)ourPeerID theirPeerID:(NSString*) theirPeerID operation:(NSString*)operationTypeAsString uuid:(NSString*)uuidString error:(NSError**) error
+-(bool) chunkAndSendKeychainPayload:(NSData*)keychainData deviceID:(NSString*)deviceName ourPeerID:(NSString*)ourPeerID theirPeerID:(NSString*) theirPeerID operation:(NSString*)operationTypeAsString uuid:(NSString*)uuidString senderDeviceID:(NSString*)senderDeviceID
+                  error:(NSError**) error
 {
     __block BOOL result = true;
 
@@ -97,7 +97,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         [fragmentDictionary setObject:[NSNumber numberWithInt:fragmentIndex]
                                forKey:kIDSFragmentIndex];
 
-        result = [self sendIDSMessage:fragmentDictionary name:deviceName peer:ourPeerID];
+        result = [self sendIDSMessage:fragmentDictionary name:deviceName peer:ourPeerID senderDeviceID:senderDeviceID];
         if(!result)
             secerror("Could not send fragmented message");
 
@@ -117,10 +117,10 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         bool success  = SOSCCRequestSyncWithPeerOverKVS(((__bridge CFStringRef)theirPeerID), (__bridge CFDataRef)message, &cf_error);
 
         if(success){
-            secnotice("IDSPing", "sent peerID: %@ to securityd to sync over KVS", theirPeerID);
+            secnotice("IDS Transport", "rerouting message %@", message);
         }
         else{
-            secerror("Could not hand peerID: %@ to securityd, error: %@", theirPeerID, cf_error);
+            secerror("could not route message to %@, error: %@", theirPeerID, cf_error);
         }
 
         CFReleaseNull(cf_error);
@@ -163,7 +163,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         success  = SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(((__bridge CFStringRef)IDSid), &cf_error);
         
         if(success){
-            secnotice("IDSPing", "sent peerID: %@ to securityd to sync over KVS", IDSid);
+            secnotice("IDS Transport", "rerouting message for %@", peerID);
         }
         else{
             secerror("Could not hand peerID: %@ to securityd, error: %@", IDSid, cf_error);
@@ -184,7 +184,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         bool result = false;
         secnotice("IDS Transport", "sending to id: %@", IDSid);
         
-        result = [self sendIDSMessage:messageDictionary name:IDSid peer:peerID];
+        result = [self sendIDSMessage:messageDictionary name:IDSid peer:peerID senderDeviceID:[NSString string]];
         
         if(!result){
             secerror("Could not send message over IDS");
@@ -193,7 +193,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
                 bool success  = SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(((__bridge CFStringRef)IDSid), &kvsError);
                 
                 if(success){
-                    secnotice("IDSPing", "sent peerID: %@ to securityd to sync over KVS", IDSid);
+                    secnotice("IDS Transport", "sent peerID: %@ to securityd to sync over KVS", IDSid);
                 }
                 else{
                     secerror("Could not hand peerID: %@ to securityd, error: %@", IDSid, kvsError);
@@ -263,7 +263,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     return isPingMessage;
 }
 
--(BOOL) sendFragmentedIDSMessages:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) ourPeerID error:(NSError**) error
+-(BOOL) sendFragmentedIDSMessages:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) ourPeerID senderDeviceID:(NSString*)senderDeviceID error:(NSError**) error
 {
     BOOL result = false;
     BOOL isPingMessage = false;
@@ -278,14 +278,13 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     //check the peer cache for the next time to send timestamp
     //if the timestamp is set in the future, reroute the message to KVS
     //otherwise send the message over IDS
-    if(![self shouldProxySendMessage:deviceName])
-    {
+    if(![self shouldProxySendMessage:deviceName] && [KeychainSyncingOverIDSProxy idsProxy].allowKVSFallBack)
+     {
         if(isPingMessage){
             secnotice("IDS Transport", "peer negative cache check: peer cannot send yet. not sending ping message");
             return true;
         }
         else{
-            secnotice("IDS Transport", "peer negative cache check: peer cannot send yet. rerouting message to be sent over KVS: %@", messageDictionary);
             [self sendMessageToKVS:messageDictionary];
             return true;
         }
@@ -294,7 +293,8 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     if(isPingMessage){ //foward the ping message, no processing
        result = [self sendIDSMessage:data
                                  name:deviceName
-                                 peer:ourPeerID];
+                                 peer:ourPeerID
+                                 senderDeviceID:senderDeviceID];
         if(!result){
             secerror("Could not send ping message");
         }
@@ -325,21 +325,24 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
                                            theirPeerID:theirPeerID
                                              operation:operationTypeAsString
                                                   uuid:localMessageIdentifier
+                                        senderDeviceID:senderDeviceID
                                                  error:&localError];
     }
     else{
         NSMutableDictionary* dataCopy = [NSMutableDictionary dictionaryWithDictionary:data];
         [dataCopy setObject:localMessageIdentifier forKey:(__bridge NSString*)kIDSMessageUniqueID];
+
         result = [self sendIDSMessage:dataCopy
                                  name:deviceName
-                                 peer:ourPeerID];
+                                 peer:ourPeerID
+                                  senderDeviceID:senderDeviceID];
     }
 
-    if(result && useAckModel){
+    if(result && useAckModel && [KeychainSyncingOverIDSProxy idsProxy].allowKVSFallBack){
         secnotice("IDS Transport", "setting ack timer");
         [self setMessageTimer:localMessageIdentifier deviceID:deviceName message:data];
     }
-   
+
     secnotice("IDS Transport","returning result: %d, error: %@", result, error ? *error : nil);
     return result;
 }
@@ -367,9 +370,10 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     if(!message){
         return;
     }
-    NSDictionary *encapsulatedKeychainMessage = [message objectForKey:(__bridge NSString*)kIDSMessageToSendKey];
+    NSDictionary *mesageInFlight = [message objectForKey:(__bridge NSString*)kIDSMessageToSendKey];
 
-    secnotice("IDS Transport", "Encapsulated message: %@", encapsulatedKeychainMessage);
+    [[KeychainSyncingOverIDSProxy idsProxy] printMessage:mesageInFlight state:@"timeout occured, rerouting to KVS"];
+
     //cleanup timers
     dispatch_async(self.pingQueue, ^{
         dispatch_source_t timer = [[KeychainSyncingOverIDSProxy idsProxy].pingTimers objectForKey:identifier]; //remove timer
@@ -378,7 +382,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         [[KeychainSyncingOverIDSProxy idsProxy].pingTimers removeObjectForKey:identifier];
     });
 
-    [self sendMessageToKVS:encapsulatedKeychainMessage];
+    [self sendMessageToKVS:mesageInFlight];
 
     //setting next time to send
     [self updateNextTimeToSendFor5Minutes:ID];
@@ -397,7 +401,6 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
     dispatch_resume(timer);
     //restructure message in flight
 
-    
 
     //set the timer for message id
     dispatch_async(self.pingQueue, ^{
@@ -426,9 +429,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
             secnotice("IDS Transport", "no message for identifier: %@", messageIdentifier);
             return;
         }
-        secnotice("IDS Transport", "sending over KVS: %@", messageToSendToKVS);
-        
-        
+        [[KeychainSyncingOverIDSProxy idsProxy] printMessage:messageToSendToKVS state:@"IDS rejected send, message rerouted to KVS"];
 
         //cleanup timer for message
         dispatch_async(self.pingQueue, ^{
@@ -439,16 +440,15 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         });
     }
 
-    NSDictionary *encapsulatedKeychainMessage = [messageToSendToKVS objectForKey:(__bridge NSString*)kIDSMessageToSendKey];
+    NSDictionary *messageInFlight = [messageToSendToKVS objectForKey:(__bridge NSString*)kIDSMessageToSendKey];
 
-    if([encapsulatedKeychainMessage isKindOfClass:[NSDictionary class]]){
-        secnotice("IDS Transport", "Encapsulated message: %@", encapsulatedKeychainMessage);
-        [self sendMessageToKVS:encapsulatedKeychainMessage];
-
+    if([messageInFlight isKindOfClass:[NSDictionary class]]){
+        [[KeychainSyncingOverIDSProxy idsProxy] printMessage:messageInFlight state:@"IDS rejected send, message rerouted to KVS"];
+        [self sendMessageToKVS:messageInFlight];
     }
 }
 
--(BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) peerID
+-(BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) peerID senderDeviceID:(NSString*)senderDeviceID
 {
 
     if(!self->_service){
@@ -456,38 +456,48 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         return NO;
     }
 
+    NSMutableDictionary *dataCopy = [NSMutableDictionary dictionaryWithDictionary: data];
+ 
+    __block NSString* senderDeviceIDCopy = nil;
+    if(senderDeviceID){
+       senderDeviceIDCopy = [[NSString alloc]initWithString:senderDeviceID];
+    }
+    else{
+        secnotice("IDS Transport", "device id doesn't exist for peer:%@", peerID);
+        senderDeviceIDCopy = [NSString string];
+    }
+    
     dispatch_async(self.calloutQueue, ^{
 
         IDSMessagePriority priority = IDSMessagePriorityHigh;
         BOOL encryptionOff = YES;
         NSString *sendersPeerIDKey = [ NSString stringWithUTF8String: kMessageKeySendersPeerID];
 
-        secnotice("backoff","!!writing these keys to IDS!!: %@", data);
-
         NSDictionary *options = @{IDSSendMessageOptionForceEncryptionOffKey : [NSNumber numberWithBool:encryptionOff] };
-
-        NSMutableDictionary *dataCopy = [NSMutableDictionary dictionaryWithDictionary: data];
 
         //set our peer id and a unique id for this message
         [dataCopy setObject:peerID forKey:sendersPeerIDKey];
-        secnotice("IDS Transport", "%@ sending message %@ to: %@", peerID, data, deviceName);
+        [dataCopy setObject:senderDeviceIDCopy forKey:kIDSMessageSendersDeviceID];
+        secnotice("IDS Transport","Our device Name: %@", senderDeviceID);
+        [[KeychainSyncingOverIDSProxy idsProxy] printMessage:dataCopy state:@"sending"];
 
         NSDictionary *info;
         NSInteger errorCode = 0;
-        NSInteger numberOfDevices = 0;
+        NSUInteger numberOfDevices = 0;
         NSString *errMessage = nil;
         NSMutableSet *destinations = nil;
         NSError *localError = nil;
         NSString *identifier = nil;
         IDSDevice *device = nil;
-        numberOfDevices = [self.listOfDevices count];
+        NSArray* listOfDevices = [self->_service devices];
+        numberOfDevices = [listOfDevices count];
 
         require_action_quiet(numberOfDevices > 0, fail, errorCode = kSecIDSErrorNotRegistered; errMessage=createErrorString(@"Could not send message to peer: %@: IDS devices are not registered yet", deviceName));
         secnotice("IDS Transport","List of devices: %@", [self->_service devices]);
 
         destinations = [NSMutableSet set];
-        for(NSUInteger i = 0; i < [ self.listOfDevices count ]; i++){
-            device = self.listOfDevices[i];
+        for(NSUInteger i = 0; i < numberOfDevices; i++){
+            device = listOfDevices[i];
             if( [ deviceName compare:device.uniqueID ] == 0){
                 [destinations addObject: IDSCopyIDForDevice(device)];
             }
@@ -499,7 +509,7 @@ static const NSUInteger kMaxIDSMessagePayloadSize = 64000;
         [KeychainSyncingOverIDSProxy idsProxy].outgoingMessages++;
         require_action_quiet(localError == nil && result, fail, errorCode = kSecIDSErrorFailedToSend; errMessage = createErrorString(@"Had an error sending IDS message to peer: %@", deviceName));
 
-        secnotice("IDS Transport","successfully sent to peer:%@, message: %@", deviceName, dataCopy);
+        [[KeychainSyncingOverIDSProxy idsProxy] printMessage:dataCopy state:@"sent!"];
     fail:
         
         if(errMessage != nil){

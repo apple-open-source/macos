@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 require 'fileutils'
 
@@ -41,6 +41,7 @@ CODE_MIRROR_FILES_TO_COPY = %w(
   keymap/sublime.js
   lib/codemirror.css
   lib/codemirror.js
+  mode/clike/clike.js
   mode/clojure/clojure.js
   mode/coffeescript/coffeescript.js
   mode/css/css.js

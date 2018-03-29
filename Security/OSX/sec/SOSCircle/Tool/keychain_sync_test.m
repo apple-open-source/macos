@@ -77,7 +77,7 @@ keychain_sync_test(int argc, char * const *argv)
             case -1:
                 break;
             default:
-                return 2;
+                return SHOW_USAGE_MESSAGE;
         }
 
     }

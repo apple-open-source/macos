@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011-2014, 2017  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -524,6 +524,9 @@ dns_dispatch_importrecv(dns_dispatch_t *disp, isc_event_t *event);
  * shared between dispatchers and clients.  If the dispatcher fails to copy
  * or send the event, nothing happens.
  *
+ * If the attribute DNS_DISPATCHATTR_NOLISTEN is not set, then
+ * the dispatch is already handling a recv; return immediately.
+ *
  * Requires:
  *\li 	disp is valid, and the attribute DNS_DISPATCHATTR_NOLISTEN is set.
  * 	event != NULL
@@ -567,6 +570,18 @@ dns_dispatchset_destroy(dns_dispatchset_t **dsetp);
  *
  * Requires:
  *\li 	dset is valid
+ */
+
+void
+dns_dispatch_setdscp(dns_dispatch_t *disp, isc_dscp_t dscp);
+isc_dscp_t
+dns_dispatch_getdscp(dns_dispatch_t *disp);
+/*%<
+ * Set/get the DSCP value to be used when sending responses to clients,
+ * as defined in the "listen-on" or "listen-on-v6" statements.
+ *
+ * Requires:
+ *\li	disp is valid.
  */
 
 ISC_LANG_ENDDECLS

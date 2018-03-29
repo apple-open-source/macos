@@ -34,9 +34,9 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/NeverDestroyed.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 static void collect()
 {
@@ -101,7 +101,7 @@ void GCController::garbageCollectNowIfNotDoneRecently()
 
 void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDone)
 {
-    RefPtr<Thread> thread = Thread::create("WebCore: GCController", &collect);
+    auto thread = Thread::create("WebCore: GCController", &collect);
 
     if (waitUntilDone) {
         thread->waitForCompletion();

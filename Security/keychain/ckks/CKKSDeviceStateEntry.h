@@ -34,6 +34,8 @@
 #import "keychain/ckks/CKKSRecordHolder.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 /*
  * This is the backing class for "device state" records: each device in an iCloud account copies
  * some state about itself into each keychain view it wants to participate in.
@@ -46,13 +48,16 @@
 @interface CKKSDeviceStateEntry : CKKSCKRecordHolder
 @property NSString* device;
 
-@property NSString* circlePeerID;
-@property SOSCCStatus circleStatus;
-@property CKKSZoneKeyState* keyState;
+@property (nullable) NSString* osVersion;
+@property (nullable) NSDate* lastUnlockTime;
 
-@property NSString* currentTLKUUID;
-@property NSString* currentClassAUUID;
-@property NSString* currentClassCUUID;
+@property (nullable) NSString* circlePeerID;
+@property SOSCCStatus circleStatus;
+@property (nullable) CKKSZoneKeyState* keyState;
+
+@property (nullable) NSString* currentTLKUUID;
+@property (nullable) NSString* currentClassAUUID;
+@property (nullable) NSString* currentClassCUUID;
 
 + (instancetype)fromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (instancetype)tryFromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
@@ -60,16 +65,20 @@
 + (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initForDevice:(NSString*)device
-                 circlePeerID:(NSString*)circlePeerID
+- (instancetype)initForDevice:(NSString* _Nullable)device
+                    osVersion:(NSString* _Nullable)osVersion
+               lastUnlockTime:(NSDate* _Nullable)lastUnlockTime
+                 circlePeerID:(NSString* _Nullable)circlePeerID
                  circleStatus:(SOSCCStatus)circleStatus
-                     keyState:(CKKSZoneKeyState*)keyState
-               currentTLKUUID:(NSString*)currentTLKUUID
-            currentClassAUUID:(NSString*)currentClassAUUID
-            currentClassCUUID:(NSString*)currentClassCUUID
+                     keyState:(CKKSZoneKeyState* _Nullable)keyState
+               currentTLKUUID:(NSString* _Nullable)currentTLKUUID
+            currentClassAUUID:(NSString* _Nullable)currentClassAUUID
+            currentClassCUUID:(NSString* _Nullable)currentClassCUUID
                        zoneID:(CKRecordZoneID*)zoneID
-              encodedCKRecord:(NSData*)encodedrecord;
+              encodedCKRecord:(NSData* _Nullable)encodedrecord;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON
 #endif  /* CKKSDeviceStateEntry_h */

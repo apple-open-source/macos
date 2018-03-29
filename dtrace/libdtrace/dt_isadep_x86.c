@@ -60,7 +60,7 @@ static int dt_instr_size(uchar_t *, dtrace_hdl_t *, pid_t, uint64_t, char);
 int
 dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     fasttrap_probe_spec_t *ftp, const GElf_Sym *symp)
-{                
+{
 	ftp->ftps_probe_type = DTFTP_ENTRY;
 	ftp->ftps_pc = symp->st_value; // Keep st_value as uint64_t
 	ftp->ftps_size = (size_t)symp->st_size;

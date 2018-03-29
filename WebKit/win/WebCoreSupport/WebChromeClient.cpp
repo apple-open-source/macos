@@ -758,7 +758,7 @@ bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullsc
     return true;
 }
 
-void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode)
+void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode, bool)
 {
     m_webView->enterVideoFullscreenForVideoElement(videoElement);
 }
@@ -778,12 +778,6 @@ bool WebChromeClient::selectItemWritingDirectionIsNatural()
 bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
 {
     return true;
-}
-
-bool WebChromeClient::hasOpenedPopup() const
-{
-    notImplemented();
-    return false;
 }
 
 RefPtr<PopupMenu> WebChromeClient::createPopupMenu(PopupMenuClient& client) const

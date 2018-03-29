@@ -34,9 +34,10 @@
 #include <wtf/Condition.h>
 #include <wtf/Forward.h>
 #include <wtf/RunLoop.h>
+#include <wtf/WeakPtr.h>
 
-#if USE(TEXTURE_MAPPER)
-#include "TextureMapperPlatformLayerProxy.h"
+#if USE(TEXTURE_MAPPER_GL)
+#include "TextureMapperPlatformLayerProxyProvider.h"
 #endif
 
 typedef struct _GstStreamVolume GstStreamVolume;
@@ -53,6 +54,10 @@ class GraphicsContext3D;
 class IntSize;
 class IntRect;
 class VideoTextureCopierGStreamer;
+
+#if USE(TEXTURE_MAPPER_GL)
+class TextureMapperPlatformLayerProxy;
+#endif
 
 void registerWebKitGStreamerElements();
 
@@ -86,10 +91,25 @@ public:
     void setSize(const IntSize&) override;
     void sizeChanged();
 
+    // Prefer MediaTime based methods over float based.
+    float duration() const override { return durationMediaTime().toFloat(); }
+    double durationDouble() const override { return durationMediaTime().toDouble(); }
+    MediaTime durationMediaTime() const override { return MediaTime::zeroTime(); }
+    float currentTime() const override { return currentMediaTime().toFloat(); }
+    double currentTimeDouble() const override { return currentMediaTime().toDouble(); }
+    MediaTime currentMediaTime() const override { return MediaTime::zeroTime(); }
+    void seek(float time) override { seek(MediaTime::createWithFloat(time)); }
+    void seekDouble(double time) override { seek(MediaTime::createWithDouble(time)); }
+    void seek(const MediaTime&) override { }
+    float maxTimeSeekable() const override { return maxMediaTimeSeekable().toFloat(); }
+    MediaTime maxMediaTimeSeekable() const override { return MediaTime::zeroTime(); }
+    double minTimeSeekable() const override { return minMediaTimeSeekable().toFloat(); }
+    MediaTime minMediaTimeSeekable() const override { return MediaTime::zeroTime(); }
+
     void paint(GraphicsContext&, const FloatRect&) override;
 
     bool hasSingleSecurityOrigin() const override { return true; }
-    virtual float maxTimeLoaded() const { return 0.0; }
+    virtual MediaTime maxTimeLoaded() const { return MediaTime::zeroTime(); }
 
     bool supportsFullscreen() const override;
     PlatformMedia platformMedia() const override;
@@ -114,6 +134,15 @@ public:
 #else
     bool supportsAcceleratedRendering() const override { return true; }
 #endif
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    void cdmInstanceAttached(CDMInstance&) override;
+    void cdmInstanceDetached(CDMInstance&) override;
+    void dispatchDecryptionKey(GstBuffer*);
+    void handleProtectionEvent(GstEvent*);
+    void attemptToDecryptWithLocalInstance();
+    void attemptToDecryptWithInstance(CDMInstance&) override;
 #endif
 
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -145,8 +174,8 @@ protected:
 
 #if USE(TEXTURE_MAPPER_GL)
     void updateTexture(BitmapTextureGL&, GstVideoInfo&);
-    RefPtr<TextureMapperPlatformLayerProxy> proxy() const override { return m_platformLayerProxy.copyRef(); }
-    void swapBuffersIfNeeded() override { };
+    RefPtr<TextureMapperPlatformLayerProxy> proxy() const override;
+    void swapBuffersIfNeeded() override;
     void pushTextureToCompositor();
 #endif
 
@@ -183,6 +212,7 @@ protected:
         SizeChanged = 1 << 6
     };
 
+    WeakPtrFactory<MediaPlayerPrivateGStreamerBase> m_weakPtrFactory;
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
     MediaPlayer* m_player;
     GRefPtr<GstElement> m_pipeline;
@@ -204,7 +234,6 @@ protected:
     RunLoop::Timer<MediaPlayerPrivateGStreamerBase> m_drawTimer;
 
 #if USE(TEXTURE_MAPPER_GL)
-    RefPtr<GraphicsContext3D> m_context3D;
     RefPtr<TextureMapperPlatformLayerProxy> m_platformLayerProxy;
 #endif
 
@@ -215,6 +244,14 @@ protected:
 #endif
 
     ImageOrientation m_videoSourceOrientation;
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    Lock m_protectionMutex;
+    Condition m_protectionCondition;
+    RefPtr<const CDMInstance> m_cdmInstance;
+    HashSet<uint32_t> m_handledProtectionEvents;
+    bool m_needToResendCredentials { false };
+#endif
 };
 
 }

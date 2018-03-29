@@ -335,7 +335,8 @@ enum {
 };
 
 OSStatus
-VSLGestalt( VSLGestaltType selector, UInt32 * response );
+VSLGestalt( VSLGestaltType selector, UInt32 * response )
+__OSX_DEPRECATED(10.0, 10.13, "Use IOFramebuffer::getAttribute(kIOClamshellStateAttribute)");
 
 OSErr
 VSLNewInterruptService(

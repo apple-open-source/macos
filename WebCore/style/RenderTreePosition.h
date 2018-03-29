@@ -26,7 +26,7 @@
 #pragma once
 
 #include "RenderElement.h"
-#include "RenderFlowThread.h"
+#include "RenderFragmentedFlow.h"
 #include "RenderText.h"
 #include "RenderView.h"
 
@@ -34,51 +34,37 @@ namespace WebCore {
 
 class RenderTreePosition {
 public:
-    explicit RenderTreePosition(RenderView& root)
-        : m_parent(root)
-        , m_hasValidNextSibling(true)
-    {
-    }
-    
     explicit RenderTreePosition(RenderElement& parent)
         : m_parent(parent)
     {
     }
-    
-#if ENABLE(CSS_REGIONS)
-    static RenderTreePosition insertionPositionForFlowThread(Element* insertionParent, Element& child, const RenderStyle&);
-#endif
 
     RenderElement& parent() const { return m_parent; }
-    void insert(RenderObject&);
+    void insert(RenderPtr<RenderObject>);
     bool canInsert(RenderElement&) const;
     bool canInsert(RenderText&) const;
 
     void computeNextSibling(const Node&);
+    void moveToLastChild();
     void invalidateNextSibling() { m_hasValidNextSibling = false; }
     void invalidateNextSibling(const RenderObject&);
 
-    RenderObject* previousSiblingRenderer(const Text&) const;
     RenderObject* nextSiblingRenderer(const Node&) const;
-    static bool isRendererReparented(const RenderObject&);
 
 private:
-#if ENABLE(CSS_REGIONS)
-    RenderTreePosition(RenderFlowThread& parent, RenderObject* nextSibling)
-        : m_parent(parent)
-        , m_nextSibling(nextSibling)
-        , m_hasValidNextSibling(true)
-    {
-    }
-#endif
-
     RenderElement& m_parent;
-    RenderObject* m_nextSibling { nullptr };
+    WeakPtr<RenderObject> m_nextSibling { nullptr };
     bool m_hasValidNextSibling { false };
 #if !ASSERT_DISABLED
     unsigned m_assertionLimitCounter { 0 };
 #endif
 };
+
+inline void RenderTreePosition::moveToLastChild()
+{
+    m_nextSibling = nullptr;
+    m_hasValidNextSibling = true;
+}
 
 inline bool RenderTreePosition::canInsert(RenderElement& renderer) const
 {
@@ -90,12 +76,6 @@ inline bool RenderTreePosition::canInsert(RenderText& renderer) const
 {
     ASSERT(!renderer.parent());
     return m_parent.isChildAllowed(renderer, m_parent.style());
-}
-
-inline void RenderTreePosition::insert(RenderObject& renderer)
-{
-    ASSERT(m_hasValidNextSibling);
-    m_parent.addChild(&renderer, m_nextSibling);
 }
 
 } // namespace WebCore

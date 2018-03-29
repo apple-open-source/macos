@@ -33,7 +33,7 @@
 #include "DFGInlineCacheWrapperInlines.h"
 #include "DFGJITCode.h"
 #include "DFGJITFinalizer.h"
-#include "DFGOSRExitCompiler.h"
+#include "DFGOSRExit.h"
 #include "DFGOperations.h"
 #include "DFGRegisterBank.h"
 #include "DFGSlowPathGenerator.h"
@@ -56,7 +56,7 @@ JITCompiler::JITCompiler(Graph& dfg)
     , m_blockHeads(dfg.numBlocks())
     , m_pcToCodeOriginMapBuilder(dfg.m_vm)
 {
-    if (shouldDumpDisassembly() || m_graph.m_vm.m_perBytecodeProfiler)
+    if (UNLIKELY(shouldDumpDisassembly() || m_graph.m_vm.m_perBytecodeProfiler))
         m_disassembler = std::make_unique<Disassembler>(dfg);
 #if ENABLE(FTL_JIT)
     m_jitCode->tierUpInLoopHierarchy = WTFMove(m_graph.m_plan.tierUpInLoopHierarchy);
@@ -72,7 +72,7 @@ JITCompiler::~JITCompiler()
 void JITCompiler::linkOSRExits()
 {
     ASSERT(m_jitCode->osrExit.size() == m_exitCompilationInfo.size());
-    if (m_graph.compilation()) {
+    if (UNLIKELY(m_graph.compilation())) {
         for (unsigned i = 0; i < m_jitCode->osrExit.size(); ++i) {
             OSRExitCompilationInfo& info = m_exitCompilationInfo[i];
             Vector<Label> labels;
@@ -85,8 +85,9 @@ void JITCompiler::linkOSRExits()
         }
     }
     
+    MacroAssemblerCodeRef osrExitThunk = vm()->getCTIStub(osrExitThunkGenerator);
+    CodeLocationLabel osrExitThunkLabel = CodeLocationLabel(osrExitThunk.code());
     for (unsigned i = 0; i < m_jitCode->osrExit.size(); ++i) {
-        OSRExit& exit = m_jitCode->osrExit[i];
         OSRExitCompilationInfo& info = m_exitCompilationInfo[i];
         JumpList& failureJumps = info.m_failureJumps;
         if (!failureJumps.empty())
@@ -96,7 +97,15 @@ void JITCompiler::linkOSRExits()
 
         jitAssertHasValidCallFrame();
         store32(TrustedImm32(i), &vm()->osrExitIndex);
-        exit.setPatchableCodeOffset(patchableJump());
+        if (Options::useProbeOSRExit()) {
+            Jump target = jump();
+            addLinkTask([target, osrExitThunkLabel] (LinkBuffer& linkBuffer) {
+                linkBuffer.link(target, osrExitThunkLabel);
+            });
+        } else {
+            OSRExit& exit = m_jitCode->osrExit[i];
+            exit.setPatchableCodeOffset(patchableJump());
+        }
     }
 }
 
@@ -140,7 +149,7 @@ void JITCompiler::compileExceptionHandlers()
     if (!m_exceptionChecksWithCallFrameRollback.empty()) {
         m_exceptionChecksWithCallFrameRollback.link(this);
 
-        copyCalleeSavesToVMEntryFrameCalleeSavesBuffer(*vm());
+        copyCalleeSavesToEntryFrameCalleeSavesBuffer(vm()->topEntryFrame);
 
         // lookupExceptionHandlerFromCallerFrame is passed two arguments, the VM and the exec (the CallFrame*).
         move(TrustedImmPtr(vm()), GPRInfo::argumentGPR0);
@@ -160,7 +169,7 @@ void JITCompiler::compileExceptionHandlers()
     if (!m_exceptionChecks.empty()) {
         m_exceptionChecks.link(this);
 
-        copyCalleeSavesToVMEntryFrameCalleeSavesBuffer(*vm());
+        copyCalleeSavesToEntryFrameCalleeSavesBuffer(vm()->topEntryFrame);
 
         // lookupExceptionHandler is passed two arguments, the VM and the exec (the CallFrame*).
         move(TrustedImmPtr(vm()), GPRInfo::argumentGPR0);
@@ -306,10 +315,12 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
     MacroAssemblerCodeRef osrExitThunk = vm()->getCTIStub(osrExitGenerationThunkGenerator);
     CodeLocationLabel target = CodeLocationLabel(osrExitThunk.code());
     for (unsigned i = 0; i < m_jitCode->osrExit.size(); ++i) {
-        OSRExit& exit = m_jitCode->osrExit[i];
         OSRExitCompilationInfo& info = m_exitCompilationInfo[i];
-        linkBuffer.link(exit.getPatchableCodeOffsetAsJump(), target);
-        exit.correctJump(linkBuffer);
+        if (!Options::useProbeOSRExit()) {
+            OSRExit& exit = m_jitCode->osrExit[i];
+            linkBuffer.link(exit.getPatchableCodeOffsetAsJump(), target);
+            exit.correctJump(linkBuffer);
+        }
         if (info.m_replacementSource.isSet()) {
             m_jitCode->common.jumpReplacements.append(JumpReplacement(
                 linkBuffer.locationOf(info.m_replacementSource),
@@ -317,7 +328,7 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
         }
     }
     
-    if (m_graph.compilation()) {
+    if (UNLIKELY(m_graph.compilation())) {
         ASSERT(m_exitSiteLabels.size() == m_jitCode->osrExit.size());
         for (unsigned i = 0; i < m_exitSiteLabels.size(); ++i) {
             Vector<Label>& labels = m_exitSiteLabels[i];
@@ -367,6 +378,8 @@ static void emitStackOverflowCheck(JITCompiler& jit, MacroAssembler::JumpList& s
 
 void JITCompiler::compile()
 {
+    makeCatchOSREntryBuffer();
+
     setStartOfCode();
     compileEntry();
     m_speculative = std::make_unique<SpeculativeJIT>(*this);
@@ -426,6 +439,8 @@ void JITCompiler::compile()
 
 void JITCompiler::compileFunction()
 {
+    makeCatchOSREntryBuffer();
+
     setStartOfCode();
     compileEntry();
 
@@ -528,7 +543,7 @@ void JITCompiler::disassemble(LinkBuffer& linkBuffer)
         linkBuffer.didAlreadyDisassemble();
     }
     
-    if (m_graph.m_plan.compilation)
+    if (UNLIKELY(m_graph.m_plan.compilation))
         m_disassembler->reportToProfiler(m_graph.m_plan.compilation.get(), linkBuffer);
 }
 
@@ -551,14 +566,23 @@ void* JITCompiler::addressOfDoubleConstant(Node* node)
 }
 #endif
 
+void JITCompiler::noticeCatchEntrypoint(BasicBlock& basicBlock, JITCompiler::Label blockHead, LinkBuffer& linkBuffer, Vector<FlushFormat>&& argumentFormats)
+{
+    RELEASE_ASSERT(basicBlock.isCatchEntrypoint);
+    RELEASE_ASSERT(basicBlock.intersectionOfCFAHasVisited); // An entrypoint is reachable by definition.
+    m_jitCode->common.appendCatchEntrypoint(basicBlock.bytecodeBegin, linkBuffer.locationOf(blockHead).executableAddress(), WTFMove(argumentFormats));
+}
+
 void JITCompiler::noticeOSREntry(BasicBlock& basicBlock, JITCompiler::Label blockHead, LinkBuffer& linkBuffer)
 {
+    RELEASE_ASSERT(!basicBlock.isCatchEntrypoint);
+
     // OSR entry is not allowed into blocks deemed unreachable by control flow analysis.
     if (!basicBlock.intersectionOfCFAHasVisited)
         return;
-        
+
     OSREntryData* entry = m_jitCode->appendOSREntryData(basicBlock.bytecodeBegin, linkBuffer.offsetOf(blockHead));
-    
+
     entry->m_expectedValues = basicBlock.intersectionOfPastValuesAtHead;
         
     // Fix the expected values: in our protocol, a dead variable will have an expected
@@ -668,6 +692,14 @@ void JITCompiler::setEndOfCode()
     if (LIKELY(!m_disassembler))
         return;
     m_disassembler->setEndOfCode(labelIgnoringWatchpoints());
+}
+
+void JITCompiler::makeCatchOSREntryBuffer()
+{
+    if (m_graph.m_maxLocalsForCatchOSREntry) {
+        uint32_t numberOfLiveLocals = std::max(*m_graph.m_maxLocalsForCatchOSREntry, 1u); // Make sure we always allocate a non-null catchOSREntryBuffer.
+        m_jitCode->common.catchOSREntryBuffer = vm()->scratchBufferForSize(sizeof(JSValue) * numberOfLiveLocals);
+    }
 }
 
 } } // namespace JSC::DFG

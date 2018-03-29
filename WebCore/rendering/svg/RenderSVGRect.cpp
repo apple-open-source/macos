@@ -28,7 +28,11 @@
 #include "config.h"
 #include "RenderSVGRect.h"
 
+#include <wtf/IsoMallocInlines.h>
+
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGRect);
 
 RenderSVGRect::RenderSVGRect(SVGRectElement& element, RenderStyle&& style)
     : RenderSVGShape(element, WTFMove(style))
@@ -36,9 +40,7 @@ RenderSVGRect::RenderSVGRect(SVGRectElement& element, RenderStyle&& style)
 {
 }
 
-RenderSVGRect::~RenderSVGRect()
-{
-}
+RenderSVGRect::~RenderSVGRect() = default;
 
 SVGRectElement& RenderSVGRect::rectElement() const
 {
@@ -52,6 +54,7 @@ void RenderSVGRect::updateShapeFromElement()
     m_fillBoundingBox = FloatRect();
     m_innerStrokeRect = FloatRect();
     m_outerStrokeRect = FloatRect();
+    clearPath();
 
     SVGLengthContext lengthContext(&rectElement());
     FloatSize boundingBoxSize(lengthContext.valueForLength(style().width(), LengthModeWidth), lengthContext.valueForLength(style().height(), LengthModeHeight));

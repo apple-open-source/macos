@@ -99,5 +99,7 @@
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0b2</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
 </dict>
 </plist>

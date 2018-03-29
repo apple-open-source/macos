@@ -27,7 +27,7 @@
 
 #include <WebCore/FrameLoaderClient.h>
 
-namespace WebCore {
+namespace PAL {
 class SessionID;
 }
 
@@ -35,7 +35,7 @@ namespace WebKit {
 
 class PluginView;
 class WebFrame;
-struct WebsitePolicies;
+struct WebsitePoliciesData;
     
 class WebFrameLoaderClient final : public WebCore::FrameLoaderClient {
 public:
@@ -49,9 +49,17 @@ public:
 
     void setUseIconLoadingClient(bool useIconLoadingClient) { m_useIconLoadingClient = useIconLoadingClient; }
 
-#if !PLATFORM(MAC)
-    void applyToDocumentLoader(const WebsitePolicies&);
+    void applyToDocumentLoader(WebsitePoliciesData&&);
+
+    std::optional<uint64_t> pageID() const final;
+    std::optional<uint64_t> frameID() const final;
+    PAL::SessionID sessionID() const final;
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    bool hasFrameSpecificStorageAccess() { return m_hasFrameSpecificStorageAccess; }
+    void setHasFrameSpecificStorageAccess(bool value) { m_hasFrameSpecificStorageAccess = value; };
 #endif
+    
 private:
     void frameLoaderDestroyed() final;
 
@@ -89,6 +97,7 @@ private:
     void dispatchDidFinishDataDetection(NSArray *detectionResults) final;
 #endif
     void dispatchDidChangeMainDocument() final;
+    void dispatchWillChangeDocument() final;
 
     void dispatchDidDispatchOnloadEvents() final;
     void dispatchDidReceiveServerRedirectForProvisionalLoad() final;
@@ -122,7 +131,7 @@ private:
     void dispatchUnableToImplementPolicy(const WebCore::ResourceError&) final;
     
     void dispatchWillSendSubmitEvent(Ref<WebCore::FormState>&&) final;
-    void dispatchWillSubmitForm(WebCore::FormState&, WebCore::FramePolicyFunction&&) final;
+    void dispatchWillSubmitForm(WebCore::FormState&, WTF::Function<void(void)>&&) final;
     
     void revertToProvisionalState(WebCore::DocumentLoader*) final;
     void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&) final;
@@ -199,7 +208,7 @@ private:
     void dispatchDidBecomeFrameset(bool) final;
 
     bool canCachePage() const final;
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, WebCore::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
 
     RefPtr<WebCore::Frame> createFrame(const WebCore::URL&, const String& name, WebCore::HTMLFrameOwnerElement&, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) final;
 
@@ -208,8 +217,8 @@ private:
     void redirectDataToPlugin(WebCore::Widget&) final;
     
 #if ENABLE(WEBGL)
-    WebCore::WebGLLoadPolicy webGLPolicyForURL(const String&) const final;
-    WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(const String&) const final;
+    WebCore::WebGLLoadPolicy webGLPolicyForURL(const WebCore::URL&) const final;
+    WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(const WebCore::URL&) const final;
 #endif // ENABLE(WEBGL)
 
     RefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement&, const WebCore::URL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues) final;
@@ -242,10 +251,6 @@ private:
 
     Ref<WebCore::FrameNetworkingContext> createNetworkingContext() final;
 
-#if ENABLE(REQUEST_AUTOCOMPLETE)
-    void didRequestAutocomplete(Ref<WebCore::FormState>&&) final;
-#endif
-
     void forcePageTransitionIfNeeded() final;
 
 #if USE(QUICK_LOOK)
@@ -260,9 +265,12 @@ private:
 
     void didRestoreScrollPosition() final;
 
-    bool useIconLoadingClient() final;
     void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) final;
     void finishedLoadingIcon(uint64_t callbackIdentifier, WebCore::SharedBuffer*) final;
+
+#if ENABLE(APPLICATION_MANIFEST)
+    void finishedLoadingApplicationManifest(uint64_t, const std::optional<WebCore::ApplicationManifest>&) final;
+#endif
 
     WebFrame* m_frame;
     RefPtr<PluginView> m_pluginView;
@@ -271,6 +279,9 @@ private:
     bool m_frameHasCustomContentProvider;
     bool m_frameCameFromPageCache;
     bool m_useIconLoadingClient { false };
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    bool m_hasFrameSpecificStorageAccess { false };
+#endif
 };
 
 // As long as EmptyFrameLoaderClient exists in WebCore, this can return 0.

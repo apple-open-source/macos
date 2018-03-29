@@ -25,8 +25,17 @@
 
 #import <Foundation/Foundation.h>
 
+@protocol CKKSLockStateNotification <NSObject>
+- (void)lockStateChangeNotification:(bool)unlocked;
+@end
+
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CKKSLockStateTracker : NSObject
-@property NSOperation* unlockDependency;
+@property (nullable) NSOperation* unlockDependency;
+@property (readonly) bool isLocked;
+
+@property (readonly,nullable) NSDate* lastUnlockTime;
 
 - (instancetype)init;
 
@@ -36,8 +45,11 @@
 // Check if this error code is related to keybag is locked and we should retry later
 - (bool)isLockedError:(NSError*)error;
 
+-(void)addLockStateObserver:(id<CKKSLockStateNotification>)object;
+
 // Ask AKS if the user's keybag is locked
 + (bool)queryAKSLocked;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

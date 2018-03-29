@@ -714,6 +714,7 @@ bool TestSOSEngineLoadCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef
 
 static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
     // Read the serialized engine state from the datasource (aka keychain) and populate the in-memory engine
+    __block bool needPeerRegistration = false;
     bool ok = true;
     CFDataRef derCoders = NULL;
     CFMutableDictionaryRef codersDict = NULL;
@@ -721,36 +722,58 @@ static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     require_quiet(derCoders, xit);
     codersDict = derStateToDictionaryCopy(derCoders, error);
     require_quiet(codersDict, xit);
-    CFDictionaryForEach(engine->peerMap, ^(const void *peerID, const void *peerState) {
-        if (peerID) {
-            CFTypeRef coderRef = CFDictionaryGetValue(codersDict, peerID);
-            if (coderRef) {
-                CFDataRef coderData = asData(coderRef, NULL);
-                if (coderData) {
-                    CFErrorRef createError = NULL;
-                    SOSCoderRef coder = SOSCoderCreateFromData(coderData, &createError);
-                    if (coder) {
-                        CFDictionaryAddValue(engine->coders, peerID, coder);
-                        secnotice("coder", "adding coder: %@ for peerid: %@", coder, peerID);
-                    } else {
-                        secnotice("coder", "Coder for '%@' failed to create: %@", peerID, createError);
-                    }
-                    CFReleaseNull(createError);
-                    CFReleaseNull(coder);
-                } else {
-                    // Needed a coder, didn't find one, notify the account to help us out.
-                    // Next attempt to sync will fix this
-                    secnotice("coder", "coder for %@ was not cf data: %@", peerID, coderData);
-                    SOSCCEnsurePeerRegistration();
-                }
-            }
-            else{
-                secnotice("coder", "didn't find coder for peer: %@ engine dictionary: %@", peerID, codersDict);
-                SOSCCEnsurePeerRegistration();
-            }
 
+    /*
+     * Make sure all peer have coders
+     */
+    CFDictionaryForEach(engine->peerMap, ^(const void *peerID, const void *peerState) {
+        /*
+         * Skip backup peer since they will never have coders
+         */
+        if (isString(peerID) && CFStringHasSuffix(peerID, CFSTR("-tomb"))) {
+            secnotice("coder", "Skipping coder check for peer: %@", peerID);
+            return;
+        }
+
+        CFTypeRef coderRef = CFDictionaryGetValue(codersDict, peerID);
+        if (coderRef) {
+            CFDataRef coderData = asData(coderRef, NULL);
+            if (coderData) {
+                CFErrorRef createError = NULL;
+                SOSCoderRef coder = SOSCoderCreateFromData(coderData, &createError);
+                if (coder) {
+                    CFDictionaryAddValue(engine->coders, peerID, coder);
+                    secnotice("coder", "adding coder: %@ for peerid: %@", coder, peerID);
+                } else {
+                    secnotice("coder", "Coder for '%@' failed to create: %@", peerID, createError);
+                }
+                CFReleaseNull(createError);
+                CFReleaseNull(coder);
+            } else {
+                // Needed a coder, didn't find one, notify the account to help us out.
+                // Next attempt to sync will fix this
+                secnotice("coder", "coder for %@ was not cf data: %@", peerID, coderData);
+                needPeerRegistration = true;
+            }
+        } else{
+            secnotice("coder", "didn't find coder for peer: %@ engine dictionary: %@", peerID, codersDict);
+            needPeerRegistration = true;
         }
     });
+
+    secnotice("coder", "Will force peer registration: %s",needPeerRegistration ? "yes" : "no");
+
+    if (needPeerRegistration) {
+        dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+        dispatch_async(queue, ^{
+            CFErrorRef eprError = NULL;
+            if (!SOSCCProcessEnsurePeerRegistration_Server(&eprError)) {
+                secnotice("coder", "SOSCCProcessEnsurePeerRegistration failed with: %@", eprError);
+            }
+            CFReleaseNull(eprError);
+        });
+    }
 
     engine->haveLoadedCoders = true;
 
@@ -1954,10 +1977,17 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
 #endif
 
     base = SOSPeerCopyManifestForDigest(peer, baseDigest);
+
+    // Note that the sender digest will only exist if we receive a SOSManifestDigestMessageType (since we never receive v2 messages)
     confirmed = SOSPeerCopyManifestForDigest(peer, SOSMessageGetSenderDigest(message));
     if (!confirmed) {
         if (SOSManifestGetCount(SOSMessageGetRemovals(message)) || SOSManifestGetCount(allAdditions)) {
             if (base || !baseDigest) {
+
+                secnotice("engine", "SOSEngineHandleMessage_locked (%@): creating a confirmed manifest via a patch (base %zu %@, +%zu, -%zu)", SOSPeerGetID(peer),
+                          SOSManifestGetCount(base), SOSManifestGetDigest(base, NULL),
+                          SOSManifestGetCount(allAdditions), SOSManifestGetCount(SOSMessageGetRemovals(message)));
+
                 confirmed = SOSManifestCreateWithPatch(base, SOSMessageGetRemovals(message), allAdditions, error);
             }
             if (!confirmed) {
@@ -1968,6 +1998,9 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
             confirmed = CFRetainSafe(base);
             secerror("%@:%@ Protocol error send L00 - figure out later base: %@", engine->myID, peerID, base);
         }
+
+    } else {
+        secnotice("engine", "SOSEngineHandleMessage_locked (%@): got a confirmed manifest by digest: (%zu, %@)", SOSPeerGetID(peer), SOSManifestGetCount(confirmed), SOSMessageGetSenderDigest(message));
     }
     secnoticeq("engine", "%@:%@ confirmed: %@ base: %@", engine->myID, peerID, confirmed, base);
     if (confirmed) {
@@ -1975,13 +2008,27 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
         if (SOSManifestGetCount(SOSMessageGetRemovals(message)))
             CFAssignRetained(confirmedRemovals, SOSManifestCreateUnion(confirmedRemovals, SOSMessageGetRemovals(message), error));
     }
-    if (SOSManifestGetCount(confirmedRemovals) || SOSManifestGetCount(confirmedAdditions) || SOSManifestGetCount(unwanted))
+    if (SOSManifestGetCount(confirmedRemovals) || SOSManifestGetCount(confirmedAdditions) || SOSManifestGetCount(unwanted)) {
         ok &= SOSPeerDidReceiveRemovalsAndAdditions(peer, confirmedRemovals, confirmedAdditions, unwanted, localManifest, error);
+    }
+
+
     // TODO: We should probably remove the if below and always call SOSPeerSetConfirmedManifest,
     // since having a NULL confirmed will force us to send a manifest message to get in sync again.
-    if (confirmed)
+    if (confirmed) {
+
+        SOSManifestRef previousConfirmedManifest = SOSPeerGetConfirmedManifest(peer);
+        if(previousConfirmedManifest) {
+            secnotice("engine", "SOSEngineHandleMessage_locked (%@): new confirmed manifest (%zu, %@) will replace existing confirmed manifest (%zu, %@)", SOSPeerGetID(peer),
+                      SOSManifestGetCount(confirmed), SOSManifestGetDigest(confirmed, NULL),
+                      SOSManifestGetCount(previousConfirmedManifest), SOSManifestGetDigest(previousConfirmedManifest, NULL));
+        } else {
+            secnotice("engine", "SOSEngineHandleMessage_locked (%@): new confirmed manifest (%zu, %@) is first manifest for peer", SOSPeerGetID(peer),
+                      SOSManifestGetCount(confirmed), SOSManifestGetDigest(confirmed, NULL));
+        }
+
         SOSPeerSetConfirmedManifest(peer, confirmed);
-    else if (SOSPeerGetConfirmedManifest(peer)) {
+    } else if (SOSPeerGetConfirmedManifest(peer)) {
         secnoticeq("engine", "%@:%@ unable to find confirmed in %@, sync protocol reset", engine->myID, peer, message);
 
         SOSPeerSetConfirmedManifest(peer, NULL);
@@ -2202,7 +2249,10 @@ static __unused bool SOSEngineCheckPeerIntegrity(SOSEngineRef engine, SOSPeerRef
 
     CFReleaseSafe(AunionT);
     CFReleaseSafe(MunionU);
+    CFReleaseSafe(CunionU);
 
+    CFReleaseNull(SunionAunionT);
+    CFReleaseNull(SunionMunionU);
 
     CFReleaseSafe(A);
     CFReleaseSafe(M);
@@ -2247,7 +2297,7 @@ static void SOSEngineCompletedSyncWithPeer(SOSEngineRef engine, SOSPeerRef peer)
 
 
 CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
-                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageSentBlock *sent) {
+                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageSentCallback **sent) {
     SOSManifestRef local = SOSEngineCopyLocalPeerManifest_locked(engine, peer, error);
     __block SOSMessageRef message = SOSMessageCreate(kCFAllocatorDefault, SOSPeerGetMessageVersion(peer), error);
     SOSManifestRef confirmed = SOSPeerGetConfirmedManifest(peer);
@@ -2299,12 +2349,14 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
     CFReleaseNull(allMissing);
     CFReleaseNull(excessUnwanted);
 
-    secnoticeq("engine", "%@:%@: send state for peer [%s%s%s][%s%s] P:%zu, E:%zu, M:%zu U:%zu", engine->myID, SOSPeerGetID(peer),
+    secnoticeq("engine", "%@:%@: send state for peer [%s%s%s][%s%s] local:%zu confirmed:%zu pending:%zu, extra:%zu, missing:%zu unwanted:%zu", engine->myID, SOSPeerGetID(peer),
                local ? "L":"l",
                confirmed ? "C":"0",
                pendingObjects ? "P":"0",
                SOSPeerSendObjects(peer) ? "O":"o",
                SOSPeerMustSendMessage(peer) ? "S":"s",
+               SOSManifestGetCount(local),
+               SOSManifestGetCount(confirmed),
                SOSManifestGetCount(pendingObjects),
                SOSManifestGetCount(extra),
                SOSManifestGetCount(missing),
@@ -2337,8 +2389,8 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                 send = true;
             }
             if (!send) {
-                CFReleaseSafe(local);
-                CFReleaseSafe(message);
+                CFReleaseNull(local);
+                CFReleaseNull(message);
                 CFReleaseNull(extra);
                 CFReleaseNull(missing);
                 return CFDataCreate(kCFAllocatorDefault, NULL, 0);
@@ -2401,8 +2453,9 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                             *attributeList = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
                         CFDictionaryRef itemPlist = SOSObjectCopyPropertyList(engine->dataSource, object, &localError);
                         if(itemPlist && !CFArrayContainsValue(*attributeList, CFRangeMake(0, CFArrayGetCount(*attributeList)), (CFStringRef)CFDictionaryGetValue(itemPlist, kSecAttrAccessGroup))){
-                                CFArrayAppendValue(*attributeList, (CFStringRef)CFDictionaryGetValue(itemPlist, kSecAttrAccessGroup));
-                            }//copy access group to array
+                            CFArrayAppendValue(*attributeList, (CFStringRef)CFDictionaryGetValue(itemPlist, kSecAttrAccessGroup));
+                        }//copy access group to array
+                        CFReleaseNull(itemPlist);
                     } else {
                         const uint8_t *d = CFDataGetBytePtr(digest);
                         CFStringRef hexder = CFDataCopyHexString(der);
@@ -2471,40 +2524,87 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
     }
     
     if (result) {
-        // Capture the peer in our block (SOSEnginePeerMessageSentBlock)
-        CFRetainSafe(peer);
-        *sent = Block_copy(^(bool success) {
-            dispatch_async(engine->queue, ^{
-            if (success) {
-                SOSPeerSetMustSendMessage(peer, false);
-                if (!confirmed && !proposed) {
-                    SOSPeerSetSendObjects(peer, true);
-                    secnoticeq("engine", "%@:%@ sendObjects=true L:%@", engine->myID, SOSPeerGetID(peer), local);
+        SOSEnginePeerMessageSentCallback* pmsc = malloc(sizeof(SOSEnginePeerMessageSentCallback));
+        memset(pmsc, 0, sizeof(SOSEnginePeerMessageSentCallback));
+        pmsc->engine    = engine; CFRetain(pmsc->engine);
+        pmsc->peer      = CFRetainSafe(peer);
+        pmsc->local     = CFRetainSafe(local);
+        pmsc->proposed  = CFRetainSafe(proposed);
+        pmsc->message   = CFRetainSafe(message);
+        pmsc->confirmed = CFRetainSafe(confirmed);
+
+        SOSEngineMessageCallbackSetCallback(pmsc, ^(bool success) {
+            // Have to copy pmsc so it'll still be around during the dispatch_async
+            SOSEnginePeerMessageSentCallback* pmsc2 = malloc(sizeof(SOSEnginePeerMessageSentCallback));
+            memset(pmsc2, 0, sizeof(SOSEnginePeerMessageSentCallback));
+            pmsc2->engine    = pmsc->engine; CFRetain(pmsc2->engine);
+            pmsc2->peer      = CFRetainSafe(pmsc->peer);
+            pmsc2->local     = CFRetainSafe(pmsc->local);
+            pmsc2->proposed  = CFRetainSafe(pmsc->proposed);
+            pmsc2->message   = CFRetainSafe(pmsc->message);
+            pmsc2->confirmed = CFRetainSafe(pmsc->confirmed);
+
+            dispatch_async(pmsc->engine->queue, ^{
+                if (success) {
+                    SOSPeerSetMustSendMessage(pmsc2->peer, false);
+                    if (!pmsc2->confirmed && !pmsc2->proposed) {
+                        SOSPeerSetSendObjects(pmsc2->peer, true);
+                        secnoticeq("engine", "%@:%@ sendObjects=true L:%@", pmsc2->engine->myID, SOSPeerGetID(pmsc2->peer), pmsc2->local);
+                    }
+                    SOSPeerAddLocalManifest(pmsc2->peer, pmsc2->local);
+                    SOSPeerAddProposedManifest(pmsc2->peer, pmsc2->proposed);
+                    secnoticeq("engine", "send %@:%@ %@", pmsc2->engine->myID, SOSPeerGetID(pmsc2->peer), pmsc2->message);
+                    //SOSEngineCheckPeerIntegrity(engine, peer, NULL);
+                } else {
+                    secerror("%@:%@ failed to send %@", pmsc2->engine->myID, SOSPeerGetID(pmsc2->peer), pmsc2->message);
                 }
-                SOSPeerAddLocalManifest(peer, local);
-                SOSPeerAddProposedManifest(peer, proposed);
-                secnoticeq("engine", "send %@:%@ %@", engine->myID, SOSPeerGetID(peer), message);
-                //SOSEngineCheckPeerIntegrity(engine, peer, NULL);
-            } else {
-                secerror("%@:%@ failed to send %@", engine->myID, SOSPeerGetID(peer), message);
-            }
-            CFReleaseSafe(peer);
-            CFReleaseSafe(local);
-            CFReleaseSafe(proposed);
-            CFReleaseSafe(message);
+                SOSEngineFreeMessageCallback(pmsc2);
             });
         });
-    } else {
-        CFReleaseSafe(local);
-        CFReleaseSafe(proposed);
-        CFReleaseSafe(message);
+
+        *sent = pmsc;
     }
+
+    CFReleaseNull(local);
     CFReleaseNull(extra);
     CFReleaseNull(missing);
+    CFReleaseNull(message);
+    CFReleaseNull(proposed);
     if (error && *error)
         secerror("%@:%@ error in send: %@", engine->myID, SOSPeerGetID(peer), *error);
 
     return result;
+}
+
+void SOSEngineMessageCallbackSetCallback(SOSEnginePeerMessageSentCallback *sent, SOSEnginePeerMessageSentBlock block) {
+    if(sent) {
+        sent->block = Block_copy(block);
+    }
+}
+
+
+void SOSEngineMessageCallCallback(SOSEnginePeerMessageSentCallback *sent, bool ok) {
+    if (sent && sent->block) {
+        (sent->block)(ok);
+    }
+}
+
+void SOSEngineFreeMessageCallback(SOSEnginePeerMessageSentCallback* psmc) {
+    if(psmc) {
+        CFReleaseNull(psmc->engine);
+        CFReleaseNull(psmc->peer);
+        CFReleaseNull(psmc->coder);
+        CFReleaseNull(psmc->local);
+        CFReleaseNull(psmc->proposed);
+        CFReleaseNull(psmc->message);
+        CFReleaseNull(psmc->confirmed);
+
+        if(psmc->block) {
+            Block_release(psmc->block);
+        }
+
+        free(psmc);
+    }
 }
 
 static void SOSEngineLogItemError(SOSEngineRef engine, CFStringRef peerID, CFDataRef key, CFDataRef optionalDigest, const char *where, CFErrorRef error) {
@@ -2848,10 +2948,10 @@ bool SOSEngineWithPeerID(SOSEngineRef engine, CFStringRef peerID, CFErrorRef *er
     return result;
 }
 
-CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentBlock *sentBlock, CFErrorRef *error){
+CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentCallback **sentCallback, CFErrorRef *error){
 __block CFDataRef message = NULL;
     SOSEngineForPeerID(engine, peerID, error, ^(SOSTransactionRef txn, SOSPeerRef peer) {
-        message = SOSEngineCreateMessage_locked(engine, txn, peer, attributeList, error, sentBlock);
+        message = SOSEngineCreateMessage_locked(engine, txn, peer, attributeList, error, sentCallback);
     });
     return message;
 }

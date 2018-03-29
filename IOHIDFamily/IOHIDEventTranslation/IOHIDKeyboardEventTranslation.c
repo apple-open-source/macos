@@ -314,6 +314,13 @@ const MODIFIER_INFO ModifierInfoTable [] = {
         NX_SUBTYPE_STICKYKEYS_FN_UP,
         NX_SUBTYPE_STICKYKEYS_FN_DOWN,
         NX_SUBTYPE_STICKYKEYS_FN_LOCK,
+    },
+    {
+        kHIDPage_AppleVendorKeyboard, kHIDUsage_AppleVendorKeyboard_Function,
+        NX_SECONDARYFNMASK,
+        NX_SUBTYPE_STICKYKEYS_FN_UP,
+        NX_SUBTYPE_STICKYKEYS_FN_DOWN,
+        NX_SUBTYPE_STICKYKEYS_FN_LOCK,
     }
 };
 
@@ -535,40 +542,43 @@ void __IOHIDKeyboardEventTranslatorInitNxEvent (EVENT_TRANSLATOR_CONTEXT *contex
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void __IOHIDKeyboardEventTranslatorAddStickyKeyEvent (IOHIDKeyboardEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context)
 {
-
-  uint16_t    subType = 0;
-  
-  switch (IOHIDEventGetIntegerValue(context->event, kIOHIDEventFieldKeyboardStickyKeyPhase)) {
-    case kIOHIDKeyboardStickyKeyPhaseUp:
-      subType = context->modifier->stickyUpType;
-      break;
-    case kIOHIDKeyboardStickyKeyPhaseDown:
-      subType = context->modifier->stickyDownType;
-      break;
-    case kIOHIDKeyboardStickyKeyPhaseLocked:
-      subType = context->modifier->stickyLockType;
-      break;
-    default:
-      break;
-  }
-  if (subType) {
-    __IOHIDKeyboardEventTranslatorAddSysdefinedEventWithSubtype (translator, context, subType);
-    return;
-  }
+    uint16_t    subType = 0;
     
-  switch (IOHIDEventGetIntegerValue(context->event, kIOHIDEventFieldKeyboardStickyKeyToggle)) {
-    case kIOHIDKeyboardStickyKeyToggleOn:
-      subType = NX_SUBTYPE_STICKYKEYS_ON;
-      break;
-    case kIOHIDKeyboardStickyKeyToggleOff:
-      subType = NX_SUBTYPE_STICKYKEYS_OFF;
-      break;
-    default:
-      break;
-  }
-  if (subType) {
-    __IOHIDKeyboardEventTranslatorAddSysdefinedEventWithSubtype (translator, context, subType);
-  }
+    if (context->modifier) {
+        switch (IOHIDEventGetIntegerValue(context->event, kIOHIDEventFieldKeyboardStickyKeyPhase)) {
+            case kIOHIDKeyboardStickyKeyPhaseUp:
+                subType = context->modifier->stickyUpType;
+                break;
+            case kIOHIDKeyboardStickyKeyPhaseDown:
+                subType = context->modifier->stickyDownType;
+                break;
+            case kIOHIDKeyboardStickyKeyPhaseLocked:
+                subType = context->modifier->stickyLockType;
+                break;
+            default:
+                break;
+        }
+    }
+    
+    if (subType) {
+        __IOHIDKeyboardEventTranslatorAddSysdefinedEventWithSubtype (translator, context, subType);
+        return;
+    }
+    
+    switch (IOHIDEventGetIntegerValue(context->event, kIOHIDEventFieldKeyboardStickyKeyToggle)) {
+        case kIOHIDKeyboardStickyKeyToggleOn:
+            subType = NX_SUBTYPE_STICKYKEYS_ON;
+            break;
+        case kIOHIDKeyboardStickyKeyToggleOff:
+            subType = NX_SUBTYPE_STICKYKEYS_OFF;
+            break;
+        default:
+            break;
+    }
+    
+    if (subType) {
+        __IOHIDKeyboardEventTranslatorAddSysdefinedEventWithSubtype (translator, context, subType);
+    }
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

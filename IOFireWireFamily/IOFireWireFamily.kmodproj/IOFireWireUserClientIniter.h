@@ -54,10 +54,10 @@ private:
 	static IORecursiveLock *		sIniterLock;
 
 public:
-	virtual bool					start(IOService* provider);
-	virtual bool					init(OSDictionary* propTable);
-	virtual void					free();
-	virtual void					stop(IOService* provider);
+	virtual bool					start(IOService* provider) APPLE_KEXT_OVERRIDE;
+	virtual bool					init(OSDictionary* propTable) APPLE_KEXT_OVERRIDE;
+	virtual void					free(void) APPLE_KEXT_OVERRIDE;
+	virtual void					stop(IOService* provider) APPLE_KEXT_OVERRIDE;
 	
 protected:
 	void				mergeProperties( IORegistryEntry * dest, OSDictionary * src );

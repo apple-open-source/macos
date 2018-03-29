@@ -8,7 +8,7 @@
 
 @class UbiqitousKVSProxy;
 
-@protocol CKDStore
+@protocol CKDStore <NSObject>
 
 - (void)connectToProxy: (UbiqitousKVSProxy*) proxy;
 

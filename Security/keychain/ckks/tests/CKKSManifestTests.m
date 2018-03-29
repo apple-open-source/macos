@@ -95,6 +95,7 @@
     
     // Test starts with keys in CloudKit (so we can create items later)
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
@@ -119,7 +120,8 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForCKModifications];
     int tlkshares = 1;
-    XCTAssertEqual(self.keychainZone.currentDatabase.count, SYSTEM_DB_RECORD_COUNT + passwordCount + tlkshares, "Have 6+passwordCount objects in cloudkit");
+    int extraDeviceStates = 1;
+    XCTAssertEqual(self.keychainZone.currentDatabase.count, SYSTEM_DB_RECORD_COUNT + passwordCount + tlkshares + extraDeviceStates, "Have 6+passwordCount objects in cloudkit");
     
     NSArray* items = [self mirrorItemsForExistingItems];
     _egoManifest = [CKKSEgoManifest newManifestForZone:self.keychainZoneID.zoneName withItems:items peerManifestIDs:@[] currentItems:@{} error:&error];

@@ -695,7 +695,7 @@ typedef struct cssm_acl_edit {
 #if defined(WIN32)
 typedef FARPROC CSSM_PROC_ADDR;
 #else
-typedef void (CSSMAPI *CSSM_PROC_ADDR) ();
+typedef void (CSSMAPI *CSSM_PROC_ADDR) (void);
 #endif
 typedef CSSM_PROC_ADDR *CSSM_PROC_ADDR_PTR;
 

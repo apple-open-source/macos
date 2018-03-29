@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		345AECEA1FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */; };
 		AC33CAB70D344757004E8F21 /* IOSCSIParallelInterfaceController.h in Headers */ = {isa = PBXBuildFile; fileRef = F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */; };
 		AC33CAB80D344757004E8F21 /* IOSCSIParallelInterfaceDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = F5888548025AAC1E01CE15B2 /* IOSCSIParallelInterfaceDevice.h */; };
 		AC33CAB90D344757004E8F21 /* SCSIParallelTask.h in Headers */ = {isa = PBXBuildFile; fileRef = F588854A025AAC1E01CE15B2 /* SCSIParallelTask.h */; };
@@ -44,6 +45,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOSCSIParallelFamily.xcconfig; sourceTree = "<group>"; };
 		5C91D3F403809FFE05CE70BB /* IOSCSIParallelFamilyDebugging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOSCSIParallelFamilyDebugging.h; sourceTree = "<group>"; };
 		5C91D3F60380A00705CE70BB /* SCSIParallelTimer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SCSIParallelTimer.cpp; sourceTree = "<group>"; };
 		5C91D3F70380A00705CE70BB /* SCSIParallelTimer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCSIParallelTimer.h; sourceTree = "<group>"; };
@@ -76,6 +78,7 @@
 				F5DF5C59024696C101CE15B2 /* IOSCSIParallelInterface */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				AC33CACD0D344757004E8F21 /* Info-IOSCSIParallelFamily.plist */,
+				345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */,
 			);
 			name = IOSCSIParallelFamily;
 			sourceTree = "<group>";
@@ -154,6 +157,8 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = E6B5F3790A40B2E600F7D6D1 /* Build configuration list for PBXProject "IOSCSIParallelFamily" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -178,6 +183,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				345AECEA1FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,6 +238,7 @@
 /* Begin XCBuildConfiguration section */
 		AC33CACA0D344757004E8F21 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -262,6 +269,7 @@
 		};
 		AC33CACB0D344757004E8F21 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -289,6 +297,7 @@
 		};
 		AC33CACC0D344757004E8F21 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = "Info-IOSCSIParallelFamily.plist";

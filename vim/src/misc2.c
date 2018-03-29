@@ -165,13 +165,11 @@ coladvance2(
     else
     {
 #ifdef FEAT_VIRTUALEDIT
-	int width = W_WIDTH(curwin) - win_col_off(curwin);
+	int width = curwin->w_width - win_col_off(curwin);
 
 	if (finetune
 		&& curwin->w_p_wrap
-# ifdef FEAT_WINDOWS
 		&& curwin->w_width != 0
-# endif
 		&& wcol >= (colnr_T)width)
 	{
 	    csize = linetabsize(line);
@@ -312,7 +310,7 @@ coladvance2(
 	    int b = (int)wcol - (int)col;
 
 	    /* The difference between wcol and col is used to set coladd. */
-	    if (b > 0 && b < (MAXCOL - 2 * W_WIDTH(curwin)))
+	    if (b > 0 && b < (MAXCOL - 2 * curwin->w_width))
 		pos->coladd = b;
 
 	    col += b;
@@ -605,7 +603,21 @@ check_cursor_col_win(win_T *win)
     else if (ve_flags == VE_ALL)
     {
 	if (oldcoladd > win->w_cursor.col)
+	{
 	    win->w_cursor.coladd = oldcoladd - win->w_cursor.col;
+
+	    /* Make sure that coladd is not more than the char width.
+	     * Not for the last character, coladd is then used when the cursor
+	     * is actually after the last character. */
+	    if (win->w_cursor.col + 1 < len && win->w_cursor.coladd > 0)
+	    {
+		int cs, ce;
+
+		getvcol(win, &win->w_cursor, &cs, NULL, &ce);
+		if (win->w_cursor.coladd > ce - cs)
+		    win->w_cursor.coladd = ce - cs;
+	    }
+	}
 	else
 	    /* avoid weird number when there is a miscalculation or overflow */
 	    win->w_cursor.coladd = 0;
@@ -650,7 +662,7 @@ leftcol_changed(void)
     int		retval = FALSE;
 
     changed_cline_bef_curs();
-    lastcol = curwin->w_leftcol + W_WIDTH(curwin) - curwin_col_off() - 1;
+    lastcol = curwin->w_leftcol + curwin->w_width - curwin_col_off() - 1;
     validate_virtcol();
 
     /*
@@ -1070,14 +1082,12 @@ free_all_mem(void)
     block_autocmds();
 # endif
 
-# ifdef FEAT_WINDOWS
     /* Close all tabs and windows.  Reset 'equalalways' to avoid redraws. */
     p_ea = FALSE;
     if (first_tabpage->tp_next != NULL)
 	do_cmdline_cmd((char_u *)"tabonly!");
     if (!ONE_WINDOW)
 	do_cmdline_cmd((char_u *)"only!");
-# endif
 
 # if defined(FEAT_SPELL)
     /* Free all spell info. */
@@ -1125,7 +1135,6 @@ free_all_mem(void)
     free_all_autocmds();
 # endif
     clear_termcodes();
-    free_all_options();
     free_all_marks();
     alist_clear(&global_alist);
     free_homedir();
@@ -1183,10 +1192,11 @@ free_all_mem(void)
     /* Close all script inputs. */
     close_all_scripts();
 
-#if defined(FEAT_WINDOWS)
     /* Destroy all windows.  Must come before freeing buffers. */
     win_free_all();
-#endif
+
+    /* Free all option values.  Must come after closing windows. */
+    free_all_options();
 
     /* Free all buffers.  Reset 'autochdir' to avoid accessing things that
      * were freed already. */
@@ -1224,10 +1234,8 @@ free_all_mem(void)
 
     reset_last_sourcing();
 
-#ifdef FEAT_WINDOWS
     free_tabpage(first_tabpage);
     first_tabpage = NULL;
-#endif
 
 # ifdef UNIX
     /* Machine-specific free. */
@@ -2194,7 +2202,7 @@ static struct modmasktable
     {MOD_MASK_MULTI_CLICK,	MOD_MASK_2CLICK,	(char_u)'2'},
     {MOD_MASK_MULTI_CLICK,	MOD_MASK_3CLICK,	(char_u)'3'},
     {MOD_MASK_MULTI_CLICK,	MOD_MASK_4CLICK,	(char_u)'4'},
-#ifdef MACOS
+#ifdef MACOS_X
     {MOD_MASK_CMD,		MOD_MASK_CMD,		(char_u)'D'},
 #endif
     /* 'A' must be the last one */
@@ -2438,6 +2446,7 @@ static struct key_name_entry
 #endif
 #ifdef FEAT_MOUSE_SGR
     {K_SGR_MOUSE,	(char_u *)"SgrMouse"},
+    {K_SGR_MOUSERELEASE, (char_u *)"SgrMouseRelelase"},
 #endif
     {K_LEFTMOUSE,	(char_u *)"LeftMouse"},
     {K_LEFTMOUSE_NM,	(char_u *)"LeftMouseNM"},
@@ -2918,7 +2927,7 @@ extract_modifiers(int key, int *modp)
 {
     int	modifiers = *modp;
 
-#ifdef MACOS
+#ifdef MACOS_X
     /* Command-key really special, no fancynest */
     if (!(modifiers & MOD_MASK_CMD))
 #endif
@@ -2945,7 +2954,7 @@ extract_modifiers(int key, int *modp)
 	if (key == 0)
 	    key = K_ZERO;
     }
-#ifdef MACOS
+#ifdef MACOS_X
     /* Command-key really special, no fancynest */
     if (!(modifiers & MOD_MASK_CMD))
 #endif
@@ -3161,11 +3170,9 @@ set_fileformat(
 	set_string_option_direct((char_u *)"ff", -1, (char_u *)p,
 						     OPT_FREE | opt_flags, 0);
 
-#ifdef FEAT_WINDOWS
     /* This may cause the buffer to become (un)modified. */
     check_status(curbuf);
     redraw_tabline = TRUE;
-#endif
 #ifdef FEAT_TITLE
     need_maketitle = TRUE;	    /* set window title later */
 #endif
@@ -3338,8 +3345,7 @@ same_directory(char_u *f1, char_u *f2)
 }
 
 #if defined(FEAT_SESSION) || defined(MSWIN) || defined(FEAT_GUI_MAC) \
-	|| ((defined(FEAT_GUI_GTK)) \
-			&& ( defined(FEAT_WINDOWS) || defined(FEAT_DND)) ) \
+	|| defined(FEAT_GUI_GTK) \
 	|| defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG) \
 	|| defined(PROTO)
 /*
@@ -3713,10 +3719,8 @@ get_shape_idx(int mouse)
     }
     if (mouse && drag_status_line)
 	return SHAPE_IDX_SDRAG;
-# ifdef FEAT_WINDOWS
     if (mouse && drag_sep_line)
 	return SHAPE_IDX_VDRAG;
-# endif
 #endif
     if (!mouse && State == SHOWMATCH)
 	return SHAPE_IDX_SM;
@@ -5929,10 +5933,7 @@ pathcmp(const char *p, const char *q, int maxlen)
 #define EXTRASIZE 5		/* increment to add to env. size */
 
 static int  envsize = -1;	/* current size of environment */
-#ifndef MACOS_CLASSIC
-extern
-#endif
-       char **environ;		/* the global which is your env. */
+extern char **environ;		/* the global which is your env. */
 
 static int  findenv(char *name); /* look for a name in the env. */
 static int  newenv(void);	/* copy env. from stack to heap */
@@ -6004,19 +6005,14 @@ newenv(void)
     char    **env, *elem;
     int	    i, esize;
 
-#ifdef MACOS
-    /* for Mac a new, empty environment is created */
-    i = 0;
-#else
     for (i = 0; environ[i]; i++)
 	;
-#endif
+
     esize = i + EXTRASIZE + 1;
     env = (char **)alloc((unsigned)(esize * sizeof (elem)));
     if (env == NULL)
 	return -1;
 
-#ifndef MACOS
     for (i = 0; environ[i]; i++)
     {
 	elem = (char *)alloc((unsigned)(strlen(environ[i]) + 1));
@@ -6025,7 +6021,6 @@ newenv(void)
 	env[i] = elem;
 	strcpy(elem, environ[i]);
     }
-#endif
 
     env[i] = 0;
     environ = env;
@@ -6049,6 +6044,9 @@ moreenv(void)
 }
 
 # ifdef USE_VIMPTY_GETENV
+/*
+ * Used for mch_getenv() for Mac.
+ */
     char_u *
 vimpty_getenv(const char_u *string)
 {
@@ -6086,7 +6084,6 @@ filewritable(char_u *fname)
 #if defined(UNIX) || defined(VMS)
     perm = mch_getperm(fname);
 #endif
-#ifndef MACOS_CLASSIC /* TODO: get either mch_writable or mch_access */
     if (
 # ifdef WIN3264
 	    mch_writable(fname) &&
@@ -6097,7 +6094,6 @@ filewritable(char_u *fname)
 # endif
 	    mch_access((char *)fname, W_OK) == 0
        )
-#endif
     {
 	++retval;
 	if (mch_isdir(fname))
@@ -6304,9 +6300,11 @@ has_non_ascii(char_u *s)
     void
 parse_queued_messages(void)
 {
+    win_T *old_curwin = curwin;
+
     /* For Win32 mch_breakcheck() does not check for input, do it here. */
 # if defined(WIN32) && defined(FEAT_JOB_CHANNEL)
-    channel_handle_events();
+    channel_handle_events(FALSE);
 # endif
 
 # ifdef FEAT_NETBEANS_INTG
@@ -6328,6 +6326,11 @@ parse_queued_messages(void)
     /* Check if any jobs have ended. */
     job_check_ended();
 # endif
+
+    /* If the current window changed we need to bail out of the waiting loop.
+     * E.g. when a job exit callback closes the terminal window. */
+    if (curwin != old_curwin)
+	ins_char_typebuf(K_IGNORE);
 }
 #endif
 

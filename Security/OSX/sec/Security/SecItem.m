@@ -102,19 +102,21 @@ void SecItemSetCurrentItemAcrossAllDevices(CFStringRef accessGroup,
     os_activity_t activity = os_activity_create("SecItemSetCurrentItemAcrossAllDevices", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
-    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
-        complete((__bridge CFErrorRef) error);
-    });
-    [rpc secItemSetCurrentItemAcrossAllDevices:(__bridge NSData*)newCurrentItemReference
-                            newCurrentItemHash:(__bridge NSData*)newCurrentItemHash
-                                   accessGroup:(__bridge NSString*)accessGroup
-                                    identifier:(__bridge NSString*)identifier
-                                      viewHint:(__bridge NSString*)viewHint
-                       oldCurrentItemReference:(__bridge NSData*)oldCurrentItemReference
-                            oldCurrentItemHash:(__bridge NSData*)oldCurrentItemHash
-                                      complete: ^ (NSError* operror) {
-        complete((__bridge CFErrorRef) operror);
-    }];
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+            complete((__bridge CFErrorRef) error);
+        });
+        [rpc secItemSetCurrentItemAcrossAllDevices:(__bridge NSData*)newCurrentItemReference
+                                newCurrentItemHash:(__bridge NSData*)newCurrentItemHash
+                                       accessGroup:(__bridge NSString*)accessGroup
+                                        identifier:(__bridge NSString*)identifier
+                                          viewHint:(__bridge NSString*)viewHint
+                           oldCurrentItemReference:(__bridge NSData*)oldCurrentItemReference
+                                oldCurrentItemHash:(__bridge NSData*)oldCurrentItemHash
+                                          complete: ^ (NSError* operror) {
+            complete((__bridge CFErrorRef) operror);
+        }];
+    }
 }
 
 void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
@@ -126,16 +128,18 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
     os_activity_t activity = os_activity_create("SecItemFetchCurrentItemAcrossAllDevices", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
-    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
-        complete(NULL, (__bridge CFErrorRef) error);
-    });
-    [rpc secItemFetchCurrentItemAcrossAllDevices:(__bridge NSString*)accessGroup
-                                      identifier:(__bridge NSString*)identifier
-                                        viewHint:(__bridge NSString*)viewHint
-                                 fetchCloudValue:fetchCloudValue
-                                        complete: ^(NSData* persistentRef, NSError* operror) {
-                                            complete((__bridge CFDataRef) persistentRef, (__bridge CFErrorRef) operror);
-                                        }];
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+            complete(NULL, (__bridge CFErrorRef) error);
+        });
+        [rpc secItemFetchCurrentItemAcrossAllDevices:(__bridge NSString*)accessGroup
+                                          identifier:(__bridge NSString*)identifier
+                                            viewHint:(__bridge NSString*)viewHint
+                                     fetchCloudValue:fetchCloudValue
+                                            complete: ^(NSData* persistentRef, NSError* operror) {
+                                                complete((__bridge CFDataRef) persistentRef, (__bridge CFErrorRef) operror);
+                                            }];
+    }
 }
 
 void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray<NSDictionary *> *, NSError *))

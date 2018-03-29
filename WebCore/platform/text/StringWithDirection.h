@@ -46,9 +46,14 @@ namespace WebCore {
 // to the string.
 
 struct StringWithDirection {
+#if !COMPILER_SUPPORTS(NSDMI_FOR_AGGREGATES)
     StringWithDirection() = default;
-    StringWithDirection(const String& string, TextDirection direction) : string { string }, direction { direction } { }
-    StringWithDirection(String&& string, TextDirection direction) : string { WTFMove(string) }, direction { direction } { }
+    StringWithDirection(String string, TextDirection direction)
+        : string { WTFMove(string) }
+        , direction { direction }
+    {
+    }
+#endif
     String string;
     TextDirection direction { LTR };
 };

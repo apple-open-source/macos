@@ -49,7 +49,7 @@ bool _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityCl
 
 bool _SecServerRestoreKeychain(CFErrorRef *error);
 bool _SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
-CFDataRef _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
+CFDataRef _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error);
 bool _SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
 CFStringRef _SecServerBackupCopyUUID(CFDataRef backup, CFErrorRef *error);
 
@@ -84,6 +84,9 @@ SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error);
 SecDbRef SecKeychainDbInitialize(SecDbRef db);
 
 bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
+bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemDataSourceFactoryGetDefault()
+bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
+bool kc_is_unlocked(void);
 
 
 /* For whitebox testing only */
@@ -124,6 +127,8 @@ bool _SecServerGetKeyStats(const SecDbClass *qclass, struct _SecServerKeyStats *
 
 CF_RETURNS_RETAINED CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
 bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
+
+bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *error);
 
 
 // Should all be blocks called from SecItemDb

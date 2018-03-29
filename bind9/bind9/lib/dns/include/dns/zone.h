@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -88,6 +88,12 @@ typedef enum {
 #define DNS_ZONEOPT_CHECKDUPRR	  0x20000000U   /*%< check-dup-records */
 #define DNS_ZONEOPT_CHECKDUPRRFAIL 0x40000000U	/*%< fatal check-dup-records failures */
 #define DNS_ZONEOPT_CHECKSPF	  0x80000000U	/*%< check SPF records */
+
+/*
+ * The following zone options are shifted left into the
+ * higher-order 32 bits of the options.
+ */
+#define DNS_ZONEOPT2_CHECKTTL	  0x00000001	/*%< check max-zone-ttl */
 
 #ifndef NOMINUM_PUBLIC
 /*
@@ -289,6 +295,56 @@ dns_zone_getfile(dns_zone_t *zone);
  *\li	Pointer to null-terminated file name, or NULL.
  */
 
+void
+dns_zone_setmaxrecords(dns_zone_t *zone, isc_uint32_t records);
+/*%<
+ * 	Sets the maximim number of records permitted in a zone.
+ *	0 implies unlimited.
+ *
+ * Requires:
+ *\li	'zone' to be valid initialised zone.
+ *
+ * Returns:
+ *\li	void
+ */
+
+isc_uint32_t
+dns_zone_getmaxrecords(dns_zone_t *zone);
+/*%<
+ * 	Gets the maximim number of records permitted in a zone.
+ *	0 implies unlimited.
+ *
+ * Requires:
+ *\li	'zone' to be valid initialised zone.
+ *
+ * Returns:
+ *\li	isc_uint32_t maxrecords.
+ */
+
+void
+dns_zone_setmaxttl(dns_zone_t *zone, isc_uint32_t maxttl);
+/*%<
+ * 	Sets the max ttl of the zone.
+ *
+ * Requires:
+ *\li	'zone' to be valid initialised zone.
+ *
+ * Returns:
+ *\li	void
+ */
+
+dns_ttl_t
+dns_zone_getmaxttl(dns_zone_t *zone);
+/*%<
+ * 	Gets the max ttl of the zone.
+ *
+ * Requires:
+ *\li	'zone' to be valid initialised zone.
+ *
+ * Returns:
+ *\li	dns_ttl_t maxttl.
+ */
+
 isc_result_t
 dns_zone_load(dns_zone_t *zone);
 
@@ -331,6 +387,15 @@ dns_zone_asyncload(dns_zone_t *zone, dns_zt_zoneloaded_t done, void *arg);
  * its first argument and 'zone' as its second.  (Normally, 'arg' is
  * expected to point to the zone table but is left undefined for testing
  * purposes.)
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ *
+ * Returns:
+ *\li	#ISC_R_ALREADYRUNNING
+ *\li	#ISC_R_SUCCESS
+ *\li	#ISC_R_FAILURE
+ *\li	#ISC_R_NOMEMORY
  */
 
 isc_boolean_t
@@ -598,7 +663,11 @@ dns_zone_setalsonotify(dns_zone_t *zone, const isc_sockaddr_t *notify,
 		       isc_uint32_t count);
 isc_result_t
 dns_zone_setalsonotifywithkeys(dns_zone_t *zone, const isc_sockaddr_t *notify,
-							   dns_name_t **keynames, isc_uint32_t count);
+			       dns_name_t **keynames, isc_uint32_t count);
+isc_result_t
+dns_zone_setalsonotifydscpkeys(dns_zone_t *zone, const isc_sockaddr_t *notify,
+			       const isc_dscp_t *dscps, dns_name_t **keynames,
+			       isc_uint32_t count);
 /*%<
  *	Set the list of additional servers to be notified when
  *	a zone changes.	 To clear the list use 'count = 0'.
@@ -626,10 +695,19 @@ dns_zone_unload(dns_zone_t *zone);
  */
 
 void
-dns_zone_setoption(dns_zone_t *zone, unsigned int option, isc_boolean_t value);
+dns_zone_setoption(dns_zone_t *zone, unsigned int option,
+		   isc_boolean_t value);
+void
+dns_zone_setoption2(dns_zone_t *zone, unsigned int option,
+		    isc_boolean_t value);
 /*%<
- *	Set given options on ('value' == ISC_TRUE) or off ('value' ==
- *	#ISC_FALSE).
+ *	Set the given options on ('value' == ISC_TRUE) or off
+ *	('value' == #ISC_FALSE).
+ *
+ *	dns_zone_setoption2() has been introduced because the number
+ *	of options needed now exceeds the 32 bits in the zone->options
+ *	field; it should be used set options with names beginning
+ *	with DNS_ZONEOPT2_.
  *
  * Require:
  *\li	'zone' to be a valid zone.
@@ -637,8 +715,16 @@ dns_zone_setoption(dns_zone_t *zone, unsigned int option, isc_boolean_t value);
 
 unsigned int
 dns_zone_getoptions(dns_zone_t *zone);
+unsigned int
+dns_zone_getoptions2(dns_zone_t *zone);
 /*%<
  *	Returns the current zone options.
+ *
+ *	Callers should be aware there is now more than one set of zone
+ *	options.  dns_zone_getoptions2() has been introduced because the
+ *	number of options needed now exceeds the 32 bits in the
+ *	zone->options field. It returns the options whose names begin
+ *	with DNS_ZONEOPT2_.
  *
  * Require:
  *\li	'zone' to be a valid zone.
@@ -732,6 +818,32 @@ dns_zone_getaltxfrsource4(dns_zone_t *zone);
  */
 
 isc_result_t
+dns_zone_setxfrsource4dscp(dns_zone_t *zone, isc_dscp_t dscp);
+isc_result_t
+dns_zone_setaltxfrsource4dscp(dns_zone_t *zone, isc_dscp_t dscp);
+/*%<
+ * Set the DSCP value associated with the transfer/alt-transfer source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ */
+
+isc_dscp_t
+dns_zone_getxfrsource4dscp(dns_zone_t *zone);
+isc_dscp_t
+dns_zone_getaltxfrsource4dscp(dns_zone_t *zone);
+/*%/
+ * Get the DSCP value associated with the transfer/alt-transfer source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ */
+
+
+isc_result_t
 dns_zone_setxfrsource6(dns_zone_t *zone, const isc_sockaddr_t *xfrsource);
 isc_result_t
 dns_zone_setaltxfrsource6(dns_zone_t *zone,
@@ -759,6 +871,31 @@ dns_zone_getaltxfrsource6(dns_zone_t *zone);
  *\li	'zone' to be a valid zone.
  */
 
+isc_dscp_t
+dns_zone_getxfrsource6dscp(dns_zone_t *zone);
+isc_dscp_t
+dns_zone_getaltxfrsource6dscp(dns_zone_t *zone);
+/*%/
+ * Get the DSCP value associated with the transfer/alt-transfer source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ */
+
+isc_result_t
+dns_zone_setxfrsource6dscp(dns_zone_t *zone, isc_dscp_t dscp);
+isc_result_t
+dns_zone_setaltxfrsource6dscp(dns_zone_t *zone, isc_dscp_t dscp);
+/*%<
+ * Set the DSCP value associated with the transfer/alt-transfer source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ */
+
 isc_result_t
 dns_zone_setnotifysrc4(dns_zone_t *zone, const isc_sockaddr_t *notifysrc);
 /*%<
@@ -782,6 +919,27 @@ dns_zone_getnotifysrc4(dns_zone_t *zone);
  *\li	'zone' to be a valid zone.
  */
 
+isc_dscp_t
+dns_zone_getnotifysrc4dscp(dns_zone_t *zone);
+/*%/
+ * Get the DSCP value associated with the IPv4 notify source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ */
+
+isc_result_t
+dns_zone_setnotifysrc4dscp(dns_zone_t *zone, isc_dscp_t dscp);
+/*%<
+ * Set the DSCP value associated with the IPv4 notify source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ */
+
 isc_result_t
 dns_zone_setnotifysrc6(dns_zone_t *zone, const isc_sockaddr_t *notifysrc);
 /*%<
@@ -803,6 +961,27 @@ dns_zone_getnotifysrc6(dns_zone_t *zone);
  *
  * Require:
  *\li	'zone' to be a valid zone.
+ */
+
+isc_dscp_t
+dns_zone_getnotifysrc6dscp(dns_zone_t *zone);
+/*%/
+ * Get the DSCP value associated with the IPv6 notify source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ */
+
+isc_result_t
+dns_zone_setnotifysrc6dscp(dns_zone_t *zone, isc_dscp_t dscp);
+/*%<
+ * Set the DSCP value associated with the IPv6 notify source.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
  */
 
 void
@@ -1473,8 +1652,8 @@ dns_zonemgr_managezone(dns_zonemgr_t *zmgr, dns_zone_t *zone);
 isc_result_t
 dns_zonemgr_forcemaint(dns_zonemgr_t *zmgr);
 /*%<
- * Force zone maintenance of all zones managed by 'zmgr' at its
- * earliest convenience.
+ * Force zone maintenance of all loaded zones managed by 'zmgr'
+ * to take place at the system's earliest convenience.
  */
 
 void
@@ -1725,19 +1904,11 @@ dns_zone_setrcvquerystats(dns_zone_t *zone, dns_stats_t *stats);
  *\li	stats is a valid statistics.
  */
 
-#ifdef NEWSTATS
-void
-dns_zone_setrcvquerystats(dns_zone_t *zone, dns_stats_t *stats);
-#endif
-
 isc_stats_t *
 dns_zone_getrequeststats(dns_zone_t *zone);
 
-#ifdef NEWSTATS
 dns_stats_t *
 dns_zone_getrcvquerystats(dns_zone_t *zone);
-#endif
-
 /*%<
  * Get the additional statistics for zone, if one is installed.
  *
@@ -1785,6 +1956,16 @@ void
 dns_zone_name(dns_zone_t *zone, char *buf, size_t len);
 /*%<
  * Return the name of the zone with class and view.
+ *
+ * Requires:
+ *\li	'zone' to be valid.
+ *\li	'buf' to be non NULL.
+ */
+
+void
+dns_zone_nameonly(dns_zone_t *zone, char *buf, size_t len);
+/*%<
+ * Return the name of the zone only.
  *
  * Requires:
  *\li	'zone' to be valid.
@@ -1894,6 +2075,12 @@ dns_zone_setsignatures(dns_zone_t *zone, isc_uint32_t signatures);
  * Set the number of signatures that will be generated per quantum.
  */
 
+isc_uint32_t
+dns_zone_getsignatures(dns_zone_t *zone);
+/*%<
+ * Get the number of signatures that will be generated per quantum.
+ */
+
 isc_result_t
 dns_zone_signwithkey(dns_zone_t *zone, dns_secalg_t algorithm,
 		     isc_uint16_t keyid, isc_boolean_t deleteit);
@@ -1944,6 +2131,23 @@ dns_zone_nscheck(dns_zone_t *zone, dns_db_t *db, dns_dbversion_t *version,
  *
  * Returns:
  * 	ISC_R_SUCCESS if there were no errors examining the zone contents.
+ */
+
+isc_result_t
+dns_zone_cdscheck(dns_zone_t *zone, dns_db_t *db, dns_dbversion_t *version);
+/*%
+ * Check if CSD, CDNSKEY and DNSKEY are consistent.
+ *
+ * Requires:
+ * \li	'zone' to be valid.
+ * \li	'db' to be valid.
+ * \li	'version' to be valid or NULL.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ *\li	#DNS_R_BADCDS
+ *\li	#DNS_R_BADCDNSKEY
+ *	Others
  */
 
 void
@@ -2081,19 +2285,54 @@ dns_zone_synckeyzone(dns_zone_t *zone);
  */
 
 isc_result_t
-dns_zone_rpz_enable(dns_zone_t *zone);
+dns_zone_getloadtime(dns_zone_t *zone, isc_time_t *loadtime);
+/*%
+ * Return the time when the zone was last loaded.
+ */
+
+isc_result_t
+dns_zone_getrefreshtime(dns_zone_t *zone, isc_time_t *refreshtime);
+/*%
+ * Return the time when the (slave) zone will need to be refreshed.
+ */
+
+isc_result_t
+dns_zone_getexpiretime(dns_zone_t *zone, isc_time_t *expiretime);
+/*%
+ * Return the time when the (slave) zone will expire.
+ */
+
+isc_result_t
+dns_zone_getrefreshkeytime(dns_zone_t *zone, isc_time_t *refreshkeytime);
+/*%
+ * Return the time of the next scheduled DNSSEC key event.
+ */
+
+unsigned int
+dns_zone_getincludes(dns_zone_t *zone, char ***includesp);
+/*%
+ * Return the number include files that were encountered
+ * during load.  If the number is greater than zero, 'includesp'
+ * will point to an array containing the filenames.
+ *
+ * The array and its contents need to be freed using isc_mem_free.
+ */
+
+isc_result_t
+dns_zone_rpz_enable(dns_zone_t *zone, dns_rpz_zones_t *rpzs,
+		    dns_rpz_num_t rpz_num);
 /*%
  * Set the response policy associated with a zone.
  */
 
-isc_result_t
+void
 dns_zone_rpz_enable_db(dns_zone_t *zone, dns_db_t *db);
 /*%
  * If a zone is a response policy zone, mark its new database.
  */
 
-isc_boolean_t
-dns_zone_get_rpz(dns_zone_t *zone);
+dns_rpz_num_t
+dns_zone_get_rpz_num(dns_zone_t *zone);
 
 void
 dns_zone_setstatlevel(dns_zone_t *zone, dns_zonestat_level_t level);
@@ -2106,5 +2345,6 @@ dns_zone_getstatlevel(dns_zone_t *zone);
  */
 
 ISC_LANG_ENDDECLS
+
 
 #endif /* DNS_ZONE_H */

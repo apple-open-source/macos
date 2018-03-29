@@ -30,12 +30,12 @@
 #import "LegacyCustomProtocolManager.h"
 #import "NetworkProcess.h"
 #import "NetworkSession.h"
+#import "NetworkSessionCreationParameters.h"
 #import "SessionTracker.h"
 #import "WebErrors.h"
 #import "WebsiteDataStoreParameters.h"
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/ResourceError.h>
-#import <WebKitSystemInterface.h>
 #import <wtf/MainThread.h>
 
 using namespace WebCore;
@@ -81,34 +81,10 @@ ResourceError RemoteNetworkingContext::blockedError(const ResourceRequest& reque
     return WebKit::blockedError(request);
 }
 
-void RemoteNetworkingContext::ensurePrivateBrowsingSession(WebsiteDataStoreParameters&& parameters)
-{
-    ASSERT(parameters.sessionID.isEphemeral());
-
-    if (NetworkStorageSession::storageSession(parameters.sessionID))
-        return;
-
-    String base;
-    if (SessionTracker::getIdentifierBase().isNull())
-        base = [[NSBundle mainBundle] bundleIdentifier];
-    else
-        base = SessionTracker::getIdentifierBase();
-
-    NetworkStorageSession::ensurePrivateBrowsingSession(parameters.sessionID, base + '.' + String::number(parameters.sessionID.sessionID()));
-
-    auto* session = NetworkStorageSession::storageSession(parameters.sessionID);
-    for (const auto& cookie : parameters.pendingCookies)
-        session->setCookie(cookie);
-
-#if USE(NETWORK_SESSION)
-    auto networkSession = NetworkSession::create(parameters.sessionID, NetworkProcess::singleton().supplement<LegacyCustomProtocolManager>());
-    SessionTracker::setSession(parameters.sessionID, WTFMove(networkSession));
-#endif
-}
-
 void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&& parameters)
 {
-    if (NetworkStorageSession::storageSession(parameters.sessionID))
+    auto sessionID = parameters.networkSessionParameters.sessionID;
+    if (NetworkStorageSession::storageSession(sessionID))
         return;
 
     String base;
@@ -117,21 +93,28 @@ void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStorePara
     else
         base = SessionTracker::getIdentifierBase();
 
-    SandboxExtension::consumePermanently(parameters.cookieStoragePathExtensionHandle);
+    if (!sessionID.isEphemeral())
+        SandboxExtension::consumePermanently(parameters.cookieStoragePathExtensionHandle);
 
     RetainPtr<CFHTTPCookieStorageRef> uiProcessCookieStorage;
-    if (!parameters.uiProcessCookieStorageIdentifier.isEmpty())
+    if (!sessionID.isEphemeral() && !parameters.uiProcessCookieStorageIdentifier.isEmpty())
         uiProcessCookieStorage = cookieStorageFromIdentifyingData(parameters.uiProcessCookieStorageIdentifier);
 
-    NetworkStorageSession::ensureSession(parameters.sessionID, base + '.' + String::number(parameters.sessionID.sessionID()), WTFMove(uiProcessCookieStorage));
+    NetworkStorageSession::ensureSession(sessionID, base + '.' + String::number(sessionID.sessionID()), WTFMove(uiProcessCookieStorage));
 
-    auto* session = NetworkStorageSession::storageSession(parameters.sessionID);
+    auto* session = NetworkStorageSession::storageSession(sessionID);
     for (const auto& cookie : parameters.pendingCookies)
         session->setCookie(cookie);
 
+    if (!sessionID.isEphemeral() && !parameters.cacheStorageDirectory.isNull()) {
+        SandboxExtension::consumePermanently(parameters.cacheStorageDirectoryExtensionHandle);
+        session->setCacheStorageDirectory(WTFMove(parameters.cacheStorageDirectory));
+        session->setCacheStoragePerOriginQuota(parameters.cacheStoragePerOriginQuota);
+    }
+
 #if USE(NETWORK_SESSION)
-    auto networkSession = NetworkSession::create(parameters.sessionID, NetworkProcess::singleton().supplement<LegacyCustomProtocolManager>());
-    SessionTracker::setSession(parameters.sessionID, WTFMove(networkSession));
+    parameters.networkSessionParameters.legacyCustomProtocolManager = NetworkProcess::singleton().supplement<LegacyCustomProtocolManager>();
+    SessionTracker::setSession(sessionID, NetworkSession::create(WTFMove(parameters.networkSessionParameters)));
 #endif
 }
 

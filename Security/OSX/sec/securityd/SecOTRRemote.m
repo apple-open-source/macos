@@ -147,6 +147,7 @@ bool _SecOTRSessionProcessPacketRemote(CFDataRef sessionData, CFDataRef inputPac
     *outputPacket = negotiationResponse;
     
     *readyForMessages = SecOTRSGetIsReadyForMessages(session);
+    CFReleaseNull(session);
     
     return true;
 }

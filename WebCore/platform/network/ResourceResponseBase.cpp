@@ -82,6 +82,7 @@ ResourceResponseBase::CrossThreadData ResourceResponseBase::crossThreadData() co
     data.httpHeaderFields = httpHeaderFields().isolatedCopy();
     data.networkLoadMetrics = m_networkLoadMetrics.isolatedCopy();
     data.type = m_type;
+    data.tainting = m_tainting;
     data.isRedirected = m_isRedirected;
 
     return data;
@@ -103,16 +104,26 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
     response.m_httpHeaderFields = WTFMove(data.httpHeaderFields);
     response.m_networkLoadMetrics = data.networkLoadMetrics;
     response.m_type = data.type;
+    response.m_tainting = data.tainting;
     response.m_isRedirected = data.isRedirected;
 
     return response;
 }
 
-ResourceResponse ResourceResponseBase::filterResponse(const ResourceResponse& response, ResourceResponse::Tainting tainting)
+ResourceResponse ResourceResponseBase::filter(const ResourceResponse& response)
 {
-    if (tainting == ResourceResponse::Tainting::Opaque) {
+    if (response.tainting() == Tainting::Opaque) {
         ResourceResponse opaqueResponse;
-        opaqueResponse.setType(ResourceResponse::Type::Opaque);
+        opaqueResponse.setTainting(Tainting::Opaque);
+        opaqueResponse.setType(Type::Opaque);
+        return opaqueResponse;
+    }
+
+    if (response.tainting() == Tainting::Opaqueredirect) {
+        ResourceResponse opaqueResponse;
+        opaqueResponse.setTainting(Tainting::Opaqueredirect);
+        opaqueResponse.setType(Type::Opaqueredirect);
+        opaqueResponse.setURL(response.url());
         return opaqueResponse;
     }
 
@@ -120,15 +131,15 @@ ResourceResponse ResourceResponseBase::filterResponse(const ResourceResponse& re
     // Let's initialize filteredResponse to remove some header fields.
     filteredResponse.lazyInit(AllFields);
 
-    if (tainting == ResourceResponse::Tainting::Basic) {
-        filteredResponse.setType(ResourceResponse::Type::Basic);
+    if (response.tainting() == Tainting::Basic) {
+        filteredResponse.setType(Type::Basic);
         filteredResponse.m_httpHeaderFields.remove(HTTPHeaderName::SetCookie);
         filteredResponse.m_httpHeaderFields.remove(HTTPHeaderName::SetCookie2);
         return filteredResponse;
     }
 
-    ASSERT(tainting == ResourceResponse::Tainting::Cors);
-    filteredResponse.setType(ResourceResponse::Type::Cors);
+    ASSERT(response.tainting() == Tainting::Cors);
+    filteredResponse.setType(Type::Cors);
 
     HTTPHeaderSet accessControlExposeHeaderSet;
     parseAccessControlExposeHeadersAllowList(response.httpHeaderField(HTTPHeaderName::AccessControlExposeHeaders), accessControlExposeHeaderSet);
@@ -221,6 +232,12 @@ void ResourceResponseBase::setTextEncodingName(const String& encodingName)
     // FIXME: Should invalidate or update platform response if present.
 }
 
+void ResourceResponseBase::setType(Type type)
+{
+    m_isNull = false;
+    m_type = type;
+}
+
 void ResourceResponseBase::includeCertificateInfo() const
 {
     if (m_certificateInfo)
@@ -264,6 +281,7 @@ void ResourceResponseBase::setHTTPStatusCode(int statusCode)
     lazyInit(CommonFieldsOnly);
 
     m_httpStatusCode = statusCode;
+    m_isNull = false;
 
     // FIXME: Should invalidate or update platform response if present.
 }
@@ -381,6 +399,13 @@ void ResourceResponseBase::setHTTPHeaderField(const String& name, const String& 
     // FIXME: Should invalidate or update platform response if present.
 }
 
+void ResourceResponseBase::setHTTPHeaderFields(HTTPHeaderMap&& headerFields)
+{
+    lazyInit(AllFields);
+
+    m_httpHeaderFields = WTFMove(headerFields);
+}
+
 void ResourceResponseBase::setHTTPHeaderField(HTTPHeaderName name, const String& value)
 {
     lazyInit(AllFields);
@@ -462,18 +487,18 @@ bool ResourceResponseBase::hasCacheValidatorFields() const
     return !m_httpHeaderFields.get(HTTPHeaderName::LastModified).isEmpty() || !m_httpHeaderFields.get(HTTPHeaderName::ETag).isEmpty();
 }
 
-std::optional<std::chrono::microseconds> ResourceResponseBase::cacheControlMaxAge() const
+std::optional<Seconds> ResourceResponseBase::cacheControlMaxAge() const
 {
     if (!m_haveParsedCacheControlHeader)
         parseCacheControlDirectives();
     return m_cacheControlDirectives.maxAge;
 }
 
-static std::optional<std::chrono::system_clock::time_point> parseDateValueInHeader(const HTTPHeaderMap& headers, HTTPHeaderName headerName)
+static std::optional<WallTime> parseDateValueInHeader(const HTTPHeaderMap& headers, HTTPHeaderName headerName)
 {
     String headerValue = headers.get(headerName);
     if (headerValue.isEmpty())
-        return { };
+        return std::nullopt;
     // This handles all date formats required by RFC2616:
     // Sun, 06 Nov 1994 08:49:37 GMT  ; RFC 822, updated by RFC 1123
     // Sunday, 06-Nov-94 08:49:37 GMT ; RFC 850, obsoleted by RFC 1036
@@ -481,7 +506,7 @@ static std::optional<std::chrono::system_clock::time_point> parseDateValueInHead
     return parseHTTPDate(headerValue);
 }
 
-std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::date() const
+std::optional<WallTime> ResourceResponseBase::date() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -492,10 +517,8 @@ std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::date(
     return m_date;
 }
 
-std::optional<std::chrono::microseconds> ResourceResponseBase::age() const
+std::optional<Seconds> ResourceResponseBase::age() const
 {
-    using namespace std::chrono;
-
     lazyInit(CommonFieldsOnly);
 
     if (!m_haveParsedAgeHeader) {
@@ -503,13 +526,13 @@ std::optional<std::chrono::microseconds> ResourceResponseBase::age() const
         bool ok;
         double ageDouble = headerValue.toDouble(&ok);
         if (ok)
-            m_age = duration_cast<microseconds>(duration<double>(ageDouble));
+            m_age = Seconds { ageDouble };
         m_haveParsedAgeHeader = true;
     }
     return m_age;
 }
 
-std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::expires() const
+std::optional<WallTime> ResourceResponseBase::expires() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -520,7 +543,7 @@ std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::expir
     return m_expires;
 }
 
-std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastModified() const
+std::optional<WallTime> ResourceResponseBase::lastModified() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -529,7 +552,7 @@ std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastM
 #if PLATFORM(COCOA)
         // CFNetwork converts malformed dates into Epoch so we need to treat Epoch as
         // an invalid value (rdar://problem/22352838).
-        const std::chrono::system_clock::time_point epoch;
+        const WallTime epoch = WallTime::fromRawSeconds(0);
         if (m_lastModified && m_lastModified.value() == epoch)
             m_lastModified = std::nullopt;
 #endif

@@ -46,7 +46,7 @@ es{
         arc{"arameo"}
         arn{"mapuche"}
         arp{"arapaho"}
-        ars{"árabe najdi"}
+        ars{"árabe najdí"}
         arw{"arahuaco"}
         as{"asamés"}
         asa{"asu"}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -129,7 +129,14 @@ struct dig_lookup {
 		done_as_is,
 		besteffort,
 		dnssec,
-		nsid;   /*% Name Server ID (RFC 5001) */
+		expire,
+#ifdef ISC_PLATFORM_USESIT
+		sit,
+#endif
+		nsid,   /*% Name Server ID (RFC 5001) */
+		ednsneg,
+		mapped,
+		idnout;
 #ifdef DIG_SIGCHASE
 isc_boolean_t	sigchase;
 #if DIG_SIGCHASE_TD
@@ -161,7 +168,6 @@ isc_boolean_t	sigchase;
 	isc_buffer_t renderbuf;
 	char *sendspace;
 	dns_name_t *name;
-	isc_timer_t *timer;
 	isc_interval_t interval;
 	dns_message_t *sendmsg;
 	dns_name_t *oname;
@@ -183,6 +189,14 @@ isc_boolean_t	sigchase;
 	isc_buffer_t *querysig;
 	isc_uint32_t msgcounter;
 	dns_fixedname_t fdomain;
+	isc_sockaddr_t *ecs_addr;
+#ifdef ISC_PLATFORM_USESIT
+	char *sitvalue;
+#endif
+	dns_ednsopt_t *ednsopts;
+	unsigned int ednsoptscnt;
+	unsigned int ednsflags;
+	dns_opcode_t opcode;
 };
 
 /*% The dig_query structure */
@@ -196,7 +210,8 @@ struct dig_query {
 		second_rr_rcvd,
 		first_repeat_rcvd,
 		recv_made,
-		warn_id;
+		warn_id,
+		timedout;
 	isc_uint32_t first_rr_serial;
 	isc_uint32_t second_rr_serial;
 	isc_uint32_t msg_count;
@@ -221,6 +236,7 @@ struct dig_query {
 	isc_time_t time_recv;
 	isc_uint64_t byte_count;
 	isc_buffer_t sendbuf;
+	isc_timer_t *timer;
 };
 
 struct dig_server {
@@ -336,6 +352,13 @@ isc_result_t
 parse_uint(isc_uint32_t *uip, const char *value, isc_uint32_t max,
 	   const char *desc);
 
+isc_result_t
+parse_xint(isc_uint32_t *uip, const char *value, isc_uint32_t max,
+	   const char *desc);
+
+isc_result_t
+parse_netprefix(isc_sockaddr_t **sap, const char *value);
+
 void
 parse_hmac(const char *hmacstr);
 
@@ -414,6 +437,8 @@ chase_scanname(dns_name_t *name, dns_rdatatype_t type, dns_rdatatype_t covers);
 void
 chase_sig(dns_message_t *msg);
 #endif
+
+void save_opt(dig_lookup_t *lookup, char *code, char *value);
 
 ISC_LANG_ENDDECLS
 

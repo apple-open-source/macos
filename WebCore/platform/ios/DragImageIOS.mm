@@ -120,21 +120,20 @@ void deleteDragImage(DragImageRef)
 {
 }
 
-static TextIndicatorOptions defaultLinkIndicatorOptions = TextIndicatorOptionTightlyFitContent | TextIndicatorOptionRespectTextColor | TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges | TextIndicatorOptionExpandClipBeyondVisibleRect | TextIndicatorOptionComputeEstimatedBackgroundColor;
+static const TextIndicatorOptions defaultLinkIndicatorOptions = TextIndicatorOptionTightlyFitContent | TextIndicatorOptionRespectTextColor | TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges | TextIndicatorOptionExpandClipBeyondVisibleRect | TextIndicatorOptionComputeEstimatedBackgroundColor;
+
+static FontCascade cascadeForSystemFont(CGFloat size)
+{
+    UIFont *font = [getUIFontClass() systemFontOfSize:size];
+    return FontCascade(FontPlatformData(CTFontCreateWithName((CFStringRef)font.fontName, font.pointSize, nil), font.pointSize));
+}
 
 DragImageRef createDragImageForLink(Element& linkElement, URL& url, const String& title, TextIndicatorData& indicatorData, FontRenderingMode, float)
 {
     // FIXME: Most of this can go away once we can use UIURLDragPreviewView unconditionally.
-    static CGFloat dragImagePadding = 10;
-    static LazyNeverDestroyed<FontCascade> titleFontCascade;
-    static LazyNeverDestroyed<FontCascade> urlFontCascade;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^ {
-        UIFont *titleFont = [getUIFontClass() systemFontOfSize:16];
-        UIFont *urlFont = [getUIFontClass() systemFontOfSize:14];
-        titleFontCascade.construct(FontPlatformData(CTFontCreateWithName((CFStringRef)titleFont.fontName, titleFont.pointSize, nil), titleFont.pointSize), AutoSmoothing);
-        urlFontCascade.construct(FontPlatformData(CTFontCreateWithName((CFStringRef)urlFont.fontName, urlFont.pointSize, nil), urlFont.pointSize), AutoSmoothing);
-    });
+    static const CGFloat dragImagePadding = 10;
+    static const auto titleFontCascade = makeNeverDestroyed(cascadeForSystemFont(16));
+    static const auto urlFontCascade = makeNeverDestroyed(cascadeForSystemFont(14));
 
     String topString(title.stripWhiteSpace());
     String bottomString([(NSURL *)url absoluteString]);
@@ -157,9 +156,9 @@ DragImageRef createDragImageForLink(Element& linkElement, URL& url, const String
         context.translate(0, CGRectGetHeight(imageRect));
         context.scale({ 1, -1 });
         context.fillRoundedRect(FloatRoundedRect(imageRect, FloatRoundedRect::Radii(4)), { 255, 255, 255 });
-        titleFontCascade->drawText(context, TextRun(truncatedTopString), FloatPoint(dragImagePadding, 18 + dragImagePadding));
+        titleFontCascade.get().drawText(context, TextRun(truncatedTopString), FloatPoint(dragImagePadding, 18 + dragImagePadding));
         if (!truncatedBottomString.isEmpty())
-            urlFontCascade->drawText(context, TextRun(truncatedBottomString), FloatPoint(dragImagePadding, 40 + dragImagePadding));
+            urlFontCascade.get().drawText(context, TextRun(truncatedBottomString), FloatPoint(dragImagePadding, 40 + dragImagePadding));
     }];
 
     auto linkRange = rangeOfContents(linkElement);

@@ -1,4 +1,4 @@
-# Copyright (C) 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2009, 2012, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@ srcdir =	@srcdir@
 VPATH =		@srcdir@
 top_srcdir =	@top_srcdir@
 
-@BIND9_VERSION@
+VERSION=@BIND9_VERSION@
 
 @BIND9_MAKE_INCLUDES@
 
@@ -50,19 +50,15 @@ NOSYMLIBS =	${DNSLIBS} ${ISCNOSYMLIBS} @LIBS@
 
 CONFDEPLIBS =	${DNSDEPLIBS} ${ISCDEPLIBS}
 
-#SRCS=		rndc-confgen.c ddns-confgen.c
-SRCS=		ddns-confgen.c
+SRCS=		rndc-confgen.c ddns-confgen.c
 
 SUBDIRS =	unix
 
-#TARGETS =	rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@
-TARGETS =	ddns-confgen@EXEEXT@
+TARGETS =	rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@ tsig-keygen@EXEEXT@
 
-#MANPAGES =	rndc-confgen.8 ddns-confgen.8
-MANPAGES =	ddns-confgen.8
+MANPAGES =	rndc-confgen.8 ddns-confgen.8
 
-#HTMLPAGES =	rndc-confgen.html ddns-confgen.html
-HTMLPAGES =	ddns-confgen.html
+HTMLPAGES =	rndc-confgen.html ddns-confgen.html
 
 MANOBJS =	${MANPAGES} ${HTMLPAGES}
 
@@ -78,13 +74,18 @@ rndc-confgen.@O@: rndc-confgen.c
 ddns-confgen.@O@: ddns-confgen.c
 	${LIBTOOL_MODE_COMPILE} ${CC} ${ALL_CFLAGS} -c ${srcdir}/ddns-confgen.c
 
-rndc-confgen@EXEEXT@: rndc-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS} ${CONFDEPLIBS} 
+rndc-confgen@EXEEXT@: rndc-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS} ${CONFDEPLIBS}
 	export BASEOBJS="rndc-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS}"; \
 	${FINALBUILDCMD}
 
-ddns-confgen@EXEEXT@: ddns-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS} ${CONFDEPLIBS} 
+ddns-confgen@EXEEXT@: ddns-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS} ${CONFDEPLIBS}
 	export BASEOBJS="ddns-confgen.@O@ util.@O@ keygen.@O@ ${UOBJS}"; \
 	${FINALBUILDCMD}
+
+# make a link in the build directory to assist with testing
+tsig-keygen@EXEEXT@: ddns-confgen@EXEEXT@
+	rm -f tsig-keygen@EXEEXT@
+	${LINK_PROGRAM} ddns-confgen@EXEEXT@ tsig-keygen@EXEEXT@
 
 doc man:: ${MANOBJS}
 
@@ -98,6 +99,16 @@ installdirs:
 install:: ddns-confgen@EXEEXT@ installdirs
 	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} ddns-confgen@EXEEXT@ ${DESTDIR}${sbindir}
 	${INSTALL_DATA} ${srcdir}/ddns-confgen.8 ${DESTDIR}${mandir}/man8
+	(cd ${DESTDIR}${sbindir}; rm -f tsig-keygen@EXEEXT@; ${LINK_PROGRAM} ddns-confgen@EXEEXT@ tsig-keygen@EXEEXT@)
+	(cd ${DESTDIR}${mandir}/man8; rm -f tsig-keygen.8; ${LINK_PROGRAM} ddns-confgen.8 tsig-keygen.8)
+
+uninstall::
+	rm -f ${DESTDIR}${mandir}/man8/tsig-keygen.8
+	rm -f ${DESTDIR}${sbindir}/tsig-keygen@EXEEXT@
+	rm -f ${DESTDIR}${mandir}/man8/ddns-confgen.8
+	rm -f ${DESTDIR}${mandir}/man8/rndc-confgen.8
+	${LIBTOOL_MODE_UNINSTALL} rm -f ${DESTDIR}${sbindir}/ddns-confgen@EXEEXT@
+	${LIBTOOL_MODE_UNINSTALL} rm -f ${DESTDIR}${sbindir}/rndc-confgen@EXEEXT@
 
 clean distclean maintainer-clean::
 	rm -f ${TARGETS}

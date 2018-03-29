@@ -27,15 +27,14 @@
 #include "GraphicsContext.h"
 #include "RenderSVGText.h"
 #include "SVGRenderingContext.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceGradient);
+
 RenderSVGResourceGradient::RenderSVGResourceGradient(SVGGradientElement& node, RenderStyle&& style)
     : RenderSVGResourceContainer(node, WTFMove(style))
-    , m_shouldCollectGradientAttributes(true)
-#if USE(CG)
-    , m_savedContext(0)
-#endif
 {
 }
 
@@ -87,8 +86,8 @@ static inline AffineTransform clipToTextMask(GraphicsContext& context, std::uniq
     AffineTransform matrix;
     if (boundingBoxMode) {
         FloatRect maskBoundingBox = textRootBlock->objectBoundingBox();
-        matrix.translate(maskBoundingBox.x(), maskBoundingBox.y());
-        matrix.scaleNonUniform(maskBoundingBox.width(), maskBoundingBox.height());
+        matrix.translate(maskBoundingBox.location());
+        matrix.scale(maskBoundingBox.size());
     }
     matrix *= gradientTransform;
     return matrix;
@@ -136,8 +135,8 @@ bool RenderSVGResourceGradient::applyResource(RenderElement& renderer, const Ren
 #else
         if (gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX && !objectBoundingBox.isEmpty()) {
 #endif
-            gradientData->userspaceTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
-            gradientData->userspaceTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
+            gradientData->userspaceTransform.translate(objectBoundingBox.location());
+            gradientData->userspaceTransform.scale(objectBoundingBox.size());
         }
 
         AffineTransform gradientTransform;
@@ -200,7 +199,7 @@ void RenderSVGResourceGradient::postApplyResource(RenderElement& renderer, Graph
         if (m_savedContext && (gradientData = m_gradientMap.get(&renderer))) {
             // Restore on-screen drawing context
             context = m_savedContext;
-            m_savedContext = 0;
+            m_savedContext = nullptr;
 
             AffineTransform gradientTransform;
             calculateGradientTransform(gradientTransform);

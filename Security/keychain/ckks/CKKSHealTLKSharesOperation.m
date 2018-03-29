@@ -89,7 +89,7 @@
             ckksnotice("ckksshare", ckks, "Key set is %@", keyset);
         }
 
-        //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:ckks.zoneName];
+        [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:ckks.zoneName];
 
         // Okay! Perform the checks.
         if(![keyset.tlk loadKeyMaterialFromKeychain:&error] || error) {
@@ -140,8 +140,7 @@
                                                                                           recordIDsToDelete:recordIDsToDelete];
         modifyRecordsOp.atomic = YES;
         modifyRecordsOp.longLived = NO;
-        modifyRecordsOp.timeoutIntervalForRequest = 10;
-        modifyRecordsOp.qualityOfService = NSQualityOfServiceUtility;  // relatively important. Use Utility.
+        modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // very important: get the TLKShares off-device ASAP
         modifyRecordsOp.group = self.ckoperationGroup;
         ckksnotice("ckksshare", ckks, "Operation group is %@", self.ckoperationGroup);
 

@@ -47,6 +47,8 @@ typedef struct {
 #define kDefaultDevKernelPath   "/System/Library/Kernels/kernel.development"
 #define kDefaultDevKernelSuffix ".development"
 
+#define kImmutableKernelFileName "immutablekernel"
+
 // 17 leap days from 1904 to 1970, inclusive
 #define UNIX_MAC_TIME_DELTA ((1970-1904)*365*86400 + 17*86400)
 #define HFS_TIME_END (((1LL<<32) - 1) - UNIX_MAC_TIME_DELTA)
@@ -294,6 +296,9 @@ Boolean getKernelPathForURL(
 Boolean useDevelopmentKernel(const char * theKernelPath);
 Boolean isDebugSetInBootargs(void);
 
+// path translation from prelinkedkernel to immutablekernel
+bool translatePrelinkedToImmutablePath(const char *prelinked_path,
+                                       char *imk_path, size_t imk_len);
 
 /*********************************************************************
 * From IOKitUser/kext.subproj/OSKext.c.

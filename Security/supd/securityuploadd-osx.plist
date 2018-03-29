@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ProcessType</key>
+	<string>Adaptive</string>
+	<key>Label</key>
+	<string>com.apple.securityuploadd</string>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/securityuploadd</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.securityuploadd</key>
+		<true/>
+	</dict>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.xpc.activity</key>
+		<dict>
+			<key>com.apple.securityuploadd.triggerupload</key>
+			<dict>
+				<key>Priority</key>
+				<string>Maintenance</string>
+				<key>PowerNap</key>
+				<true/>
+				<key>AllowBattery</key>
+				<false/>
+				<key>Interval</key>
+				<integer>43200</integer>
+				<key>GracePeriod</key>
+				<integer>21600</integer>
+				<key>RequireInexpensiveNetworkConnectivity</key>
+				<true/>
+				<key>NetworkTransferDirection</key>
+				<string>Bidirectional</string>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

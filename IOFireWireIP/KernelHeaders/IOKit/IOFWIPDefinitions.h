@@ -363,7 +363,7 @@ class RCB : public IOCommand
 	OSDeclareDefaultStructors(RCB);
 
 private:
-    void free();
+    void free(void) APPLE_KEXT_OVERRIDE;
 	
 public:
 	UInt16	sourceID;           /* Saved from LK_DATA.indication */

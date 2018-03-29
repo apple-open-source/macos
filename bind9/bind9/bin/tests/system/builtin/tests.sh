@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2011, 2012, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -13,6 +13,9 @@
 # PERFORMANCE OF THIS SOFTWARE.
 
 # $Id: tests.sh,v 1.3 2011/08/09 04:12:25 tbox Exp $
+
+SYSTEMTESTTOP=..
+. $SYSTEMTESTTOP/conf.sh
 
 status=0
 n=0
@@ -40,21 +43,20 @@ grep "zone serial (0) unchanged." ns1/named.run > /dev/null && ret=1
 if [ $ret != 0 ] ; then echo I:failed; status=`expr $status + $ret`; fi
 
 VERSION=`../../../../isc-config.sh  --version | cut -d = -f 2`
-HOSTNAME=`./gethostname`
-NSID=`./gethostname | sed -e 's/\(.\)/(\1)/g' -e 's/)(/) (/g'`
+HOSTNAME=`$FEATURETEST --gethostname`
 
 n=`expr $n + 1`
 ret=0
 echo "I:Checking that default version works for rndc ($n)"
 $RNDC -c ../common/rndc.conf -s 10.53.0.1 -p 9953 status > rndc.status.ns1.$n 2>&1
-grep "^version: $VERSION " rndc.status.ns1.$n > /dev/null || ret=1
+grep "^version: BIND $VERSION " rndc.status.ns1.$n > /dev/null || ret=1
 if [ $ret != 0 ] ; then echo I:failed; status=`expr $status + $ret`; fi
 
 n=`expr $n + 1`
 ret=0
 echo "I:Checking that custom version works for rndc ($n)"
 $RNDC -c ../common/rndc.conf -s 10.53.0.3 -p 9953 status > rndc.status.ns3.$n 2>&1
-grep "^version: $VERSION (this is a test of version) " rndc.status.ns3.$n > /dev/null || ret=1
+grep "^version: BIND $VERSION ${DESCRIPTION}${DESCRIPTION:+ }<id:........*> (this is a test of version)" rndc.status.ns3.$n > /dev/null || ret=1
 if [ $ret != 0 ] ; then echo I:failed; status=`expr $status + $ret`; fi
 
 n=`expr $n + 1`
@@ -104,7 +106,7 @@ n=`expr $n + 1`
 ret=0
 echo "I:Checking that server-id hostname works for EDNS name server ID request ($n)"
 $DIG +norec +nsid foo @10.53.0.2 -p 5300 > dig.out.ns2.$n
-grep "^; NSID: .* $NSID" dig.out.ns2.$n > /dev/null || ret=1
+grep "^; NSID: .* (\"$HOSTNAME\")$" dig.out.ns2.$n > /dev/null || ret=1
 if [ $ret != 0 ] ; then echo I:failed; status=`expr $status + $ret`; fi
 
 n=`expr $n + 1`
@@ -118,7 +120,8 @@ n=`expr $n + 1`
 ret=0
 echo "I:Checking that custom server-id works for EDNS name server ID request ($n)"
 $DIG +norec +nsid foo @10.53.0.3 -p 5300 > dig.out.ns3.$n
-grep "^; NSID: .* (t) (h) (i) (s) (.) (i) (s) (.) (a) (.) (t) (e) (s) (t) (.) (o) (f) (.) (s) (e) (r) (v) (e) (r) (-) (i) (d)" dig.out.ns3.$n > /dev/null || ret=1
+grep "^; NSID: .* (\"this.is.a.test.of.server-id\")$" dig.out.ns3.$n > /dev/null || ret=1
 if [ $ret != 0 ] ; then echo I:failed; status=`expr $status + $ret`; fi
 
-exit $status
+echo "I:exit status: $status"
+[ $status -eq 0 ] || exit 1

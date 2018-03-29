@@ -348,14 +348,11 @@ extern const CFStringRef kSecAttrViewHintPCSMailDrop;
 extern const CFStringRef kSecAttrViewHintPCSiCloudBackup;
 extern const CFStringRef kSecAttrViewHintPCSNotes;
 extern const CFStringRef kSecAttrViewHintPCSiMessage;
-#if SEC_OS_IPHONE
 extern const CFStringRef kSecAttrViewHintPCSFeldspar;
-#endif /* SEC_OS_IPHONE */
 extern const CFStringRef kSecAttrViewHintPCSSharing;
 
 extern const CFStringRef kSecAttrViewHintAppleTV;
 extern const CFStringRef kSecAttrViewHintHomeKit;
-extern const CFStringRef kSecAttrViewHintThumper;
 extern const CFStringRef kSecAttrViewHintContinuityUnlock;
 extern const CFStringRef kSecAttrViewHintAccessoryPairing;
 extern const CFStringRef kSecAttrViewHintNanoRegistry;
@@ -538,8 +535,11 @@ CFDataRef _SecKeychainCopyBackup(CFDataRef backupKeybag, CFDataRef password);
 CFDataRef _SecKeychainCopyOTABackup(void);
 OSStatus _SecKeychainRestoreBackup(CFDataRef backup, CFDataRef backupKeybag,
     CFDataRef password);
+/*
+    EMCS backups are similar to regular backups but we do not want to unlock the keybag
+ */
+CFDataRef _SecKeychainCopyEMCSBackup(CFDataRef backupKeybag);
 
-#if SEC_OS_IPHONE
 bool
 _SecKeychainWriteBackupToFileDescriptor(CFDataRef backupKeybag, CFDataRef password, int fd, CFErrorRef *error);
 
@@ -548,7 +548,6 @@ _SecKeychainRestoreBackupFromFileDescriptor(int fd, CFDataRef backupKeybag, CFDa
 
 CFStringRef
 _SecKeychainCopyKeybagUUIDFromFileDescriptor(int fd, CFErrorRef *error);
-#endif /* SEC_OS_IPHONE */
 
 OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out);
 OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in);
@@ -569,7 +568,7 @@ bool _SecKeychainRollKeys(bool force, CFErrorRef *error);
 
 CFDictionaryRef _SecSecuritydCopyWhoAmI(CFErrorRef *error);
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyCKKSEndpoint(CFErrorRef *error);
-XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopySOSStatusEndpoint(CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error);
 
 #if SEC_OS_IPHONE
 bool _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error);
@@ -628,7 +627,7 @@ SecItemUpdateWithError(CFDictionaryRef inQuery,
  @function SecItemParentCachePurge
  @abstract Clear the cache of parent certificates used in SecItemCopyParentCertificates_osx.
  */
-void SecItemParentCachePurge();
+void SecItemParentCachePurge(void);
 #endif
 
 

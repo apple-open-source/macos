@@ -366,20 +366,25 @@ using std::max;
 	fSetPosition	= true;
 	[fLastMove release];
 	fLastMove		= nil;
+    fLastSide       = kWhiteSide;
 
 	const char * s = [fen UTF8String];
-	while (isspace(*s))
-		++s;
-	while (!isspace(*s))
-		++s;
-	while (isspace(*s))
-		++s;
-	fLastSide	= *s == 'w' ? kBlackSide : kWhiteSide;
-
-	if (moves) {
+    if (s) {
+        while (isspace(*s))
+            ++s;
+        while (!isspace(*s))
+            ++s;
+        while (isspace(*s))
+            ++s;
+        if (*s == 'w') {
+            fLastSide = kBlackSide;
+        }
+    }
+	if (moves.length > 0) {
 		[self writeToEngine:@"force\n"];		
 		[self writeToEngine:moves];
-	} else {
+	}
+    else if (s) {
 		if (*s == 'b')
 			[self writeToEngine:@"black\n"];
 	

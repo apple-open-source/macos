@@ -34,8 +34,8 @@ class IOFireWireMagicMatchingNub : public IOService
     OSDeclareDefaultStructors(IOFireWireMagicMatchingNub)
 
 	public:
-		virtual bool matchPropertyTable( OSDictionary * table );
-		virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+		virtual bool matchPropertyTable( OSDictionary * table ) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
     
 };
 

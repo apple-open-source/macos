@@ -182,12 +182,15 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
 	    if (nss_cms_before_data(p7dcx) != SECSuccess) {
 		SEC_ASN1DecoderClearFilterProc(p7dcx->dcx);	/* stop all processing */
 		p7dcx->error = PORT_GetError();
+                PORT_SetError(0);
 	    }
 	}
 	if (after && dest == &(cinfo->rawContent)) {
 	    /* we're right after of the data */
-	    if (nss_cms_after_data(p7dcx) != SECSuccess)
+            if (nss_cms_after_data(p7dcx) != SECSuccess) {
 		p7dcx->error = PORT_GetError();
+                PORT_SetError(0);
+            }
 
 	    /* we don't need to see the contents anymore */
 	    SEC_ASN1DecoderClearFilterProc(p7dcx->dcx);
@@ -595,6 +598,9 @@ SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
     SecCmsMessageRef cmsg;
     OSStatus result;
 
+    /* Clear the thread error to clean up dirty threads */
+    PORT_SetError(0);
+
     cmsg = SecCmsMessageCreate();
     if (cmsg == NULL)
         goto loser;
@@ -627,6 +633,7 @@ SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
 
 loser:
     result = PORT_GetError();
+    PORT_SetError(0); // Clean the thread error since we've returned the error
     return result;
 }
 
@@ -658,7 +665,8 @@ SecCmsDecoderUpdate(SecCmsDecoderRef p7dcx, const void *buf, CFIndex len)
 	(void) SEC_ASN1DecoderFinish (p7dcx->dcx);
 	p7dcx->dcx = NULL;
     }
-    PORT_SetError (p7dcx->error);
+
+    PORT_SetError (0); // Clean the thread error since we've returned the error
 
     return p7dcx->error;
 }
@@ -711,6 +719,7 @@ loser:
     p7dcx->dcx = NULL;
     p7dcx->childp7dcx = NULL;
     PORT_Free(p7dcx);
+    PORT_SetError(0); // Clean the thread error since we've returned the error
     return result;
 }
 

@@ -425,7 +425,6 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	dict = SCDynamicStoreCopyValue(store, namerKey);
 	if (dict != NULL) {
 		if (isA_CFDictionary(dict)) {
-			CFIndex		n;
 			CFArrayRef	preconfigured;
 
 			if (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet)) {
@@ -437,74 +436,87 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 			preconfigured = CFDictionaryGetValue(dict, kInterfaceNamerKey_PreConfiguredInterfaces);
 			preconfigured = isA_CFArray(preconfigured);
+			if (!_SC_CFEqual(preconfigured, preconfigured_names)) {
+				CFIndex		n;
+				CFIndex		nx	= 0;
 
-			n = (preconfigured != NULL) ? CFArrayGetCount(preconfigured) : 0;
-			for (CFIndex i = 0; i < n; i++) {
-				CFStringRef		bsdName	 = CFArrayGetValueAtIndex(preconfigured, i);
-				SCNetworkInterfaceRef	interface;
-				CFRange			range;
-
-				range.location = 0;
-				range.length   = (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0;
-				if ((range.length > 0) &&
-				    CFArrayContainsValue(preconfigured_names, range, bsdName)) {
-					// if we already know about this interface
-					continue;
-				}
-
-				for (int retry = 0; retry < 10; retry++) {
-					if (retry != 0) {
-						// add short delay (before retry)
-						usleep(20 * 1000);	// 20ms
-					}
-
-					interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
-					if (interface == NULL) {
-						SC_log(LOG_ERR, "could not create network interface for %@", bsdName);
-					} else if (_SCNetworkInterfaceGetIOPath(interface) == NULL) {
-						SC_log(LOG_ERR, "could not get IOPath for %@", bsdName);
-						CFRelease(interface);
-						interface = NULL;
-					}
-
-					if (interface != NULL) {
-						// if we have an interface
-						break;
-					}
-				}
-
-				if (interface == NULL) {
-					// if SCNetworkInterface not [currently] available
-					continue;
-				}
-
-				// keep track of the interface name (quicker than having to iterate the list
-				// of SCNetworkInterfaces, extract the name, and compare).
-				if (preconfigured_names == NULL) {
-					preconfigured_names = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				}
-				CFArrayAppendValue(preconfigured_names, bsdName);
-
-				if (preconfigured_interfaces == NULL) {
-					preconfigured_interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				}
-				CFArrayAppendValue(preconfigured_interfaces, interface);
-				CFRelease(interface);
-
-				updated = TRUE;
-			}
-
-			if (updated) {
-				CFStringRef	interfaces	= CFSTR("<empty>");
-
-				// report [new] pre-configured interfaces
+				// start clean
 				if (preconfigured_names != NULL) {
-					interfaces = CFStringCreateByCombiningStrings(NULL, preconfigured_names, CFSTR(","));
-				} else {
-					CFRetain(interfaces);
+					nx = CFArrayGetCount(preconfigured_names);
+					CFRelease(preconfigured_names);
+					preconfigured_names = NULL;
 				}
-				SC_log(LOG_INFO, "pre-configured interface list changed: %@", interfaces);
-				CFRelease(interfaces);
+				if (preconfigured_interfaces != NULL) {
+					CFRelease(preconfigured_interfaces);
+					preconfigured_interfaces = NULL;
+				}
+
+				// add pre-configured interfaces
+				n = (preconfigured != NULL) ? CFArrayGetCount(preconfigured) : 0;
+				for (CFIndex i = 0; i < n; i++) {
+					CFStringRef		bsdName	 = CFArrayGetValueAtIndex(preconfigured, i);
+					SCNetworkInterfaceRef	interface;
+
+					for (int retry = 0; retry < 10; retry++) {
+						if (retry != 0) {
+							// add short delay (before retry)
+							usleep(20 * 1000);	// 20ms
+						}
+
+						interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
+						if (interface == NULL) {
+							SC_log(LOG_ERR, "could not create network interface for %@", bsdName);
+						} else if (_SCNetworkInterfaceGetIOPath(interface) == NULL) {
+							SC_log(LOG_ERR, "could not get IOPath for %@", bsdName);
+							CFRelease(interface);
+							interface = NULL;
+						}
+
+						if (interface != NULL) {
+							// if we have an interface
+							break;
+						}
+					}
+
+					if (interface == NULL) {
+						// if SCNetworkInterface not [currently] available
+						continue;
+					}
+
+					// keep track of the interface name (quicker than having to iterate the list
+					// of SCNetworkInterfaces, extract the name, and compare).
+					if (preconfigured_names == NULL) {
+						preconfigured_names = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(preconfigured_names, bsdName);
+
+					if (preconfigured_interfaces == NULL) {
+						preconfigured_interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(preconfigured_interfaces, interface);
+					CFRelease(interface);
+
+					updated = TRUE;
+				}
+
+				// check if all pre-configured interfaces were detached
+				n = (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0;
+				if ((nx > 0) && (n == 0)) {
+					updated = TRUE;
+				}
+
+				if (updated) {
+					CFStringRef	interfaces	= CFSTR("<empty>");
+
+					// report [updated] pre-configured interfaces
+					if (preconfigured_names != NULL) {
+						interfaces = CFStringCreateByCombiningStrings(NULL, preconfigured_names, CFSTR(","));
+					} else {
+						CFRetain(interfaces);
+					}
+					SC_log(LOG_INFO, "pre-configured interface list changed: %@", interfaces);
+					CFRelease(interfaces);
+				}
 			}
 		}
 
@@ -668,42 +680,6 @@ flatten(SCPreferencesRef	prefs,
 }
 
 
-static CF_RETURNS_RETAINED SCNetworkServiceRef
-copyInterfaceService(SCNetworkSetRef set, CFStringRef matchName)
-{
-	CFIndex			i;
-	CFIndex			n;
-	SCNetworkServiceRef	service	= NULL;
-	CFArrayRef		services;
-
-	services = SCNetworkSetCopyServices(set);
-	assert(services != NULL);
-
-	n = CFArrayGetCount(services);
-	for (i = 0; i < n; i++) {
-		SCNetworkInterfaceRef	interface;
-
-		service = CFArrayGetValueAtIndex(services, i);
-		interface = SCNetworkServiceGetInterface(service);
-		if (interface != NULL) {
-			CFStringRef		bsdName;
-
-			bsdName = SCNetworkInterfaceGetBSDName(interface);
-			if (_SC_CFEqual(bsdName, matchName)) {
-				// if match
-				CFRetain(service);
-				break;
-			}
-		}
-
-		service = NULL;
-	}
-
-	CFRelease(services);
-	return service;
-}
-
-
 static CF_RETURNS_RETAINED CFStringRef
 copyInterfaceUUID(CFStringRef bsdName)
 {
@@ -745,126 +721,145 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 {
 	Boolean		ok;
 	CFRange		range;
+	CFArrayRef	services;
 	SCNetworkSetRef	set;
 	Boolean		updated	= FALSE;
 
-	range.length = (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0;
+	range = CFRangeMake(0,
+			    (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0);
 	if (range.length == 0) {
-		// if no [preconfigured] interfaces
+		// if no [pre-configured] interfaces
 		return;
 	}
-	range.location = 0;
 
 	set = SCNetworkSetCopyCurrent(prefs);
-	if (set != NULL) {
-		CFArrayRef	services;
+	if (set == NULL) {
+		// if no current set
+		return;
+	}
 
-		/*
-		 * Check for (and remove) any network services associated with
-		 * a pre-configured interface from the prefs.
-		 */
-		services = SCNetworkServiceCopyAll(prefs);
-		if (services != NULL) {
-			CFIndex		n;
+	/*
+	 * Check for (and remove) any network services associated with
+	 * a pre-configured interface from the prefs.
+	 */
+	services = SCNetworkServiceCopyAll(prefs);
+	if (services != NULL) {
+		CFIndex		n;
 
-			n = CFArrayGetCount(services);
-			for (CFIndex i = 0; i < n; i++) {
-				CFStringRef		bsdName;
-				SCNetworkInterfaceRef	interface;
-				SCNetworkServiceRef	service;
-
-				service = CFArrayGetValueAtIndex(services, i);
-
-				interface = SCNetworkServiceGetInterface(service);
-				if (interface == NULL) {
-					// if no interface
-					continue;
-				}
-
-				bsdName = SCNetworkInterfaceGetBSDName(interface);
-				if (bsdName == NULL) {
-					// if no interface name
-					continue;
-				}
-
-				if (!CFArrayContainsValue(preconfigured_names, range, bsdName)) {
-					// if not preconfigured
-					continue;
-				}
-
-				// remove [preconfigured] network service from the prefs
-				SC_log(LOG_NOTICE, "removing network service for %@", bsdName);
-				ok = SCNetworkServiceRemove(service);
-				if (!ok) {
-					SC_log(LOG_ERR, "SCNetworkServiceRemove() failed: %s",
-					       SCErrorString(SCError()));
-				}
-				updated = TRUE;
-			}
-
-			CFRelease(services);
-		}
-
-		if (updated) {
-			// commit the updated prefs ... but don't apply
-			ok = SCPreferencesCommitChanges(prefs);
-			if (!ok) {
-				if (SCError() != EROFS) {
-					SC_log(LOG_ERR, "SCPreferencesCommitChanges() failed: %s",
-					       SCErrorString(SCError()));
-				}
-			}
-		}
-
-		/*
-		 * Now, add a new network service for each pre-configured interface
-		 */
-		range.length = (preconfigured_interfaces != NULL) ? CFArrayGetCount(preconfigured_interfaces) : 0;
-		for (CFIndex i = 0; i < range.length; i++) {
+		n = CFArrayGetCount(services);
+		for (CFIndex i = 0; i < n; i++) {
 			CFStringRef		bsdName;
-			SCNetworkInterfaceRef	interface	= CFArrayGetValueAtIndex(preconfigured_interfaces, i);
+			SCNetworkInterfaceRef	interface;
 			SCNetworkServiceRef	service;
 
-			bsdName = SCNetworkInterfaceGetBSDName(interface);
-			ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
-			if (!ok) {
-				SC_log(LOG_ERR, "could not establish network service for %@: %s",
-				       bsdName,
-				       SCErrorString(SCError()));
+			service = CFArrayGetValueAtIndex(services, i);
+
+			interface = SCNetworkServiceGetInterface(service);
+			if (interface == NULL) {
+				// if no interface
 				continue;
 			}
 
-			service = copyInterfaceService(set, bsdName);
-			if (service != NULL) {
-				CFStringRef	serviceID;
-
-				serviceID = copyInterfaceUUID(bsdName);
-				if (serviceID != NULL) {
-					ok = _SCNetworkServiceSetServiceID(service, serviceID);
-					CFRelease(serviceID);
-					if (!ok) {
-						SC_log(LOG_ERR, "_SCNetworkServiceSetServiceID() failed: %s",
-						       SCErrorString(SCError()));
-						// ... and keep whatever random UUID was created for the service
-					}
-				} else {
-					SC_log(LOG_ERR, "could not create serviceID for %@", bsdName);
-					// ... and we'll use whatever random UUID was created for the service
-				}
-
-				SC_log(LOG_INFO, "network service %@ added for %@",
-				       SCNetworkServiceGetServiceID(service),
-				       bsdName);
-
-				CFRelease(service);
-			} else {
-				SC_log(LOG_ERR, "could not find network service for %@", bsdName);
+			bsdName = SCNetworkInterfaceGetBSDName(interface);
+			if (bsdName == NULL) {
+				// if no interface name
+				continue;
 			}
+
+			if (!CFArrayContainsValue(preconfigured_names, range, bsdName)) {
+				// if not preconfigured
+				continue;
+			}
+
+			// remove [preconfigured] network service from the prefs
+			SC_log(LOG_NOTICE, "removing network service for %@", bsdName);
+			ok = SCNetworkServiceRemove(service);
+			if (!ok) {
+				SC_log(LOG_ERR, "SCNetworkServiceRemove() failed: %s",
+				       SCErrorString(SCError()));
+			}
+			updated = TRUE;
 		}
 
-		CFRelease(set);
+		CFRelease(services);
 	}
 
+	if (updated) {
+		// commit the updated prefs ... but don't apply
+		ok = SCPreferencesCommitChanges(prefs);
+		if (!ok) {
+			if (SCError() != EROFS) {
+				SC_log(LOG_ERR, "SCPreferencesCommitChanges() failed: %s",
+				       SCErrorString(SCError()));
+			}
+		}
+	}
+
+	/*
+	 * Now, add a new network service for each pre-configured interface
+	 */
+	for (CFIndex i = 0; i < range.length; i++) {
+		CFStringRef		bsdName;
+		SCNetworkInterfaceRef	interface	= CFArrayGetValueAtIndex(preconfigured_interfaces, i);
+		SCNetworkServiceRef	service;
+		CFStringRef		serviceID;
+
+		bsdName = SCNetworkInterfaceGetBSDName(interface);
+
+		// create network service
+		service = SCNetworkServiceCreate(prefs, interface);
+		if (service == NULL) {
+			SC_log(LOG_ERR, "could not create network service for \"%@\": %s",
+			       bsdName,
+			       SCErrorString(SCError()));
+			continue;
+		}
+
+		// update network service to use a consistent serviceID
+		serviceID = copyInterfaceUUID(bsdName);
+		if (serviceID != NULL) {
+			ok = _SCNetworkServiceSetServiceID(service, serviceID);
+			CFRelease(serviceID);
+			if (!ok) {
+				SC_log(LOG_ERR, "_SCNetworkServiceSetServiceID() failed: %s",
+				       SCErrorString(SCError()));
+				// ... and keep whatever random UUID was created for the service
+			}
+		} else {
+			SC_log(LOG_ERR, "could not create serviceID for \"%@\"", bsdName);
+			// ... and we'll use whatever random UUID was created for the service
+		}
+
+		// establish [template] configuration
+		ok = SCNetworkServiceEstablishDefaultConfiguration(service);
+		if (!ok) {
+			SC_log(LOG_ERR, "could not establish network service for \"%@\": %s",
+			       bsdName,
+			       SCErrorString(SCError()));
+			SCNetworkServiceRemove(service);
+			CFRelease(service);
+			continue;
+		}
+
+		// add network service to the current set
+		ok = SCNetworkSetAddService(set, service);
+		if (!ok) {
+			SC_log(LOG_ERR, "could not add service for \"%@\": %s",
+			       bsdName,
+			       SCErrorString(SCError()));
+			SCNetworkServiceRemove(service);
+			CFRelease(service);
+			continue;
+		}
+
+		SC_log(LOG_INFO, "network service %@ added for \"%@\"",
+		       SCNetworkServiceGetServiceID(service),
+		       bsdName);
+
+		CFRelease(service);
+	}
+
+	CFRelease(set);
 	return;
 }
 

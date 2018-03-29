@@ -231,14 +231,14 @@ class IOFWUserPseudoAddressSpace: public IOFWPseudoAddressSpace
 public:
 	// --- OSObject ----------
 #if IOFIREWIREUSERCLIENTDEBUG > 0
-    virtual bool 						serialize(OSSerialize *s) const;
+    virtual bool 						serialize(OSSerialize *s) const APPLE_KEXT_OVERRIDE;
 #endif
-	virtual void						free() ;
+	virtual void						free(void) APPLE_KEXT_OVERRIDE;
 	static void							exporterCleanup( const OSObject * self );
 
 	// --- IOFWPseudoAddressSpace ----------
 	// override deactivate so we can delete any notification related structures...
-	virtual void						deactivate() ;
+	virtual void						deactivate(void) APPLE_KEXT_OVERRIDE;
 	
 	bool							completeInit( IOFireWireUserClient* userclient, AddressSpaceCreateParams* params ) ;
 	bool							initPseudo( IOFireWireUserClient* userclient, AddressSpaceCreateParams* params ) ;
@@ -252,7 +252,7 @@ public:
 											UInt32 &					outLen, 
 											UInt32 *					oldVal, 
 											UInt32 						type,
-											IOFWRequestRefCon 			refcon) ;
+											IOFWRequestRefCon 			refcon) APPLE_KEXT_OVERRIDE;
 
 	UInt32							doPacket(
 											UInt16							nodeID,
@@ -267,7 +267,7 @@ public:
 	// --- getters ----------
     const FWAddress& 				getBase() { return fAddress ; }
 	const UInt32					getUserRefCon() { return fUserRefCon ;}
-	const IOFireWireUserClient&				getUserClient() { return *fUserClient ;}
+	const IOFireWireUserClient&				getUserClient(void) { return *fUserClient ;}
 
 	// --- readers/writers ----------
     static UInt32					pseudoAddrSpaceReader(

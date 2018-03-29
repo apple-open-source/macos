@@ -327,7 +327,12 @@ bool IOMediaBSDClient::start(IOService * provider)
     // This method is called once we have been attached to the provider object.
     //
 
-    IOMedia * media = (IOMedia *) provider;
+    IOMedia * media = (IOMedia *) OSDynamicCast(IOMedia, provider);
+
+    //
+    // validate provider is IOMedia
+    //
+    if ( media == NULL ) return false;
 
     // Ask our superclass' opinion.
 
@@ -2686,13 +2691,6 @@ inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, int error)
     {
         buf_t       bp = (buf_t)dkr;
 
-        /* for temporary debugging, we should remove below if (error) {...} once we root cause 34087702 */
-        if (error) {
-            dev_t       dev     = DKR_GET_DEV(dkr, dkrtype);
-            MinorSlot * minor   = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
-            IOLog("%s: IO failed, error = %d.\n", (minor ? minor->name : "unknown device"), error);
-        }
-
         buf_seterror(bp, error);                           // (error?)
         buf_biodone(bp);                                   // (complete request)
     }
@@ -3049,12 +3047,10 @@ void dkreadwritecompletion( void *   target,
 
     if ( status != kIOReturnSuccess )                         // (has an error?)
     {
-        //if ( status != kIOReturnNotPermitted )
-        //{
-        //    IOLog("%s: %s.\n", minor->name, minor->media->stringFromReturn(status));
-        //}
-        /* for temporary debugging, we should remove below log and restore above lines once we root cause 34087702 */
-        IOLog("%s: %s.\n", (minor ? minor->name : "unknown device"), ((minor && minor->media) ? minor->media->stringFromReturn(status) : "unknown error"));
+        if ( status != kIOReturnNotPermitted )
+        {
+            IOLog("%s: %s.\n", minor->name, minor->media->stringFromReturn(status));
+        }
     }
 
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)

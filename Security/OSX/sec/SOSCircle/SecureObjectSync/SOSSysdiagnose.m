@@ -39,6 +39,7 @@
 
 #include <SecurityTool/readline.h>
 
+#include "SOSSysdiagnose.h"
 #include "keychain_log.h"
 #include "secToolFileIO.h"
 #include "secViewDisplay.h"
@@ -87,7 +88,10 @@ static char *assemblePath(char *dir, char *fname) {
     size_t length = strlen(dir) + strlen(fname) + 2;
     char *outputDir = malloc(length);
     int status = snprintf(outputDir, length, "%s/%s", dir, fname);
-    if(status < 0) return NULL;
+    if(status < 0) {
+        if(outputDir) free(outputDir);
+        return NULL;
+    }
     return outputDir;
 }
 
@@ -117,7 +121,10 @@ static char *sysdiagnose_dir(const char *passedIn, const char *hostname, const c
     length = strlen(outputParent) + strlen(outputBase) + 2;
     char *outputDir = malloc(length);
     status = snprintf(outputDir, length, "%s/%s", outputParent, outputBase);
-    if(status < 0) return NULL;
+    if(status < 0) {
+        if(outputDir) free(outputDir);
+        return NULL;
+    }
     return outputDir;
 }
 

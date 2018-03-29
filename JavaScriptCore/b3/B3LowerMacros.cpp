@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -180,7 +180,7 @@ private:
             case Switch: {
                 SwitchValue* switchValue = m_value->as<SwitchValue>();
                 Vector<SwitchCase> cases;
-                for (const SwitchCase& switchCase : switchValue->cases(m_block))
+                for (SwitchCase switchCase : switchValue->cases(m_block))
                     cases.append(switchCase);
                 std::sort(
                     cases.begin(), cases.end(),
@@ -507,7 +507,7 @@ private:
                         GPRReg scratch = params.gpScratch(0);
                         GPRReg poisonScratch = params.gpScratch(1);
 
-                        jit.move(CCallHelpers::TrustedImm64(g_jitCodePoison), poisonScratch);
+                        jit.move(CCallHelpers::TrustedImm64(JITCodePoison::key()), poisonScratch);
                         jit.move(CCallHelpers::TrustedImmPtr(jumpTable), scratch);
                         jit.load64(CCallHelpers::BaseIndex(scratch, index, CCallHelpers::timesPtr()), scratch);
                         jit.xor64(poisonScratch, scratch);

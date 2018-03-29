@@ -58,7 +58,7 @@ using std::numeric_limits;
 
 static const String& oldPreferencesPath()
 {
-    static String path = pathByAppendingComponent(roamingUserSpecificStorageDirectory(), "WebKitPreferences.plist");
+    static String path = FileSystem::pathByAppendingComponent(FileSystem::roamingUserSpecificStorageDirectory(), "WebKitPreferences.plist");
     return path;
 }
 
@@ -318,6 +318,12 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitIsSecureContextAttributeEnabledPreferenceKey), kCFBooleanFalse);
 
+    CFDictionaryAddValue(defaults, CFSTR(WebKitDataTransferItemsEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitInspectorAdditionsEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitVisualViewportAPIEnabledPreferenceKey), kCFBooleanFalse);
+
     defaultSettings = defaults;
 }
 
@@ -512,7 +518,7 @@ void WebPreferences::migrateWebKitPreferencesToCFPreferences()
 
     copyWebKitPreferencesToCFPreferences(static_cast<CFDictionaryRef>(plist.get()));
 
-    deleteFile(oldPreferencesPath());
+    FileSystem::deleteFile(oldPreferencesPath());
 }
 
 void WebPreferences::copyWebKitPreferencesToCFPreferences(CFDictionaryRef dict)
@@ -565,6 +571,8 @@ HRESULT WebPreferences::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppv
         *ppvObject = static_cast<IWebPreferencesPrivate4*>(this);
     else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate5))
         *ppvObject = static_cast<IWebPreferencesPrivate5*>(this);
+    else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate6))
+        *ppvObject = static_cast<IWebPreferencesPrivate6*>(this);
     else if (IsEqualGUID(riid, CLSID_WebPreferences))
         *ppvObject = this;
     else
@@ -2005,6 +2013,20 @@ HRESULT WebPreferences::modernMediaControlsEnabled(_Out_ BOOL* enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::fetchAPIKeepAliveEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitFetchAPIKeepAliveEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setFetchAPIKeepAliveEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitFetchAPIKeepAliveEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setLinkPreloadEnabled(BOOL enabled)
 {
     setBoolValue(WebKitLinkPreloadEnabledPreferenceKey, enabled);
@@ -2056,6 +2078,48 @@ HRESULT WebPreferences::isSecureContextAttributeEnabled(_Out_ BOOL* enabled)
     if (!enabled)
         return E_POINTER;
     *enabled = boolValueForKey(WebKitIsSecureContextAttributeEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::dataTransferItemsEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitDataTransferItemsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setDataTransferItemsEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitDataTransferItemsEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::inspectorAdditionsEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitInspectorAdditionsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setInspectorAdditionsEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitInspectorAdditionsEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::visualViewportAPIEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitVisualViewportAPIEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setVisualViewportAPIEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitVisualViewportAPIEnabledPreferenceKey, enabled);
     return S_OK;
 }
 

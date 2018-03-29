@@ -252,7 +252,7 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 		uint32_t i;
 		for (i=0; i<uuids_list->dtmul_count; i++) {
 			UUID* uuid = &uuids_list->dtmul_uuid[i];
-		    
+
 			CFUUIDRef uuid_ref = CFUUIDCreateFromUUIDBytes(NULL, *(CFUUIDBytes*)uuid);
 			CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithUUIDAtTime(symbolicator, uuid_ref, kCSNow);
 
@@ -267,7 +267,7 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
                                         }
                                 }
                         }
-                        
+
 			// Construct a dtrace_module_symbols_t.
 			//
 			// First we need the count of symbols. This isn't quite as easy at it would seem at first glance.
@@ -347,23 +347,23 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
 		return (dt_set_errno(dtp, EDT_NOSYMBOLICATOR));
 	
         CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(kernelSymbolicator, (mach_vm_address_t)addr, kCSNow);
-        
+
         if (CSIsNull(owner))
                 return (dt_set_errno(dtp, EDT_NOSYMADDR));
-        
+
         if (symp != NULL) {
                 CSSymbolOwnerRef symbol = CSSymbolOwnerGetSymbolWithAddress(owner, (mach_vm_address_t)addr);
                 if (CSIsNull(symbol))
                         return (dt_set_errno(dtp, EDT_NOSYMADDR));
-                
+
                 CSRange addressRange = CSSymbolGetRange(symbol);
-                
+
                 symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
                 symp->st_other = 0;
                 symp->st_shndx = SHN_MACHO;
                 symp->st_value = addressRange.location;
                 symp->st_size = addressRange.length;
-                
+
                 if (CSSymbolIsUnnamed(symbol)) {
                         // Hideous awful hack.
                         // Unnamed symbols should display an address.
@@ -375,7 +375,7 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                                 else
                                         snprintf(aux_sym_name_buffer, aux_bufsize, "0x%08llx", CSSymbolGetRange(symbol).location);                                
                         }
-                        
+
                         symp->st_name = (uintptr_t)aux_sym_name_buffer;
 		} else {
                         const char *mangledName;
@@ -392,10 +392,10 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                         }
                 }
         }
-        
+
         if (sip != NULL) {
                 sip->dts_object = CSSymbolOwnerGetName(owner);
-                
+
                 if (symp != NULL) {
                         sip->dts_name = (const char *)(uintptr_t)symp->st_name;
                 } else {
@@ -403,6 +403,6 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                 }
                 sip->dts_id = 0;
         }
-        
+
         return (0);
 }

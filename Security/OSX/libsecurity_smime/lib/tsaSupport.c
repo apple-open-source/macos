@@ -165,8 +165,7 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
     int offset, sz = 0;
     const int wrapwid = 24;     // large enough so SHA-1 hashes fit on one line...
 
-    if ((maxToPrint != 0) && (len > maxToPrint))
-    {
+    if ((maxToPrint != 0) && (len > maxToPrint)) {
         len = maxToPrint;
         more = true;
     }
@@ -178,22 +177,19 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
     dtprintf("%s", buffer);
     offset = 0;
 
-    for (i=0; (i < len) && (offset+3 < bufferSize); i++, offset += sz)
-    {
+    for (i=0; (i < len) && (offset+3 < bufferSize); i++, offset += sz) {
         sz = sprintf(buffer + offset, " %02x", (unsigned int)cp[i] & 0xff);
-        if ((i % wrapwid) == (wrapwid-1))
-        {
-            dtprintf("%s", buffer);
+        if ((i % wrapwid) == (wrapwid-1)) {
+            dtprintf("%s\n", buffer);
             offset = 0;
             sz = 0;
         }
     }
 
     sz=sprintf(buffer + offset, more?" ...\n":"\n");
-        offset += sz;
+    offset += sz;
     buffer[offset+1]=0;
 
-//    fprintf(stderr, "%s", buffer);
     dtprintf("%s", buffer);
 
     free(buffer);
@@ -1244,8 +1240,9 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
         inData comes from the unAuthAttr section of the CMS message
 
         These are set in signerinfo as side effects:
-            timestampTime -
+            timestampTime
             timestampCertList
+            timestampCert
     */
 
     SecCmsDecoderRef        decoderContext = NULL;
@@ -1349,6 +1346,11 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
 
             int numberOfSigners = SecCmsSignedDataSignerInfoCount (signedData);
 
+            if (numberOfSigners > 0) {
+                /* @@@ assume there's only one signer since SecCms can't handle multiple signers anyway */
+                signerinfo->timestampCert = CFRetainSafe(SecCmsSignerInfoGetSigningCertificate(signedData->signerInfos[0], NULL));
+            }
+
             result = verifySigners(signedData, numberOfSigners, timeStampPolicy);
             if (result)
                 dtprintf("verifySigners failed: %ld\n", (long)result);   // warning
@@ -1368,7 +1370,7 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
         case SEC_OID_PKCS9_ID_CT_TSTInfo:
         {
             SecAsn1TSATSTInfo tstInfo = {{0},};
-            SecCertificateRef signerCert = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL);
+            SecCertificateRef signerCert = SecCmsSignerInfoGetTimestampSigningCert(signerinfo);
             result = verifyTSTInfo(contentInfo->rawContent, signerCert, &tstInfo, &signerinfo->timestampTime, expectedNonce);
             if (signerinfo->timestampTime)
             {

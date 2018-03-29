@@ -48,7 +48,7 @@ public:
 	static IOFWRingBufferQ *	withAddressRange( mach_vm_address_t address, mach_vm_size_t length, IOOptionBits options, task_t task );
 	
 	virtual bool			initQ( mach_vm_address_t address, mach_vm_size_t length, IOOptionBits options, task_t task );
-	virtual void			free( void );	
+	virtual void			free( void ) APPLE_KEXT_OVERRIDE;
 	virtual bool			isEmpty( void );
 	virtual bool			dequeueBytes( IOByteCount size );
 	virtual bool			dequeueBytesWithCopy( void * copy, IOByteCount size );

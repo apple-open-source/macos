@@ -115,6 +115,18 @@ would be bad because the provider is busy whilst terminating and we want to
 allow it to finish as quickly as it can; DEVELOPMENT kernels will panic if
 a service is busy > 60 seconds).
 
+Threading/Workloops:
+
+Note that many of the termination methods are called on the provider's
+workloop; e.g., the stop() method of every service under an IOFramebuffer
+will run on the IOFBController workloop.
+
+A corollary to the above, in conjunction with the established system/controller
+workloop locking order, is that the stop() method of anything attached under
+IOFramebuffer must not attempt to acquire the system workloop. Doing so could
+result in deadlock. (The DEADLOCK_DETECT code can help detect such cases, but
+is only enabled in Development builds.)
+
 */
 
 class IOFramebufferUserClient : public IOUserClient

@@ -192,8 +192,11 @@ SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef dataRef, B
 	    data->Data = NULL;
     }
 
-    if (SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_DATA, (void *)data) != SECSuccess)
-	return PORT_GetError();
+    if (SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_DATA, (void *)data) != SECSuccess) {
+        OSStatus status = PORT_GetError();
+        PORT_SetError(0); // clean the thread since we've returned this error
+        return status;
+    }
     cinfo->rawContent = (detached) ? 
 			    NULL : (data) ? 
 				data : SECITEM_AllocItem(cinfo->cmsg->poolp, NULL, 1);

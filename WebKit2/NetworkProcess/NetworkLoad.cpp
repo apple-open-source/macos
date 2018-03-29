@@ -29,14 +29,15 @@
 #include "AuthenticationManager.h"
 #include "DownloadProxyMessages.h"
 #include "NetworkProcess.h"
+#include "NetworkSession.h"
 #include "SessionTracker.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceRequest.h>
-#include <WebCore/SessionID.h>
 #include <WebCore/SharedBuffer.h>
+#include <pal/SessionID.h>
 #include <wtf/MainThread.h>
 #include <wtf/Seconds.h>
 
@@ -124,7 +125,7 @@ NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkLoadParameters&& para
     , m_networkingContext(RemoteNetworkingContext::create(m_parameters.sessionID, m_parameters.shouldClearReferrerOnHTTPSToHTTPRedirect))
     , m_currentRequest(m_parameters.request)
 {
-    m_handle = ResourceHandle::create(m_networkingContext.get(), m_parameters.request, this, m_parameters.defersLoading, m_parameters.contentSniffingPolicy == SniffContent);
+    m_handle = ResourceHandle::create(m_networkingContext.get(), m_parameters.request, this, m_parameters.defersLoading, m_parameters.contentSniffingPolicy == SniffContent, m_parameters.contentEncodingSniffingPolicy == ContentEncodingSniffingPolicy::Sniff);
 }
 
 #endif
@@ -132,11 +133,11 @@ NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkLoadParameters&& para
 NetworkLoad::~NetworkLoad()
 {
     ASSERT(RunLoop::isMain());
-#if USE(NETWORK_SESSION)
-    if (m_responseCompletionHandler)
-        m_responseCompletionHandler(PolicyIgnore);
     if (m_redirectCompletionHandler)
         m_redirectCompletionHandler({ });
+#if USE(NETWORK_SESSION)
+    if (m_responseCompletionHandler)
+        m_responseCompletionHandler(PolicyAction::Ignore);
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     if (m_challengeCompletionHandler)
         m_challengeCompletionHandler(AuthenticationChallengeDisposition::Cancel, { });
@@ -210,7 +211,7 @@ void NetworkLoad::continueWillSendRequest(WebCore::ResourceRequest&& newRequest)
     }
 
     if (redirectCompletionHandler)
-        redirectCompletionHandler(m_currentRequest);
+        redirectCompletionHandler(ResourceRequest(m_currentRequest));
 #else
     if (m_currentRequest.isNull()) {
         if (m_handle)
@@ -218,7 +219,9 @@ void NetworkLoad::continueWillSendRequest(WebCore::ResourceRequest&& newRequest)
         didFail(m_handle.get(), cancelledError(m_currentRequest));
     } else if (m_handle) {
         auto currentRequestCopy = m_currentRequest;
-        m_handle->continueWillSendRequest(WTFMove(currentRequestCopy));
+        auto redirectCompletionHandler = std::exchange(m_redirectCompletionHandler, nullptr);
+        ASSERT(redirectCompletionHandler);
+        redirectCompletionHandler(WTFMove(currentRequestCopy));
     }
 #endif
 }
@@ -228,7 +231,7 @@ void NetworkLoad::continueDidReceiveResponse()
 #if USE(NETWORK_SESSION)
     if (m_responseCompletionHandler) {
         auto responseCompletionHandler = std::exchange(m_responseCompletionHandler, nullptr);
-        responseCompletionHandler(PolicyUse);
+        responseCompletionHandler(PolicyAction::Use);
     }
 #else
     if (m_handle)
@@ -321,18 +324,6 @@ void NetworkLoad::willPerformHTTPRedirection(ResourceResponse&& response, Resour
 
 void NetworkLoad::didReceiveChallenge(const AuthenticationChallenge& challenge, ChallengeCompletionHandler&& completionHandler)
 {
-    // Handle server trust evaluation at platform-level if requested, for performance reasons.
-#if PLATFORM(COCOA)
-    if (challenge.protectionSpace().authenticationScheme() == ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested
-        && !NetworkProcess::singleton().canHandleHTTPSServerTrustEvaluation()) {
-        if (m_task && m_task->allowsSpecificHTTPSCertificateForHost(challenge))
-            completionHandler(AuthenticationChallengeDisposition::UseCredential, serverTrustCredential(challenge));
-        else
-            completionHandler(AuthenticationChallengeDisposition::RejectProtectionSpace, { });
-        return;
-    }
-#endif
-
     m_challenge = challenge;
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     m_challengeCompletionHandler = WTFMove(completionHandler);
@@ -346,6 +337,7 @@ void NetworkLoad::completeAuthenticationChallenge(ChallengeCompletionHandler&& c
 {
     bool isServerTrustEvaluation = m_challenge->protectionSpace().authenticationScheme() == ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested;
     if (!isAllowedToAskUserForCredentials() && !isServerTrustEvaluation) {
+        m_client.get().didBlockAuthenticationChallenge();
         completionHandler(AuthenticationChallengeDisposition::UseCredential, { });
         return;
     }
@@ -362,10 +354,14 @@ void NetworkLoad::completeAuthenticationChallenge(ChallengeCompletionHandler&& c
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 void NetworkLoad::continueCanAuthenticateAgainstProtectionSpace(bool result)
 {
-    ASSERT(m_challengeCompletionHandler);
+    if (!m_challengeCompletionHandler) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
     auto completionHandler = std::exchange(m_challengeCompletionHandler, nullptr);
     if (!result) {
-        if (m_task && m_task->allowsSpecificHTTPSCertificateForHost(*m_challenge))
+        if (NetworkSession::allowsSpecificHTTPSCertificateForHost(*m_challenge))
             completionHandler(AuthenticationChallengeDisposition::UseCredential, serverTrustCredential(*m_challenge));
         else
             completionHandler(AuthenticationChallengeDisposition::RejectProtectionSpace, { });
@@ -408,7 +404,7 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Response
         m_responseCompletionHandler = WTFMove(completionHandler);
         return;
     }
-    completionHandler(PolicyUse);
+    completionHandler(PolicyAction::Use);
 }
 
 void NetworkLoad::didReceiveData(Ref<SharedBuffer>&& buffer)
@@ -501,8 +497,10 @@ void NetworkLoad::didFail(ResourceHandle* handle, const ResourceError& error)
     m_client.get().didFailLoading(error);
 }
 
-void NetworkLoad::willSendRequestAsync(ResourceHandle* handle, ResourceRequest&& request, ResourceResponse&& redirectResponse)
+void NetworkLoad::willSendRequestAsync(ResourceHandle* handle, ResourceRequest&& request, ResourceResponse&& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
+    ASSERT(!m_redirectCompletionHandler);
+    m_redirectCompletionHandler = WTFMove(completionHandler);
     ASSERT_UNUSED(handle, handle == m_handle);
     sharedWillSendRedirectedRequest(WTFMove(request), WTFMove(redirectResponse));
 }
@@ -562,7 +560,7 @@ bool NetworkLoad::shouldUseCredentialStorage(ResourceHandle* handle)
 
     // We still need this sync version, because ResourceHandle itself uses it internally, even when the delegate uses an async one.
 
-    return m_parameters.allowStoredCredentials == AllowStoredCredentials;
+    return m_parameters.storedCredentialsPolicy == StoredCredentialsPolicy::Use;
 }
 
 void NetworkLoad::didReceiveAuthenticationChallenge(ResourceHandle* handle, const AuthenticationChallenge& challenge)
@@ -570,6 +568,7 @@ void NetworkLoad::didReceiveAuthenticationChallenge(ResourceHandle* handle, cons
     ASSERT_UNUSED(handle, handle == m_handle);
 
     if (!isAllowedToAskUserForCredentials()) {
+        m_client.get().didBlockAuthenticationChallenge();
         challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
         return;
     }

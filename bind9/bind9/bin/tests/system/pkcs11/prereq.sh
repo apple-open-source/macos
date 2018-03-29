@@ -17,4 +17,19 @@
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
 
-exec $SHELL ../testcrypto.sh
+echo "I:(Native PKCS#11)" >&2
+rsafail=0 eccfail=0
+
+$SHELL ../testcrypto.sh -q rsa || rsafail=1
+$SHELL ../testcrypto.sh -q ecdsa || eccfail=1
+
+if [ $rsafail = 0 -a $eccfail = 0 ]; then
+	echo both > supported
+elif [ $rsafail = 1 -a $eccfail = 1 ]; then
+	echo "I:This test requires PKCS#11 support for either RSA or ECDSA cryptography." >&2
+	exit 255
+elif [ $rsafail = 0 ]; then
+	echo rsaonly > supported
+else
+        echo ecconly > supported
+fi

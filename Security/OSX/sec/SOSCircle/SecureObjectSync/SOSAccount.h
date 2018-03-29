@@ -137,7 +137,7 @@ CFArrayRef SOSAccountCopyRetired(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyViewUnaware(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyPeers(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyActivePeers(SOSAccount*  account, CFErrorRef *error);
-CFArrayRef SOSAccountCopyActiveValidPeers(SOSAccount*  account, CFErrorRef *error);
+CFArrayRef CF_RETURNS_RETAINED SOSAccountCopyActiveValidPeers(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyConcurringPeers(SOSAccount*  account, CFErrorRef *error);
 
 bool SOSAccountIsAccountIdentity(SOSAccount*  account, SOSPeerInfoRef peer_info, CFErrorRef *error);
@@ -198,7 +198,7 @@ bool SOSAccountSyncWithKVSUsingIDSID(SOSAccount* account, CFStringRef deviceID, 
 //
 
 bool SOSAccountScanForRetired(SOSAccount*  account, SOSCircleRef circle, CFErrorRef *error);
-SOSCircleRef SOSAccountCloneCircleWithRetirement(SOSAccount*  account, SOSCircleRef starting_circle, CFErrorRef *error);
+CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithRetirement(SOSAccount*  account, SOSCircleRef starting_circle, CFErrorRef *error);
 
 //
 // MARK: Version incompatibility Functions
@@ -216,7 +216,7 @@ bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef backupK
 bool SOSAccountRemoveBackupPublickey(SOSAccountTransaction* aTxn, CFErrorRef *error);
 bool SOSAccountSetBSKBagForAllSlices(SOSAccount*  account, CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
-SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef* error);
+CF_RETURNS_RETAINED SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef* error);
 
 bool SOSAccountIsLastBackupPeer(SOSAccount*  account, CFErrorRef *error);
 
@@ -293,11 +293,11 @@ bool SOSAccountSendToPeerIsPending(SOSAccountTransaction* txn, SOSPeerInfoRef pe
 //
 // MARK: OTR
 //
-void SOSAccountResetOTRNegotiationCoder(SOSAccountTransaction* txn, CFStringRef peerid);
+void SOSAccountResetOTRNegotiationCoder(SOSAccount* account, CFStringRef peerid);
 void SOSAccountTimerFiredSendNextMessage(SOSAccountTransaction* txn, NSString* peerid, NSString* accessGroup);
 
 NSMutableArray* SOSAccountGetAllTLKs(void);
-CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount* account);
+CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount* account);
 
 __END_DECLS
 

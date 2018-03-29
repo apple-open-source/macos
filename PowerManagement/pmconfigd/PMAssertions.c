@@ -313,6 +313,7 @@ void asyncAssertionProperties(xpc_object_t remoteConnection, xpc_object_t msg)
     CFTypeRef           cfObj;
     xpc_object_t        msgDictionary;
     CFDictionaryRef     newAssertionProperties = NULL;
+    audit_token_t       token;
 
     msgDictionary = xpc_dictionary_get_value(msg, kAssertionPropertiesMsg);
     if (!msgDictionary) {
@@ -326,6 +327,13 @@ void asyncAssertionProperties(xpc_object_t remoteConnection, xpc_object_t msg)
         rc = kIOReturnBadArgument;
         goto exit;
     }
+#ifndef XCTEST
+    xpc_connection_get_audit_token(remoteConnection, &token);
+    if (!callerIsEntitledToAssertion(token, newAssertionProperties)) {
+        rc = kIOReturnNotPrivileged;
+        goto exit;
+    }
+#endif
 
     cfObj = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionIdKey);
     if (isA_CFNumber(cfObj)) {
@@ -687,15 +695,22 @@ kern_return_t _io_pm_assertion_set_properties (
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
+    if (!callerIsEntitledToAssertion(token, setProperties))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
 
     *return_code = doSetProperties(callerPID, assertion_id, setProperties, enTrIntensity);
     if (*return_code == kIOReturnSuccess) {
         updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep);
     }
 
-    CFRelease(setProperties);
 
 exit:
+    if (setProperties) {
+        CFRelease(setProperties);
+    }
     vm_deallocate(mach_task_self(), props, propsCnt);
 
     return KERN_SUCCESS;
@@ -1735,14 +1750,43 @@ static bool callerIsEntitledToAssertion(
     CFStringRef         assert_type = NULL;
     bool                caller_is_allowed = true;
     int                 idx = -1;
+    CFTypeRef           value = NULL;
+    pid_t               callerPID = -1;
 
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &callerPID, NULL, NULL);
+
+    // Check entitlement for assertion type
     assert_type = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionTypeKey);
     idx = getAssertionTypeIndex(assert_type);
-    if ( (idx < 0) || (gAssertionTypes[idx].entitlement == NULL))
-        return true;
+    if ((idx >= 0) && (gAssertionTypes[idx].entitlement != NULL))  {
+        caller_is_allowed = auditTokenHasEntitlement(token, gAssertionTypes[idx].entitlement);
 
-    caller_is_allowed = auditTokenHasEntitlement(token, gAssertionTypes[idx].entitlement);
+        if (!caller_is_allowed) {
+            ERROR_LOG("Pid %d is not privileged to create assertion type %@\n", callerPID, assert_type);
+            return false;
+        }
+    }
 
+    // Check entitlement for assertion properties
+    value = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionAppliesToLimitedPowerKey);
+    if (isA_CFBoolean(value) && (value == kCFBooleanTrue)) {
+        caller_is_allowed = auditTokenHasEntitlement(token, kIOPMAssertOnBatteryEntitlement);
+
+        if (!caller_is_allowed) {
+            ERROR_LOG("Pid %d is not privileged to set property %@\n", callerPID, kIOPMAssertionAppliesToLimitedPowerKey);
+            return false;
+        }
+    }
+
+    value = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionAppliesOnLidClose);
+    if (isA_CFBoolean(value) && (value == kCFBooleanTrue)) {
+        caller_is_allowed = auditTokenHasEntitlement(token, kIOPMAssertOnLidCloseEntitlement);
+
+        if (!caller_is_allowed) {
+            ERROR_LOG("Pid %d is not privileged to set property %@\n", callerPID, kIOPMAssertionAppliesOnLidClose);
+            return false;
+        }
+    }
     return caller_is_allowed;
 }
 
@@ -2437,6 +2481,12 @@ kern_return_t _io_pm_declare_system_active (
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
+
+    if (!callerIsEntitledToAssertion(token, assertionProperties))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
     *system_state = kIOPMSystemSleepNotReverted;
     *return_code = kIOReturnSuccess;
 
@@ -2519,6 +2569,11 @@ kern_return_t  _io_pm_declare_user_active (
         goto exit;
     }
 
+    if (!callerIsEntitledToAssertion(token, assertionProperties))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
     /* Set the assertion timeout value to display sleep timer value, if it is not 0 */
 
     displaySleepTimerSecs = gDisplaySleepTimer * 60; /* Convert to secs */
@@ -2613,6 +2668,11 @@ kern_return_t  _io_pm_declare_network_client_active (
         goto exit;
     }
 
+    if (!callerIsEntitledToAssertion(token, assertionProperties))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
     /* Set the assertion timeout value to idle sleep timer value, if it is not 0 */
 
     idleSleepTimerSecs = gIdleSleepTimer * 60; /* Convert to secs */

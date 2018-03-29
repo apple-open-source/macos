@@ -1371,6 +1371,22 @@
         "name" : "colorComponent2"
       }
     ],
+        "fields" : [
+      {
+        "field_number" : 10,
+        "canonical_type" : "double",
+        "kind" : "value",
+        "type" : "IOHIDDouble",
+        "name" : "colorTemperature"
+      },
+      {
+        "field_number" : 11,
+        "canonical_type" : "double",
+        "kind" : "value",
+        "type" : "IOHIDDouble",
+        "name" : "illuminance"
+      }
+    ],
     "name" : "AmbientLightSensor"
   },
   {

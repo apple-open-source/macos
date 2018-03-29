@@ -24,6 +24,7 @@
 #include "SecEncryptTransform.h"
 #include "SecTransformInternal.h"
 #include "EncryptTransform.h"
+#include <utilities/SecCFRelease.h>
 
 /* --------------------------------------------------------------------------
  Create the declared CFStringRefs

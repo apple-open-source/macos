@@ -544,7 +544,7 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
                  "Creating new SSL context (protocols: %s)", cp);
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 #ifndef OPENSSL_NO_SSL3
     if (protocol == SSL_PROTOCOL_SSLV3) {
         method = mctx->pkp ?
@@ -590,7 +590,11 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
         SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
     }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    if (sc->allow_empty_fragments) {
+        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
+    }
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
     /* always disable SSLv2, as per RFC 6176 */
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
 
@@ -614,7 +618,7 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     }
 #endif
 
-#else /* #if OPENSSL_VERSION_NUMBER < 0x10100000L */
+#else /* #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) */
     /* We first determine the maximum protocol version we should provide */
     if (protocol & SSL_PROTOCOL_TLSV1_2) {
         prot = TLS1_2_VERSION;
@@ -649,7 +653,7 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     }
 #endif
     SSL_CTX_set_min_proto_version(ctx, prot);
-#endif /* if OPENSSL_VERSION_NUMBER < 0x10100000L */
+#endif /* if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) */
 
 #ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
     if (sc->cipher_server_pref == TRUE) {

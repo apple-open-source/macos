@@ -28,14 +28,12 @@
 
 #if USE(APPKIT)
 
-#import "WebKitSystemInterface.h"
 #import <WebCore/KeyboardEvent.h>
-#import <WebCore/NSMenuSPI.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/Scrollbar.h>
 #import <WebCore/WindowsKeyboardCodes.h>
+#import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/ASCIICType.h>
-
 
 using namespace WebCore;
 
@@ -85,6 +83,11 @@ static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
     default:
         return WebMouseEvent::NoButton;
     }
+}
+
+static unsigned short currentlyPressedMouseButtons()
+{
+    return static_cast<unsigned short>([NSEvent pressedMouseButtons]);
 }
 
 static WebEvent::Type mouseEventTypeForEvent(NSEvent* event)
@@ -356,12 +359,13 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
 #endif
 
     WebMouseEvent::Button button = mouseButtonForEvent(event);
+    unsigned short buttons = currentlyPressedMouseButtons();
     float deltaX = [event deltaX];
     float deltaY = [event deltaY];
     float deltaZ = [event deltaZ];
     int clickCount = clickCountForEvent(event);
     WebEvent::Modifiers modifiers = modifiersForEvent(event);
-    double timestamp = eventTimeStampSince1970(event);
+    auto timestamp = eventTimeStampSince1970(event);
     int eventNumber = [event eventNumber];
     int menuTypeForEvent = typeForEvent(event);
 
@@ -372,7 +376,7 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
     force = pressure + stage;
 #endif
 
-    return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, WebMouseEvent::SyntheticClickType::NoTap, eventNumber, menuTypeForEvent);
+    return WebMouseEvent(type, button, buttons, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, WebMouseEvent::SyntheticClickType::NoTap, eventNumber, menuTypeForEvent);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windowView)
@@ -386,7 +390,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
     float wheelTicksX = 0;
     float wheelTicksY = 0;
 
-    WKGetWheelEventDeltas(event, &deltaX, &deltaY, &continuous);
+    getWheelEventDeltas(event, deltaX, deltaY, continuous);
     
     if (continuous) {
         // smooth scroll events
@@ -419,7 +423,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
     }
 
     WebEvent::Modifiers modifiers           = modifiersForEvent(event);
-    double timestamp                        = eventTimeStampSince1970(event);
+    auto timestamp                          = eventTimeStampSince1970(event);
     
     return WebWheelEvent(WebEvent::Wheel, IntPoint(position), IntPoint(globalPosition), FloatSize(deltaX, deltaY), FloatSize(wheelTicksX, wheelTicksY), granularity, directionInvertedFromDevice, phase, momentumPhase, hasPreciseScrollingDeltas, scrollCount, unacceleratedScrollingDelta, modifiers, timestamp);
 }
@@ -434,12 +438,12 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool ha
     String keyIdentifier            = keyIdentifierForKeyEvent(event);
     int windowsVirtualKeyCode       = windowsKeyCodeForKeyEvent(event);
     int nativeVirtualKeyCode        = [event keyCode];
-    int macCharCode                 = WKGetNSEventKeyChar(event);
+    int macCharCode                 = keyCharForEvent(event);
     bool autoRepeat                 = [event type] != NSEventTypeFlagsChanged && [event isARepeat];
     bool isKeypad                   = isKeypadEvent(event);
     bool isSystemKey                = false; // SystemKey is always false on the Mac.
     WebEvent::Modifiers modifiers   = modifiersForEvent(event);
-    double timestamp                = eventTimeStampSince1970(event);
+    auto timestamp                  = eventTimeStampSince1970(event);
 
     // Always use 13 for Enter/Return -- we don't want to use AppKit's different character for Enter.
     if (windowsVirtualKeyCode == VK_RETURN) {

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "ResourceTimingInformation.h"
 
-#if ENABLE(WEB_TIMING)
-
 #include "CachedResource.h"
 #include "DOMWindow.h"
 #include "Document.h"
@@ -109,5 +107,3 @@ void ResourceTimingInformation::storeResourceTimingInitiatorInformation(const Ca
 }
 
 }
-
-#endif // ENABLE(WEB_TIMING)

@@ -1383,7 +1383,7 @@ int keychain_set_internet_password_partition_list(int argc, char * const *argv) 
                 SetKeyToString(query, kSecAttrProtocol, optarg);
                 break;
             case 's':
-                SetKeyToString(query, kSecAttrService, optarg);
+                SetKeyToString(query, kSecAttrServer, optarg);
                 break;
             case 't':
                 SetKeyToString(query, kSecAttrAuthenticationType, optarg);
@@ -1925,7 +1925,7 @@ keychain_dump(int argc, char * const *argv)
 			break;
         case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011, 2013, 2014, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -28,6 +28,7 @@
 
 #include <dns/acl.h>
 #include <dns/iptable.h>
+
 
 /*
  * Create a new ACL, including an IP table and an array with room
@@ -339,6 +340,14 @@ dns_acl_merge(dns_acl_t *dest, dns_acl_t *source, isc_boolean_t pos)
 				return result;
 		}
 
+#ifdef HAVE_GEOIP
+		/* Duplicate GeoIP data */
+		if (source->elements[i].type == dns_aclelementtype_geoip) {
+			dest->elements[nelem + i].geoip_elem =
+				source->elements[i].geoip_elem;
+		}
+#endif
+
 		/* reverse sense of positives if this is a negative acl */
 		if (!pos && source->elements[i].negative == ISC_FALSE) {
 			dest->elements[nelem + i].negative = ISC_TRUE;
@@ -389,9 +398,8 @@ dns_aclelement_match(const isc_netaddr_t *reqaddr,
 			if (matchelt != NULL)
 				*matchelt = e;
 			return (ISC_TRUE);
-		} else {
+		} else
 			return (ISC_FALSE);
-		}
 
 	case dns_aclelementtype_nestedacl:
 		inner = e->nestedacl;
@@ -409,6 +417,12 @@ dns_aclelement_match(const isc_netaddr_t *reqaddr,
 		inner = env->localnets;
 		break;
 
+#ifdef HAVE_GEOIP
+	case dns_aclelementtype_geoip:
+		if (env == NULL || env->geoip == NULL)
+			return (ISC_FALSE);
+		return (dns_geoip_match(reqaddr, env->geoip, &e->geoip_elem));
+#endif
 	default:
 		/* Should be impossible. */
 		INSIST(0);
@@ -505,32 +519,26 @@ initialize_action(void) {
  */
 static void
 is_insecure(isc_prefix_t *prefix, void **data) {
-	isc_boolean_t secure;
-	int bitlen, family;
-
-	bitlen = prefix->bitlen;
-	family = prefix->family;
-
-	/* Negated entries are always secure. */
-	secure = * (isc_boolean_t *)data[ISC_IS6(family)];
-	if (!secure) {
+	/*
+	 * If all nonexistent or negative then this node is secure.
+	 */
+	if ((data[0] == NULL || !* (isc_boolean_t *) data[0]) &&
+	    (data[1] == NULL || !* (isc_boolean_t *) data[1]))
 		return;
-	}
 
-	/* If loopback prefix found, return */
-	switch (family) {
-	case AF_INET:
-		if (bitlen == 32 &&
-		    htonl(prefix->add.sin.s_addr) == INADDR_LOOPBACK)
-			return;
-		break;
-	case AF_INET6:
-		if (bitlen == 128 && IN6_IS_ADDR_LOOPBACK(&prefix->add.sin6))
-			return;
-		break;
-	default:
-		break;
-	}
+	/*
+	 * If a loopback address found and the other family
+	 * doesn't exist or is negative, return.
+	 */
+	if (prefix->bitlen == 32 &&
+	    htonl(prefix->add.sin.s_addr) == INADDR_LOOPBACK &&
+	    (data[1] == NULL || !* (isc_boolean_t *) data[1]))
+		return;
+
+	if (prefix->bitlen == 128 &&
+	    IN6_IS_ADDR_LOOPBACK(&prefix->add.sin6) &&
+	    (data[0] == NULL || !* (isc_boolean_t *) data[0]))
+		return;
 
 	/* Non-negated, non-loopback */
 	insecure_prefix_found = ISC_TRUE;	/* LOCKED */
@@ -563,7 +571,7 @@ dns_acl_isinsecure(const dns_acl_t *a) {
 	insecure = insecure_prefix_found;
 	UNLOCK(&insecure_prefix_lock);
 	if (insecure)
-		return(ISC_TRUE);
+		return (ISC_TRUE);
 
 	/* Now check non-radix elements */
 	for (i = 0; i < a->length; i++) {
@@ -612,6 +620,9 @@ dns_aclenv_init(isc_mem_t *mctx, dns_aclenv_t *env) {
 	if (result != ISC_R_SUCCESS)
 		goto cleanup_localhost;
 	env->match_mapped = ISC_FALSE;
+#ifdef HAVE_GEOIP
+	env->geoip = NULL;
+#endif
 	return (ISC_R_SUCCESS);
 
  cleanup_localhost:

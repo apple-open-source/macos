@@ -423,10 +423,7 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
             char lwKeyValue[kKeyValueLenMax] = {0};
             UErrorCode kvStatus = U_ZERO_ERROR;
             int32_t kLen = loc.getKeywordValue("lw", lwKeyValue, kKeyValueLenMax, kvStatus);
-            UBool keepAll = (U_SUCCESS(kvStatus) && kLen > 0)?
-                (uprv_strcmp(lwKeyValue,"keepall")==0): // if keyword specified, depends on keyword
-                (uprv_strcmp(loc.getLanguage(),"ko")==0); // otherwise for "ko", default is keepall per rdar://23224717
-            result->setKeepAll(keepAll);
+            result->setKeepAll(U_SUCCESS(kvStatus) && kLen > 0 && uprv_strcmp(lwKeyValue,"keepall")==0);
         }
         break;
     case UBRK_SENTENCE:

@@ -65,6 +65,13 @@ kcm_ccache_get_uuids (
 	krb5_storage */*sp*/);
 
 krb5_error_code
+kcm_ccache_get_client_principals (
+	krb5_context /*context*/,
+	kcm_client */*client*/,
+	kcm_operation /*opcode*/,
+	krb5_storage */*sp*/);
+
+krb5_error_code
 kcm_ccache_new (
 	krb5_context /*context*/,
 	const char */*name*/,

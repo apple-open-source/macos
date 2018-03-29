@@ -28,6 +28,7 @@
 #import "WKContentView.h"
 
 #import "AssistedNodeInformation.h"
+#import "DragDropInteractionState.h"
 #import "EditorState.h"
 #import "GestureTypes.h"
 #import "InteractionInformationAtPosition.h"
@@ -39,7 +40,6 @@
 #import "WKSyntheticClickTapGestureRecognizer.h"
 #import <UIKit/UIView.h>
 #import <WebCore/Color.h>
-#import <WebCore/DragActions.h>
 #import <WebCore/FloatQuad.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/Forward.h>
@@ -50,12 +50,16 @@ namespace API {
 class OpenPanelParameters;
 }
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 class Color;
 class FloatQuad;
 class IntSize;
-class TextStream;
 class SelectionRect;
+struct PromisedBlobInfo;
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -115,33 +119,6 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 
 namespace WebKit {
 
-#if ENABLE(DRAG_SUPPORT)
-
-struct WKDataInteractionState {
-    RetainPtr<UIImage> image;
-    std::optional<WebCore::TextIndicatorData> indicatorData;
-    CGPoint adjustedOrigin { CGPointZero };
-    CGPoint lastGlobalPosition { CGPointZero };
-    CGRect elementBounds { CGRectZero };
-    BOOL didBeginDragging { NO };
-    BOOL isPerformingOperation { NO };
-    BOOL isAnimatingConcludeEditDrag { NO };
-    BOOL shouldRestoreCalloutBar { NO };
-    RetainPtr<id <UIDragSession>> dragSession;
-    RetainPtr<id <UIDropSession>> dropSession;
-    BlockPtr<void()> dragStartCompletionBlock;
-    BlockPtr<void()> dragCancelSetDownBlock;
-    WebCore::DragSourceAction sourceAction { WebCore::DragSourceActionNone };
-
-    String linkTitle;
-    WebCore::URL linkURL;
-
-    RetainPtr<UIView> visibleContentViewSnapshot;
-    RetainPtr<_UITextDragCaretView> caretView;
-};
-
-#endif // ENABLE(DRAG_SUPPORT)
-
 struct WKSelectionDrawingInfo {
     enum class SelectionType { None, Plugin, Range };
     WKSelectionDrawingInfo();
@@ -151,7 +128,7 @@ struct WKSelectionDrawingInfo {
     Vector<WebCore::SelectionRect> selectionRects;
 };
 
-WebCore::TextStream& operator<<(WebCore::TextStream&, const WKSelectionDrawingInfo&);
+WTF::TextStream& operator<<(WTF::TextStream&, const WKSelectionDrawingInfo&);
 
 struct WKAutoCorrectionData {
     String fontName;
@@ -194,6 +171,7 @@ struct WKAutoCorrectionData {
     RetainPtr<WKFileUploadPanel> _fileUploadPanel;
     RetainPtr<UIGestureRecognizer> _previewGestureRecognizer;
     RetainPtr<UIGestureRecognizer> _previewSecondaryGestureRecognizer;
+    Vector<bool> _focusStateStack;
 #if HAVE(LINK_PREVIEW)
     RetainPtr<UIPreviewItemController> _previewItemController;
 #endif
@@ -253,15 +231,19 @@ struct WKAutoCorrectionData {
     BOOL _needsDeferredEndScrollingSelectionUpdate;
 
 #if ENABLE(DATA_INTERACTION)
-    WebKit::WKDataInteractionState _dataInteractionState;
-    RetainPtr<UIDragInteraction> _dataInteraction;
-    RetainPtr<UIDropInteraction> _dataOperation;
+    WebKit::DragDropInteractionState _dragDropInteractionState;
+    RetainPtr<UIDragInteraction> _dragInteraction;
+    RetainPtr<UIDropInteraction> _dropInteraction;
+    BOOL _shouldRestoreCalloutBarAfterDrop;
+    BOOL _isAnimatingConcludeEditDrag;
+    RetainPtr<UIView> _visibleContentViewSnapshot;
+    RetainPtr<_UITextDragCaretView> _editDropCaretView;
 #endif
 }
 
 @end
 
-@interface WKContentView (WKInteraction) <UIGestureRecognizerDelegate, UIWebTouchEventsGestureRecognizerDelegate, UITextInputPrivate, UIWebFormAccessoryDelegate, UIWKInteractionViewProtocol, WKFileUploadPanelDelegate, WKActionSheetAssistantDelegate
+@interface WKContentView (WKInteraction) <UIGestureRecognizerDelegate, UITextAutoscrolling, UITextInputMultiDocument, UITextInputPrivate, UIWebFormAccessoryDelegate, UIWebTouchEventsGestureRecognizerDelegate, UIWKInteractionViewProtocol, WKActionSheetAssistantDelegate, WKFileUploadPanelDelegate
 #if ENABLE(DATA_INTERACTION)
     , UIDragInteractionDelegate, UIDropInteractionDelegate
 #endif
@@ -285,6 +267,7 @@ struct WKAutoCorrectionData {
 - (BOOL)becomeFirstResponderForWebView;
 - (BOOL)resignFirstResponderForWebView;
 - (BOOL)canPerformActionForWebView:(SEL)action withSender:(id)sender;
+- (id)targetForActionForWebView:(SEL)action withSender:(id)sender;
 
 #define DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW(_action) \
     - (void)_action ## ForWebView:(id)sender;
@@ -301,7 +284,7 @@ FOR_EACH_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 
 - (BOOL)_mayDisableDoubleTapGesturesDuringSingleTap;
 - (void)_disableDoubleTapGesturesDuringTapIfNecessary:(uint64_t)requestID;
-- (void)_startAssistingNode:(const WebKit::AssistedNodeInformation&)information userIsInteracting:(BOOL)userIsInteracting blurPreviousNode:(BOOL)blurPreviousNode userObject:(NSObject <NSSecureCoding> *)userObject;
+- (void)_startAssistingNode:(const WebKit::AssistedNodeInformation&)information userIsInteracting:(BOOL)userIsInteracting blurPreviousNode:(BOOL)blurPreviousNode changingActivityState:(bool)changingActivityState userObject:(NSObject <NSSecureCoding> *)userObject;
 - (void)_stopAssistingNode;
 - (void)_selectionChanged;
 - (void)_updateChangedSelection;
@@ -313,7 +296,9 @@ FOR_EACH_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_didEndScrollingOrZooming;
 - (void)_overflowScrollingWillBegin;
 - (void)_overflowScrollingDidEnd;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
 - (void)_didUpdateBlockSelectionWithTouch:(WebKit::SelectionTouch)touch withFlags:(WebKit::SelectionFlags)flags growThreshold:(CGFloat)growThreshold shrinkThreshold:(CGFloat)shrinkThreshold;
+#endif
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const WebCore::IntRect&)elementRect;
 - (void)_showRunOpenPanel:(API::OpenPanelParameters*)parameters resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
 - (void)accessoryDone;
@@ -331,35 +316,29 @@ FOR_EACH_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_accessibilityRetrieveRectsEnclosingSelectionOffset:(NSInteger)offset withGranularity:(UITextGranularity)granularity;
 - (void)_accessibilityRetrieveRectsAtSelectionOffset:(NSInteger)offset withText:(NSString *)text completionHandler:(void (^)(const Vector<WebCore::SelectionRect>& rects))completionHandler;
 - (void)_accessibilityRetrieveRectsAtSelectionOffset:(NSInteger)offset withText:(NSString *)text;
+- (void)_accessibilityStoreSelection;
+- (void)_accessibilityClearSelection;
 
 @property (nonatomic, readonly) WebKit::InteractionInformationAtPosition currentPositionInformation;
 - (void)doAfterPositionInformationUpdate:(void (^)(WebKit::InteractionInformationAtPosition))action forRequest:(WebKit::InteractionInformationRequest)request;
 - (BOOL)ensurePositionInformationIsUpToDate:(WebKit::InteractionInformationRequest)request;
 
-#if ENABLE(DATA_INTERACTION)
+#if ENABLE(DRAG_SUPPORT)
 - (void)_didChangeDragInteractionPolicy;
 - (void)_didPerformDataInteractionControllerOperation:(BOOL)handled;
 - (void)_didHandleStartDataInteractionRequest:(BOOL)started;
+- (void)_didHandleAdditionalDragItemsRequest:(BOOL)added;
 - (void)_startDrag:(RetainPtr<CGImageRef>)image item:(const WebCore::DragItem&)item;
 - (void)_didConcludeEditDataInteraction:(std::optional<WebCore::TextIndicatorData>)data;
 - (void)_didChangeDataInteractionCaretRect:(CGRect)previousRect currentRect:(CGRect)rect;
-
-- (void)_simulateDataInteractionEntered:(id)info;
-- (NSUInteger)_simulateDataInteractionUpdated:(id)info;
-- (void)_simulateDataInteractionPerformOperation:(id)info;
-- (void)_simulateDataInteractionEnded:(id)info;
-- (void)_simulateDataInteractionSessionDidEnd:(id)session;
-- (void)_simulateWillBeginDataInteractionWithSession:(id)session;
-- (NSArray *)_simulatedItemsForSession:(id)session;
-- (void)_simulatePrepareForDataInteractionSession:(id)session completion:(dispatch_block_t)completion;
-#endif
-
-- (void)_simulateLongPressActionAtLocation:(CGPoint)location;
+- (void)_prepareToDragPromisedBlob:(const WebCore::PromisedBlobInfo&)info;
+#endif // ENABLE(DRAG_SUPPORT)
 
 @end
 
 @interface WKContentView (WKTesting)
 
+- (void)_simulateLongPressActionAtLocation:(CGPoint)location;
 - (void)selectFormAccessoryPickerRow:(NSInteger)rowIndex;
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem;
 

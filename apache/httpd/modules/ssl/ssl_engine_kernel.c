@@ -2327,7 +2327,7 @@ int ssl_callback_SessionTicket(SSL *ssl,
                       "TLS session ticket key for %s successfully set, "
                       "creating new session ticket", sc->vhost_id);
 
-        return 0;
+        return 1;
     }
     else if (mode == 0) {
         /* 
@@ -2455,7 +2455,7 @@ int ssl_callback_SRPServerParams(SSL *ssl, int *ad, void *arg)
     SRP_user_pwd *u;
 
     if (username == NULL
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
         || (u = SRP_VBASE_get_by_user(mctx->srp_vbase, username)) == NULL) {
 #else
         || (u = SRP_VBASE_get1_by_user(mctx->srp_vbase, username)) == NULL) {

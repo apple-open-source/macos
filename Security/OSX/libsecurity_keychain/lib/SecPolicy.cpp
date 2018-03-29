@@ -276,7 +276,7 @@ SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 			(const void **)&name) && name) {
 			break;
 		}
-		if (CFDictionaryGetValueIfPresent(options, CFSTR("email") /*kSecPolicyCheckEmail*/,
+		if (CFDictionaryGetValueIfPresent(options, CFSTR("Email") /*kSecPolicyCheckEmail*/,
 			(const void **)&name) && name) {
 			break;
 		}

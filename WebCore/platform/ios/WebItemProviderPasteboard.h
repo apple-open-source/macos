@@ -32,6 +32,12 @@
 
 struct CGSize;
 
+typedef NS_ENUM(NSInteger, WebPreferredPresentationStyle) {
+    WebPreferredPresentationStyleUnspecified,
+    WebPreferredPresentationStyleInline,
+    WebPreferredPresentationStyleAttachment
+};
+
 NS_ASSUME_NONNULL_BEGIN
 
 /*! A WebItemProviderRegistrationInfo represents a single call to register something to an item provider.
@@ -60,8 +66,12 @@ WEBCORE_EXPORT @interface WebItemProviderRegistrationInfoList : NSObject
 - (void)addRepresentingObject:(id <UIItemProviderWriting>)object;
 - (void)addData:(NSData *)data forType:(NSString *)typeIdentifier;
 
-@property (nonatomic) CGSize estimatedDisplayedSize;
-@property (nonatomic, strong) NSString *suggestedName;
+@property (nonatomic) CGSize preferredPresentationSize;
+@property (nonatomic, copy) NSString *suggestedName;
+@property (nonatomic, readonly, nullable) UIItemProvider *itemProvider;
+
+@property (nonatomic) WebPreferredPresentationStyle preferredPresentationStyle;
+@property (nonatomic, copy) NSData *teamData;
 
 - (NSUInteger)numberOfItems;
 - (nullable WebItemProviderRegistrationInfo *)itemAtIndex:(NSUInteger)index;
@@ -75,16 +85,15 @@ WEBCORE_EXPORT @interface WebItemProviderPasteboard : NSObject<AbstractPasteboar
 
 + (instancetype)sharedInstance;
 
-// Registration info lists are only available upon starting data interaction.
-- (WebItemProviderRegistrationInfoList *)registrationInfoAtIndex:(NSUInteger)index;
-- (UIItemProvider *)itemProviderAtIndex:(NSUInteger)index;
-
 @property (copy, nonatomic, nullable) NSArray<__kindof NSItemProvider *> *itemProviders;
 @property (readonly, nonatomic) NSInteger numberOfItems;
 @property (readonly, nonatomic) NSInteger changeCount;
 
 // This will only be non-empty when an operation is being performed.
-@property (readonly, nonatomic) NSArray<NSURL *> *fileURLsForDataInteraction;
+@property (readonly, nonatomic) NSArray<NSURL *> *allDroppedFileURLs;
+
+// The preferred file URL corresponds to the highest fidelity non-private UTI that was loaded.
+- (nullable NSURL *)preferredFileUploadURLAtIndex:(NSUInteger)index fileType:(NSString *_Nullable *_Nullable)outFileType;
 
 @property (readonly, nonatomic) BOOL hasPendingOperation;
 - (void)incrementPendingOperationCount;

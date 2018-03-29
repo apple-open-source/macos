@@ -38,8 +38,8 @@ OSDefineMetaClassAndStructors( IOHIDEventOverrideDriver, IOHIDEventDriver )
 //====================================================================================================
 bool IOHIDEventOverrideDriver::handleStart( IOService * provider )
 {
-    OSArray *   maps = NULL;
-    int         index;
+    OSArray      *maps = NULL;
+    unsigned int index;
     
     if ( !super::handleStart(provider) )
         return false;

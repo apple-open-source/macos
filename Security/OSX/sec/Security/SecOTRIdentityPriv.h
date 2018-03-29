@@ -35,8 +35,6 @@
 #include <Security/SecOTR.h>
 
 __BEGIN_DECLS
-
-extern CFStringRef sErrorDomain;
     
 // OAEP Padding, uses lots of space. Might need this to be data
 // Driven when we support more key types.
@@ -78,7 +76,6 @@ extern const SecAsn1AlgId *kOTRSignatureAlgIDPtr;
 void EnsureOTRAlgIDInited(void);
     
 // Private functions for Public and Full IDs
-SecOTRFullIdentityRef SecOTRFullIdentityCreateWithSize(CFAllocatorRef allocator, int bits);
 
 bool SecOTRFIAppendSignature(SecOTRFullIdentityRef fullID,
                                 CFDataRef dataToHash,
@@ -118,7 +115,6 @@ OSStatus appendPublicOctets(SecKeyRef fromKey, CFMutableDataRef appendTo);
 OSStatus appendPublicOctetsAndSize(SecKeyRef fromKey, CFMutableDataRef appendTo);
 OSStatus appendSizeAndData(CFDataRef data, CFMutableDataRef appendTo);
 
-SecKeyRef CreateECPrivateKeyFrom(CFAllocatorRef allocator, const uint8_t** data, size_t* limit);
 SecKeyRef CreateECPublicKeyFrom(CFAllocatorRef allocator, const uint8_t** data, size_t* limit);
     
 bool SecOTRCreateError(enum SecOTRError family, CFIndex errorCode, CFStringRef descriptionString, CFErrorRef previousError, CFErrorRef *newError);

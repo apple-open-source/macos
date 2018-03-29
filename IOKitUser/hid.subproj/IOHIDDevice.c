@@ -48,7 +48,8 @@
 static IOHIDDeviceRef   __IOHIDDeviceCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
-static void             __IOHIDDeviceFree( CFTypeRef object );
+static void             __IOHIDDeviceExtRelease( CFTypeRef object );
+static void             __IOHIDDeviceIntRelease( CFTypeRef object );
 static void             __IOHIDDeviceRegister(void);
 static CFArrayRef       __IOHIDDeviceCopyMatchingInputElements(
                                     IOHIDDeviceRef          device, 
@@ -166,7 +167,7 @@ typedef struct {
 
 typedef struct __IOHIDDevice
 {
-    CFRuntimeBase                   cfBase;   // base CFType information
+    IOHIDObjectBase                 hidBase;
 
     io_service_t                    service;
     IOHIDDeviceDeviceInterface**    deviceInterface;
@@ -194,11 +195,16 @@ typedef struct __IOHIDDevice
     CFMutableSetRef                 inputValueCallbackSet;
 } __IOHIDDevice, *__IOHIDDeviceRef;
 
-static const CFRuntimeClass __IOHIDDeviceClass = {
-    .version        = 0,
-    .className      = "IOHIDDevice",
-    .finalize       = __IOHIDDeviceFree,
-    .copyDebugDesc  = __IOHIDDeviceCopyDebugDescription
+static const IOHIDObjectClass __IOHIDDeviceClass = {
+    {
+        .version        = _kCFRuntimeCustomRefCount,
+        .className      = "IOHIDDevice",
+        .finalize       = __IOHIDDeviceExtRelease,
+        .copyDebugDesc  = __IOHIDDeviceCopyDebugDescription,
+        .refcount       = _IOHIDObjectExtRetainCount,
+    },
+    _IOHIDObjectIntRetainCount,
+    __IOHIDDeviceIntRelease
 };
 
 static  pthread_once_t  __deviceTypeInit            = PTHREAD_ONCE_INIT;
@@ -233,10 +239,12 @@ CFStringRef __IOHIDDeviceCopyDebugDescription(CFTypeRef cf)
     }
     
     
-    subDescription = CFStringCreateWithFormat(CFGetAllocator(device), NULL, CFSTR("<IOHIDDevice %p [%p] 'ClassName=%s' "),
+    subDescription = CFStringCreateWithFormat(CFGetAllocator(device), NULL, CFSTR("<IOHIDDevice %p [%p]  'ClassName=%s' (ref:%d xref:%d) "),
                                               device,
                                               CFGetAllocator(device),
-                                              name);
+                                              name,
+                                              (int)device->hidBase.ref,
+                                              (int)device->hidBase.xref);
     if ( subDescription ) {
         CFStringAppend(description, subDescription);
         CFRelease(subDescription);
@@ -286,7 +294,7 @@ void __IOHIDDeviceRegister(void)
     __callbackBaseSetCallbacks = kCFTypeSetCallBacks;
     __callbackBaseSetCallbacks.equal = __IOHIDDeviceCallbackBaseDataIsEqual;
 
-    __kIOHIDDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDDeviceClass);
+    __kIOHIDDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDDeviceClass.cfClass);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -296,27 +304,26 @@ IOHIDDeviceRef __IOHIDDeviceCreate(
                                 CFAllocatorRef              allocator, 
                                 CFAllocatorContext *        context __unused)
 {
-    IOHIDDeviceRef  device = NULL;
-    void *          offset  = NULL;
     uint32_t        size;
 
     /* allocate service */
     size  = sizeof(__IOHIDDevice) - sizeof(CFRuntimeBase);
-    device = (IOHIDDeviceRef)_CFRuntimeCreateInstance(allocator, IOHIDDeviceGetTypeID(), size, NULL);
     
-    if (!device)
-        return NULL;
-
-    offset = device;
-    bzero(offset + sizeof(CFRuntimeBase), size);
-    
-    return device;
+    return (IOHIDDeviceRef)_IOHIDObjectCreateInstance(allocator, IOHIDDeviceGetTypeID(), size, NULL);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceFree
+// __IOHIDDeviceExtRelease
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDDeviceFree( CFTypeRef object )
+void __IOHIDDeviceExtRelease( CFTypeRef object __unused )
+{
+    
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// __IOHIDDeviceIntRelease
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void __IOHIDDeviceIntRelease( CFTypeRef object )
 {
     IOHIDDeviceRef device = (IOHIDDeviceRef)object;
     
@@ -357,7 +364,7 @@ void __IOHIDDeviceFree( CFTypeRef object )
         IOObjectRelease(device->service);
         device->service = 0;
     }
-   
+    
     if ( device->notification ) {
         IOObjectRelease(device->notification);
         device->notification = 0;
@@ -652,7 +659,7 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
             element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements, index);
             _IOHIDElementSetDevice(element, device);
             
-            if (device->elements || 
+            if (device->elements ||
                 (device->elements = CFSetCreateMutable(CFGetAllocator(device),
                                                         0,
                                                         &kCFTypeSetCallBacks))) {
@@ -932,7 +939,7 @@ void IOHIDDeviceRegisterInputValueCallback(
 {
     CFDataRef                                   infoRef = NULL;
     IOHIDDeviceInputElementValueCallbackInfo    info    = {context, callback};
-
+    
     CFRetain(device);
     if (!context)
         os_log(_IOHIDLog(), "called with a null context");
@@ -1210,6 +1217,25 @@ IOReturn IOHIDDeviceGetValue(
                                                 NULL,
                                                 NULL,
                                                 0);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDeviceGetValueWithOptions
+//------------------------------------------------------------------------------
+IOReturn IOHIDDeviceGetValueWithOptions (
+                             IOHIDDeviceRef                  device,
+                             IOHIDElementRef                 element,
+                             IOHIDValueRef *                 pValue,
+                             uint32_t                        options)
+{
+    return (*device->deviceInterface)->getValue(
+                                                device->deviceInterface,
+                                                element,
+                                                pValue,
+                                                0,
+                                                NULL,
+                                                NULL,
+                                                options);
 }
 
 //------------------------------------------------------------------------------

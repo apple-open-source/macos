@@ -32,14 +32,17 @@
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderView.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
+
+namespace WebCore {
 using namespace WTF;
 using namespace Unicode;
 
-namespace WebCore {
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderListMarker);
 
 const int cMarkerPadding = 7;
 
@@ -1133,10 +1136,8 @@ RenderListMarker::~RenderListMarker()
 
 void RenderListMarker::willBeDestroyed()
 {
-    m_listItem.didDestroyListMarker();
     if (m_image)
         m_image->removeClient(this);
-
     RenderBox::willBeDestroyed();
 }
 
@@ -1443,7 +1444,7 @@ void RenderListMarker::updateContent()
         LayoutUnit bulletWidth = style().fontMetrics().ascent() / LayoutUnit(2);
         LayoutSize defaultBulletSize(bulletWidth, bulletWidth);
         LayoutSize imageSize = calculateImageIntrinsicDimensions(m_image.get(), defaultBulletSize, DoNotScaleByEffectiveZoom);
-        m_image->setContainerSizeForRenderer(this, imageSize, style().effectiveZoom());
+        m_image->setContainerContextForRenderer(*this, imageSize, style().effectiveZoom());
         return;
     }
 

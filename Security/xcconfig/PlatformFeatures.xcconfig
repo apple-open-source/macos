@@ -2,7 +2,7 @@
 #include "xcconfig/PlatformLibraries.xcconfig"
 
 PLATFORM_STR = "unknown"
-PLATFORM_STR[sdk=macosx*] = "macos"
+PLATFORM_STR[sdk=macosx*] = "macOS"
 PLATFORM_STR[sdk=iphoneos*] = "iphone"
 PLATFORM_STR[sdk=watchos*] = "watch"
 PLATFORM_STR[sdk=appletvos*] = "tv"

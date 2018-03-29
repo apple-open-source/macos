@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009, 2014, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -25,6 +25,10 @@
 #ifndef ISC_HMACMD5_H
 #define ISC_HMACMD5_H 1
 
+#include <pk11/site.h>
+
+#ifndef PK11_MD5_DISABLE
+
 #include <isc/lang.h>
 #include <isc/md5.h>
 #include <isc/platform.h>
@@ -33,9 +37,20 @@
 #define ISC_HMACMD5_KEYLENGTH 64
 
 #ifdef ISC_PLATFORM_OPENSSLHASH
+#include <openssl/opensslv.h>
 #include <openssl/hmac.h>
 
-typedef HMAC_CTX isc_hmacmd5_t;
+typedef struct {
+	HMAC_CTX *ctx;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+	HMAC_CTX _ctx;
+#endif
+} isc_hmacmd5_t;
+
+#elif PKCS11CRYPTO
+#include <pk11/pk11.h>
+
+typedef pk11_context_t isc_hmacmd5_t;
 
 #else
 
@@ -68,5 +83,7 @@ isc_boolean_t
 isc_hmacmd5_verify2(isc_hmacmd5_t *ctx, unsigned char *digest, size_t len);
 
 ISC_LANG_ENDDECLS
+
+#endif /* !PK11_MD5_DISABLE */
 
 #endif /* ISC_HMACMD5_H */

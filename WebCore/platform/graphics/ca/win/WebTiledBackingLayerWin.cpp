@@ -35,7 +35,6 @@
 #include <QuartzCore/CACFLayer.h>
 #include <wtf/MainThread.h>
 
-using namespace std;
 using namespace WebCore;
 
 WebTiledBackingLayerWin::WebTiledBackingLayerWin(PlatformCALayer* owner)
@@ -43,9 +42,7 @@ WebTiledBackingLayerWin::WebTiledBackingLayerWin(PlatformCALayer* owner)
 {
 }
 
-WebTiledBackingLayerWin::~WebTiledBackingLayerWin()
-{
-}
+WebTiledBackingLayerWin::~WebTiledBackingLayerWin() = default;
 
 struct DisplayOnMainThreadContext {
     RetainPtr<CACFLayerRef> layer;

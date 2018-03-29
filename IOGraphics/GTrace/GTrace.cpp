@@ -185,7 +185,7 @@ void GTrace::recordToken(const uint16_t line,
         GTRACE_RETAIN;
 
         sGTrace * const buffer = &(fBuffer[getLine()]);
-        buffer->traceEntry.timestamp = mach_absolute_time();
+        buffer->traceEntry.timestamp = mach_continuous_time();
         buffer->traceEntry.traceID.ID.line = line;
         buffer->traceEntry.traceID.ID.component = fComponentID;
 #if defined(_KERNEL_) || defined (KERNEL)

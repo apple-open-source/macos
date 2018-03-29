@@ -43,8 +43,6 @@
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
-int dtrace_aggregate_hash(dtrace_hdl_t *dtp, dtrace_bufdesc_t **agg_bufs);
-
 /*
  * We declare this here because (1) we need it and (2) we want to avoid a
  * dependency on libm in libdtrace.
@@ -76,7 +74,6 @@ dt_ndigits(long long val)
 
 	return (rval < 4 ? 4 : rval);
 }
-
 
 /*
  * 128-bit arithmetic functions needed to support the stddev() aggregating
@@ -382,12 +379,17 @@ dt_stddev(uint64_t *data, uint64_t normal)
 	int64_t norm_avg;
 	uint64_t diff[2];
 
+	if (data[0] == 0)
+		return (0);
+
 	/*
 	 * The standard approximation for standard deviation is
 	 * sqrt(average(x**2) - average(x)**2), i.e. the square root
 	 * of the average of the squares minus the square of the average.
+	 * When normalizing, we should divide the sum of x**2 by normal**2.
 	 */
 	dt_divide_128(data + 2, normal, avg_of_squares);
+	dt_divide_128(avg_of_squares, normal, avg_of_squares);
 	dt_divide_128(avg_of_squares, data[0], avg_of_squares);
 
 	norm_avg = (int64_t)data[1] / (int64_t)normal / (int64_t)data[0];
@@ -463,17 +465,8 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 		offs += epd->dtepd_size;
 
 		do {
-			if (offs >= buf->dtbd_size) {
-				/*
-				 * We're at the end -- maybe.  If the oldest
-				 * record is non-zero, we need to wrap.
-				 */
-				if (buf->dtbd_oldest != 0) {
-					offs = 0;
-				} else {
-					goto out;
-				}
-			}
+			if (offs >= buf->dtbd_size)
+				goto out;
 
 			next = *(uint32_t *)((uintptr_t)buf->dtbd_data + offs);
 
@@ -537,13 +530,12 @@ dt_quantize_total(dtrace_hdl_t *dtp, int64_t datum, long double *total)
 		*total = val;
 }
 
-
 static int
 dt_print_quanthdr(dtrace_hdl_t *dtp, FILE *fp, int width)
 {
 	return (dt_printf(dtp, fp, "\n%*s %41s %-9s\n",
-	                  width ? width : 16, width ? "key" : "value",
-	                  "------------- Distribution -------------", "count"));
+	    width ? width : 16, width ? "key" : "value",
+	    "------------- Distribution -------------", "count"));
 }
 
 static int
@@ -571,7 +563,7 @@ dt_print_quanthdr_packed(dtrace_hdl_t *dtp, FILE *fp, int width,
 	}
 
 	if (dt_printf(dtp, fp, "\n%*s %*s .",
-	              width, width > 0 ? "key" : "", minwidth, "min") < 0)
+	    width, width > 0 ? "key" : "", minwidth, "min") < 0)
 		return (-1);
 
 	for (i = min; i <= max; i++) {
@@ -587,13 +579,13 @@ dt_print_quanthdr_packed(dtrace_hdl_t *dtp, FILE *fp, int width,
  * inclusive) to represent aggregations via UTF-8 -- which are expressed via
  * 3-byte UTF-8 sequences.
  */
-#define  DTRACE_AGGUTF8_FULL  0x2588
-#define  DTRACE_AGGUTF8_BASE  0x258f
-#define  DTRACE_AGGUTF8_LEVELS  8
+#define	DTRACE_AGGUTF8_FULL	0x2588
+#define	DTRACE_AGGUTF8_BASE	0x258f
+#define	DTRACE_AGGUTF8_LEVELS	8
 
-#define  DTRACE_AGGUTF8_BYTE0(val)  (0xe0 | ((val) >> 12))
-#define  DTRACE_AGGUTF8_BYTE1(val)  (0x80 | (((val) >> 6) & 0x3f))
-#define  DTRACE_AGGUTF8_BYTE2(val)  (0x80 | ((val) & 0x3f))
+#define	DTRACE_AGGUTF8_BYTE0(val)	(0xe0 | ((val) >> 12))
+#define	DTRACE_AGGUTF8_BYTE1(val)	(0x80 | (((val) >> 6) & 0x3f))
+#define	DTRACE_AGGUTF8_BYTE2(val)	(0x80 | ((val) & 0x3f))
 
 static int
 dt_print_quantline_utf8(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
@@ -605,16 +597,16 @@ dt_print_quantline_utf8(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 
 	whole = (uint_t)f;
 	partial = (uint_t)((f - (long double)(uint_t)f) *
-			(long double)DTRACE_AGGUTF8_LEVELS);
+	    (long double)DTRACE_AGGUTF8_LEVELS);
 
 	if (dt_printf(dtp, fp, "|") < 0)
 		return (-1);
 
 	for (i = 0; i < whole; i++) {
 		if (dt_printf(dtp, fp, "%c%c%c",
-		              DTRACE_AGGUTF8_BYTE0(DTRACE_AGGUTF8_FULL),
-		              DTRACE_AGGUTF8_BYTE1(DTRACE_AGGUTF8_FULL),
-		              DTRACE_AGGUTF8_BYTE2(DTRACE_AGGUTF8_FULL)) < 0)
+		    DTRACE_AGGUTF8_BYTE0(DTRACE_AGGUTF8_FULL),
+		    DTRACE_AGGUTF8_BYTE1(DTRACE_AGGUTF8_FULL),
+		    DTRACE_AGGUTF8_BYTE2(DTRACE_AGGUTF8_FULL)) < 0)
 			return (-1);
 	}
 
@@ -622,19 +614,19 @@ dt_print_quantline_utf8(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 		partial = DTRACE_AGGUTF8_BASE - (partial - 1);
 
 		if (dt_printf(dtp, fp, "%c%c%c",
-		              DTRACE_AGGUTF8_BYTE0(partial),
-		              DTRACE_AGGUTF8_BYTE1(partial),
-		              DTRACE_AGGUTF8_BYTE2(partial)) < 0)
+		    DTRACE_AGGUTF8_BYTE0(partial),
+		    DTRACE_AGGUTF8_BYTE1(partial),
+		    DTRACE_AGGUTF8_BYTE2(partial)) < 0)
 			return (-1);
 
 		i++;
 	}
 
 	return (dt_printf(dtp, fp, "%s %-9lld\n", spaces + i,
-	                  (long long)val / normal));
+	    (long long)val / normal));
 }
 
-int
+static int
 dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
     uint64_t normal, long double total, char positives, char negatives)
 {
@@ -654,7 +646,7 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 		if (positives) {
 			if (dtp->dt_encoding == DT_ENCODING_UTF8) {
 				return (dt_print_quantline_utf8(dtp, fp, val,
-				                                normal, total));
+				    normal, total));
 			}
 
 			f = (dt_fabsl((long double)val) * len) / total;
@@ -699,7 +691,6 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 	}
 }
 
-
 /*
  * As with UTF-8 printing of aggregations, we use a subset of the Unicode
  * Block Elements (U+2581 through U+2588, inclusive) to represent our packed
@@ -712,14 +703,14 @@ static int
 dt_print_packed(dtrace_hdl_t *dtp, FILE *fp,
     long double datum, long double total)
 {
-	static boolean_t utf8_checked = 0;
+	static boolean_t utf8_checked = B_FALSE;
 	static boolean_t utf8;
 	char *ascii = "__xxxxXX";
 	char *neg = "vvvvVV";
 	unsigned int len;
 	long double val;
 
-	while (!utf8_checked) {
+	if (!utf8_checked) {
 		char *term;
 
 		/*
@@ -729,22 +720,18 @@ dt_print_packed(dtrace_hdl_t *dtp, FILE *fp,
 		 */
 		utf8_checked = B_TRUE;
 
-		if (dtp->dt_encoding == DT_ENCODING_ASCII)
-			break;
-
-		if (dtp->dt_encoding == DT_ENCODING_UTF8) {
+		if (dtp->dt_encoding == DT_ENCODING_ASCII) {
+			utf8 = B_FALSE;
+		} else if (dtp->dt_encoding == DT_ENCODING_UTF8) {
 			utf8 = B_TRUE;
-			break;
-		}
-
-		if ((term = getenv("TERM")) != NULL &&
+		} else if ((term = getenv("TERM")) != NULL &&
 		    (strcmp(term, "sun") == 0 ||
-		    strcmp(term, "sun-color") == 0) ||
-		    strcmp(term, "dumb") == 0) {
-			break;
+		    strcmp(term, "sun-color") == 0 ||
+		    strcmp(term, "dumb") == 0)) {
+			utf8 = B_FALSE;
+		} else {
+			utf8 = B_TRUE;
 		}
-
-		utf8 = B_TRUE;
 	}
 
 	if (datum == 0)
@@ -758,12 +745,12 @@ dt_print_packed(dtrace_hdl_t *dtp, FILE *fp,
 
 	if (utf8) {
 		int block = DTRACE_AGGPACK_BASE + (unsigned int)(((datum *
-		            (DTRACE_AGGPACK_LEVELS - 1)) / total) + 0.5);
+		    (DTRACE_AGGPACK_LEVELS - 1)) / total) + 0.5);
 
 		return (dt_printf(dtp, fp, "%c%c%c",
-		                  DTRACE_AGGUTF8_BYTE0(block),
-		                  DTRACE_AGGUTF8_BYTE1(block),
-		                  DTRACE_AGGUTF8_BYTE2(block)));
+		    DTRACE_AGGUTF8_BYTE0(block),
+		    DTRACE_AGGUTF8_BYTE1(block),
+		    DTRACE_AGGUTF8_BYTE2(block)));
 	}
 
 	len = strlen(ascii);
@@ -849,7 +836,7 @@ dt_print_quantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	maxval = DTRACE_QUANTIZE_BUCKETVAL(max);
 
 	if (dt_printf(dtp, fp, " %*lld :", dt_ndigits(minval),
-	             (long long)minval) < 0)
+	    (long long)minval) < 0)
 		return (-1);
 
 	for (i = min; i <= max; i++) {
@@ -863,11 +850,8 @@ dt_print_quantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	}
 
 	if (dt_printf(dtp, fp, ": %*lld | %lld\n",
-	              -dt_ndigits(maxval), (long long)maxval,
-	              (long long)count) < 0)
-	{
+	    -dt_ndigits(maxval), (long long)maxval, (long long)count) < 0)
 		return (-1);
-	}
 
 	return (0);
 }
@@ -1005,7 +989,7 @@ dt_print_lquantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 
 int
 dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
-                    size_t size, uint64_t normal)
+    size_t size, uint64_t normal)
 {
 	int i, first_bin, last_bin, bin = 1, order, levels;
 	uint16_t factor, low, high, nsteps;
@@ -1032,7 +1016,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	 * but sanity check them (to a degree) nonetheless.
 	 */
 	if (size > INT32_MAX || factor < 2 || low >= high ||
-			nsteps == 0 || factor > nsteps)
+	    nsteps == 0 || factor > nsteps)
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 
 	levels = (int)size / sizeof (uint64_t);
@@ -1064,7 +1048,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	}
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
-				"------------- Distribution -------------", "count") < 0)
+	    "------------- Distribution -------------", "count") < 0)
 		return (-1);
 
 	for (order = 0; order < low; order++)
@@ -1074,13 +1058,13 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	step = next > nsteps ? next / nsteps : 1;
 
 	if (first_bin == 0) {
-		(void) snprintf(c, sizeof (c), "< %lld", value);
+		(void) snprintf(c, sizeof (c), "< %lld", (long long)value);
 
 		if (dt_printf(dtp, fp, "%16s ", c) < 0)
 			return (-1);
 
 		if (dt_print_quantline(dtp, fp, data[0], normal,
-					total, positives, negatives) < 0)
+		    total, positives, negatives) < 0)
 			return (-1);
 	}
 
@@ -1090,7 +1074,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 				return (-1);
 
 			if (dt_print_quantline(dtp, fp, data[bin],
-						normal, total, positives, negatives) < 0)
+			    normal, total, positives, negatives) < 0)
 				return (-1);
 		}
 
@@ -1109,13 +1093,13 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 		return (0);
 
 	assert(last_bin == bin);
-	(void) snprintf(c, sizeof (c), ">= %lld", value);
+	(void) snprintf(c, sizeof (c), ">= %lld", (long long)value);
 
 	if (dt_printf(dtp, fp, "%16s ", c) < 0)
 		return (-1);
 
 	return (dt_print_quantline(dtp, fp, data[bin], normal,
-				total, positives, negatives));
+	    total, positives, negatives));
 }
 
 /*ARGSUSED*/
@@ -1158,7 +1142,10 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	if (nbytes == 0)
 		return (0);
 
-	if (forceraw || (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET))
+	if (forceraw)
+		goto raw;
+
+	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
 		goto raw;
 
 	for (i = 0; i < nbytes; i++) {
@@ -1197,7 +1184,7 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 				return (dt_printf(dtp, fp, "%s", c));
 			} else {
 				return (dt_printf(dtp, fp, " %s%*s",
-				                  width < 0 ? " " : "", width, c));
+				    width < 0 ? " " : "", width, c));
 			}
 		}
 
@@ -1262,8 +1249,8 @@ int
 dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     caddr_t addr, int depth, int size)
 {
-        dtrace_syminfo_t dts;
-        GElf_Sym sym;
+	dtrace_syminfo_t dts;
+	GElf_Sym sym;
         char aux_symbol_name[32];
         int i, indent;
         char c[PATH_MAX * 2];
@@ -1296,7 +1283,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			return (dt_set_errno(dtp, EDT_BADSTACKPC));
 		}
 
-		if (pc == NULL)
+		if (pc == 0)
 			break;
 
 		addr += size;
@@ -1424,7 +1411,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			(void) snprintf(c, sizeof (c), "%s", str);
 		} else {
 			if (P != NULL && Pobjname(P, pc[i], objname,
-			    sizeof (objname)) != NULL) {
+			    sizeof (objname)) != 0) {
 				(void) snprintf(c, sizeof (c), "%s`0x%llx",
 				    dt_basename(objname), (u_longlong_t)pc[i]);
 			} else {
@@ -1536,7 +1523,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	if (P != NULL)
 		dt_proc_lock(dtp, P); /* lock handle while we perform lookups */
 
-	if (P != NULL && Pobjname(P, pc, objname, sizeof (objname)) != NULL) {
+	if (P != NULL && Pobjname(P, pc, objname, sizeof (objname)) != 0) {
 		(void) snprintf(c, sizeof (c), "%s", dt_basename(objname));
 	} else {
 		(void) snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
@@ -1556,12 +1543,12 @@ static int
 dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 {
 	/* LINTED - alignment */
-        uint64_t pc = *((uint64_t *)addr);
-        dtrace_syminfo_t dts;
-        GElf_Sym sym;
-        char c[PATH_MAX * 2];
+	uint64_t pc = *((uint64_t *)addr);
+	dtrace_syminfo_t dts;
+	GElf_Sym sym;
+	char c[PATH_MAX * 2];
         char aux_symbol_name[32];
-        
+
 	if (format == NULL)
 		format = "  %-50s";
 
@@ -1809,8 +1796,8 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 static int
 dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
-	caddr_t addr, size_t size, const dtrace_aggdata_t *aggdata,
-	uint64_t normal, dt_print_aggdata_t *pd)
+    caddr_t addr, size_t size, const dtrace_aggdata_t *aggdata,
+    uint64_t normal, dt_print_aggdata_t *pd)
 {
 	int err, width;
 	dtrace_actkind_t act = rec->dtrd_action;
@@ -1822,11 +1809,11 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 		int width;
 		int packedwidth;
 	} *fmt, fmttab[] = {
-		{ sizeof (uint8_t),  3,  3 },
-		{ sizeof (uint16_t),  5,  5 },
-		{ sizeof (uint32_t),  8,  8 },
-		{ sizeof (uint64_t),  16,  16 },
-		{ 0,      -50,  32 }
+		{ sizeof (uint8_t),	3,	3 },
+		{ sizeof (uint16_t),	5,	5 },
+		{ sizeof (uint32_t),	8,	8 },
+		{ sizeof (uint64_t),	16,	16 },
+		{ 0,			-50,	16 }
 	};
 
 	if (packed && pd->dtpa_agghisthdr != agg->dtagd_varid) {
@@ -1841,7 +1828,7 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 		 */
 		for (r = rec; !DTRACEACT_ISAGG(r->dtrd_action); r++) {
 			for (fmt = fmttab; fmt->size &&
-			     fmt->size != r->dtrd_size; fmt++)
+			    fmt->size != r->dtrd_size; fmt++)
 				continue;
 
 			width += fmt->packedwidth + 1;
@@ -1851,8 +1838,8 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 			if (dt_print_quanthdr(dtp, fp, width) < 0)
 				return (-1);
 		} else {
-			if (dt_print_quanthdr_packed(dtp, fp, width, aggdata,
-                                                     r->dtrd_action) < 0)
+			if (dt_print_quanthdr_packed(dtp, fp,
+			    width, aggdata, r->dtrd_action) < 0)
 				return (-1);
 		}
 
@@ -1870,23 +1857,22 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 		if (dt_printf(dtp, fp, " ") < 0)
 			return (-1);
 
-		return (dt_print_quantline(dtp, fp, val, normal, aggdata->dtada_total,
-                                           positives, negatives));
+		return (dt_print_quantline(dtp, fp, val, normal,
+		    aggdata->dtada_total, positives, negatives));
 	}
 
 	if (pd->dtpa_aggpack && DTRACEACT_ISAGG(act)) {
 		switch (act) {
 		case DTRACEAGG_QUANTIZE:
-			return (dt_print_quantize_packed(dtp, fp, addr,
-			                                 size, aggdata));
+			return (dt_print_quantize_packed(dtp,
+			    fp, addr, size, aggdata));
 		case DTRACEAGG_LQUANTIZE:
-			return (dt_print_lquantize_packed(dtp, fp, addr,
-							  size, aggdata));
+			return (dt_print_lquantize_packed(dtp,
+			    fp, addr, size, aggdata));
 		default:
 			break;
 		}
 	}
-
 
 	switch (act) {
 	case DTRACEACT_STACK:
@@ -1996,7 +1982,7 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		}
 
 		if (dt_print_datum(dtp, fp, rec, addr,
-		                   size, aggdata, 1, pd) < 0)
+		    size, aggdata, 1, pd) < 0)
 			return (-1);
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
@@ -2020,7 +2006,7 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		normal = aggdata->dtada_normal;
 
 		if (dt_print_datum(dtp, fp, rec, addr,
-		                   size, aggdata, normal, pd) < 0)
+		    size, aggdata, normal, pd) < 0)
 			return (-1);
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
@@ -2170,6 +2156,7 @@ again:
 		if ((rval = dt_epid_lookup(dtp, id, &datap->dtpda_edesc,
 		    &datap->dtpda_pdesc)) != 0)
 			return (rval);
+
 		epd = datap->dtpda_edesc;
 		datap->dtpda_data = buf->dtbd_data + offs;
 
@@ -2208,11 +2195,11 @@ again:
 			datap->dtpda_data = buf->dtbd_data + offs +
 			    rec->dtrd_offset;
 			addr = datap->dtpda_data;
-            
+
 			if (act == DTRACEACT_LIBACT) {
 				uint64_t arg = rec->dtrd_arg;
 				dtrace_aggvarid_t id;
-                                
+
 				switch (arg) {
 				case DT_ACT_CLEAR:
 					/* LINTED - alignment */
@@ -2426,10 +2413,11 @@ again:
 			 * it out by type.
 			 */
 			if (act == DTRACEACT_DIFEXPR) {
-				const char *strdata = dt_strdata_lookup(dtp, rec->dtrd_format);
+				const char *strdata = dt_strdata_lookup(dtp,
+				    rec->dtrd_format);
 				if (strdata != NULL) {
 					n = dtrace_print(dtp, fp, strdata,
-					                 addr, rec->dtrd_size);
+					    addr, rec->dtrd_size);
 
 					/*
 					 * dtrace_print() will return -1 on
@@ -2594,7 +2582,7 @@ nextepid:
 	 * Explicitly zero the drops to prevent us from processing them again.
 	 */
 	buf->dtbd_drops = 0;
-        
+
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
 
@@ -2678,7 +2666,7 @@ dt_get_buf(dtrace_hdl_t *dtp, int cpu, dtrace_bufdesc_t **bufp)
 {
 	dtrace_optval_t size;
 	dtrace_bufdesc_t *buf = dt_zalloc(dtp, sizeof (*buf));
-	int error;
+	int error, rval;
 
 	if (buf == NULL)
 		return (-1);
@@ -2693,7 +2681,6 @@ dt_get_buf(dtrace_hdl_t *dtp, int cpu, dtrace_bufdesc_t **bufp)
 	buf->dtbd_cpu = cpu;
 
 	if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, buf) == -1) {
-		dt_put_buf(dtp, buf);
 		/*
 		 * If we failed with ENOENT, it may be because the
 		 * CPU was unconfigured -- this is okay.  Any other
@@ -2701,10 +2688,12 @@ dt_get_buf(dtrace_hdl_t *dtp, int cpu, dtrace_bufdesc_t **bufp)
 		 */
 		if (errno == ENOENT) {
 			*bufp = NULL;
-			return (0);
-		}
+			rval = 0;
+		} else
+			rval = dt_set_errno(dtp, errno);
 
-		return (dt_set_errno(dtp, errno));
+		dt_put_buf(dtp, buf);
+		return (rval);
 	}
 
 	error = dt_unring_buf(dtp, buf);
@@ -2730,7 +2719,7 @@ typedef struct dt_begin {
 static int
 dt_consume_begin_probe(const dtrace_probedata_t *data, void *arg)
 {
-	dt_begin_t *begin = (dt_begin_t *)arg;
+	dt_begin_t *begin = arg;
 	dtrace_probedesc_t *pd = data->dtpda_pdesc;
 
 	int r1 = (strcmp(pd->dtpd_provider, "dtrace") == 0);
@@ -2755,7 +2744,7 @@ static int
 dt_consume_begin_record(const dtrace_probedata_t *data,
     const dtrace_recdesc_t *rec, void *arg)
 {
-	dt_begin_t *begin = (dt_begin_t *)arg;
+	dt_begin_t *begin = arg;
 
 	return (begin->dtbgn_recfunc(data, rec, begin->dtbgn_arg));
 }
@@ -2805,6 +2794,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 	 * first pass, and that we only process ERROR enablings _not_ induced
 	 * by BEGIN enablings in the second pass.
 	 */
+
 	dt_begin_t begin;
 	processorid_t cpu = dtp->dt_beganon;
 	int rval, i;
@@ -2860,15 +2850,13 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 
 	for (i = 0; i < max_ncpus; i++) {
 		dtrace_bufdesc_t *nbuf;
-
 		if (i == cpu)
 			continue;
 
 		if (dt_get_buf(dtp, i, &nbuf) != 0) {
 			dt_put_buf(dtp, buf);
 			return (-1);
- 		}
-
+		}
 		if (nbuf == NULL)
 			continue;
 
@@ -2936,21 +2924,17 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	hrtime_t now = gethrtime();
 
 	if (dtp->dt_lastswitch != 0) {
-		if (now - dtp->dt_lastswitch < interval) {
-			// EPM DEBUG PRINT
-			// dt_dprintf("rrrrr consume: It's not time to consume yet...%lld < %lld returning\n",now - dtp->dt_lastswitch,interval);
+		if (now - dtp->dt_lastswitch < interval)
 			return (0);
-		}
+
 		dtp->dt_lastswitch += interval;
 	} else {
 		dtp->dt_lastswitch = now;
 	}
 
-	if (!dtp->dt_active) {
-		// EPM DEBUG PRINT
-		// dt_dprintf("act act act dtrace no longer active... returning\n");
+	if (!dtp->dt_active)
 		return (dt_set_errno(dtp, EINVAL));
-	}
+
 	if (max_ncpus == 0)
 		max_ncpus = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
 
@@ -3123,4 +3107,3 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 	return (0);
 }
-

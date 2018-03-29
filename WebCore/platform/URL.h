@@ -42,6 +42,10 @@ typedef const struct __CFURL* CFURLRef;
 OBJC_CLASS NSURL;
 #endif
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class TextEncoding;
@@ -71,7 +75,7 @@ public:
     WEBCORE_EXPORT URL(const URL& base, const String& relative);
     URL(const URL& base, const String& relative, const TextEncoding&);
 
-    static URL fakeURLWithRelativePart(const String&);
+    WEBCORE_EXPORT static URL fakeURLWithRelativePart(const String&);
     WEBCORE_EXPORT static URL fileURLWithFileSystemPath(const String&);
 
     String strippedForUseAsReferrer() const;
@@ -157,10 +161,12 @@ public:
     // The query may begin with a question mark, or, if not, one will be added
     // for you. Setting the query to the empty string will leave a "?" in the
     // URL (with nothing after it). To clear the query, pass a null string.
-    void setQuery(const String&);
+    WEBCORE_EXPORT void setQuery(const String&);
 
-    void setFragmentIdentifier(StringView);
-    void removeFragmentIdentifier();
+    WEBCORE_EXPORT void setFragmentIdentifier(StringView);
+    WEBCORE_EXPORT void removeFragmentIdentifier();
+
+    WEBCORE_EXPORT void removeQueryAndFragmentIdentifier();
 
     WEBCORE_EXPORT friend bool equalIgnoringFragmentIdentifier(const URL&, const URL&);
 
@@ -199,8 +205,7 @@ public:
 
     template <class Encoder> void encode(Encoder&) const;
     template <class Decoder> static bool decode(Decoder&, URL&);
-
-    String serialize(bool omitFragment = false) const;
+    template <class Decoder> static std::optional<URL> decode(Decoder&);
 
 private:
     friend class URLParser;
@@ -208,12 +213,6 @@ private:
     static bool protocolIs(const String&, const char*);
     void init(const URL&, const String&, const TextEncoding&);
     void copyToBuffer(Vector<char, 512>& buffer) const;
-
-    // Parses the given URL. The originalString parameter allows for an
-    // optimization: When the source is the same as the fixed-up string,
-    // it will use the passed-in string instead of allocating a new one.
-    void parse(const String&);
-    void parse(const char* url, const String* originalString = 0);
 
     bool hasPath() const;
 
@@ -255,37 +254,48 @@ void URL::encode(Encoder& encoder) const
 template <class Decoder>
 bool URL::decode(Decoder& decoder, URL& url)
 {
-    if (!decoder.decode(url.m_string))
+    auto optionalURL = URL::decode(decoder);
+    if (!optionalURL)
         return false;
+    url = WTFMove(*optionalURL);
+    return true;
+}
+
+template <class Decoder>
+std::optional<URL> URL::decode(Decoder& decoder)
+{
+    URL url;
+    if (!decoder.decode(url.m_string))
+        return std::nullopt;
     bool isValid;
     if (!decoder.decode(isValid))
-        return false;
+        return std::nullopt;
     url.m_isValid = isValid;
     if (!isValid)
-        return true;
+        return WTFMove(url);
     bool protocolIsInHTTPFamily;
     if (!decoder.decode(protocolIsInHTTPFamily))
-        return false;
+        return std::nullopt;
     url.m_protocolIsInHTTPFamily = protocolIsInHTTPFamily;
     if (!decoder.decode(url.m_schemeEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_userStart))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_userEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_passwordEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_hostEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_portEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_pathAfterLastSlash))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_pathEnd))
-        return false;
+        return std::nullopt;
     if (!decoder.decode(url.m_queryEnd))
-        return false;
-    return true;
+        return std::nullopt;
+    return WTFMove(url);
 }
 
 bool operator==(const URL&, const URL&);
@@ -321,7 +331,6 @@ WEBCORE_EXPORT void clearDefaultPortForProtocolMapForTesting();
 bool isValidProtocol(const String&);
 
 String mimeTypeFromDataURL(const String& url);
-WEBCORE_EXPORT String mimeTypeFromURL(const URL&);
 
 // Unescapes the given string using URL escaping rules, given an optional
 // encoding (defaulting to UTF-8 otherwise). DANGER: If the URL has "%00"
@@ -441,14 +450,16 @@ inline unsigned URL::pathAfterLastSlash() const
     return m_pathAfterLastSlash;
 }
 
+WTF::TextStream& operator<<(WTF::TextStream&, const URL&);
+
 } // namespace WebCore
 
 namespace WTF {
 
-    // URLHash is the default hash for String
-    template<typename T> struct DefaultHash;
-    template<> struct DefaultHash<WebCore::URL> {
-        typedef WebCore::URLHash Hash;
-    };
+// URLHash is the default hash for String
+template<typename T> struct DefaultHash;
+template<> struct DefaultHash<WebCore::URL> {
+    typedef WebCore::URLHash Hash;
+};
 
 } // namespace WTF

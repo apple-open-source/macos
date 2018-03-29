@@ -168,7 +168,7 @@ typedef String ErrorString;
 #include "TestBackendDispatchers.h"
 
 #include <inspector/InspectorFrontendRouter.h>
-#include <inspector/InspectorValues.h>
+#include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 
@@ -218,7 +218,7 @@ namespace Inspector {
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <inspector/InspectorValues.h>
+#include <wtf/JSONValues.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -262,7 +262,7 @@ class FrontendRouter;
 #include "config.h"
 #include "TestFrontendDispatchers.h"
 
-#include "InspectorFrontendRouter.h"
+#include <inspector/InspectorFrontendRouter.h>
 #include <wtf/text/CString.h>
 
 namespace Inspector {
@@ -335,7 +335,7 @@ template<typename T> String getEnumConstantValue(T enumValue)
 
 namespace Runtime {
 /* Key path. */
-class KeyPath : public Inspector::InspectorObjectBase {
+class KeyPath : public JSON::ObjectBase {
 public:
     // Named after property name 'type' while generating KeyPath.
     enum class Type {
@@ -352,14 +352,14 @@ public:
     template<int STATE>
     class Builder {
     private:
-        RefPtr<InspectorObject> m_result;
+        RefPtr<JSON::Object> m_result;
 
         template<int STEP> Builder<STATE | STEP>& castState()
         {
             return *reinterpret_cast<Builder<STATE | STEP>*>(this);
         }
 
-        Builder(Ref</*KeyPath*/InspectorObject>&& object)
+        Builder(Ref</*KeyPath*/JSON::Object>&& object)
             : m_result(WTFMove(object))
         {
             COMPILE_ASSERT(STATE == NoFieldsSet, builder_created_in_non_init_state);
@@ -377,9 +377,9 @@ public:
         Ref<KeyPath> release()
         {
             COMPILE_ASSERT(STATE == AllFieldsSet, result_is_not_ready);
-            COMPILE_ASSERT(sizeof(KeyPath) == sizeof(InspectorObject), cannot_cast);
+            COMPILE_ASSERT(sizeof(KeyPath) == sizeof(JSON::Object), cannot_cast);
 
-            Ref<InspectorObject> result = m_result.releaseNonNull();
+            Ref<JSON::Object> result = m_result.releaseNonNull();
             return WTFMove(*reinterpret_cast<Ref<KeyPath>*>(&result));
         }
     };
@@ -392,17 +392,17 @@ public:
      */
     static Builder<NoFieldsSet> create()
     {
-        return Builder<NoFieldsSet>(InspectorObject::create());
+        return Builder<NoFieldsSet>(JSON::Object::create());
     }
 
     void setString(const String& value)
     {
-        InspectorObjectBase::setString(ASCIILiteral("string"), value);
+        JSON::ObjectBase::setString(ASCIILiteral("string"), value);
     }
 
-    void setArray(RefPtr<Inspector::Protocol::Array<String>> value)
+    void setArray(RefPtr<JSON::ArrayOf<String>> value)
     {
-        InspectorObjectBase::setArray(ASCIILiteral("array"), WTFMove(value));
+        JSON::ObjectBase::setArray(ASCIILiteral("array"), WTFMove(value));
     }
 };
 
@@ -585,7 +585,7 @@ namespace Inspector {
 
 #include "TestProtocolInternal.h"
 #include "TestProtocolTypeConversions.h"
-#include <JavaScriptCore/InspectorValues.h>
+#include <wtf/JSONValues.h>
 
 namespace Inspector {
 
@@ -734,7 +734,7 @@ using namespace Inspector;
 #import "TestProtocolInternal.h"
 
 #import "TestProtocolTypeConversions.h"
-#import <JavaScriptCore/InspectorValues.h>
+#import <wtf/JSONValues.h>
 
 using namespace Inspector;
 
@@ -797,7 +797,7 @@ typedef NS_ENUM(NSInteger, TestProtocolRuntimeKeyPathType) {
 __attribute__((visibility ("default")))
 @interface TestProtocolRuntimeKeyPath : RWIProtocolJSONObject
 - (instancetype)initWithPayload:(NSDictionary<NSString *, id> *)payload;
-- (instancetype)initWithJSONObject:(RWIProtocolJSONObject *)jsonObject;
+- (instancetype)initWithProtocolObject:(RWIProtocolJSONObject *)jsonObject;
 - (instancetype)initWithType:(TestProtocolRuntimeKeyPathType)type;
 /* required */ @property (nonatomic, assign) TestProtocolRuntimeKeyPathType type;
 /* optional */ @property (nonatomic, copy) NSString *string;
@@ -845,7 +845,7 @@ __attribute__((visibility ("default")))
 #import "TestProtocol.h"
 #import "TestProtocolJSONObjectPrivate.h"
 #import <JavaScriptCore/AugmentableInspectorController.h>
-#import <JavaScriptCore/InspectorValues.h>
+#import <wtf/JSONValues.h>
 
 
 
@@ -1041,8 +1041,8 @@ using namespace Inspector;
 
 #import "TestProtocolTypeConversions.h"
 #import <WebInspector/RWIProtocolJSONObjectPrivate.h>
-#import <JavaScriptCore/InspectorValues.h>
 #import <wtf/Assertions.h>
+#import <wtf/JSONValues.h>
 
 using namespace Inspector;
 
@@ -1065,9 +1065,9 @@ using namespace Inspector;
 
     return self;
 }
-- (instancetype)initWithJSONObject:(RWIProtocolJSONObject *)jsonObject
+- (instancetype)initWithProtocolObject:(RWIProtocolJSONObject *)object
 {
-    if (!(self = [super initWithInspectorObject:[jsonObject toInspectorObject].get()]))
+    if (!(self = [super initWithJSONObject:[object toJSONObject].get()]))
         return nil;
 
     return self;
@@ -1105,12 +1105,12 @@ using namespace Inspector;
 
 - (void)setArray:(NSArray/*<NSString>*/ *)array
 {
-    [super setInspectorArray:inspectorStringArray(array) forKey:@"array"];
+    [super setJSONArray:toJSONStringArray(array) forKey:@"array"];
 }
 
 - (NSArray/*<NSString>*/ *)array
 {
-    return objcStringArray([super inspectorArrayForKey:@"array"]);
+    return toObjCStringArray([super JSONArrayForKey:@"array"]);
 }
 
 @end

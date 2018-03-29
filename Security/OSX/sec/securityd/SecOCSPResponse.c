@@ -217,7 +217,6 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 {
     bool ok = false;
 	this->latestNextUpdate = NULL_TIME;
-    CFStringRef hexResp = CFDataCopyHexString(this->data);
 
     if (this->producedAt > verifyTime + LEEWAY) {
         secnotice("ocsp", "OCSPResponse: producedAt more than 1:15 from now");
@@ -310,8 +309,12 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
         } else {
             /* maxAge http header attempting to make us cache the response
                longer than it's valid for, bad http header! Ignoring you. */
+#ifdef DEBUG
+            CFStringRef hexResp = CFDataCopyHexString(this->data);
             ocspdDebug("OCSPResponse: now + maxAge > latestNextUpdate,"
                 " using latestNextUpdate %@", hexResp);
+            CFReleaseSafe(hexResp);
+#endif
             this->expireTime = this->latestNextUpdate;
         }
 	} else {
@@ -321,12 +324,10 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 
     ok = true;
 exit:
-    CFReleaseSafe(hexResp);
 	return ok;
 }
 
 SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t responseID) {
-    CFStringRef hexResp = CFDataCopyHexString(ocspResponse);
 	SecAsn1OCSPResponse topResp = {};
     SecOCSPResponseRef this;
 
@@ -353,8 +354,12 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 	}
     this->responseStatus = topResp.responseStatus.Data[0];
 	if (this->responseStatus != kSecOCSPSuccess) {
-		secdebug("ocsp", "OCSPResponse: status: %d %@", this->responseStatus, hexResp);
-		/* not a failure of our constructor; this object is now useful, but
+#ifdef DEBUG
+        CFStringRef hexResp = CFDataCopyHexString(this->data);
+        secdebug("ocsp", "OCSPResponse: status: %d %@", this->responseStatus, hexResp);
+        CFReleaseNull(hexResp);
+#endif
+        /* not a failure of our constructor; this object is now useful, but
 		 * only for this one byte of status info */
 		goto fini;
 	}
@@ -420,11 +425,15 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 	}
 
 fini:
-    CFReleaseSafe(hexResp);
     return this;
 errOut:
-    secdebug("ocsp", "bad ocsp response: %@", hexResp);
-    CFReleaseSafe(hexResp);
+#ifdef DEBUG
+    {
+        CFStringRef hexResp = CFDataCopyHexString(this->data);
+        secdebug("ocsp", "bad ocsp response: %@", hexResp);
+        CFReleaseSafe(hexResp);
+    }
+#endif
     if (this) {
         SecOCSPResponseFinalize(this);
     }

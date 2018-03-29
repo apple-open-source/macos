@@ -1344,10 +1344,6 @@ _dispatch_queue_create_with_target(const char *label, dispatch_queue_attr_t dqa,
 			DISPATCH_CLIENT_CRASH(tq, "Cannot specify an overcommit attribute "
 					"and use this kind of target queue");
 		}
-		if (qos != DISPATCH_QOS_UNSPECIFIED) {
-			DISPATCH_CLIENT_CRASH(tq, "Cannot specify a QoS attribute "
-					"and use this kind of target queue");
-		}
 	} else {
 		if (overcommit == _dispatch_queue_attr_overcommit_unspecified) {
 			 // Serial queues default to overcommit!
@@ -1411,20 +1407,17 @@ _dispatch_queue_create_with_target(const char *label, dispatch_queue_attr_t dqa,
 			(dqa->dqa_inactive ? DISPATCH_QUEUE_INACTIVE : 0));
 
 	dq->dq_label = label;
-#if HAVE_PTHREAD_WORKQUEUE_QOS
 	dq->dq_priority = dqa->dqa_qos_and_relpri;
-	if (overcommit == _dispatch_queue_attr_overcommit_enabled) {
-		dq->dq_priority |= DISPATCH_PRIORITY_FLAG_OVERCOMMIT;
-	}
-#endif
-	_dispatch_retain(tq);
-	if (qos == QOS_CLASS_UNSPECIFIED) {
+	if (!dq->dq_priority) {
 		// legacy way of inherithing the QoS from the target
 		_dispatch_queue_priority_inherit_from_target(dq, tq);
+	} else if (overcommit == _dispatch_queue_attr_overcommit_enabled) {
+		dq->dq_priority |= DISPATCH_PRIORITY_FLAG_OVERCOMMIT;
 	}
 	if (!dqa->dqa_inactive) {
 		_dispatch_queue_inherit_wlh_from_target(dq, tq);
 	}
+	_dispatch_retain(tq);
 	dq->do_targetq = tq;
 	_dispatch_object_debug(dq, "%s", __func__);
 	return _dispatch_introspection_queue_create(dq);

@@ -687,7 +687,7 @@ Note that the interface might be in promiscuous
 mode for some other reason; hence, `-p' cannot be used as an abbreviation for
 `ether host {local-hw-addr} or ether broadcast'.
 .TP
-.B \-Q
+.BI \-Q " expression"
 To specify a filter expression based on packet metadata information like 
 interface or process name.  
 Packet with matching packet metadata will be displayed or saved to a file. 
@@ -695,6 +695,7 @@ See section
 PACKET METADATA FILTER 
 for the syntax of packet metadata filter expressions. 
 This is an Apple addition.
+.TP
 .BI \-Q " direction"
 .PD 0
 .TP
@@ -822,6 +823,20 @@ is a number between 0 and 5 with the following meaning:
 .IP
 This option may be specified more than once to display more than one kind of timestamp 
 on each dump line.
+.TP
+.BI \--time-zone-offset " tz"
+To set the time zone where the packet capture file was saved. This allows the timestamps
+to be displayed in the local time where and when the file was capture instead of the current local time.
+.IP
+The argument
+.B tz
+is a signed integer in hours from GMT. The number can also be specified with the suffix
+.B m
+for minutes
+or with the suffix
+.B s
+for seconds.
+The GMT and UTC notation, for example GMT-8.
 .TP
 .B \-u
 Print undecoded NFS handles.

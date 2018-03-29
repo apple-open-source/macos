@@ -89,6 +89,7 @@ static struct option longopts[] = {
 { "openfolder",     required_argument,      0,              kopenfolder },
 { "options",        required_argument,      0,              koptions },
 { "payload",        required_argument,      0,              kpayload },
+{ "personalize",    no_argument,			0,              kpersonalize },
 { "plist",          no_argument,            0,              kplist },
 { "quiet",          no_argument,            0,              kquiet },
 { "recovery",		no_argument,            0,              krecovery },

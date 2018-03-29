@@ -83,9 +83,7 @@ static void releaseCriticalMemory(Synchronous synchronous)
 
     CSSValuePool::singleton().drain();
 
-    Vector<RefPtr<Document>> documents;
-    copyToVector(Document::allDocuments(), documents);
-    for (auto& document : documents) {
+    for (auto& document : copyToVectorOf<RefPtr<Document>>(Document::allDocuments())) {
         document->styleScope().clearResolver();
         document->fontSelector().emptyCaches();
     }
@@ -128,9 +126,7 @@ void releaseMemory(Critical critical, Synchronous synchronous)
         // FastMalloc has lock-free thread specific caches that can only be cleared from the thread itself.
         WorkerThread::releaseFastMallocFreeMemoryInAllThreads();
 #if ENABLE(ASYNC_SCROLLING) && !PLATFORM(IOS)
-        ScrollingThread::dispatch([]() {
-            WTF::releaseFastMallocFreeMemory();
-        });
+        ScrollingThread::dispatch(WTF::releaseFastMallocFreeMemory);
 #endif
         WTF::releaseFastMallocFreeMemory();
     }

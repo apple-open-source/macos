@@ -551,8 +551,14 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 				continue;
 
 			passwordItem->getCssmData(data);
+
+            {
+                // Must hold the 'common' lock to call decode; otherwise there's a data corruption issue
+                StLock<Mutex> _(const_cast<KeychainDatabase*>(mPassphraseCheck)->common());
+                reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase);
+            }
 		}
-		while ((reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase)));
+        while (reason != SecurityAgent::noReason);
         
         readChoice();
 	}
@@ -649,6 +655,9 @@ Reason QueryOld::operator () ()
 //
 Reason QueryUnlock::accept(CssmManagedData &passphrase)
 {
+    // Must hold the 'common' lock to call decode; otherwise there's a data corruption issue
+    StLock<Mutex> _(safer_cast<KeychainDatabase &>(database).common());
+
 	if (safer_cast<KeychainDatabase &>(database).decode(passphrase))
 		return SecurityAgent::noReason;
 	else

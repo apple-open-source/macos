@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #include "WordLock.h"
 
 #include "ThreadSpecific.h"
+#include "Threading.h"
 #include "ThreadingPrimitives.h"
 #include <condition_variable>
 #include <mutex>
@@ -75,7 +76,7 @@ ThreadData* myThreadData()
 
 } // anonymous namespace
 
-NEVER_INLINE void WordLockBase::lockSlow()
+NEVER_INLINE void WordLock::lockSlow()
 {
     unsigned spinCount = 0;
 
@@ -99,7 +100,7 @@ NEVER_INLINE void WordLockBase::lockSlow()
         // If there is no queue and we haven't spun too much, we can just try to spin around again.
         if (!(currentWordValue & ~queueHeadMask) && spinCount < spinLimit) {
             spinCount++;
-            std::this_thread::yield();
+            Thread::yield();
             continue;
         }
 
@@ -120,7 +121,7 @@ NEVER_INLINE void WordLockBase::lockSlow()
         if ((currentWordValue & isQueueLockedBit)
             || !(currentWordValue & isLockedBit)
             || !m_word.compareExchangeWeak(currentWordValue, currentWordValue | isQueueLockedBit)) {
-            std::this_thread::yield();
+            Thread::yield();
             continue;
         }
         
@@ -176,7 +177,7 @@ NEVER_INLINE void WordLockBase::lockSlow()
     }
 }
 
-NEVER_INLINE void WordLockBase::unlockSlow()
+NEVER_INLINE void WordLock::unlockSlow()
 {
     // The fast path can fail either because of spurious weak CAS failure, or because someone put a
     // thread on the queue, or the queue lock is held. If the queue lock is held, it can only be
@@ -197,12 +198,12 @@ NEVER_INLINE void WordLockBase::unlockSlow()
                 return;
             }
             // Loop around and try again.
-            std::this_thread::yield();
+            Thread::yield();
             continue;
         }
         
         if (currentWordValue & isQueueLockedBit) {
-            std::this_thread::yield();
+            Thread::yield();
             continue;
         }
 

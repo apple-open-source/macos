@@ -288,6 +288,7 @@ enum
 };
 
 #define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
+#define kIOPCIDeviceHiddenKey       "pci-device-hidden"
 
 #ifndef kIODebugArgumentsKey
 #define kIODebugArgumentsKey	 "IODebugArguments"
@@ -306,6 +307,7 @@ extern const OSSymbol *           gIOPCIThunderboltKey;
 extern const OSSymbol *           gIOPCIHotplugCapableKey;
 extern const OSSymbol *           gIOPCITunnelledKey;
 extern const OSSymbol *           gIOPCIHPTypeKey;
+extern const OSSymbol *           gIOPCIDeviceHiddenKey;
 
 extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 #if ACPI_SUPPORT

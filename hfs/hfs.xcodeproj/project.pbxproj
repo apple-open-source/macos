@@ -2815,7 +2815,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -2909,6 +2909,7 @@
 					"FSCK_MAKESTRINGS=1",
 				);
 				PRODUCT_NAME = fsck_makestrings;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -2956,7 +2957,7 @@
 				GENERATE_MASTER_OBJECT_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
@@ -3385,7 +3386,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "-fexceptions";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/tests";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -3441,7 +3442,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fexceptions";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/tests";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -3478,6 +3479,7 @@
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -3486,6 +3488,7 @@
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -3519,7 +3522,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"$(inherited)",
@@ -3564,7 +3567,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"$(inherited)",
@@ -3608,7 +3611,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -3651,7 +3654,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -3687,7 +3690,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -3729,7 +3732,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -3738,7 +3741,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -3751,7 +3754,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -3984,7 +3987,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -3997,6 +4000,7 @@
 					"FSCK_MAKESTRINGS=1",
 				);
 				PRODUCT_NAME = fsck_makestrings;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -4032,7 +4036,7 @@
 				GENERATE_MASTER_OBJECT_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
@@ -4227,7 +4231,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 			};
 			name = Coverage;
 		};
@@ -4240,6 +4244,7 @@
 					"FSCK_MAKESTRINGS=1",
 				);
 				PRODUCT_NAME = fsck_makestrings;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Coverage;
@@ -4275,7 +4280,7 @@
 				GENERATE_MASTER_OBJECT_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
@@ -4379,6 +4384,7 @@
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Coverage;
 		};
@@ -4466,7 +4472,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"$(inherited)",
@@ -4513,7 +4519,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Coverage;
@@ -4555,7 +4561,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
 			name = Coverage;
@@ -4605,7 +4611,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fexceptions";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/tests";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -4620,7 +4626,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -4715,6 +4721,7 @@
 				07828B5C1E3FDD25009D2106 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "hfs.util" */ = {
 			isa = XCConfigurationList;

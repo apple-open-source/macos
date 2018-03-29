@@ -33,6 +33,7 @@
 #include "ParsedContentRange.h"
 #include "URL.h"
 #include <wtf/SHA1.h>
+#include <wtf/WallTime.h>
 
 namespace WebCore {
 
@@ -44,7 +45,10 @@ bool isScriptAllowedByNosniff(const ResourceResponse&);
 class ResourceResponseBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum class Type;
+    enum class Type { Basic, Cors, Default, Error, Opaque, Opaqueredirect };
+    enum class Tainting { Basic, Cors, Opaque, Opaqueredirect };
+
+    static bool isRedirectionStatusCode(int code) { return code == 301 || code == 302 || code == 303 || code == 307 || code == 308; }
 
     struct CrossThreadData {
         CrossThreadData(const CrossThreadData&) = delete;
@@ -62,14 +66,12 @@ public:
         HTTPHeaderMap httpHeaderFields;
         NetworkLoadMetrics networkLoadMetrics;
         Type type;
+        Tainting tainting;
         bool isRedirected;
     };
 
     CrossThreadData crossThreadData() const;
     static ResourceResponse fromCrossThreadData(CrossThreadData&&);
-
-    enum class Tainting { Basic, Cors, Opaque };
-    static ResourceResponse filterResponse(const ResourceResponse&, Tainting);
 
     bool isNull() const { return m_isNull; }
     WEBCORE_EXPORT bool isHTTP() const;
@@ -89,6 +91,7 @@ public:
 
     WEBCORE_EXPORT int httpStatusCode() const;
     WEBCORE_EXPORT void setHTTPStatusCode(int);
+    bool isRedirection() const { return isRedirectionStatusCode(m_httpStatusCode); }
 
     WEBCORE_EXPORT const String& httpStatusText() const;
     WEBCORE_EXPORT void setHTTPStatusText(const String&);
@@ -98,6 +101,7 @@ public:
     WEBCORE_EXPORT bool isHTTP09() const;
 
     WEBCORE_EXPORT const HTTPHeaderMap& httpHeaderFields() const;
+    void setHTTPHeaderFields(HTTPHeaderMap&&);
 
     String httpHeaderField(const String& name) const;
     WEBCORE_EXPORT String httpHeaderField(HTTPHeaderName) const;
@@ -128,14 +132,14 @@ public:
     WEBCORE_EXPORT bool cacheControlContainsMustRevalidate() const;
     WEBCORE_EXPORT bool cacheControlContainsImmutable() const;
     WEBCORE_EXPORT bool hasCacheValidatorFields() const;
-    WEBCORE_EXPORT std::optional<std::chrono::microseconds> cacheControlMaxAge() const;
-    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> date() const;
-    WEBCORE_EXPORT std::optional<std::chrono::microseconds> age() const;
-    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> expires() const;
-    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> lastModified() const;
+    WEBCORE_EXPORT std::optional<Seconds> cacheControlMaxAge() const;
+    WEBCORE_EXPORT std::optional<WallTime> date() const;
+    WEBCORE_EXPORT std::optional<Seconds> age() const;
+    WEBCORE_EXPORT std::optional<WallTime> expires() const;
+    WEBCORE_EXPORT std::optional<WallTime> lastModified() const;
     ParsedContentRange& contentRange() const;
 
-    enum class Source { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation };
+    enum class Source { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation, ServiceWorker };
     WEBCORE_EXPORT Source source() const;
     void setSource(Source source) { m_source = source; }
 
@@ -154,11 +158,16 @@ public:
         return 1280;
     }
 
-    enum class Type { Basic, Cors, Default, Error, Opaque, Opaqueredirect };
+    WEBCORE_EXPORT void setType(Type);
     Type type() const { return m_type; }
-    void setType(Type type) { m_type = type; }
-    bool isRedirected() const { return m_isRedirected; }
+
     void setRedirected(bool isRedirected) { m_isRedirected = isRedirected; }
+    bool isRedirected() const { return m_isRedirected; }
+
+    void setTainting(Tainting tainting) { m_tainting = tainting; }
+    Tainting tainting() const { return m_tainting; }
+
+    static ResourceResponse filter(const ResourceResponse&);
 
     static bool compare(const ResourceResponse&, const ResourceResponse&);
 
@@ -204,10 +213,10 @@ protected:
     int m_httpStatusCode;
 
 private:
-    mutable std::optional<std::chrono::microseconds> m_age;
-    mutable std::optional<std::chrono::system_clock::time_point> m_date;
-    mutable std::optional<std::chrono::system_clock::time_point> m_expires;
-    mutable std::optional<std::chrono::system_clock::time_point> m_lastModified;
+    mutable std::optional<Seconds> m_age;
+    mutable std::optional<WallTime> m_date;
+    mutable std::optional<WallTime> m_expires;
+    mutable std::optional<WallTime> m_lastModified;
     mutable ParsedContentRange m_contentRange;
     mutable CacheControlDirectives m_cacheControlDirectives;
 
@@ -224,6 +233,7 @@ private:
 
     Type m_type { Type::Default };
     bool m_isRedirected { false };
+    Tainting m_tainting { Tainting::Basic };
 };
 
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
@@ -255,6 +265,7 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder.encodeEnum(m_source);
     encoder << m_cacheBodyKey;
     encoder.encodeEnum(m_type);
+    encoder.encodeEnum(m_tainting);
     encoder << m_isRedirected;
 }
 
@@ -296,6 +307,8 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
     if (!decoder.decode(response.m_cacheBodyKey))
         return false;
     if (!decoder.decodeEnum(response.m_type))
+        return false;
+    if (!decoder.decodeEnum(response.m_tainting))
         return false;
     if (!decoder.decode(response.m_isRedirected))
         return false;

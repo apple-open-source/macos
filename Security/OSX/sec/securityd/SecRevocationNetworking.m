@@ -35,6 +35,7 @@
 #include "utilities/SecFileLocations.h"
 
 #include "SecRevocationDb.h"
+#import "SecTrustLoggingServer.h"
 
 #import "SecRevocationNetworking.h"
 
@@ -119,6 +120,7 @@ typedef void (^CompletionHandler)(void);
         int rtn;
         if ((rtn = readValidFile(updateFilePath, &updateData)) != 0) {
             secerror("failed to read %@ with error %d", updateFileURL, rtn);
+            TrustdHealthAnalyticsLogErrorCode(TAEventValidUpdate, TAFatalError, rtn);
             [self reschedule];
             return;
         }
@@ -198,6 +200,9 @@ didReceiveResponse:(NSURLResponse *)response
     self->_currentUpdateFile = [NSFileHandle fileHandleForWritingToURL:self->_currentUpdateFileURL error:&error];
     if (!self->_currentUpdateFile) {
         secnotice("validupdate", "failed to open %@: %@. canceling task %@", self->_currentUpdateFileURL, error, dataTask);
+#if ENABLE_TRUSTD_ANALYTICS
+        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
+#endif // ENABLE_TRUSTD_ANALYTICS
         completionHandler(NSURLSessionResponseCancel);
         [self reschedule];
         return;
@@ -227,6 +232,7 @@ didReceiveResponse:(NSURLResponse *)response
     }
     @catch(NSException *exception) {
         secnotice("validupdate", "%s", exception.description.UTF8String);
+        TrustdHealthAnalyticsLogErrorCode(TAEventValidUpdate, TARecoverableError, errSecDiskFull);
         [dataTask cancel];
         [self reschedule];
     }
@@ -242,6 +248,9 @@ didCompleteWithError:(NSError *)error {
     }
     if (error) {
         secnotice("validupdate", "Session %@ task %@ failed with error %@", session, task, error);
+#if ENABLE_TRUSTD_ANALYTICS
+        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
+#endif // ENABLE_TRUSTD_ANALYTICS
         [self reschedule];
         /* close file before we leave */
         [self->_currentUpdateFile closeFile];
@@ -343,8 +352,7 @@ static ValidUpdateRequest *request = nil;
     /* nsurlsessiond waits for unlock to finish launching, so we can't block trust evaluations
      * on scheduling this background task. Also, we want to wait a sufficient amount of time
      * after system boot before trying to initiate network activity, to avoid the possibility
-     * of a performance regression in the boot path.
-     */
+     * of a performance regression in the boot path. */
     dispatch_async(updateQueue, ^{
         CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         if (self.updateScheduled != 0.0) {

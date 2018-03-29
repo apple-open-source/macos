@@ -33,6 +33,17 @@
 #include <runtime/JSExportMacros.h>
 #include <wtf/DisallowCType.h>
 
+#if PLATFORM(WIN)
+
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
+
+#undef WEBCORE_EXPORT
+#define WEBCORE_EXPORT WTF_EXPORT_DECLARATION
+
+#endif // PLATFORM(WIN)
+
 #ifdef __cplusplus
 
 // These undefs match up with defines in WebKit2Prefix.h for Mac OS X.
@@ -46,8 +57,8 @@
 #ifndef PLUGIN_ARCHITECTURE_UNSUPPORTED
 #if PLATFORM(MAC)
 #define PLUGIN_ARCHITECTURE_MAC 1
-#elif PLATFORM(GTK) && PLATFORM(X11) && OS(UNIX) && !OS(MAC_OS_X)
-#define PLUGIN_ARCHITECTURE_X11 1
+#elif PLATFORM(GTK) && OS(UNIX) && !OS(MAC_OS_X)
+#define PLUGIN_ARCHITECTURE_UNIX 1
 #else
 #define PLUGIN_ARCHITECTURE_UNSUPPORTED 1
 #endif
@@ -67,20 +78,24 @@
 #endif
 #endif
 
-#if USE(CFURLCONNECTION)
-#ifndef USE_NETWORK_SESSION
-#define USE_NETWORK_SESSION 0
-#endif
-#endif
-
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || PLATFORM(IOS) || PLATFORM(APPLETV) || PLATFORM(WATCHOS) || USE(SOUP)
 #ifndef USE_NETWORK_SESSION
 #define USE_NETWORK_SESSION 1
 #endif
 
+#ifndef ENABLE_BEACON_API
+#define ENABLE_BEACON_API 1
+#endif
+
 // FIXME: We should work towards not using CredentialStorage in WebKit2 to not have problems with digest authentication.
 #ifndef USE_CREDENTIAL_STORAGE_WITH_NETWORK_SESSION
 #define USE_CREDENTIAL_STORAGE_WITH_NETWORK_SESSION 1
+#endif
+#endif
+
+#if USE(NETWORK_SESSION) && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
+#ifndef ENABLE_SERVER_PRECONNECT
+#define ENABLE_SERVER_PRECONNECT 1
 #endif
 #endif
 
@@ -96,14 +111,6 @@
 #endif
 #endif
 
-#ifndef ENABLE_NETWORK_CACHE
-#if PLATFORM(COCOA) || USE(SOUP)
-#define ENABLE_NETWORK_CACHE 1
-#else
-#define ENABLE_NETWORK_CACHE 0
-#endif
-#endif
-
 #ifndef ENABLE_NETWORK_CAPTURE
 #if USE(NETWORK_SESSION) && PLATFORM(COCOA)
 #define ENABLE_NETWORK_CAPTURE 1
@@ -111,7 +118,7 @@
 #endif
 
 #ifndef ENABLE_NETWORK_CACHE_SPECULATIVE_REVALIDATION
-#if ENABLE(NETWORK_CACHE) && (PLATFORM(COCOA) || PLATFORM(GTK))
+#if (PLATFORM(COCOA) || PLATFORM(GTK))
 #define ENABLE_NETWORK_CACHE_SPECULATIVE_REVALIDATION 1
 #else
 #define ENABLE_NETWORK_CACHE_SPECULATIVE_REVALIDATION 0

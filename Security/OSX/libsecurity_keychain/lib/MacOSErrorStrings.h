@@ -56,6 +56,6 @@ enum
     errSecMisc_cantGetFlavorErr      = -1854,   /* The location (URL) of this item is missing or improperly formatted. */
     errSecMisc_afpAccessDenied       = -5000,   /* Access to this item was denied. */
     errSecMisc_afpUserNotAuth        = -5023,   /* Authentication failed. The password for this server may have changed since the item was added to the keychain. */
-    errSecMisc_afpPwdPolicyErr       = -5046    /* This AppleShare IP server is configured to not allow users to save passwords for automatic login. Contact the server administrator for more information. */
+    errSecMisc_afpPwdPolicyErr       = -5046,   /* This AppleShare IP server is configured to not allow users to save passwords for automatic login. Contact the server administrator for more information. */
 };
 

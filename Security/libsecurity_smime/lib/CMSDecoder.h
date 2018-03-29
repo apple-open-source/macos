@@ -407,7 +407,22 @@ OSStatus CMSDecoderGetDecoder(
 OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,            /* usually 0 */
-    CFDataRef  CF_RETURNS_RETAINED * _Nonnull hashAgilityAttrValue);		/* RETURNED */
+    CFDataRef  _Nullable CF_RETURNS_RETAINED * _Nonnull hashAgilityAttrValue);		/* RETURNED */
+
+
+/*
+ * Obtain the Hash Agility v2 attribute value of signer 'signerIndex'
+ * of a CMS message, if present. V2 encodes the hash agility values using DER.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
+    CMSDecoderRef                                               cmsDecoder,
+    size_t                                                      signerIndex,            /* usually 0 */
+    CFDictionaryRef _Nullable CF_RETURNS_RETAINED * _Nonnull    hashAgilityAttrValues);   /* RETURNED */
 
 
 CF_ASSUME_NONNULL_END

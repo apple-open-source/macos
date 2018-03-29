@@ -272,13 +272,11 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
             if (oldEFIdata) CFRelease(oldEFIdata);
-            
-            ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
-                return 3;
-            }
-            
+			ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
+				return 3;
+			}
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
         }
@@ -286,7 +284,15 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No boot.efi creation requested\n" );
     }
 	
-    if(0 != blsustatfs(actargs[kmount].argument, &sb)) {
+	if (actargs[kpersonalize].present) {
+		ret = PersonalizeOSVolume(context, actargs[kmount].argument, NULL, true);
+		if (ret) {
+			blesscontextprintf(context, kBLLogLevelError, "Couldn't personalize volume %s\n", actargs[kmount].argument);
+			return ret;
+		}
+	}
+
+	if (0 != blsustatfs(actargs[kmount].argument, &sb)) {
         blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
                            actargs[kmount].argument);
         return 1;	    

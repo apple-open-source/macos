@@ -26,9 +26,30 @@
 #if OCTAGON
 
 
+@protocol CKKSPowerEventType <NSObject>
+@end
+typedef NSString<CKKSPowerEventType> CKKSPowerEvent;
+
+extern CKKSPowerEvent* const kCKKSPowerEventOutgoingQueue;
+extern CKKSPowerEvent* const kCKKSPowerEventIncommingQueue;
+extern CKKSPowerEvent* const kCKKSPowerEventTLKShareProcessing;
+extern CKKSPowerEvent* const kCKKSPowerEventScanLocalItems;
+extern CKKSPowerEvent* const kCKKSPowerEventFetchAllChanges;
+
+@protocol OTPowerEventType <NSObject>
+@end
+typedef NSString<OTPowerEventType> OTPowerEvent;
+
+extern OTPowerEvent* const kOTPowerEventRestore;
+extern OTPowerEvent* const kOTPowerEventEnroll;
+
 @class CKKSOutgoingQueueEntry;
 
 @interface CKKSPowerCollection : NSOperation
+
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone;
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone count:(NSUInteger)count;
++ (void)OTPowerEvent:(NSString *)operation;
 
 - (void)storedOQE:(CKKSOutgoingQueueEntry *)oqe;
 - (void)deletedOQE:(CKKSOutgoingQueueEntry *)oqe;

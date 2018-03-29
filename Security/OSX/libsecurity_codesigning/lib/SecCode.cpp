@@ -159,6 +159,7 @@ const CFStringRef kSecGuestAttributeDynamicCodeInfoPlist = CFSTR("dynamicCodeInf
 const CFStringRef kSecGuestAttributeArchitecture =	CFSTR("architecture");
 const CFStringRef kSecGuestAttributeSubarchitecture = CFSTR("subarchitecture");
 
+#if TARGET_OS_OSX
 OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef hostRef,
 	CFDictionaryRef attributes,	SecCSFlags flags, SecCodeRef *guestRef)
 {
@@ -192,6 +193,7 @@ OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *processRe
 
 	END_CSAPI
 }
+#endif // TARGET_OS_OSX
 
 
 //

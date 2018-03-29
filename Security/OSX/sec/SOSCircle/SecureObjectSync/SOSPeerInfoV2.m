@@ -110,7 +110,6 @@ static CFDataRef SOSPeerInfoGetV2Data(SOSPeerInfoRef pi) {
 }
 
 static CFMutableDictionaryRef SOSCreateDictionaryFromDER(CFDataRef v2Data, CFErrorRef *error) {
-    CFMutableDictionaryRef retval = NULL;
     CFPropertyListRef pl = NULL;
     
     if(!v2Data) {
@@ -137,26 +136,33 @@ static CFMutableDictionaryRef SOSCreateDictionaryFromDER(CFDataRef v2Data, CFErr
         CFStringRef description = CFCopyTypeIDDescription(CFGetTypeID(pl));
         SOSCreateErrorWithFormat(kSOSErrorUnexpectedType, NULL, error, NULL,
                                  CFSTR("Expected dictionary got %@"), description);
-        CFReleaseSafe(description);
-        CFReleaseSafe(pl);
+        CFReleaseNull(description);
+        CFReleaseNull(pl);
         goto fail;
     }
 
-    retval = (CFMutableDictionaryRef) pl;
-    return retval;
-    
+    return (CFMutableDictionaryRef) pl;
+
 fail:
-    CFReleaseNull(retval);
+    CFReleaseNull(pl);
     return NULL;
 }
 
 
 static CFDataRef SOSCreateDERFromDictionary(CFDictionaryRef di, CFErrorRef *error) {
     size_t size = der_sizeof_plist(di, error);
-    if (size == 0) return NULL;
-    uint8_t der[size];
-    der_encode_plist(di, error, der, der+size);
-    return CFDataCreate(kCFAllocatorDefault, der, size);
+    if (size == 0) {
+        return NULL;
+    }
+    uint8_t *der = malloc(size);
+    if (der == NULL) {
+        return NULL;
+    }
+    if (der_encode_plist(di, error, der, der+size) == NULL) {
+        free(der);
+        return NULL;
+    }
+    return CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, der, size, kCFAllocatorMalloc);
 }
 
 
@@ -173,7 +179,7 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     CFDictionaryAddValue(v2Dictionary, sSecurityPropertiesKey, secproperties);
     
     CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
-    CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeIDSV2);
+    CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeKVS);
     CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanFalse);
     CFDictionaryAddValue(v2Dictionary, sPreferIDSFragmentation, kCFBooleanTrue);
     CFDictionaryAddValue(v2Dictionary, sPreferIDSACKModel, kCFBooleanTrue);
@@ -188,6 +194,7 @@ out:
     CFReleaseNull(views);
     CFReleaseNull(v2data);
     CFReleaseNull(v2Dictionary);
+    CFReleaseNull(secproperties);
     return retval;
 }
 

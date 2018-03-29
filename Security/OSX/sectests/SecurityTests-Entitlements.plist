@@ -31,17 +31,5 @@
 		<string>123456.test.group</string>
 		<string>123456.test.group2</string>
 	</array>
-	<key>com.apple.private.ubiquity-kvstore-access</key>
-	<array>
-		<string>com.apple.securityd</string>
-	</array>
-	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
-	<string>com.apple.security.cloudkeychainproxy3</string>
-	<key>com.apple.developer.ubiquity-container-identifiers</key>
-	<array>
-		<string>com.apple.security.cloudkeychainproxy3</string>
-		<string>com.apple.security.cloudkeychain</string>
-		<string>CloudKeychainProxy.xpc</string>
-	</array>
 </dict>
 </plist>

@@ -13,6 +13,6 @@
 
 bool SOSAccountTrustedCircleHasNoGhostOfMe(SOSAccount* account);
 bool SOSAccountGhostResultsInReset(SOSAccount* account);
-SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle);
+CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle);
 
 #endif /* SOSAccountGhost_h */

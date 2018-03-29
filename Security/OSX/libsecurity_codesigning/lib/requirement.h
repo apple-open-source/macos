@@ -30,6 +30,7 @@
 #include <security_utilities/blob.h>
 #include <security_utilities/superblob.h>
 #include <security_utilities/hashing.h>
+#include <security_utilities/debugging_internal.h>
 #include <Security/CodeSigning.h>
 #include "codedirectory.h"
 #include <map>

@@ -795,16 +795,9 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (time_limit_ns > 0) {
-		if (RAW_flag) {
-			fprintf(stderr, "NOTE: time limit ignored when a raw file is specified\n");
-		} else {
-			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, time_limit_ns),
-					dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
-			^{
-				ktrace_end(s, 0);
-			});
-		}
+	if (time_limit_ns > 0 && RAW_flag) {
+		fprintf(stderr, "NOTE: time limit ignored when a raw file is specified\n");
+		time_limit_ns = 0;
 	}
 
 	if (!RAW_flag) {
@@ -936,6 +929,14 @@ main(int argc, char *argv[])
 	if (rv) {
 		perror("ktrace_start");
 		exit(1);
+	}
+
+	if (time_limit_ns > 0) {
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, time_limit_ns),
+				dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
+		^{
+			ktrace_end(s, 0);
+		});
 	}
 
 	dispatch_main();

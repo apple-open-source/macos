@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,7 +36,9 @@
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <securityd/asynchttp.h>
+#include <securityd/SecTrustServer.h>
 #include <stdlib.h>
+#include <mach/mach_time.h>
 
 #define MAX_CA_ISSUERS 3
 #define CA_ISSUERS_REQUEST_THRESHOLD 10
@@ -68,6 +70,10 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
         SecCAIssuerRequestRelease(request);
         return true;
     }
+
+    SecPathBuilderRef builder = (SecPathBuilderRef)request->context;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
+
     while (request->issuerIX < count && request->issuerIX < MAX_CA_ISSUERS) {
         CFURLRef issuer = CFArrayGetValueAtIndex(request->issuers,
                                                  request->issuerIX++);
@@ -79,6 +85,10 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
                 if (msg) {
                     secinfo("caissuer", "%@", msg);
                     bool done = asynchttp_request(msg, 0, &request->http);
+                    if (analytics) {
+                        /* Count each http request we made */
+                        analytics->ca_issuer_fetches++;
+                    }
                     CFRelease(msg);
                     if (done == false) {
                         CFRelease(scheme);
@@ -123,6 +133,14 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
     CFTimeInterval maxAge) {
     /* Cast depends on http being first field in struct SecCAIssuerRequest. */
     SecCAIssuerRequestRef request = (SecCAIssuerRequestRef)http;
+
+    SecPathBuilderRef builder = (SecPathBuilderRef)request->context;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
+    if (analytics) {
+        /* Add the time this fetch took to complete to the total time */
+        analytics->ca_issuer_fetch_time += (mach_absolute_time() - http->start_time);
+    }
+
     CFDataRef data = (request->http.response ?
         CFHTTPMessageCopyBody(request->http.response) : NULL);
     if (data) {
@@ -140,8 +158,13 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
             CFArrayRef certificates = NULL;
             certificates = SecCMSCertificatesOnlyMessageCopyCertificates(data);
             /* @@@ Technically these can have more than one certificate */
-            if (certificates && CFArrayGetCount(certificates) == 1) {
+            if (certificates && CFArrayGetCount(certificates) >= 1) {
                 parent = CFRetainSafe((SecCertificateRef)CFArrayGetValueAtIndex(certificates, 0));
+            } else if (certificates && CFArrayGetCount(certificates) > 1) {
+                if (analytics) {
+                    /* Indicate that this trust evaluation encountered a CAIssuer fetch with multiple certs */
+                    analytics->ca_issuer_multiple_certs = true;
+                }
             }
             CFReleaseNull(certificates);
         }
@@ -170,7 +193,13 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
                 SecCAIssuerRequestRelease(request);
                 return;
             }
+        } else if (analytics) {
+            /* We failed to create a SecCertificateRef from the data we got */
+            analytics->ca_issuer_unsupported_data = true;
         }
+    } else if (analytics) {
+        /* We didn't get any data back, so the fetch failed */
+        analytics->ca_issuer_fetch_failed++;
     }
 
     secdebug("caissuer", "response: %@ not parent, trying next caissuer",
@@ -211,11 +240,21 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, dispatch_queue_t queu
         return true;
     }
 
+    SecPathBuilderRef builder = (SecPathBuilderRef)context;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
     CFArrayRef parents = SecCAIssuerRequestCacheCopyParents(certificate, issuers);
     if (parents) {
+        if (analytics) {
+            /* We found parents in the cache */
+            analytics->ca_issuer_cache_hit = true;
+        }
         callback(context, parents);
         CFReleaseSafe(parents);
         return true;
+    }
+    if (analytics) {
+        /* We're going to have to make a network call */
+        analytics->ca_issuer_network = true;
     }
 
     /* Cache miss, let's issue a network request. */

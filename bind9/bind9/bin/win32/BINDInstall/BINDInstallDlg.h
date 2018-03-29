@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004, 2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004, 2007, 2009, 2015  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -68,6 +68,9 @@ protected:
 
 	void CreateDirs();
 	void RemoveDirs(BOOL uninstall);
+
+	void ReadInstallFlags();
+	void ReadInstallFileList();
 
 	void CopyFiles();
 	void DeleteFiles(BOOL uninstall);

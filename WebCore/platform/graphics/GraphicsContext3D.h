@@ -94,7 +94,6 @@ class Extensions3DOpenGL;
 class HostWindow;
 class Image;
 class ImageBuffer;
-class ImageSource;
 class ImageData;
 class IntRect;
 class IntSize;
@@ -725,27 +724,29 @@ public:
     enum RenderStyle {
         RenderOffscreen,
         RenderDirectlyToHostWindow,
-        RenderToCurrentGLContext
     };
 
     class ContextLostCallback {
     public:
         virtual void onContextLost() = 0;
-        virtual ~ContextLostCallback() {}
+        virtual ~ContextLostCallback() = default;
     };
 
     class ErrorMessageCallback {
     public:
         virtual void onErrorMessage(const String& message, GC3Dint id) = 0;
-        virtual ~ErrorMessageCallback() { }
+        virtual ~ErrorMessageCallback() = default;
     };
 
     void setContextLostCallback(std::unique_ptr<ContextLostCallback>);
     void setErrorMessageCallback(std::unique_ptr<ErrorMessageCallback>);
 
     static RefPtr<GraphicsContext3D> create(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen);
-    static RefPtr<GraphicsContext3D> createForCurrentGLContext();
     ~GraphicsContext3D();
+
+#if PLATFORM(COCOA)
+    static Ref<GraphicsContext3D> createShared(GraphicsContext3D& sharedContext);
+#endif
 
 #if PLATFORM(COCOA)
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return m_contextObj; }
@@ -979,6 +980,8 @@ public:
 
     void texStorage2D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height);
     void texStorage3D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dsizei depth);
+
+    void getActiveUniforms(Platform3DObject program, const Vector<GC3Duint>& uniformIndices, GC3Denum pname, Vector<GC3Dint>& params);
 
     GC3Denum checkFramebufferStatus(GC3Denum target);
     void clear(GC3Dbitfield mask);
@@ -1262,7 +1265,6 @@ public:
         bool extractImage(bool premultiplyAlpha, bool ignoreGammaAndColorProfile);
 
 #if USE(CAIRO)
-        ImageSource* m_decoder;
         RefPtr<cairo_surface_t> m_imageSurface;
 #elif USE(CG)
         RetainPtr<CGImageRef> m_cgImage;
@@ -1283,10 +1285,13 @@ public:
 
     void setFailNextGPUStatusCheck() { m_failNextStatusCheck = true; }
 
+    GC3Denum activeTextureUnit() const { return m_state.activeTextureUnit; }
+    GC3Denum currentBoundTexture() const { return m_state.currentBoundTexture(); }
+    GC3Denum currentBoundTarget() const { return m_state.currentBoundTarget(); }
     unsigned textureSeed(GC3Duint texture) { return m_state.textureSeedCount.count(texture); }
 
 private:
-    GraphicsContext3D(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen);
+    GraphicsContext3D(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen, GraphicsContext3D* sharedContext = nullptr);
 
     // Helper for packImageData/extractImageData/extractTextureData which implement packing of pixel
     // data into the specified OpenGL destination format and type.
@@ -1429,7 +1434,7 @@ private:
 
     struct GraphicsContext3DState {
         GC3Duint boundFBO { 0 };
-        GC3Denum activeTexture { GraphicsContext3D::TEXTURE0 };
+        GC3Denum activeTextureUnit { GraphicsContext3D::TEXTURE0 };
 
         using BoundTextureMap = HashMap<GC3Denum,
             std::pair<GC3Duint, GC3Denum>,
@@ -1438,8 +1443,8 @@ private:
             WTF::PairHashTraits<WTF::UnsignedWithZeroKeyHashTraits<GC3Duint>, WTF::UnsignedWithZeroKeyHashTraits<GC3Duint>>
         >;
         BoundTextureMap boundTextureMap;
-        GC3Duint currentBoundTexture() { return boundTexture(activeTexture); }
-        GC3Duint boundTexture(GC3Denum textureUnit)
+        GC3Duint currentBoundTexture() const { return boundTexture(activeTextureUnit); }
+        GC3Duint boundTexture(GC3Denum textureUnit) const
         {
             auto iterator = boundTextureMap.find(textureUnit);
             if (iterator != boundTextureMap.end())
@@ -1447,7 +1452,8 @@ private:
             return 0;
         }
 
-        GC3Denum boundTarget(GC3Denum textureUnit)
+        GC3Duint currentBoundTarget() const { return boundTarget(activeTextureUnit); }
+        GC3Denum boundTarget(GC3Denum textureUnit) const
         {
             auto iterator = boundTextureMap.find(textureUnit);
             if (iterator != boundTextureMap.end())

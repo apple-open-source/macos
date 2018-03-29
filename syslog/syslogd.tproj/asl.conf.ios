@@ -25,6 +25,6 @@
 
 # Specify owner, group, and access bits for mobile-owned log directories
 > /var/mobile/Library uid=501 gid=501 mode=0700
-> /var/mobile/Library/Logs uid=501 gid=501 mode=0755
-> /var/mobile/Library/Logs/CrashReporter uid=501 gid=501 mode=0755
+> /var/mobile/Library/Logs uid=501 gid=250 mode=0775
+> /var/mobile/Library/Logs/CrashReporter uid=501 gid=250 mode=0775
 > /var/mobile/Library/Logs/CrashReporter/DiagnosticLogs uid=501 gid=501 mode=0755

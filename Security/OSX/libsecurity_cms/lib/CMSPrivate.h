@@ -92,6 +92,18 @@ OSStatus CMSEncoderSetAppleCodesigningHashAgility(
         CMSEncoderRef   cmsEncoder,
         CFDataRef       hashAgilityAttrValue);
 
+/*
+ * Set the hash agility attribute for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleCodesigningHashAgilityV2 attribute
+ * is included. V2 encodes the hash agility values using DER.
+ * The dictionary should have CFNumberRef keys, corresponding to SECOidTags
+ * (from SecCmsBase.h) for digest algorithms, and CFDataRef values,
+ * corresponding to the digest value for that digest algorithm.
+ */
+OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
+    CMSEncoderRef       cmsEncoder,
+    CFDictionaryRef     hashAgilityV2AttrValues);
+
 void
 CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext);
 
@@ -147,6 +159,20 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,            /* usually 0 */
     CFDataRef  CF_RETURNS_RETAINED *hashAgilityAttrValue);		/* RETURNED */
+
+/*
+ * Obtain the Hash Agility v2 attribute value of signer 'signerIndex'
+ * of a CMS message, if present. V2 encodes the hash agility values using DER.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
+    CMSDecoderRef                           cmsDecoder,
+    size_t                                  signerIndex,            /* usually 0 */
+    CFDictionaryRef CF_RETURNS_RETAINED *   hashAgilityAttrValues);   /* RETURNED */
 	
 #ifdef __cplusplus
 }

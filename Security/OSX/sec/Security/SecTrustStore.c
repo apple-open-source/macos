@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2018 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,9 @@ static bool string_data_to_bool_error(enum SecXPCOperation op, SecTrustStoreRef 
 
 static bool string_data_to_bool_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, bool *result, CFErrorRef *error)
 {
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+    os_activity_t activity = os_activity_create("SecTrustStoreContains", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    bool status = securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error) &&
         SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
     }, ^bool(xpc_object_t response, CFErrorRef *error) {
@@ -80,6 +82,8 @@ static bool string_data_to_bool_bool_error(enum SecXPCOperation op, SecTrustStor
             *result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
         return true;
     });
+    os_release(activity);
+    return status;
 }
 
 Boolean SecTrustStoreContains(SecTrustStoreRef ts,
@@ -88,7 +92,6 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
     bool ok = false;
 	__block bool contains = false;
 
-    os_activity_t trace_activity = os_activity_start("SecTrustStoreContains", OS_ACTIVITY_FLAG_DEFAULT);
 	require(ts, errOut);
 	require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
     
@@ -98,7 +101,6 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
     }) == errSecSuccess);
     
 errOut:
-    os_activity_end(trace_activity);
 	return ok && contains;
 }
 
@@ -220,8 +222,9 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 {
     CFDataRef digest;
     __block OSStatus status = errSecParam;
-    
-    os_activity_t trace_activity = os_activity_start("SecTrustStoreRemoveCertificate", OS_ACTIVITY_FLAG_DEFAULT);
+
+    os_activity_t activity = os_activity_create("SecTrustStoreRemoveCertificate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
     require(ts, errOut);
     require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
     require(gTrustd || ts == (SecTrustStoreRef)kSecTrustStoreUserName, errOut);
@@ -231,38 +234,27 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
     });
 
 errOut:
-    os_activity_end(trace_activity);
+    os_release(activity);
 	return status;
 }
 
 
-static CFIndex GetOTAAssetVersionNumber()
-{
-	CFIndex result = 0;
-    int version = 0;
-
-	if (errSecSuccess == SecTrustGetOTAPKIAssetVersionNumber(&version))
-	{
-		result = version;	
-	}
- 
-    return result;
-}
-
-
-
 OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number)
 {
-    OSStatus status = errSecParam;
-    if (NULL == p_settings_version_number)
-    {
-        return status;
+    if (NULL == p_settings_version_number) {
+        return errSecParam;
     }
-    	
-    CFIndex versionNumber = GetOTAAssetVersionNumber();
+
+    OSStatus status = errSecSuccess;
+    CFErrorRef error = nil;
+    uint64_t versionNumber = SecTrustGetTrustStoreVersionNumber(&error);
     *p_settings_version_number = (SecTrustSettingsVersionNumber)versionNumber;
 
-    return errSecSuccess;
+    if (error) {
+        status = (OSStatus)CFErrorGetCode(error);
+    }
+    CFReleaseSafe(error);
+    return status;
 }
 
 static bool string_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error)
@@ -283,7 +275,8 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
     __block CFArrayRef results = NULL;
     OSStatus status = errSecParam;
 
-    os_activity_t trace_activity = os_activity_start("SecTrustStoreCopyAll", OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
     require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
@@ -293,7 +286,7 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
     *trustStoreContents = results;
 
 errOut:
-    os_activity_end(trace_activity);
+    os_release(activity);
     return status;
 }
 
@@ -313,7 +306,8 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     __block CFArrayRef results = NULL;
     OSStatus status = errSecParam;
 
-    os_activity_t trace_activity = os_activity_start("SecTrustStoreCopyUsageConstraints", OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyUsageConstraints", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
     require(ts, errOut);
     require(certificate, errOut);
     require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
@@ -326,6 +320,6 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     *usageConstraints = results;
 
 errOut:
-    os_activity_end(trace_activity);
+    os_release(activity);
     return status;
 }

@@ -23,6 +23,7 @@
  * user_trust_enable.cpp
  */
 
+#include "security_tool.h"
 #include "user_trust_enable.h"
 #include <errno.h>
 #include <unistd.h>
@@ -57,11 +58,11 @@ user_trust_enable(int argc, char * const *argv)
 				break;
 			default:
 			case 'h':
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 	if(optind != argc) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	if(op == utoShow) {

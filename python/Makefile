@@ -132,7 +132,7 @@ build::
 	    exit 1; \
 	fi
 	mkdir -p $(DSTROOT)$(PYFRAMEWORK)/Modules
-	install $(SRCROOT)/module.map $(DSTROOT)$(PYFRAMEWORK)/Modules/module.map
+	install $(SRCROOT)/module.modulemap $(DSTROOT)$(PYFRAMEWORK)/Modules/module.modulemap
 
 merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd legacySymLinks
 

@@ -192,6 +192,8 @@ static void fillItem(CFMutableDictionaryRef item, uint32_t num)
             CFDictionarySetValue(item, attr, value);
         CFReleaseSafe(value);
     });
+
+    CFDictionarySetValue(item, kSecValueData, (__bridge CFDataRef)[NSData dataWithBytes:"some data" length:9]);
 }
 
 #if LA_CONTEXT_IMPLEMENTED
@@ -266,7 +268,9 @@ static void item_with_application_password(uint32_t *item_num)
     CFDictionarySetValue(item, kSecUseCredentialReference, credRefData);
     ok_status(SecItemAdd(item, NULL), "add local - acl with application password and user present");
     LASetErrorCodeBlock(authFailedBlock);
+    CFDictionarySetValue(item, kSecReturnData, kCFBooleanTrue);
     is_status(SecItemCopyMatching(item, NULL), errSecAuthFailed, "find local - acl with application password and user present");
+    CFDictionaryRemoveValue(item, kSecReturnData);
     LASetErrorCodeBlock(okBlock);
     set_app_password(acmContext);
     ok_status(SecItemDelete(item), "delete local - acl with application password and user present");

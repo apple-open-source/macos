@@ -106,7 +106,7 @@ private:
     struct ExpansionData { };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
-    ExpansionData *  _reserved;
+    __unused ExpansionData *  _reserved;
 
 
     IOReturn enableController(IONetworkController * ctr);
@@ -148,7 +148,7 @@ public:
     the interface object being initialized.
     @result true on success, false otherwise. */
 
-    virtual bool init( IONetworkController * controller );
+    virtual bool init( IONetworkController * controller ) APPLE_KEXT_OVERRIDE;
 
 /*! @function getNamePrefix
     @abstract Return a string containing the prefix to use when
@@ -159,7 +159,7 @@ public:
     @result A pointer to a constant C string "fw". Therefore, FireWire
     interfaces will be registered with BSD as fw0, fw1, etc. */
 
-    virtual const char * getNamePrefix() const;
+    virtual const char * getNamePrefix() const APPLE_KEXT_OVERRIDE;
 
 /*! @function setProperties
     @abstract Handle a request to set FireWire interface properties from
@@ -173,7 +173,7 @@ public:
     IOReturn error code to indicate that an error occurred while
     handling one of the properties. */
 
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -182,7 +182,7 @@ protected:
     @discussion The memory allocated for internal bookkeeping is released,
     followed by a call to super::free(). */
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 /*! @function performCommand
     @abstract Handle an ioctl command sent to the FireWire interface.
@@ -200,7 +200,7 @@ protected:
     virtual SInt32 performCommand(IONetworkController * controller,
                                   unsigned long			cmd,
                                   void *                arg0,
-                                  void *                arg1);
+                                  void *                arg1) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerDidOpen
     @abstract A notification that the interface has opened the network
@@ -215,7 +215,7 @@ protected:
     cause the controller to be closed, and any pending client opens to be
     rejected. */
 
-    virtual bool controllerDidOpen(IONetworkController * controller);
+    virtual bool controllerDidOpen(IONetworkController * controller) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerWillClose
     @abstract A notification that the interface will close the network
@@ -224,7 +224,7 @@ protected:
     call. This method is called with the arbitration lock held.
     @param controller The controller that is about to be closed. */
 
-    virtual void controllerWillClose(IONetworkController * controller);
+    virtual void controllerWillClose(IONetworkController * controller) APPLE_KEXT_OVERRIDE;
 
 /*! @function initIfnetParams
     @abstract Initialize the ifnet structure given.
@@ -235,7 +235,7 @@ protected:
                the getIfnet() method call.
     @result true on success, false otherwise. */
 
-	virtual bool initIfnetParams(struct ifnet_init_params *params);
+	virtual bool initIfnetParams(struct ifnet_init_params *params) APPLE_KEXT_OVERRIDE;
 
 
 /*! @function controllerWillChangePowerState
@@ -257,7 +257,7 @@ protected:
                                IONetworkController * controller,
                                IOPMPowerFlags        flags,
                                UInt32                stateNumber,
-                               IOService *           policyMaker);
+                               IOService *           policyMaker) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerDidChangePowerState
     @abstract Handle a notification that the network controller which is servicing
@@ -277,20 +277,20 @@ protected:
                                IONetworkController * controller,
                                IOPMPowerFlags        flags,
                                UInt32                stateNumber,
-                               IOService *           policyMaker);
+                               IOService *           policyMaker) APPLE_KEXT_OVERRIDE;
 
 public:
     /* Override IONetworkInterface::willTerminate() */
 
     virtual bool willTerminate( IOService *  provider,
-                                IOOptionBits options );
+                                IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     /* Override IONetworkInterface::attachToDataLinkLayer() */
     virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
-                                            void *       parameter );
+                                            void *       parameter ) APPLE_KEXT_OVERRIDE;
 
 	virtual void detachFromDataLinkLayer( IOOptionBits options,
-											void *       parameter );
+											void *       parameter ) APPLE_KEXT_OVERRIDE;
 
 	void setIfnetMTU(UInt32 mtu);
 	

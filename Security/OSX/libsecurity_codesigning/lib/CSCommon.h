@@ -84,8 +84,8 @@ CF_ENUM(OSStatus) {
 	errSecCSStaticCodeChanged =			-67034,	/* the code on disk does not match what is running */
 	errSecCSDBDenied =					-67033,	/* permission to use a database denied */
 	errSecCSDBAccess =					-67032,	/* cannot access a database */
-	errSecCSSigDBDenied = errSecCSDBDenied,
-	errSecCSSigDBAccess = errSecCSDBAccess,
+	errSecCSSigDBDenied =               -67033, /* permission to use a database denied */
+	errSecCSSigDBAccess =               -67032, /* cannot access a database */
 	errSecCSHostProtocolInvalidAttribute = -67031, /* host returned invalid or inconsistent guest attributes */
 	errSecCSInfoPlistFailed =			-67030,	/* invalid Info.plist (plist or signature have been modified) */
 	errSecCSNoMainExecutable =			-67029,	/* the code has no main executable file */

@@ -31,7 +31,7 @@ static uint8_t descriptor[] = {
     0x06, 0x00, 0xFF,                         //   Usage Page (65280) 
     0x95, 0x01,                               //   Report Count............ (1)  
     0x75, kVendorMessageBitLength,            //   Report Size............. (VendorMessageBitLength)
-    0x81, 0x02,                               //   Input...................(Data, Variable, Absolute) 
+    0x81, 0x02,                               //   Input...................(Data, Variable, Absolute)
     0x06, 0x00, 0xFF,                         // Usage Page (65280)
     0x09, 0x25,                               // Usage 37 (0x25)
     0xA1, 0x01,                               // Collection (Application)
@@ -126,7 +126,7 @@ static uint8_t descriptor[] = {
         for (uint8_t i = 0; i < length; i++) {
           report.data[i] = i;
         }
-        NSData * reportData =  [[NSData alloc] initWithBytes:&report length: (length + 1)];
+        NSData * reportData =  [[NSData alloc] initWithBytes:&report length: (sizeof(report.data) + 1)];
         status = [self.sourceController handleReport:reportData withInterval:2000];
         XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
 
@@ -164,7 +164,7 @@ static uint8_t descriptor[] = {
         CFIndex  lenght   = 0;
       
         IOHIDEventGetVendorDefinedData (event, &payload, &lenght);
-        XCTAssertTrue(payload && ((NSUInteger)lenght == (index + 1)));
+        XCTAssertTrue(payload && ((NSUInteger)lenght == sizeof(report.data)));
     }
 }
 
@@ -179,7 +179,7 @@ static uint8_t descriptor[] = {
         for (uint8_t i = 0; i < length; i++) {
           report.data[i] = length;
         }
-        NSData * reportData =  [[NSData alloc] initWithBytes:&report length: (length + 1)];
+        NSData * reportData =  [[NSData alloc] initWithBytes:&report length: (sizeof(report.data) + 1)];
         status = [self.sourceController handleReport:reportData withInterval:0];
         XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
 
@@ -202,7 +202,7 @@ static uint8_t descriptor[] = {
     for (NSUInteger index = 0; index < values.count; ++index) {
         NSDictionary *value = values[index];
         NSData *data = value[@"data"];
-        XCTAssertTrue (data && data.length == (index + 1), "Data %@, Length:%lu", data, (unsigned long)data.length);
+        XCTAssertTrue (data && data.length == sizeof(report.data), "Data %@, Length:%lu", data, (unsigned long)data.length);
         IOHIDElementRef element = (__bridge IOHIDElementRef)value[@"element"];
         XCTAssertTrue (element && IOHIDElementGetUsagePage (element) == kHIDPage_AppleVendor && IOHIDElementGetUsage (element) == kHIDUsage_AppleVendor_Payload);
     }

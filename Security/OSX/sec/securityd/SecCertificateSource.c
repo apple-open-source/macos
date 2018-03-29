@@ -35,6 +35,7 @@
 #include <Security/SecItemInternal.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecPolicyInternal.h>
+#include <Security/SecPolicyPriv.h>
 
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>

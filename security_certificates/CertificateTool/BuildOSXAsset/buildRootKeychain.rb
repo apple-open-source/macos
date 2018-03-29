@@ -8,6 +8,7 @@
 
 require 'fileutils'
 require 'singleton'
+require 'cfpropertylist'
 
 # =============================================================================
 # Class:  Utilities
@@ -30,7 +31,7 @@ class Utilities
 
   # Check to see if a path is valid and possibly a directory
   def self.check_path(path, is_dir = true)
-    Utilities.bail(path + " does not exist") if !FileTest.exists? path 
+    Utilities.bail(path + " does not exist") if !FileTest.exist? path
     if is_dir
       Utilities.bail(path + " is not a directory") if !FileTest.directory? path
     end
@@ -102,7 +103,7 @@ class CertTools
     Utilities.check_path(@security_tool_path, false)
 
     @output_keychain_path = File.join(@build_dir , "BuiltKeychains")
-    FileUtils.mkdir_p(@output_keychain_path) if !FileTest.exists? @output_keychain_path
+    FileUtils.mkdir_p(@output_keychain_path) if !FileTest.exist? @output_keychain_path
      
     output_variables = false
     if output_variables
@@ -187,7 +188,7 @@ class CertTools
 
   # Create a new Keychain file
   def self.createKeychain(path, name)
-    FileUtils.rm_rf(path) if FileTest.exists? path
+    FileUtils.rm_rf(path) if FileTest.exist? path
     cmd_str = CertTools.security_tool_path + " create-keychain -p " + Utilities.quote_str(name) + " " +  Utilities.quote_str(path)
     `#{cmd_str}`
     $?
@@ -239,7 +240,7 @@ class BuildRootKeychains
   # Create the SystemTrustSettings.plist file
   def create_setting_file()
     puts "Creating empty SystemTrustSettings file at #{@setting_file_path}" if @verbose
-    FileUtils.rm_rf(@setting_file_path) if FileTest.exists? @setting_file_path
+    FileUtils.rm_rf(@setting_file_path) if FileTest.exist? @setting_file_path
     cmd_str = CertTools.security_tool_path + " add-trusted-cert -o " + Utilities.quote_str(@setting_file_path)
     `#{cmd_str}`
     result = $?
@@ -293,7 +294,7 @@ class BuildRootKeychains
   
   # Delete the temp keychain 
   def delete_temp_keychain()
-    FileUtils.rm_rf(@temp_kc_path) if FileTest.exists? @temp_kc_path
+    FileUtils.rm_rf(@temp_kc_path) if FileTest.exist? @temp_kc_path
   end
 
   # Process a directory of certificates that are not to be trusted.
@@ -523,7 +524,7 @@ class BuildEVRoots
         cert_file.gsub!(/\"/, '')
         puts "Adding cert from file #{cert_file}" if @verbose
         cert_to_add = File.join(CertTools.root_certs_dir, cert_file)
-        Utilities.bail("#{cert_to_add} does not exist") if !FileTest.exists?(cert_to_add)
+        Utilities.bail("#{cert_to_add} does not exist") if !FileTest.exist?(cert_to_add)
 
         quoted_cert_to_add = Utilities.quote_str(cert_to_add)
         cmd_str = CertTools.security_tool_path + " -q add-certificates -k " + @evroots_kc_path + " " + quoted_cert_to_add
@@ -537,6 +538,12 @@ class BuildEVRoots
   def pass_two()
     lines = get_cert_lines
     lines.sort!
+
+    # For each line in the evroot.config each certs will be added to the CAB Forum oid string.
+    # This is supported by adding an array in the EVRoots.plist.
+    generic_cert_list = Array.new
+    output = Hash.new
+
     lines.each do |line|
       # Split the line using a double quote.  This is needed to ensure that file names with spaces work
       items = line.split('"')
@@ -544,67 +551,51 @@ class BuildEVRoots
       # Get the oid string which is the first item in the array.
       oid_str = items.shift
       oid_str.gsub!(/\s/, '')
-      
-      # For each line in the evroot.config there may be multiple certs for a single oid string.
-      # This is supported by adding an array in the EVRoots.plist
-      index = 0
-      cmd_str = @plistbuddy_tool_path + " -c " + '"' + "add :#{oid_str} array" + '"' + " " + @evroots_plist_path
-      `#{cmd_str}`
-      Utilities.bail("#{cmd_str} failed") if $? != 0
-      
-      # Loop through all of the cert file names in the line.  
+
+      cert_list = Array.new
+
+      # Loop through all of the cert file names in the line.
       items.each do |cert_file|
         # Get the full path to the cert file.
         next if cert_file.empty? ||  cert_file == " "
         cert_file.gsub!(/\"/, '')
-        cert_to_hash = File.join(CertTools.root_certs_dir, cert_file)        
-        Utilities.bail("#{cert_to_hash} does not exist") if !FileTest.exists?(cert_to_hash)
-        
+        cert_to_hash = File.join(CertTools.root_certs_dir, cert_file)
+        Utilities.bail("#{cert_to_hash} does not exist") if !FileTest.exist?(cert_to_hash)
+
         # Use the openssl command line tool to get the fingerprint of the certificate
         cmd_str = @open_ssl_tool_path + " x509 -inform DER -in " + Utilities.quote_str(cert_to_hash) + " -fingerprint -noout"
         finger_print = `#{cmd_str}`
         Utilities.bail("#{cmd_str} failed") if $? != 0
-      
+
         # Post process the data from the openssl tool to get just the hex hash fingerprint.
         finger_print.gsub!(/SHA1 Fingerprint=/, '')
         finger_print.gsub!(/:/,'').chomp!
         puts "Certificate fingerprint for #{cert_file} SHA1: #{finger_print}" if @verbose
-        
+
         # Convert the hex hash string to binary data and write that data out to a temp file
         binary_finger_print = Utilities.hex_to_bin(finger_print)
-        FileUtils.rm_f @sha1_filepath
-        File.open(  @sha1_filepath, "w") { |f| f.write binary_finger_print }
+        output_finger_print = CFPropertyList::Blob.new(binary_finger_print)
 
-        # Use the PlistBuddy tool to add the binary data to the EVRoots.plist array for the oid 
-        cmd_str = @plistbuddy_tool_path + " -c " + '"' + "add :#{oid_str}:#{index} data" + '"' + " -c " + '"' +
-          "import :#{oid_str}:#{index} " + @sha1_filepath + '"' + " " + @evroots_plist_path
-        `#{cmd_str}`
-        Utilities.bail("#{cmd_str} failed") if $? != 0
+        cert_list << output_finger_print
 
-        # Verify the hash value by using the PListbuddy tool to read back in the binary hash data
-        cmd_str = @plistbuddy_tool_path + " -c " + '"' + "print :#{oid_str}:#{index} data" + '" ' + @evroots_plist_path
-        file_binary_finger_print = `#{cmd_str}`
-        Utilities.bail("#{cmd_str} failed") if $? != 0
-        file_binary_finger_print.chomp!
-
-        # Convert the binary data into hex data to make comparision easier
-        hex_finger_print = Utilities.bin_to_hex(binary_finger_print)
-        hex_file_finger_print = Utilities.bin_to_hex(file_binary_finger_print)
-      
-        # Compare the two hex strings to ensure the all is well
-        if hex_finger_print != hex_file_finger_print
-          puts "### BUILD FAILED: data verification error"
-          puts "You likely need to install a newer version of #{@plistbuddy_tool_path} see <rdar://6208924> for details"
-          CertTools.restoreKeychainList
-          FileUtils.rm_f @evroots_plist_path
-          exit 1
-        end 
-        
-        # All is well prepare for the next item to add to the array
-        index += 1
+        if !generic_cert_list.include? output_finger_print
+          generic_cert_list << output_finger_print
+        end
         
       end # items.each do |cert_file|
-    end # lines.each do |line| 
+
+      # add the vendor-specifc OID to cert hashes map to the output dictionary
+      output[oid_str] = cert_list
+
+    end # lines.each do |line|
+
+    # add the generic CABF OID to all cert hashes map to the output dictionary
+    output["2.23.140.1.1"] = generic_cert_list
+
+    # write the plist to disk
+    plist = output.to_plist({:plist_format => CFPropertyList::List::FORMAT_XML, :formatted => true})
+    File.open( @evroots_plist_path, "w") { |f| f.write plist }
+
   end # def pass_two()
 
   # Do all of the necessary work for this class
@@ -617,7 +608,6 @@ class BuildEVRoots
     pass_two
     FileUtils.chmod 0644, @evroots_plist_path 
     puts "Built #{@evroots_plist_path} successfully" if @verbose
-    FileUtils.rm @sha1_filepath
   end
 
 end

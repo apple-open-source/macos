@@ -38,7 +38,6 @@
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
-#include "ExceptionCode.h"
 #include "NotificationClient.h"
 #include "NotificationController.h"
 #include "NotificationPermissionCallback.h"
@@ -72,9 +71,7 @@ Notification::Notification(Document& document, const String& title, const Option
     m_taskTimer->startOneShot(0_s);
 }
 
-Notification::~Notification() 
-{
-}
+Notification::~Notification()  = default;
 
 void Notification::show()
 {

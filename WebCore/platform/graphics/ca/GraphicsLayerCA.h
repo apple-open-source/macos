@@ -157,6 +157,7 @@ public:
         int treeDepth { 0 };
         bool ancestorHadChanges { false };
         bool ancestorHasTransformAnimation { false };
+        bool ancestorStartedOrEndedTransformAnimation { false };
         bool ancestorWithTransformAnimationIntersectsCoverageRect { false };
         bool ancestorIsViewportConstrained { false };
     };
@@ -288,7 +289,7 @@ private:
     WEBCORE_EXPORT bool canThrottleLayerFlush() const override;
 
     WEBCORE_EXPORT void getDebugBorderInfo(Color&, float& width) const override;
-    WEBCORE_EXPORT void dumpAdditionalProperties(TextStream&, int indent, LayerTreeAsTextBehavior) const override;
+    WEBCORE_EXPORT void dumpAdditionalProperties(WTF::TextStream&, LayerTreeAsTextBehavior) const override;
 
     void computePixelAlignment(float contentsScale, const FloatPoint& positionRelativeToBase,
         FloatPoint& position, FloatPoint3D& anchorPoint, FloatSize& alignmentOffset) const;
@@ -314,7 +315,7 @@ private:
     
     static FloatRect adjustTiledLayerVisibleRect(TiledBacking*, const FloatRect& oldVisibleRect, const FloatRect& newVisibleRect, const FloatSize& oldSize, const FloatSize& newSize);
 
-    bool recursiveVisibleRectChangeRequiresFlush(const TransformState&) const;
+    bool recursiveVisibleRectChangeRequiresFlush(const CommitState&, const TransformState&) const;
     
     bool isPageTiledBackingLayer() const { return type() == Type::PageTiledBacking; }
 
@@ -413,7 +414,7 @@ private:
     void updateContentsNeedsDisplay();
     void updateAcceleratesDrawing();
     void updateSupportsSubpixelAntialiasedText();
-    void updateDebugBorder();
+    void updateDebugIndicators();
     void updateTiles();
     void updateContentsScale(float pageScaleFactor);
     void updateCustomAppearance();

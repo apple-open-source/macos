@@ -57,18 +57,11 @@ RefPtr<DisplayRefreshMonitor> DisplayRefreshMonitor::create(DisplayRefreshMonito
 }
 
 DisplayRefreshMonitor::DisplayRefreshMonitor(PlatformDisplayID displayID)
-    : m_active(true)
-    , m_scheduled(false)
-    , m_previousFrameDone(true)
-    , m_unscheduledFireCount(0)
-    , m_displayID(displayID)
-    , m_clientsToBeNotified(nullptr)
+    : m_displayID(displayID)
 {
 }
 
-DisplayRefreshMonitor::~DisplayRefreshMonitor()
-{
-}
+DisplayRefreshMonitor::~DisplayRefreshMonitor() = default;
 
 void DisplayRefreshMonitor::handleDisplayRefreshedNotificationOnMainThread(void* data)
 {
@@ -123,9 +116,9 @@ void DisplayRefreshMonitor::displayDidRefresh()
 
     {
         LockHolder lock(m_mutex);
-        m_previousFrameDone = true;
+        setIsPreviousFrameDone(true);
     }
-    
+
     DisplayRefreshMonitorManager::sharedManager().displayDidRefresh(*this);
 }
 

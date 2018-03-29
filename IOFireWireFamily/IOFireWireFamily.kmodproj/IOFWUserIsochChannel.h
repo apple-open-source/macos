@@ -45,10 +45,10 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
 													IOFWSpeed 					prefSpeed ) ;
 
 		// IOFWIsochChannel
-		virtual IOReturn 				allocateChannel();
-		virtual IOReturn 				releaseChannel();
-		virtual IOReturn 				start();
-		virtual IOReturn 				stop();
+		virtual IOReturn 				allocateChannel(void) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn 				releaseChannel(void) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn 				start(void) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn 				stop(void) APPLE_KEXT_OVERRIDE;
 		
 		// me
 		IOReturn						allocateChannelBegin(

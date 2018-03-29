@@ -119,22 +119,17 @@
 // Responsible for bringing up new SecuritydXPCServer objects, and configuring them with their remote connection
 @interface SecuritydXPCServerListener : NSObject <NSXPCListenerDelegate>
 @property (retain,nonnull) NSXPCListener *listener;
-- (xpc_endpoint_t)xpcControlEndpoint;
 @end
 
 @implementation SecuritydXPCServerListener
 -(instancetype)init
 {
     if((self = [super init])){
-        self.listener = [NSXPCListener anonymousListener];
+        self.listener = [[NSXPCListener alloc] initWithMachServiceName:@(kSecuritydGeneralServiceName)];
         self.listener.delegate = self;
         [self.listener resume];
     }
     return self;
-}
-
-- (xpc_endpoint_t)xpcControlEndpoint {
-    return [self.listener.endpoint _endpoint];
 }
 
 - (BOOL)listener:(__unused NSXPCListener *)listener shouldAcceptNewConnection:(NSXPCConnection *)newConnection
@@ -157,14 +152,16 @@
 }
 @end
 
-XPC_RETURNS_RETAINED xpc_endpoint_t SecCreateSecuritydXPCServerEndpoint(CFErrorRef *error)
+void
+SecCreateSecuritydXPCServer(void)
 {
     static SecuritydXPCServerListener* listener = NULL;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        listener = [[SecuritydXPCServerListener alloc] init];
+        @autoreleasepool {
+            listener = [[SecuritydXPCServerListener alloc] init];
+        }
     });
-    return [listener xpcControlEndpoint];
 }
 
 id<SecuritydXPCProtocol> SecCreateLocalSecuritydXPCServer(void) {

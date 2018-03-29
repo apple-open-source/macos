@@ -37,8 +37,6 @@ typedef struct CATransform3D CATransform3D;
 #endif
 #if USE(CG)
 typedef struct CGAffineTransform CGAffineTransform;
-#elif USE(CAIRO)
-#include <cairo.h>
 #endif
 
 #if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
@@ -54,6 +52,10 @@ struct D2D_MATRIX_3X2_F;
 typedef D2D_MATRIX_3X2_F D2D1_MATRIX_3X2_F;
 #endif
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class AffineTransform;
@@ -61,7 +63,6 @@ class IntRect;
 class LayoutRect;
 class FloatRect;
 class FloatQuad;
-class TextStream;
 
 #if CPU(X86_64)
 #define TRANSFORMATION_MATRIX_USE_X86_64_SSE2
@@ -357,8 +358,6 @@ public:
 #if USE(CG)
     WEBCORE_EXPORT TransformationMatrix(const CGAffineTransform&);
     WEBCORE_EXPORT operator CGAffineTransform() const;
-#elif USE(CAIRO)
-    operator cairo_matrix_t() const;
 #endif
 
 #if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
@@ -424,6 +423,6 @@ private:
     Matrix4 m_matrix;
 };
 
-WEBCORE_EXPORT TextStream& operator<<(TextStream&, const TransformationMatrix&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const TransformationMatrix&);
 
 } // namespace WebCore

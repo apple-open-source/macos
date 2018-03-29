@@ -307,7 +307,7 @@ extern int command_scep(int argc, char * const *argv)
             scep_capabilities = CFStringCreateWithCString(kCFAllocatorDefault, optarg, kCFStringEncodingUTF8);
             break;
         default:
-            return 2; /* Trigger usage message. */
+            return SHOW_USAGE_MESSAGE;
         }
     }
 
@@ -315,7 +315,7 @@ extern int command_scep(int argc, char * const *argv)
     argv += optind;
 
     if (argc != 1)
-        return 2; /* Trigger usage message. */
+        return SHOW_USAGE_MESSAGE;
 
     CFDataRef scep_request = NULL;
     CFArrayRef issued_certs = NULL;
@@ -520,9 +520,8 @@ extern int command_scep(int argc, char * const *argv)
 
     if (scep_subject_alt_name) {
         fprintf(stderr, "Adding subjectAltName to request\n");
-        CFStringRef name = CFSTR("dnsName");
         CFDictionaryRef subject_alt_name = CFDictionaryCreate(kCFAllocatorDefault,
-            (const void **)&name, (const void **)&scep_subject_alt_name,
+            (const void **)&kSecSubjectAltNameDNSName, (const void **)&scep_subject_alt_name,
             1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionarySetValue(csr_parameters, kSecSubjectAltName, subject_alt_name);
     }

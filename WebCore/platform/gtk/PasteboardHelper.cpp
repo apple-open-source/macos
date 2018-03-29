@@ -74,9 +74,7 @@ PasteboardHelper::PasteboardHelper()
     gtk_target_list_add(m_targetList.get(), unknownAtom, 0, PasteboardHelper::TargetTypeUnknown);
 }
 
-PasteboardHelper::~PasteboardHelper()
-{
-}
+PasteboardHelper::~PasteboardHelper() = default;
 
 GtkTargetList* PasteboardHelper::targetList() const
 {
@@ -209,7 +207,7 @@ void PasteboardHelper::fillSelectionData(const SelectionData& selection, unsigne
 
 void PasteboardHelper::fillSelectionData(GtkSelectionData* data, unsigned /* info */, SelectionData& selection)
 {
-    if (!gtk_selection_data_get_length(data))
+    if (gtk_selection_data_get_length(data) < 0)
         return;
 
     GdkAtom target = gtk_selection_data_get_target(data);
@@ -228,11 +226,11 @@ void PasteboardHelper::fillSelectionData(GtkSelectionData* data, unsigned /* inf
 
         // Give preference to text/uri-list here, as it can hold more
         // than one URI but still take  the label if there is one.
-        if (!selection.hasURIList())
+        if (!selection.hasURIList() && !pieces.isEmpty())
             selection.setURIList(pieces[0]);
         if (pieces.size() > 1)
             selection.setText(pieces[1]);
-    } else if (target == unknownAtom) {
+    } else if (target == unknownAtom && gtk_selection_data_get_length(data)) {
         GRefPtr<GVariant> variant = g_variant_new_parsed(reinterpret_cast<const char*>(gtk_selection_data_get_data(data)));
 
         GUniqueOutPtr<gchar> key;
@@ -274,9 +272,7 @@ struct ClipboardSetData {
     {
     }
 
-    ~ClipboardSetData()
-    {
-    }
+    ~ClipboardSetData() = default;
 
     Ref<SelectionData> selectionData;
     WTF::Function<void()> selectionClearedCallback;

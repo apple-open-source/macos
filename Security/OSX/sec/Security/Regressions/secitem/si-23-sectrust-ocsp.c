@@ -1202,7 +1202,7 @@ static void test_forced_revocation()
     isnt(VerifyDate = CFDateCreate(NULL, 332900000.0), NULL, "Create verify date");
     if (!VerifyDate) { goto errOut; }
 
-    // Standard evaluation should succeed for the given verify date
+    // Standard evaluation for the given verify date
     {
         SecTrustRef trust = NULL;
         SecTrustResultType trust_result;
@@ -1215,7 +1215,9 @@ static void test_forced_revocation()
         ok_status(status = SecTrustEvaluate(trust, &trust_result), "SecTrustEvaluate");
 
         // Check results
-        is_status(trust_result, kSecTrustResultUnspecified, "trust is kSecTrustResultUnspecified");
+        // %%% This is now expected to fail, since the "TC TrustCenter Class 1 L1 CA IX" CA is revoked
+        // and the revocation information is present in the Valid database.
+        is_status(trust_result, kSecTrustResultFatalTrustFailure, "trust is kSecTrustResultFatalTrustFailure");
 
         CFReleaseNull(trust);
     }
@@ -1234,7 +1236,9 @@ static void test_forced_revocation()
         ok_status(status = SecTrustEvaluate(trust, &trust_result), "SecTrustEvaluate");
 
         // Check results
-        is_status(trust_result, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
+        // %%% This is now expected to fail, since the "TC TrustCenter Class 1 L1 CA IX" CA is revoked
+        // and the revocation information is present in the Valid database.
+        is_status(trust_result, kSecTrustResultFatalTrustFailure, "trust is kSecTrustResultFatalTrustFailure");
 
         CFReleaseNull(trust);
     }

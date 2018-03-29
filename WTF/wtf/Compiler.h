@@ -42,7 +42,7 @@
 #define COMPILER_HAS_CLANG_BUILTIN(x) 0
 #endif
 
-/* COMPILER_HAS_CLANG_HEATURE() - whether the compiler supports a particular language or library feature. */
+/* COMPILER_HAS_CLANG_FEATURE() - whether the compiler supports a particular language or library feature. */
 /* http://clang.llvm.org/docs/LanguageExtensions.html#has-feature-and-has-extension */
 #ifdef __has_feature
 #define COMPILER_HAS_CLANG_FEATURE(x) __has_feature(x)
@@ -102,9 +102,11 @@
 #define WTF_COMPILER_SUPPORTS_C_STATIC_ASSERT 1
 #endif
 
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-
 #endif /* COMPILER(GCC) */
+
+#if COMPILER(GCC_OR_CLANG) && defined(NDEBUG) && !defined(__OPTIMIZE__) && !defined(RELEASE_WITHOUT_OPTIMIZATIONS)
+#error "Building release without compiler optimizations: WebKit will be slow. Set -DRELEASE_WITHOUT_OPTIMIZATIONS if this is intended."
+#endif
 
 /* COMPILER(MINGW) - MinGW GCC */
 
@@ -128,16 +130,10 @@
 #define WTF_COMPILER_MSVC 1
 #define WTF_COMPILER_SUPPORTS_CXX_REFERENCE_QUALIFIED_FUNCTIONS 1
 
-#if _MSC_VER < 1900
-#error "Please use a newer version of Visual Studio. WebKit requires VS2015 or newer to compile."
+#if _MSC_VER < 1910
+#error "Please use a newer version of Visual Studio. WebKit requires VS2017 or newer to compile."
 #endif
 
-#endif
-
-/* COMPILER(SUNCC) */
-
-#if defined(__SUNPRO_CC) || defined(__SUNPRO_C)
-#define WTF_COMPILER_SUNCC 1
 #endif
 
 #if !COMPILER(CLANG) && !COMPILER(MSVC)
@@ -152,18 +148,10 @@
 #define WTF_COMPILER_SUPPORTS_EABI 1
 #endif
 
-/* RELAXED_CONSTEXPR */
+/* Non-static data member initializer (NSDMI) for aggregates */
 
-#if defined(__cpp_constexpr) && __cpp_constexpr >= 201304
-#define WTF_COMPILER_SUPPORTS_RELAXED_CONSTEXPR 1
-#endif
-
-#if !defined(RELAXED_CONSTEXPR)
-#if COMPILER_SUPPORTS(RELAXED_CONSTEXPR)
-#define RELAXED_CONSTEXPR constexpr
-#else
-#define RELAXED_CONSTEXPR
-#endif
+#if defined(__cpp_aggregate_nsdmi) && __cpp_aggregate_nsdmi >= 201304
+#define WTF_COMPILER_SUPPORTS_NSDMI_FOR_AGGREGATES 1
 #endif
 
 #define ASAN_ENABLED COMPILER_HAS_CLANG_FEATURE(address_sanitizer)
@@ -210,6 +198,14 @@
 #define FALLTHROUGH [[clang::fallthrough]]
 #elif __has_cpp_attribute(gnu::fallthrough)
 #define FALLTHROUGH [[gnu::fallthrough]]
+#endif
+
+#elif !defined(FALLTHROUGH) && !defined(__cplusplus)
+
+#if COMPILER(GCC)
+#if GCC_VERSION_AT_LEAST(7, 0, 0)
+#define FALLTHROUGH __attribute__ ((fallthrough))
+#endif
 #endif
 
 #endif // !defined(FALLTHROUGH) && defined(__cplusplus) && defined(__has_cpp_attribute)

@@ -93,4 +93,9 @@ enum {
 
 #define kPSAdapterDetails           "adapterDetails"
 
+#define kInactivityWindowKey        "inactivityWindow"
+#define kInactivityWindowStart      "inactivityWindowStart"
+#define kInactivityWindowDuration   "inactivityWindowDuration"
+#define kStandbyAccelerationDelay   "standbyAccelerationDelay"
+
 #endif

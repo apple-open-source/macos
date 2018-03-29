@@ -154,9 +154,6 @@ void SOSUpdateKeyInterest(SOSAccount* account)
                 secerror("Error getting debug key interests %@", localError);
             }
             
-            if(![tkvs kvsAppendConfigKeyInterest:alwaysKeys firstUnlock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]) {
-                secerror("Error getting config key interests %@", localError);
-            }
             CFReleaseNull(localError);
         }
         
@@ -310,7 +307,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     __block bool new_account = false;
     
     CFDictionaryForEach(updates, ^(const void *key, const void *value) {
-        CFErrorRef localError = NULL;
         CFStringRef circle_name = NULL;
         CFStringRef ring_name = NULL;
         CFStringRef peer_info_name = NULL;
@@ -351,11 +347,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
             case kDebugInfoKey:
                 CFDictionarySetValue(debug_info_message_table, peer_info_name, value);
                 break;
-            case kOTRConfig:
-                if(isDictionary(value)){
-                    config_message_table = CFRetainSafe((CFMutableDictionaryRef)(value));
-                }
-                break;
             case kLastCircleKey:
             case kLastKeyParameterKey:
             case kUnknownKey:
@@ -373,10 +364,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
         
         if (error && *error)
             secerror("Peer message processing error for: %@ -> %@ (%@)", key, value, *error);
-        if (localError)
-            secerror("Peer message local processing error for: %@ -> %@ (%@)", key, value, localError);
-        
-        CFReleaseNull(localError);
     });
     
     
@@ -396,12 +383,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     if(initial_sync){
         CFArrayAppendValue(handledKeys, kSOSKVSInitialSyncKey);
     }
-    
-    if(CFDictionaryGetCount(config_message_table)){
-        secnotice("otrtimer","got the config table: %@", config_message_table);
-        CFArrayAppendValue(handledKeys, kOTRConfigVersion);
-    }
-    
+
     if(CFDictionaryGetCount(debug_info_message_table)) {
         /* check for a newly set circle debug scope */
         CFTypeRef debugScope = CFDictionaryGetValue(debug_info_message_table, kSOSAccountDebugScope);
@@ -509,7 +491,8 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                         CFReleaseNull(keyHandled);
                     });
                 }
-    
+
+                CFReleaseNull(handleCircleMessages);
                 CFReleaseNull(localError);
             }
             

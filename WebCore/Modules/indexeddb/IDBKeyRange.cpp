@@ -29,15 +29,14 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBBindingUtilities.h"
-#include "IDBDatabaseException.h"
 #include "IDBKey.h"
 #include "IDBKeyData.h"
 #include "ScriptExecutionContext.h"
 #include <runtime/JSCJSValue.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 Ref<IDBKeyRange> IDBKeyRange::create(RefPtr<IDBKey>&& lower, RefPtr<IDBKey>&& upper, bool isLowerOpen, bool isUpperOpen)
 {
@@ -58,14 +57,12 @@ IDBKeyRange::IDBKeyRange(RefPtr<IDBKey>&& lower, RefPtr<IDBKey>&& upper, bool is
 {
 }
 
-IDBKeyRange::~IDBKeyRange()
-{
-}
+IDBKeyRange::~IDBKeyRange() = default;
 
 ExceptionOr<Ref<IDBKeyRange>> IDBKeyRange::only(RefPtr<IDBKey>&& key)
 {
     if (!key || !key->isValid())
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
 
     return create(WTFMove(key));
 }
@@ -79,7 +76,7 @@ ExceptionOr<Ref<IDBKeyRange>> IDBKeyRange::lowerBound(ExecState& state, JSValue 
 {
     auto bound = scriptValueToIDBKey(state, boundValue);
     if (!bound->isValid())
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
 
     return create(WTFMove(bound), nullptr, open, true);
 }
@@ -88,7 +85,7 @@ ExceptionOr<Ref<IDBKeyRange>> IDBKeyRange::upperBound(ExecState& state, JSValue 
 {
     auto bound = scriptValueToIDBKey(state, boundValue);
     if (!bound->isValid())
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
 
     return create(nullptr, WTFMove(bound), true, open);
 }
@@ -99,11 +96,11 @@ ExceptionOr<Ref<IDBKeyRange>> IDBKeyRange::bound(ExecState& state, JSValue lower
     auto upper = scriptValueToIDBKey(state, upperValue);
 
     if (!lower->isValid() || !upper->isValid())
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
     if (upper->isLessThan(lower.get()))
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
     if (upper->isEqual(lower.get()) && (lowerOpen || upperOpen))
-        return Exception { IDBDatabaseException::DataError };
+        return Exception { DataError };
 
     return create(WTFMove(lower), WTFMove(upper), lowerOpen, upperOpen);
 }
@@ -117,7 +114,7 @@ ExceptionOr<bool> IDBKeyRange::includes(JSC::ExecState& state, JSC::JSValue keyV
 {
     auto key = scriptValueToIDBKey(state, keyValue);
     if (!key->isValid())
-        return Exception { IDBDatabaseException::DataError, "Failed to execute 'includes' on 'IDBKeyRange': The passed-in value is not a valid IndexedDB key." };
+        return Exception { DataError, "Failed to execute 'includes' on 'IDBKeyRange': The passed-in value is not a valid IndexedDB key." };
 
     if (m_lower) {
         int compare = m_lower->compare(key.get());

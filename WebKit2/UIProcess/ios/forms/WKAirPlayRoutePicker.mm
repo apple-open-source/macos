@@ -29,7 +29,7 @@
 #if PLATFORM(IOS)
 
 #import "UIKitSPI.h"
-#import <WebCore/MediaPlayerSPI.h>
+#import <pal/spi/ios/MediaPlayerSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SoftLinking.h>
 
@@ -151,7 +151,7 @@ using namespace WebKit;
     [_routingController setDiscoveryMode:MPRouteDiscoveryModeDetailed];
 
     MPAVItemType itemType = hasVideo ? MPAVItemTypeVideo : MPAVItemTypeAudio;
-    if (UICurrentUserInterfaceIdiomIsPad())
+    if (currentUserInterfaceIdiomIsPad())
         [self showAirPlayPickerIPad:itemType fromRect:elementRect];
     else
         [self showAirPlayPickerIPhone:itemType];

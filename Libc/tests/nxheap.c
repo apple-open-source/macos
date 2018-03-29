@@ -18,7 +18,7 @@ action(int signo, struct __siginfo *info, void *uap __attribute__((unused)))
 	siglongjmp(jbuf, 0);
 }
 
-T_DECL(nxheap, "Non-executable heap", T_META_CHECK_LEAKS(NO))
+T_DECL(nxheap, "Non-executable heap", T_META_CHECK_LEAKS(false), T_META_ASROOT(true))
 {
 	struct sigaction sa = {
 		.__sigaction_u.__sa_sigaction = action,
@@ -26,7 +26,7 @@ T_DECL(nxheap, "Non-executable heap", T_META_CHECK_LEAKS(NO))
 	};
 
 	T_ASSERT_POSIX_ZERO(sigaction(SIGBUS, &sa, NULL), NULL);
-	
+
 	if (sigsetjmp(jbuf, 0)) {
 		T_PASS("SIGBUS");
 		T_END;

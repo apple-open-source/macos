@@ -363,7 +363,8 @@ static void SOSCCProcessGestaltUpdate(SCDynamicStoreRef store, CFArrayRef keys, 
         if(txn.account){
             CFDictionaryRef gestalt = CreateDeviceGestaltDictionary(store, keys, context);
             if ([txn.account.trust updateGestalt:txn.account newGestalt:gestalt]) {
-                notify_post(kSOSCCCircleChangedNotification);
+                // we used to  notify_post(kSOSCCCircleChangedNotification);
+                secnotice("circleOps", "Changed our peer's gestalt information.  This is not a circle change.");
             }
             CFReleaseSafe(gestalt);
         }
@@ -454,27 +455,33 @@ static SOSAccount* GetSharedAccount(void) {
                                                    CFSetRef applicant_additions, CFSetRef applicant_removals) {
             CFErrorRef pi_error = NULL;
             SOSPeerInfoRef me = sSharedAccount.peerInfo;
-            if (!me) {
-                secerror("Error finding me for change: %@", pi_error);
+            if(!me) {
+                secinfo("circleOps", "Change block called with no peerInfo");
+                return;
+            }
+            
+            if(!SOSCircleHasPeer(circle, me, NULL)) {
+                secinfo("circleOps", "Change block called while not in circle");
+                return;
+            }
+            
+            // TODO: Figure out why peer_additions isn't right in some cases (like when joining a v2 circle with a v0 peer.
+            if (CFSetGetCount(peer_additions) != 0) {
+                secnotice("updates", "Requesting Ensure Peer Registration.");
+                SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
             } else {
-                // TODO: Figure out why peer_additions isn't right in some cases (like when joining a v2 circle with a v0 peer.
-                if (SOSCircleHasPeer(circle, me, NULL) && CFSetGetCount(peer_additions) != 0) {
-                    secnotice("updates", "Requesting Ensure Peer Registration.");
-                    SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
-                } else {
-                    secinfo("updates", "Not requesting Ensure Peer Registration, since it's not needed");
+                secinfo("updates", "Not requesting Ensure Peer Registration, since it's not needed");
+            }
+            
+            if (CFSetContainsValue(peer_additions, me)) {
+                // TODO: Potentially remove from here and move this to the engine
+                // TODO: We also need to do this when our views change.
+                CFMutableSetRef peers = SOSCircleCopyPeers(circle, kCFAllocatorDefault);
+                CFSetRemoveValue(peers, me);
+                if (!CFSetIsEmpty(peers)) {
+                    SOSCCRequestSyncWithPeers(peers);
                 }
-                
-                if (CFSetContainsValue(peer_additions, me)) {
-                    // TODO: Potentially remove from here and move this to the engine
-                    // TODO: We also need to do this when our views change.
-                    CFMutableSetRef peers = SOSCircleCopyPeers(circle, kCFAllocatorDefault);
-                    CFSetRemoveValue(peers, me);
-                    if (!CFSetIsEmpty(peers)) {
-                        SOSCCRequestSyncWithPeers(peers);
-                    }
-                    CFReleaseNull(peers);
-                }
+                CFReleaseNull(peers);
             }
             
             CFReleaseNull(pi_error);
@@ -497,6 +504,7 @@ static SOSAccount* GetSharedAccount(void) {
                     CFReleaseNull(localError);
                     CFReleaseNull(removed);
                 }
+                secnotice("circleOps", "peer counts changed, posting kSOSCCCircleChangedNotification");
                 notify_post(kSOSCCCircleChangedNotification);
            }
         });
@@ -511,10 +519,10 @@ static SOSAccount* GetSharedAccount(void) {
                 
                 CFErrorRef error = NULL;
                 handledKeys = SOSTransportDispatchMessages(txn, changes, &error);
-                if (!handledKeys) {
+                if (!handledKeys || error) {
                     secerror("Error handling updates: %@", error);
-                    CFReleaseNull(error);
                 }
+                CFReleaseNull(error);
             });
             CFReleaseSafe(changes);
             return handledKeys;
@@ -546,12 +554,14 @@ CFTypeRef GetSharedAccountRef(void)
 }
 
 static void do_with_account(void (^action)(SOSAccountTransaction* txn)) {
-    SOSAccount* account = GetSharedAccount();
+    @autoreleasepool {
+        SOSAccount* account = GetSharedAccount();
 
-    if(account){
-        [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-            action(txn);
-        }];
+        if(account){
+            [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+                action(txn);
+            }];
+        }
     }
 }
 
@@ -613,6 +623,7 @@ static bool do_with_account_if_after_first_unlock(CFErrorRef *error, bool (^acti
                     notify_post(kSOSCCCircleChangedNotification);
                     notify_post(kSOSCCViewMembershipChangedNotification);
                 }
+                CFReleaseNull(cferror);
             });
         });
 
@@ -723,10 +734,13 @@ CFTypeRef SOSKeychainAccountGetSharedAccount()
 // Mark: Credential processing
 //
 
-
-bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error)
-{
+bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
+    secnotice("updates", "Trying credentials and dsid (%@) for %@", dsid, user_label);
+    
     return do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        if (dsid != NULL && CFStringCompare(dsid, CFSTR(""), 0) != 0) {
+            SOSAccountAssertDSID(txn.account, dsid);
+        }
         return SOSAccountTryUserCredentials(txn.account, user_label, user_password, block_error);
     });
 }
@@ -1226,7 +1240,7 @@ bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error)
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error)
 {
     return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        secnotice("sosops", "Signed out of account!");
+        secnotice("circleOps", "Signed out of account!");
         
         bool waitForeverForSynchronization = true;
         
@@ -1548,7 +1562,7 @@ CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef bskb, CFDataRef inp
     CFMutableDictionaryRef plaintext = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(plaintext, CFSTR("data"), input);
 
-    require_quiet(ks_encrypt_data(bskb_handle, access, NULL, plaintext, NULL, &encrypted, false, error), exit);
+    require_quiet(ks_encrypt_data_legacy(bskb_handle, access, NULL, plaintext, NULL, &encrypted, false, error), exit);
 
 exit:
     CFReleaseNull(bskb);
@@ -1788,17 +1802,20 @@ bool SOSCCDeleteEngineState_Server(CFErrorRef* error)
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error){
     __block SOSPeerInfoRef result = NULL;
 
+    secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server acquiring account lock");
     (void) do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server acquired account lock");
         if(SOSAccountSetBackupPublicKey(txn,newPublicBackup, error)){
+            secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server, new public backup is set in account");
             [txn restart];  // Finish the transaction to update any changes to the peer info.
 
             // Create a copy to be DERed/sent back to client
             result = SOSPeerInfoCreateCopy(kCFAllocatorDefault, txn.account.peerInfo, block_error);
-            secdebug("backup", "SOSCCSetNewPublicBackupKey_Server, new public backup is set");
+            secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server, new public backup is set and pushed");
         }
         else
         {
-            secerror("SOSCCSetNewPublicBackupKey_Server, could not set new public backup");
+            secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server, could not set new public backup");
         }
         return result != NULL;
     });
@@ -2060,12 +2077,13 @@ SOSPeerInfoRef SOSCCCopyApplication_Server(CFErrorRef *error) {
 }
 
 bool SOSCCCleanupKVSKeys_Server(CFErrorRef *error) {
-    __block bool result = false;
-    do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+    bool result = do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         return SOSAccountCleanupAllKVSKeys(txn.account, error);
     });
+    if(result && error && *error) {
+        CFReleaseNull(*error);
+    }
     return result;
-    
 }
 
 bool SOSCCTestPopulateKVSWithBadKeys_Server(CFErrorRef *error)
@@ -2147,7 +2165,7 @@ void SOSCCResetOTRNegotiation_Server(CFStringRef peerid)
 {
     CFErrorRef localError = NULL;
      do_with_account_while_unlocked(&localError, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-         SOSAccountResetOTRNegotiationCoder(txn, peerid);
+         SOSAccountResetOTRNegotiationCoder(txn.account, peerid);
          return true;
     });
     if(localError)
@@ -2169,19 +2187,26 @@ void SOSCCPeerRateLimiterSendNextMessage_Server(CFStringRef peerid, CFStringRef 
     }
 }
 
-XPC_RETURNS_RETAINED xpc_endpoint_t
-SOSCCCreateSOSEndpoint_server(CFErrorRef *error)
-{
-    SOSAccount* account = (__bridge SOSAccount *)(SOSKeychainAccountGetSharedAccount());
-    return [account xpcControlEndpoint];
-}
-
 void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivSigningKey, CFErrorRef error))
 {
     CFErrorRef error = NULL;
     do_with_account_if_after_first_unlock(&error, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
         SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
         SecKeyRef signingKey = SOSFullPeerInfoCopyOctagonSigningKey(fpi, err);
+        CFErrorRef errorArg = err ? *err : NULL;
+        action(signingKey, errorArg);
+        CFReleaseNull(signingKey);
+        return true;
+    });
+    CFReleaseNull(error);
+}
+
+void SOSCCPerformWithOctagonSigningPublicKey(void (^action)(SecKeyRef octagonPublicKey, CFErrorRef error))
+{
+    CFErrorRef error = NULL;
+    do_with_account_if_after_first_unlock(&error, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
+        SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
+        SecKeyRef signingKey = SOSFullPeerInfoCopyOctagonPublicSigningKey(fpi, err);
         CFErrorRef errorArg = err ? *err : NULL;
         action(signingKey, errorArg);
         CFReleaseNull(signingKey);
@@ -2204,6 +2229,52 @@ void SOSCCPerformWithOctagonEncryptionKey(void (^action)(SecKeyRef octagonPrivEn
     CFReleaseNull(error);
 }
 
+void SOSCCPerformWithOctagonEncryptionPublicKey(void (^action)(SecKeyRef octagonPublicEncryptionKey, CFErrorRef error))
+{
+    CFErrorRef error = NULL;
+    do_with_account_if_after_first_unlock(&error, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
+        SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
+        SecKeyRef signingKey = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(fpi, err);
+        CFErrorRef errorArg = err ? *err : NULL;
+        action(signingKey, errorArg);
+        CFReleaseNull(signingKey);
+        return true;
+    });
+    CFReleaseNull(error);
+}
+
+void SOSCCPerformWithAllOctagonKeys(void (^action)(SecKeyRef octagonEncryptionKey, SecKeyRef octagonSigningKey, CFErrorRef error))
+{
+    CFErrorRef localError = NULL;
+    do_with_account_if_after_first_unlock(&localError, ^bool(SOSAccountTransaction *txn, CFErrorRef *err) {
+        SecKeyRef encryptionKey = NULL;
+        SecKeyRef signingKey = NULL;
+        CFErrorRef errorArg = err ? *err : NULL;
+        
+        SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
+        require_action_quiet(fpi, fail, secerror("device does not have a peer"); SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, &errorArg));
+        
+        signingKey = SOSFullPeerInfoCopyOctagonSigningKey(fpi, &errorArg);
+        require_action_quiet(signingKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys signing key error: %@", errorArg));
+        CFReleaseNull(errorArg);
+        
+        encryptionKey = SOSFullPeerInfoCopyOctagonEncryptionKey(fpi, &errorArg);
+        require_action_quiet(encryptionKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys encryption key error: %@", errorArg));
+        
+        action(encryptionKey, signingKey, errorArg);
+        CFReleaseNull(signingKey);
+        CFReleaseNull(encryptionKey);
+        CFReleaseNull(errorArg);
+        return true;
+    fail:
+        action(NULL, NULL, errorArg);
+        CFReleaseNull(errorArg);
+        CFReleaseNull(signingKey);
+        CFReleaseNull(encryptionKey);
+        return true;
+    });
+    CFReleaseNull(localError);
+}
 void SOSCCPerformWithTrustedPeers(void (^action)(CFSetRef sosPeerInfoRefs, CFErrorRef error))
 {
     CFErrorRef cfAccountError = NULL;
@@ -2220,3 +2291,23 @@ void SOSCCPerformWithTrustedPeers(void (^action)(CFSetRef sosPeerInfoRefs, CFErr
     CFReleaseNull(cfAccountError);
 }
 
+void SOSCCPerformWithPeerID(void (^action)(CFStringRef peerID, CFErrorRef error))
+{
+    CFErrorRef cfAccountError = NULL;
+    do_with_account_if_after_first_unlock(&cfAccountError, ^bool(SOSAccountTransaction *txn, CFErrorRef *cferror) {
+        SOSAccount* account = txn.account;
+        NSString* peerID = nil;
+        CFErrorRef localError = nil;
+        
+        if([account getCircleStatus:nil] == kSOSCCInCircle){
+            peerID = [txn.account peerID];
+        }
+        else{
+            SOSErrorCreate(kSOSErrorNoCircle, &localError, NULL, CFSTR("Not in circle"));
+        }
+        action((__bridge CFStringRef)peerID, localError);
+        CFReleaseNull(localError);
+        return true;
+    });
+    CFReleaseNull(cfAccountError);
+}

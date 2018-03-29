@@ -14,6 +14,7 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/pwr_mgt/powermanagement_mig.h>
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/ps/IOPowerSources.h>
@@ -26,6 +27,7 @@
 #include <unistd.h>
 #include <notify.h>
 #include <sysexits.h>
+#include <xpc/xpc.h>
 
 #define PMTestLog(x...)  do {print_pretty_date(false); printf(x);} while(0);
 #define PMTestPass  printf
@@ -56,6 +58,8 @@ struct DTAssertionOption {
     const char          *desc;
 };
 typedef struct DTAssertionOption DTAssertionOption;
+
+#define POWERD_XPC_ID "com.apple.iokit.powerdxpc"
 
 /*************************************************************************/
 static void usage(void);
@@ -99,6 +103,7 @@ static void _CFDictionarySetDate(
 static void cacheArgvString(int argc, char *argv[]);
 
 static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
+static void sendInactivityWindowCommand(long start, long duration, long delay);
 
 /*************************************************************************/
 /*
@@ -142,6 +147,9 @@ typedef enum {
     kActionPowerOffNowIndex,
     kActionSetBattIndex,
     kActionResetBattIndex,
+    kActionInactivityWindowIndex,
+    kOptionInactivityWindowDurationIndex,
+    kOptionStandbyAccelerateDelayIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
 
@@ -191,6 +199,8 @@ enum {
 #define kOptionSleepNow                                 "sleepnow"
 #define kOptionIterations                               "iterations"
 #define kOptionStandardSleepIntervals                   "standardsleepintervals"
+#define kOptionInactivityDuration                       "duration"
+#define kOptionStandbyAccelerateDelay                   "delay"
 
 /*
  * Actions - caller may specify only one
@@ -214,6 +224,7 @@ enum {
 #define kActionPowerOffNow                              "poweroffnow"
 #define kActionSetBatt                                  "setbatt"
 #define kActionResetBatt                                "resetbatt"
+#define kActionSetUserInactivityStart                   "inactivitystart"
 
 #define kArgIOPMConnection                              "iopmconnection"
 #define kArgIORegisterForSystemPower                    "ioregisterforsystempower"

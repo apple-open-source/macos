@@ -330,7 +330,6 @@ void finalize_connection(void *not_used)
 static bool operation_put_dictionary(xpc_object_t event)
 {
     // PUT a set of objects into the KVS store. Return false if error
-    describeXPCObject("operation_put_dictionary event: ", event);
     xpc_object_t xvalue = xpc_dictionary_get_value(event, kMessageKeyValue);
     if (!xvalue) {
         return false;
@@ -349,9 +348,7 @@ static bool operation_put_dictionary(xpc_object_t event)
 
 static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
 {
-    // GET a set of objects from the KVS store. Return false if error    
-    describeXPCObject("operation_get_v2 event: ", event);
-
+    // GET a set of objects from the KVS store. Return false if error
     xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
     if (!replyMessage)
     {
@@ -393,7 +390,6 @@ static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
             secdebug(PROXYXPCSCOPE, "get: key: %@, object: %@", key, object);
             xpc_object_t xobject = object ? _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)object) : xpc_null_create();
             xpc_dictionary_set_value(returnedValues, [key UTF8String], xobject);
-            describeXPCObject("operation_get_v2: value from kvs: ", xobject);
         }];
     }
     else    // get all values from kvs
@@ -425,8 +421,6 @@ static void cloudkeychainproxy_event_handler(xpc_connection_t peer)
     xpc_connection_set_target_queue(peer, [SharedProxy() ckdkvsproxy_queue]);
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event)
     {
-        describeXPCObject("peer: ", peer); // Only describes under debug
-
         // We could handle other peer events (e.g.) disconnects,
         // but we don't keep per-client state so there is no need.
         if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {

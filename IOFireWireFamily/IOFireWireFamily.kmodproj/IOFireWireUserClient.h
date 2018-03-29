@@ -178,8 +178,8 @@ class IOFWUserDebugInfo : public OSObject
 	public:
 	
 		virtual bool		init( IOFireWireUserClient & userClient ) ;
-		virtual bool		serialize( OSSerialize * s ) const ;
-		virtual void		free () ;
+		virtual bool		serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
+		virtual void		free (void) APPLE_KEXT_OVERRIDE;
 		
 //		inline OSNumber *   getIsochCallbackCounter()			{ return fIsochCallbacks ; }
 } ;
@@ -219,22 +219,24 @@ class IOFireWireUserClient : public IOUserClient
 
 		IOFireWireLib::UserObjectHandle		fSessionRef;
 	
+        IOFireWireController  *              fController;
+    
 	public:
 	
 		// OSObject
 //		virtual void 					retain() const	;
-		virtual void					free () ;
+		virtual void					free (void) APPLE_KEXT_OVERRIDE;
 		
 		// IORegistryEntry
-		virtual IOReturn				setProperties ( OSObject * properties ) ;
+		virtual IOReturn				setProperties ( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
 		// IOService
-		virtual bool					initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties );
-		virtual bool 					start ( IOService * provider );
+		virtual bool					initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties ) APPLE_KEXT_OVERRIDE;
+		virtual bool 					start ( IOService * provider ) APPLE_KEXT_OVERRIDE;
 		virtual IOReturn 				message(
 												UInt32 					type,
 												IOService* 				provider,
-												void* 					argument );
+												void* 					argument ) APPLE_KEXT_OVERRIDE;
 
 		// IOUserClient
 	
@@ -242,10 +244,10 @@ class IOFireWireUserClient : public IOUserClient
 														IOExternalMethodArguments * arguments, 
 														IOExternalMethodDispatch * dispatch, 
 														OSObject * target, 
-														void * reference);
+														void * reference) APPLE_KEXT_OVERRIDE;
 	
-		virtual IOReturn 				clientClose ( void );
-		virtual IOReturn 				clientDied ( void );	
+		virtual IOReturn 				clientClose ( void ) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn 				clientDied ( void ) APPLE_KEXT_OVERRIDE;
 
 		inline static IOReturn 			sendAsyncResult64 (OSAsyncReference64 		reference,
 														   IOReturn 				result, 
@@ -256,7 +258,7 @@ class IOFireWireUserClient : public IOUserClient
 		IOReturn						registerNotificationPort ( 
 												mach_port_t 			port, 
 												UInt32 					type, 
-												UInt32 					refCon ) ;
+												UInt32 					refCon ) APPLE_KEXT_OVERRIDE;
 
 		// me
 		

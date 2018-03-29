@@ -21,11 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 #import <XCTest/XCTest.h>
 
 #import <Foundation/Foundation.h>
+#import <SystemConfiguration/SystemConfiguration.h>
 
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
@@ -38,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSViewManager;
 @class FakeCKZone;
 @class CKKSLockStateTracker;
+@class CKKSReachabilityTracker;
 
 @interface CloudKitMockXCTest : XCTestCase
 
@@ -56,6 +60,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property CKAccountStatus accountStatus;
 @property BOOL supportsDeviceToDeviceEncryption;
+@property BOOL iCloudHasValidCredentials;
 @property SOSCCStatus circleStatus;
 @property (readonly) NSString* ckDeviceID;
 @property (readonly) CKKSCKAccountStateTracker* accountStateTracker;
@@ -66,6 +71,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
 @property (nullable) id mockLockStateTracker;
 
+@property SCNetworkReachabilityFlags reachabilityFlags;  // The current 'network reachability flags'
+@property (readonly) CKKSReachabilityTracker *reachabilityTracker;
+@property (nullable) id mockReachabilityTracker;
+
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>* zones;
 
 @property (nullable) NSOperationQueue* operationQueue;
@@ -75,6 +84,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSBlockOperation* ckFetchHoldOperation;
 
 @property bool silentFetchesAllowed;
+@property bool silentZoneDeletesAllowed;
 
 @property (nullable) id mockCKKSViewManager;
 @property (nullable) CKKSViewManager* injectedManager;
@@ -101,6 +111,11 @@ NS_ASSUME_NONNULL_BEGIN
         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
                  tlkShareRecords:(NSUInteger)expectedTLKShareRecords
                           zoneID:(CKRecordZoneID*)zoneID;
+- (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
+        currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                 tlkShareRecords:(NSUInteger)expectedTLKShareRecords
+                          zoneID:(CKRecordZoneID*)zoneID
+             checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkModifiedRecord;
 
 - (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)expectedRecordTypeCounts
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>* _Nullable)expectedDeletedRecordTypeCounts
@@ -164,3 +179,5 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* OCTAGON */

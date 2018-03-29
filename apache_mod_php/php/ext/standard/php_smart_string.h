@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -50,7 +50,7 @@
 #endif
 
 #define SMART_STRING_DO_REALLOC(d, what) \
-	(d)->c = SMART_STRING_REALLOC((d)->c, (d)->a + 1, (what))
+	(d)->c = (char *) SMART_STRING_REALLOC((d)->c, (d)->a + 1, (what))
 
 #define smart_string_alloc4(d, n, what, newlen) do {				\
 	if (!(d)->c) {													\

@@ -56,11 +56,11 @@ protected:
 	Reserved for future use.  (Internal use only)  */
 	ExpansionData *reserved;
 
-	virtual bool init();
-	virtual void free();
+	virtual bool init(void) APPLE_KEXT_OVERRIDE;
+	virtual void free(void) APPLE_KEXT_OVERRIDE;
 
-	virtual const UInt32 *getBase();
-	virtual IOConfigDirectory *getSubDir(int start, int type);
+	virtual const UInt32 *getBase(void) APPLE_KEXT_OVERRIDE;
+	virtual IOConfigDirectory *getSubDir(int start, int type) APPLE_KEXT_OVERRIDE;
 
 public:
 	static IOLocalConfigDirectory *create();
@@ -73,7 +73,7 @@ public:
 		@result kIOReturnSuccess if the specified offset is now
 		accessable at romBase[offset].
 	*/
-	virtual IOReturn update(UInt32 offset, const UInt32 *&romBase);
+	virtual IOReturn update(UInt32 offset, const UInt32 *&romBase) APPLE_KEXT_OVERRIDE;
 
 	virtual IOReturn compile(OSData *rom);
 	
@@ -86,14 +86,14 @@ public:
 	virtual IOReturn removeSubDir(IOLocalConfigDirectory *value);
 	const OSArray *getEntries() const;
 
-	virtual IOReturn getIndexValue(int index, IOConfigDirectory *&value);
+	virtual IOReturn getIndexValue(int index, IOConfigDirectory *&value) APPLE_KEXT_OVERRIDE;
 
 protected:
 
-	virtual const UInt32 * lockData( void );
-	virtual void unlockData( void );
-	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length );
-	virtual IOReturn checkROMState( void );
+	virtual const UInt32 * lockData( void ) APPLE_KEXT_OVERRIDE;
+	virtual void unlockData( void ) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length ) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn checkROMState( void ) APPLE_KEXT_OVERRIDE;
 
 	// call eats a retain count
 	virtual IOReturn addEntry(OSString *desc);

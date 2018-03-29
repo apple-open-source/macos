@@ -44,7 +44,7 @@ __BEGIN_DECLS
 
 typedef struct __OpaqueSOSCircle *SOSCircleRef;
 
-CFTypeID SOSCircleGetTypeID();
+CFTypeID SOSCircleGetTypeID(void);
 
 SOSCircleRef SOSCircleCreate(CFAllocatorRef allocator, CFStringRef circleName, CFErrorRef *error);
 SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
@@ -150,7 +150,7 @@ bool SOSCircleAcceptRequests(SOSCircleRef circle, SecKeyRef user_privkey, SOSFul
 
 // Stuff above this line is really SOSCircleInfo below the line is the active SOSCircle functionality
 
-SOSFullPeerInfoRef SOSCircleCopyiCloudFullPeerInfoRef(SOSCircleRef circle, CFErrorRef *error);
+CF_RETURNS_RETAINED SOSFullPeerInfoRef SOSCircleCopyiCloudFullPeerInfoRef(SOSCircleRef circle, CFErrorRef *error);
 
 bool SOSCircleConcordanceSign(SOSCircleRef circle, SOSFullPeerInfoRef peerinfo, CFErrorRef *error);
 

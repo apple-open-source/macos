@@ -33,8 +33,6 @@
 	<true/>
 	<key>LaunchOnlyOnce</key>
 	<false/>
-	<key>BeginTransactionAtShutdown</key>
-	<true/>
 	<key>EnableTransactions</key>
 	<true/>
 	<key>POSIXSpawnType</key>

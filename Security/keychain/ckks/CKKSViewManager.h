@@ -33,10 +33,12 @@
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CKKSControlProtocol.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
 #import "keychain/ckks/CloudKitDependencies.h"
+#import "keychain/ot/OTDefines.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -47,6 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKContainer* container;
 @property CKKSCKAccountStateTracker* accountTracker;
 @property CKKSLockStateTracker* lockStateTracker;
+@property CKKSReachabilityTracker *reachabilityTracker;
 @property bool initializeNewZones;
 
 // Signaled when SecCKKSInitialize is complete, as it's async and likes to fire after tests are complete
@@ -68,7 +71,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CKKSKeychainView*)findView:(NSString*)viewName;
 - (CKKSKeychainView*)findOrCreateView:(NSString*)viewName;
-+ (CKKSKeychainView*)findOrCreateView:(NSString*)viewName;
 - (void)setView:(CKKSKeychainView*)obj;
 - (void)clearView:(NSString*)viewName;
 
@@ -84,12 +86,12 @@ NS_ASSUME_NONNULL_BEGIN
                                   added:(SecDbItemRef _Nullable)added
                                 deleted:(SecDbItemRef _Nullable)deleted;
 
-- (void)setCurrentItemForAccessGroup:(SecDbItemRef)newItem
+- (void)setCurrentItemForAccessGroup:(NSData* _Nonnull)newItemPersistentRef
                                 hash:(NSData*)newItemSHA1
                          accessGroup:(NSString*)accessGroup
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint
-                           replacing:(SecDbItemRef _Nullable)oldItem
+                           replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
                                 hash:(NSData* _Nullable)oldItemSHA1
                             complete:(void (^)(NSError* operror))complete;
 
@@ -113,9 +115,6 @@ NS_ASSUME_NONNULL_BEGIN
 // Called by XPC every 24 hours
 - (void)xpc24HrNotification;
 
-/* Interface to CCKS control channel */
-- (xpc_endpoint_t)xpcControlEndpoint;
-
 /* White-box testing only */
 - (CKKSKeychainView*)restartZone:(NSString*)viewName;
 
@@ -129,6 +128,11 @@ NS_ASSUME_NONNULL_BEGIN
 // Fetch peers from SOS
 - (CKKSSelves* _Nullable)fetchSelfPeers:(NSError* __autoreleasing*)error;
 - (NSSet<id<CKKSPeer>>* _Nullable)fetchTrustedPeers:(NSError* __autoreleasing*)error;
+
+// For mocking purposes
+- (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error;
+- (NSSet<id<CKKSSelfPeer>>*)pastSelves:(NSError**)error;
+- (NSArray<NSDictionary*>* _Nullable)loadRestoredBottledKeysOfType:(OctagonKeyType)keyType error:(NSError**)error;
 
 - (void)sendSelfPeerChangedUpdate;
 - (void)sendTrustedPeerSetChangedUpdate;

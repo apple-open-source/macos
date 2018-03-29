@@ -325,7 +325,7 @@ CFMutableDictionaryRef copyPreferencesForSrc(CFStringRef power_source)
  *
  * Returns if synchronize is successfull.
  */
-bool setPreferencesForSrc(CFStringRef key, CFDictionaryRef prefs, bool synchronize)
+bool setPreferencesForSrc(CFStringRef pwrSrc, CFDictionaryRef prefs, bool synchronize)
 {
 
     CFIndex count;
@@ -359,16 +359,32 @@ bool setPreferencesForSrc(CFStringRef key, CFDictionaryRef prefs, bool synchroni
         if (isA_GenericPref(keys[i])) {
 
             if (genericSettings == NULL) {
-                genericSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionaryRef tmp = IOPMCopyFromPrefs(genericPrefsPath, pwrSrc);
+                if (tmp) {
+                    genericSettings = CFDictionaryCreateMutableCopy(NULL, 0, tmp);
+                    CFRelease(tmp);
+                }
+                else {
+                    genericSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                }
             }
+
             if (genericSettings) {
                 CFDictionarySetValue(genericSettings, keys[i], objs[i]);
             }
         }
         else {
             if (hostSettings == NULL) {
-                hostSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionaryRef tmp = IOPMCopyFromPrefs(hostPrefsPath, pwrSrc);
+                if (tmp) {
+                    hostSettings = CFDictionaryCreateMutableCopy(NULL, 0, tmp);
+                    CFRelease(tmp);
+                }
+                else {
+                    hostSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                }
             }
+
             if (hostSettings) {
                 CFDictionarySetValue(hostSettings, keys[i], objs[i]);
             }
@@ -378,11 +394,11 @@ bool setPreferencesForSrc(CFStringRef key, CFDictionaryRef prefs, bool synchroni
 exit:
     if (genericPrefsPath) {
         if (genericSettings) {
-            CFPreferencesSetValue(key, genericSettings, genericPrefsPath,
+            CFPreferencesSetValue(pwrSrc, genericSettings, genericPrefsPath,
                     kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
         }
         else if (prefs == NULL) {
-            CFPreferencesSetValue(key, NULL, genericPrefsPath,
+            CFPreferencesSetValue(pwrSrc, NULL, genericPrefsPath,
                     kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
         }
         if (synchronize) {
@@ -394,11 +410,11 @@ exit:
 
     if (hostPrefsPath) {
         if (hostSettings) {
-            CFPreferencesSetValue(key, hostSettings, hostPrefsPath,
+            CFPreferencesSetValue(pwrSrc, hostSettings, hostPrefsPath,
                     kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
         }
         else if (prefs == NULL) {
-            CFPreferencesSetValue(key, NULL, hostPrefsPath,
+            CFPreferencesSetValue(pwrSrc, NULL, hostPrefsPath,
                     kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
         }
         if (synchronize) {
@@ -655,7 +671,7 @@ IOReturn IOPMRevertPMPreferences(CFArrayRef keys_arr)
     IOReturn                ret     = kIOReturnInternalError;
     int                     count   = 0;
     CFStringRef             setting = NULL;
-    CFMutableDictionaryRef  prefs   = IOPMCopyPMPreferences();
+    CFMutableDictionaryRef  prefs   = IOPMCopyPreferencesOnFile();
 
     if (!prefs) {
         goto exit;
@@ -724,7 +740,7 @@ IOReturn IOPMSetPMPreference(CFStringRef key,
                              CFTypeRef value,
                              CFStringRef pwr_src)
 {
-    CFMutableDictionaryRef prefs   = IOPMCopyPMPreferences();
+    CFMutableDictionaryRef prefs   = IOPMCopyPreferencesOnFile();
     IOReturn               ret     = kIOReturnError;
 
     if (!prefs) {

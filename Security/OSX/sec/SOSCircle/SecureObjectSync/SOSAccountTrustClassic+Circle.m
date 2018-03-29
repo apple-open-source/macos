@@ -16,18 +16,6 @@
 #import "Security/SecureObjectSync/SOSAccountGhost.h"
 #import "Security/SecureObjectSync/SOSViews.h"
 
-static const char *concordstring[] = {
-    "kSOSConcordanceTrusted",
-    "kSOSConcordanceGenOld",     // kSOSErrorReplay
-    "kSOSConcordanceNoUserSig",  // kSOSErrorBadSignature
-    "kSOSConcordanceNoUserKey",  // kSOSErrorNoKey
-    "kSOSConcordanceNoPeer",     // kSOSErrorPeerNotFound
-    "kSOSConcordanceBadUserSig", // kSOSErrorBadSignature
-    "kSOSConcordanceBadPeerSig", // kSOSErrorBadSignature
-    "kSOSConcordanceNoPeerSig",
-    "kSOSConcordanceWeSigned",
-};
-
 @implementation SOSAccountTrustClassic (Circle)
 
 -(bool) isInCircle:(CFErrorRef *)error
@@ -96,7 +84,10 @@ fail:
 {
     CFErrorRef localError = NULL;
     if (self.trustedCircle == NULL) {
-        self.trustedCircle = SOSCircleCreate(NULL, name, NULL);
+        SOSCircleRef newCircle = SOSCircleCreate(NULL, name, NULL);
+        self.trustedCircle = newCircle; // Note that this setter adds a retain
+        CFReleaseNull(newCircle);
+        secnotice("circleop", "Setting key_interests_need_updating to true in ensureCircle");
         a.key_interests_need_updating = true;
     }
     
@@ -161,8 +152,10 @@ fail:
     if(!myPubKey) return false;
     if(SOSCircleVerify(prospective_circle, myPubKey, NULL) && SOSCircleIsOlderGeneration(self.trustedCircle, prospective_circle)) {
         [self setTrustedCircle:prospective_circle];
+        CFReleaseNull(myPubKey);
         return true;
     }
+    CFReleaseNull(myPubKey);
     return false;
 }
 
@@ -188,10 +181,24 @@ static bool SOSCirclePeerOctagonKeysChanged(SOSPeerInfoRef oldPeer, SOSPeerInfoR
         if(!oldHasOctagonBits && !newHasOctagonBits) {
             // both peers have no keys: no change
             return false;
-        }
 
-        bool signingKeyChanged = CFEqualSafe(SOSPeerInfoCopyOctagonSigningPublicKey(oldPeer, NULL), SOSPeerInfoCopyOctagonSigningPublicKey(newPeer, NULL));
-        bool encryptionKeyChanged = CFEqualSafe(SOSPeerInfoCopyOctagonEncryptionPublicKey(oldPeer, NULL), SOSPeerInfoCopyOctagonEncryptionPublicKey(newPeer, NULL));
+        }
+        SecKeyRef oldSigningKey = SOSPeerInfoCopyOctagonSigningPublicKey(oldPeer, NULL);
+        SecKeyRef newSigningKey = SOSPeerInfoCopyOctagonSigningPublicKey(newPeer, NULL);
+
+        bool signingKeyChanged = CFEqualSafe(oldSigningKey, newSigningKey);
+
+        CFReleaseNull(oldSigningKey);
+        CFReleaseNull(newSigningKey);
+
+
+        SecKeyRef oldEncryptionKey = SOSPeerInfoCopyOctagonEncryptionPublicKey(oldPeer, NULL);
+        SecKeyRef newEncryptionKey = SOSPeerInfoCopyOctagonEncryptionPublicKey(newPeer, NULL);
+
+        bool encryptionKeyChanged = CFEqualSafe(oldEncryptionKey, newEncryptionKey);
+
+        CFReleaseNull(oldEncryptionKey);
+        CFReleaseNull(newEncryptionKey);
 
         return signingKeyChanged || encryptionKeyChanged;
     }
@@ -203,11 +210,13 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     SOSCircleForEachPeer(oldCircle, ^(SOSPeerInfoRef oldPeer) {
         SOSPeerInfoRef equivalentNewPeer = SOSCircleCopyPeerWithID(newCircle, SOSPeerInfoGetPeerID(oldPeer), NULL);
         hasUpdated |= SOSCirclePeerOctagonKeysChanged(oldPeer, equivalentNewPeer);
+        CFReleaseNull(equivalentNewPeer);
     });
 
     SOSCircleForEachPeer(newCircle, ^(SOSPeerInfoRef newPeer) {
         SOSPeerInfoRef equivalentOldPeer = SOSCircleCopyPeerWithID(oldCircle, SOSPeerInfoGetPeerID(newPeer), NULL);
         hasUpdated |= SOSCirclePeerOctagonKeysChanged(equivalentOldPeer, newPeer);
+        CFReleaseNull(equivalentOldPeer);
     });
 
     return hasUpdated;
@@ -236,6 +245,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     // sponsored the only signer.
     if(!writeUpdate && [ self checkForSponsorshipTrust: prospective_circle ]){
         SOSCCEnsurePeerRegistration();
+        secnotice("circleop", "Setting key_interests_need_updating to true in handleUpdateCircle");
         account.key_interests_need_updating = true;
         return true;
         
@@ -352,7 +362,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
                     break;
             }
     
-    secnotice("signing", "Decided on action [%s] based on concordance state [%s] and [%s] circle.  My PeerID is %@", actionstring[circle_action], concordstring[concstat], userTrustedOldCircle ? "trusted" : "untrusted", myPeerID);
+    secnotice("signing", "Decided on action [%s] based on concordance state [%@] and [%s] circle.  My PeerID is %@", actionstring[circle_action], concStr, userTrustedOldCircle ? "trusted" : "untrusted", myPeerID);
     
     SOSCircleRef circleToPush = NULL;
     
@@ -368,7 +378,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
                       account.accountKey, account.previousAccountKey, old_circle_key);
             
             if (sosAccountLeaveCircle(account, newCircle, error)) {
-                secnotice("leaveCircle", "Leaving circle by newcircle state");
+                secnotice("circleOps", "Leaving circle by newcircle state");
                 circleToPush = newCircle;
             } else {
                 secnotice("signing", "Can't leave circle, but dumping identities");
@@ -418,7 +428,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
         if (me && SOSCircleHasActivePeer(oldCircle, me, NULL) && !SOSCircleHasPeer(newCircle, me, NULL)) {
             //  Don't destroy evidence of other code determining reason for leaving.
             if(![self hasLeft]) self.departureCode = kSOSMembershipRevoked;
-            secnotice("account", "Member of old circle but not of new circle");
+            secnotice("circleOps", "Member of old circle but not of new circle (%d)", self.departureCode);
             debugDumpCircle(CFSTR("oldCircle"), oldCircle);
             debugDumpCircle(CFSTR("newCircle"), newCircle);
         }
@@ -451,6 +461,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
                 SOSCircleRequestReadmission(newCircle, account.accountKey, me, NULL);
                 writeUpdate = true;
             }
+            CFReleaseNull(reject);
         }
         
         CFRetainSafe(oldCircle);
@@ -484,6 +495,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
         
         if (writeUpdate)
             circleToPush = newCircle;
+        secnotice("circleop", "Setting key_interests_need_updating to true in handleUpdateCircle");
         account.key_interests_need_updating = true;
     }
     
@@ -517,7 +529,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             //posting new circle to peers
             success &= [circleTransport postCircle:SOSCircleGetName(circleToPush) circleData:circle_data err:error];
             //cleanup old KVS keys
-            SOSAccountCleanupAllKVSKeys(account, error);
+            (void) SOSAccountCleanupAllKVSKeys(account, NULL);
         } else {
             success = false;
         }
@@ -525,6 +537,11 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     }
     CFReleaseSafe(newCircle);
     CFReleaseNull(emptyCircle);
+    
+    // There are errors collected above that are soft (worked around)
+    if(success && error && *error) {
+        CFReleaseNull(*error);
+    }
     
     return success;
 }
@@ -601,7 +618,7 @@ fail:
 -(bool) leaveCircle:(SOSAccount*)account err:(CFErrorRef*) error
 {
     bool result = true;
-    secnotice("leaveCircle", "Leaving circle by client request");
+    secnotice("circleOps", "Leaving circle by client request");
     result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
         return sosAccountLeaveCircle(account, circle, error);
     }];

@@ -52,16 +52,20 @@ const ClassInfo StringConstructor::s_info = { "Function", &InternalFunction::s_i
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(StringConstructor);
 
+
+static EncodedJSValue JSC_HOST_CALL callStringConstructor(ExecState*);
+static EncodedJSValue JSC_HOST_CALL constructWithStringConstructor(ExecState*);
+
 StringConstructor::StringConstructor(VM& vm, Structure* structure)
-    : InternalFunction(vm, structure)
+    : InternalFunction(vm, structure, callStringConstructor, constructWithStringConstructor)
 {
 }
 
 void StringConstructor::finishCreation(VM& vm, StringPrototype* stringPrototype)
 {
     Base::finishCreation(vm, stringPrototype->classInfo()->className);
-    putDirectWithoutTransition(vm, vm.propertyNames->prototype, stringPrototype, ReadOnly | DontEnum | DontDelete);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), ReadOnly | DontEnum);
+    putDirectWithoutTransition(vm, vm.propertyNames->prototype, stringPrototype, PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
 }
 
 // ------------------------------ Functions --------------------------------
@@ -134,12 +138,6 @@ static EncodedJSValue JSC_HOST_CALL constructWithStringConstructor(ExecState* ex
     return JSValue::encode(StringObject::create(vm, structure, str));
 }
 
-ConstructType StringConstructor::getConstructData(JSCell*, ConstructData& constructData)
-{
-    constructData.native.function = constructWithStringConstructor;
-    return ConstructType::Host;
-}
-
 JSCell* stringConstructor(ExecState* exec, JSValue argument)
 {
     if (argument.isSymbol())
@@ -152,12 +150,6 @@ static EncodedJSValue JSC_HOST_CALL callStringConstructor(ExecState* exec)
     if (!exec->argumentCount())
         return JSValue::encode(jsEmptyString(exec));
     return JSValue::encode(stringConstructor(exec, exec->uncheckedArgument(0)));
-}
-
-CallType StringConstructor::getCallData(JSCell*, CallData& callData)
-{
-    callData.native.function = callStringConstructor;
-    return CallType::Host;
 }
 
 } // namespace JSC

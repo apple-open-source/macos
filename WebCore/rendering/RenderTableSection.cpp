@@ -28,9 +28,9 @@
 #include "Document.h"
 #include "HitTestResult.h"
 #include "HTMLNames.h"
+#include "LayoutState.h"
 #include "PaintInfo.h"
 #include "RenderChildIterator.h"
-#include "RenderNamedFlowFragment.h"
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
 #include "RenderTableRow.h"
@@ -38,12 +38,15 @@
 #include "RenderView.h"
 #include "StyleInheritedData.h"
 #include <limits>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/HashSet.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTableSection);
 
 // Those 2 variables are used to balance the memory consumption vs the repaint time on big tables.
 static const unsigned gMinTableSizeToUseFastPaintPathWithOverflowingCell = 75 * 75;
@@ -95,9 +98,7 @@ RenderTableSection::RenderTableSection(Document& document, RenderStyle&& style)
     setInline(false);
 }
 
-RenderTableSection::~RenderTableSection()
-{
-}
+RenderTableSection::~RenderTableSection() = default;
 
 void RenderTableSection::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
@@ -119,24 +120,24 @@ void RenderTableSection::willBeRemovedFromTree()
     setNeedsCellRecalc();
 }
 
-void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild)
+void RenderTableSection::addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild)
 {
     if (!is<RenderTableRow>(*child)) {
         RenderObject* last = beforeChild;
         if (!last)
             last = lastRow();
-        if (last && last->isAnonymous() && !last->isBeforeOrAfterContent()) {
+        if (is<RenderTableRow>(last) && last->isAnonymous() && !last->isBeforeOrAfterContent()) {
             RenderTableRow& row = downcast<RenderTableRow>(*last);
             if (beforeChild == &row)
                 beforeChild = row.firstCell();
-            row.addChild(child, beforeChild);
+            row.addChild(WTFMove(child), beforeChild);
             return;
         }
 
         if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
             RenderObject* row = beforeChild->previousSibling();
             if (is<RenderTableRow>(row) && row->isAnonymous()) {
-                downcast<RenderTableRow>(*row).addChild(child);
+                downcast<RenderTableRow>(*row).addChild(WTFMove(child));
                 return;
             }
         }
@@ -146,14 +147,15 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         RenderObject* lastBox = last;
         while (lastBox && lastBox->parent()->isAnonymous() && !is<RenderTableRow>(*lastBox))
             lastBox = lastBox->parent();
-        if (lastBox && lastBox->isAnonymous() && !lastBox->isBeforeOrAfterContent()) {
-            downcast<RenderTableRow>(*lastBox).addChild(child, beforeChild);
+        if (is<RenderTableRow>(lastBox) && lastBox->isAnonymous() && !lastBox->isBeforeOrAfterContent()) {
+            downcast<RenderTableRow>(*lastBox).addChild(WTFMove(child), beforeChild);
             return;
         }
 
-        auto* row = RenderTableRow::createAnonymousWithParentRenderer(*this).release();
-        addChild(row, beforeChild);
-        row->addChild(child);
+        auto newRow = RenderTableRow::createAnonymousWithParentRenderer(*this);
+        auto& row = *newRow;
+        addChild(WTFMove(newRow), beforeChild);
+        row.addChild(WTFMove(child));
         return;
     }
 
@@ -177,7 +179,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         beforeChild = splitAnonymousBoxesAroundChild(beforeChild);
 
     ASSERT(!beforeChild || is<RenderTableRow>(*beforeChild));
-    RenderBox::addChild(child, beforeChild);
+    RenderBox::addChild(WTFMove(child), beforeChild);
 }
 
 void RenderTableSection::ensureRows(unsigned numRows)
@@ -276,7 +278,7 @@ LayoutUnit RenderTableSection::calcRowLogicalHeight()
     if (this == table()->topSection())
         spacing = table()->vBorderSpacing();
 
-    LayoutStateMaintainer statePusher(view());
+    LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
 
     m_rowPos.resize(m_grid.size() + 1);
     m_rowPos[0] = spacing;
@@ -327,11 +329,6 @@ LayoutUnit RenderTableSection::calcRowLogicalHeight()
                 unsigned cellStartRow = cell->rowIndex();
 
                 if (cell->hasOverrideLogicalContentHeight()) {
-                    if (!statePusher.didPush()) {
-                        // Technically, we should also push state for the row, but since
-                        // rows don't push a coordinate transform, that's not necessary.
-                        statePusher.push(*this, locationOffset());
-                    }
                     cell->clearIntrinsicPadding();
                     cell->clearOverrideSize();
                     cell->setChildNeedsLayout(MarkOnlyThis);
@@ -370,8 +367,6 @@ LayoutUnit RenderTableSection::calcRowLogicalHeight()
 
     ASSERT(!needsLayout());
 
-    statePusher.pop();
-
     return m_rowPos[m_grid.size()];
 }
 
@@ -387,8 +382,8 @@ void RenderTableSection::layout()
     // can be called in a loop (e.g during parsing). Doing it now ensures we have a stable-enough structure.
     m_grid.shrinkToFit();
 
-    LayoutStateMaintainer statePusher(view(), *this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
-    bool paginated = view().layoutState()->isPaginated();
+    LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
+    bool paginated = view().frameView().layoutContext().layoutState()->isPaginated();
     
     const Vector<LayoutUnit>& columnPos = table()->columnPositions();
     
@@ -415,14 +410,12 @@ void RenderTableSection::layout()
         }
 
         if (RenderTableRow* rowRenderer = m_grid[r].rowRenderer) {
-            if (!rowRenderer->needsLayout() && paginated && view().layoutState()->pageLogicalHeightChanged())
+            if (!rowRenderer->needsLayout() && paginated && view().frameView().layoutContext().layoutState()->pageLogicalHeightChanged())
                 rowRenderer->setChildNeedsLayout(MarkOnlyThis);
 
             rowRenderer->layoutIfNeeded();
         }
     }
-
-    statePusher.pop();
     clearNeedsLayout();
 }
 
@@ -603,7 +596,7 @@ void RenderTableSection::layoutRows()
     LayoutUnit vspacing = table()->vBorderSpacing();
     unsigned nEffCols = table()->numEffCols();
 
-    LayoutStateMaintainer statePusher(view(), *this, locationOffset(), hasTransform() || style().isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || style().isFlippedBlocksWritingMode());
 
     for (unsigned r = 0; r < totalRows; r++) {
         // Set the row's x/y position and width/height.
@@ -638,13 +631,14 @@ void RenderTableSection::layoutRows()
 
             setLogicalPositionForCell(cell, c);
 
-            if (!cell->needsLayout() && view().layoutState()->pageLogicalHeight() && view().layoutState()->pageLogicalOffset(cell, cell->logicalTop()) != cell->pageLogicalOffset())
+            auto* layoutState = view().frameView().layoutContext().layoutState();
+            if (!cell->needsLayout() && layoutState->pageLogicalHeight() && layoutState->pageLogicalOffset(cell, cell->logicalTop()) != cell->pageLogicalOffset())
                 cell->setChildNeedsLayout(MarkOnlyThis);
 
             cell->layoutIfNeeded();
 
             // FIXME: Make pagination work with vertical tables.
-            if (view().layoutState()->pageLogicalHeight() && cell->logicalHeight() != rHeight) {
+            if (layoutState->pageLogicalHeight() && cell->logicalHeight() != rHeight) {
                 // FIXME: Pagination might have made us change size. For now just shrink or grow the cell to fit without doing a relayout.
                 // We'll also do a basic increase of the row height to accommodate the cell if it's bigger, but this isn't quite right
                 // either. It's at least stable though and won't result in an infinite # of relayouts that may never stabilize.
@@ -655,7 +649,7 @@ void RenderTableSection::layoutRows()
 
             LayoutSize childOffset(cell->location() - oldCellRect.location());
             if (childOffset.width() || childOffset.height()) {
-                view().addLayoutDelta(childOffset);
+                view().frameView().layoutContext().addLayoutDelta(childOffset);
 
                 // If the child moved, we have to repaint it as well as any floating/positioned
                 // descendants.  An exception is if we need a layout.  In this case, we know we're going to
@@ -680,8 +674,6 @@ void RenderTableSection::layoutRows()
     setLogicalHeight(m_rowPos[totalRows]);
 
     computeOverflowFromCells(totalRows, nEffCols);
-
-    statePusher.pop();
 }
 
 void RenderTableSection::computeOverflowFromCells()
@@ -1312,8 +1304,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, const LayoutPoint& pa
 #endif
 
             // To make sure we properly repaint the section, we repaint all the overflowing cells that we collected.
-            Vector<RenderTableCell*> cells;
-            copyToVector(m_overflowingCells, cells);
+            auto cells = copyToVector(m_overflowingCells);
 
             HashSet<RenderTableCell*> spanningCells;
 
@@ -1392,6 +1383,16 @@ void RenderTableSection::recalcCells()
 
     m_grid.shrinkToFit();
     setNeedsLayout();
+}
+
+void RenderTableSection::removeRedundantColumns()
+{
+    auto maximumNumberOfColumns = table()->numEffCols();
+    for (auto& rowItem : m_grid) {
+        if (rowItem.row.size() <= maximumNumberOfColumns)
+            continue;
+        rowItem.row.resize(maximumNumberOfColumns);
+    }
 }
 
 // FIXME: This function could be made O(1) in certain cases (like for the non-most-constrainive cells' case).
@@ -1501,7 +1502,7 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     // Just forward to our children always.
     LayoutPoint adjustedLocation = accumulatedOffset + location();
 
-    if (hasOverflowClip() && !locationInContainer.intersects(overflowClipRect(adjustedLocation, currentRenderNamedFlowFragment())))
+    if (hasOverflowClip() && !locationInContainer.intersects(overflowClipRect(adjustedLocation, nullptr)))
         return false;
 
     if (hasOverflowingCell()) {
@@ -1548,10 +1549,10 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
                     return true;
                 }
             }
-            if (!result.isRectBasedTest())
+            if (!request.resultIsElementList())
                 break;
         }
-        if (!result.isRectBasedTest())
+        if (!request.resultIsElementList())
             break;
     }
 
@@ -1591,14 +1592,14 @@ CollapsedBorderValue RenderTableSection::cachedCollapsedBorder(const RenderTable
     return it->value;
 }
 
-std::unique_ptr<RenderTableSection> RenderTableSection::createTableSectionWithStyle(Document& document, const RenderStyle& style)
+RenderPtr<RenderTableSection> RenderTableSection::createTableSectionWithStyle(Document& document, const RenderStyle& style)
 {
-    auto section = std::make_unique<RenderTableSection>(document, RenderStyle::createAnonymousStyleWithDisplay(style, TABLE_ROW_GROUP));
+    auto section = createRenderer<RenderTableSection>(document, RenderStyle::createAnonymousStyleWithDisplay(style, TABLE_ROW_GROUP));
     section->initializeStyle();
     return section;
 }
 
-std::unique_ptr<RenderTableSection> RenderTableSection::createAnonymousWithParentRenderer(const RenderTable& parent)
+RenderPtr<RenderTableSection> RenderTableSection::createAnonymousWithParentRenderer(const RenderTable& parent)
 {
     return RenderTableSection::createTableSectionWithStyle(parent.document(), parent.style());
 }
@@ -1617,7 +1618,7 @@ void RenderTableSection::setLogicalPositionForCell(RenderTableCell* cell, unsign
         cellLocation.setX(table()->columnPositions()[effectiveColumn] + horizontalBorderSpacing);
 
     cell->setLogicalLocation(cellLocation);
-    view().addLayoutDelta(oldCellLocation - cell->location());
+    view().frameView().layoutContext().addLayoutDelta(oldCellLocation - cell->location());
 }
 
 } // namespace WebCore

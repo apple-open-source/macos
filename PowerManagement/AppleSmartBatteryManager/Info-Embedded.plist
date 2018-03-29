@@ -35,6 +35,8 @@
 			</dict>
 			<key>IOProviderClass</key>
 			<string>AppleSMC</string>
+			<key>IOMatchCategory</key>
+			<string>AppleSmartBatteryManager</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>

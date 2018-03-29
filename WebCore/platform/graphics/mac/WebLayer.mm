@@ -30,7 +30,7 @@
 #import "GraphicsLayerCA.h"
 #import "PlatformCALayer.h"
 #import <QuartzCore/QuartzCore.h>
-#import "QuartzCoreSPI.h"
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/SetForScope.h>
 
 #if PLATFORM(IOS)

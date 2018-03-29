@@ -78,6 +78,7 @@ keychain_upgrade(bool musr, const char *dbname)
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"system-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
+        (id)kSecValueData : [NSData dataWithBytes:"some data" length:9],
     }, NULL);
     is(res, 0, "SecItemAdd(system)");
 #endif
@@ -89,6 +90,7 @@ keychain_upgrade(bool musr, const char *dbname)
     res = SecItemAdd((CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
+        (id)kSecValueData : [NSData dataWithBytes:"some data" length:9],
     }, NULL);
     is(res, 0, "SecItemAdd(user)");
 

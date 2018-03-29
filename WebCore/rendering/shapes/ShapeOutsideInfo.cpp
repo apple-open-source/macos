@@ -36,8 +36,8 @@
 #include "LengthFunctions.h"
 #include "RenderBlockFlow.h"
 #include "RenderBox.h"
+#include "RenderFragmentContainer.h"
 #include "RenderImage.h"
-#include "RenderRegion.h"
 
 namespace WebCore {
 
@@ -147,7 +147,7 @@ static LayoutRect getShapeImageMarginRect(const RenderBox& renderBox, const Layo
 std::unique_ptr<Shape> ShapeOutsideInfo::createShapeForImage(StyleImage* styleImage, float shapeImageThreshold, WritingMode writingMode, float margin) const
 {
     LayoutSize imageSize = m_renderer.calculateImageIntrinsicDimensions(styleImage, m_referenceBoxLogicalSize, RenderImage::ScaleByEffectiveZoom);
-    styleImage->setContainerSizeForRenderer(&m_renderer, imageSize, m_renderer.style().effectiveZoom());
+    styleImage->setContainerContextForRenderer(m_renderer, imageSize, m_renderer.style().effectiveZoom());
 
     const LayoutRect& marginRect = getShapeImageMarginRect(m_renderer, m_referenceBoxLogicalSize);
     const LayoutRect& imageRect = is<RenderImage>(m_renderer)
@@ -268,7 +268,7 @@ static inline LayoutUnit borderAndPaddingStartWithStyleForWritingMode(const Rend
 
 LayoutUnit ShapeOutsideInfo::logicalLeftOffset() const
 {
-    if (m_renderer.isRenderRegion())
+    if (m_renderer.isRenderFragmentContainer())
         return LayoutUnit();
     
     switch (referenceBox(*m_renderer.style().shapeOutside())) {

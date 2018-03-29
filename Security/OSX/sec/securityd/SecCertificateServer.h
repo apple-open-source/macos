@@ -33,7 +33,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <Security/SecCertificate.h>
-#include <Security/SecCertificatePath.h>
 
 #include <securityd/policytree.h>
 
@@ -57,7 +56,8 @@ SecCertificatePathVCRef SecCertificatePathVCCopyFromParent(SecCertificatePathVCR
 /* Create an array of SecCertificateRefs from a certificate path. */
 CFArrayRef SecCertificatePathVCCopyCertificates(SecCertificatePathVCRef path);
 
-SecCertificatePathRef SecCertificatePathVCCopyCertificatePath(SecCertificatePathVCRef path);
+/* Create an array of CFDataRefs from a certificate path. */
+CFArrayRef SecCertificatePathVCCreateSerialized(SecCertificatePathVCRef path);
 
 /* Record the fact that we found our own root cert as our parent
  certificate. */
@@ -143,8 +143,16 @@ void SecCertificatePathVCSetIsEV(SecCertificatePathVCRef certificatePath, bool i
 bool SecCertificatePathVCIsOptionallyEV(SecCertificatePathVCRef certificatePath);
 
 /* CT */
+typedef CFIndex SecPathCTPolicy;
+enum {
+    kSecPathCTNotRequired = 0,
+    kSecPathCTRequiredOverridable = 1,
+    kSecPathCTRequired = 2
+};
 bool SecCertificatePathVCIsCT(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetIsCT(SecCertificatePathVCRef certificatePath, bool isCT);
+SecPathCTPolicy SecCertificatePathVCRequiresCT(SecCertificatePathVCRef certificatePath);
+void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, SecPathCTPolicy requiresCT);
 
 /* Allowlist */
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath);

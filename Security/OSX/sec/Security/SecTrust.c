@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,7 +29,6 @@
 #include <Security/SecTrustStatusCodes.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecCertificateInternal.h>
-#include <Security/SecCertificatePath.h>
 #include <Security/SecFramework.h>
 #include <Security/SecPolicyCerts.h>
 #include <Security/SecPolicyInternal.h>
@@ -37,12 +36,14 @@
 #include <Security/SecuritydXPC.h>
 #include <Security/SecInternal.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecFrameworkStrings.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFSet.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFPropertyList.h>
+#include <CoreFoundation/CFError.h>
 #include <AssertMacros.h>
 #include <stdbool.h>
 #include <string.h>
@@ -57,6 +58,7 @@
 #include <utilities/debugging.h>
 #include <utilities/der_plist.h>
 #include <utilities/SecDispatchRelease.h>
+#include <utilities/SecXPCError.h>
 
 #include "SecRSAKey.h"
 #include <libDER/oids.h>
@@ -64,6 +66,8 @@
 #include <ipc/securityd_client.h>
 
 #include <securityd/SecTrustServer.h>
+
+#pragma clang diagnostic ignored "-Wformat=2"
 
 #define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
@@ -103,7 +107,7 @@ struct __SecTrust {
     CFArrayRef              _SCTs;
     CFArrayRef              _trustedLogs;
     CFDateRef               _verifyDate;
-    SecCertificatePathRef   _chain;
+    CFArrayRef              _chain;
     SecKeyRef               _publicKey;
     CFArrayRef              _details;
     CFDictionaryRef         _info;
@@ -393,8 +397,32 @@ OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust,
         }
     });
 
-	*anchors = anchorsArray;
-	return errSecSuccess;
+    *anchors = anchorsArray;
+    return errSecSuccess;
+}
+
+// Return false on error, true on success.
+static bool to_bool_error_request(enum SecXPCOperation op, CFErrorRef *error) {
+    __block bool result = false;
+    securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
+        result = !(error && *error);
+        return true;
+    });
+    return result;
+}
+
+Boolean SecTrustFlushResponseCache(CFErrorRef *error) {
+    CFErrorRef localError = NULL;
+    os_activity_t activity = os_activity_create("SecTrustFlushResponseCache", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    bool result = TRUSTD_XPC(sec_ocsp_cache_flush, to_bool_error_request, &localError);
+    os_release(activity);
+    if (error) {
+        *error = localError;
+    } else if (localError) {
+        CFRelease(localError);
+    }
+    return result;
 }
 
 OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef responseData) {
@@ -522,6 +550,7 @@ OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
         CFArrayForEach(trust->_policies, ^(const void *value) {
             SecPolicyRef policy = (SecPolicyRef)value;
             SecPolicySetName(policy, policyName);
+            secinfo("SecPinningDb", "Set %@ as name on all policies", policyName);
         });
     });
     return errSecSuccess;
@@ -762,13 +791,7 @@ Boolean SecTrustIsExpiredOnly(SecTrustRef trust) {
         CFIndex count = (detail) ? CFDictionaryGetCount(detail) : 0;
         require(count <= 1, out);
         if (count) {
-            CFStringRef key = CFSTR("ValidIntermediates");
-            if (ix == 0) {
-                key = CFSTR("ValidLeaf");
-            } else if (ix == pathLength-1) {
-                key = CFSTR("ValidRoot");
-            }
-            CFBooleanRef valid = (CFBooleanRef)CFDictionaryGetValue(detail, key);
+            CFBooleanRef valid = (CFBooleanRef)CFDictionaryGetValue(detail, kSecPolicyCheckTemporalValidity);
             require(isBoolean(valid) && CFEqual(valid, kCFBooleanFalse), out);
             foundExpired = true;
         }
@@ -870,10 +893,10 @@ static void cert_trust_dump(SecTrustRef trust) {
 	secerror("leaf \"%@\"", name);
 	secerror(": result = %d", (int) trust->_trustResult);
 	if (trust->_chain) {
-		CFIndex ix, count = SecCertificatePathGetCount(trust->_chain);
+		CFIndex ix, count = CFArrayGetCount(trust->_chain);
 		CFMutableArrayRef chain = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
 		for (ix = 0; ix < count; ix++) {
-			SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(trust->_chain, ix);
+			SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_chain, ix);
 			if (cert) {
 				CFArrayAppendValue(chain, cert);
 			}
@@ -922,7 +945,7 @@ OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result) {
     if (trustResult != kSecTrustResultProceed &&
         trustResult != kSecTrustResultUnspecified) {
         CFStringRef failureDesc = SecTrustCopyFailureDescription(trust);
-        secerror("%{public}@", failureDesc);
+        secerror("Trust evaluate failure:%{public}@", failureDesc);
         CFRelease(failureDesc);
     }
 
@@ -932,6 +955,244 @@ OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result) {
     }
 
     return status;
+}
+
+static CFStringRef SecTrustCopyChainSummary(SecTrustRef trust) {
+    CFMutableStringRef summary = CFStringCreateMutable(NULL, 0);
+    __block CFArrayRef chain = NULL;
+    dispatch_sync(trust->_trustQueue, ^{
+        chain = trust->_chain;
+    });
+    CFIndex ix, count = CFArrayGetCount(chain);
+    for (ix = 0; ix < count; ix++) {
+        if (ix != 0) { CFStringAppend(summary, CFSTR(",")); }
+        CFStringRef certSummary = SecCertificateCopySubjectSummary((SecCertificateRef)CFArrayGetValueAtIndex(chain, ix));
+        CFStringAppendFormat(summary, NULL, CFSTR("\"%@\""), certSummary);
+        CFReleaseNull(certSummary);
+    }
+    return summary;
+}
+
+typedef enum {
+    kSecTrustErrorSubTypeRevoked,
+    kSecTrustErrorSubTypeKeySize,
+    kSecTrustErrorSubTypeWeakHash,
+    kSecTrustErrorSubTypeDenied,
+    kSecTrustErrorSubTypeCompliance,
+    kSecTrustErrorSubTypePinning,
+    kSecTrustErrorSubTypeTrust,
+    kSecTrustErrorSubTypeUsage,
+    kSecTrustErrorSubTypeName,
+    kSecTrustErrorSubTypeExpired,
+    kSecTrustErrorSubTypeInvalid,
+} SecTrustErrorSubType;
+
+#define SecCopyTrustString(KEY) SecFrameworkCopyLocalizedString(KEY, CFSTR("Trust"))
+
+struct checkmap_entry_s {
+    SecTrustErrorSubType type;
+    OSStatus status;
+    const CFStringRef errorKey;
+
+};
+typedef struct checkmap_entry_s checkmap_entry_t;
+
+const checkmap_entry_t checkmap[] = {
+#undef POLICYCHECKMACRO
+#define __PC_SUBTYPE_   kSecTrustErrorSubTypeInvalid
+#define __PC_SUBTYPE_N  kSecTrustErrorSubTypeName
+#define __PC_SUBTYPE_E  kSecTrustErrorSubTypeExpired
+#define __PC_SUBTYPE_S  kSecTrustErrorSubTypeKeySize
+#define __PC_SUBTYPE_H  kSecTrustErrorSubTypeWeakHash
+#define __PC_SUBTYPE_U  kSecTrustErrorSubTypeUsage
+#define __PC_SUBTYPE_P  kSecTrustErrorSubTypePinning
+#define __PC_SUBTYPE_V  kSecTrustErrorSubTypeRevoked
+#define __PC_SUBTYPE_T  kSecTrustErrorSubTypeTrust
+#define __PC_SUBTYPE_C  kSecTrustErrorSubTypeCompliance
+#define __PC_SUBTYPE_D  kSecTrustErrorSubTypeDenied
+#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
+{ __PC_SUBTYPE_##SUBTYPE , OSSTATUS, SEC_TRUST_ERROR_##NAME },
+#include "SecPolicyChecks.list"
+};
+
+static OSStatus SecTrustCopyErrorStrings(SecTrustRef trust,
+                                     CFStringRef * CF_RETURNS_RETAINED simpleError,
+                                     CFStringRef * CF_RETURNS_RETAINED fullError) {
+    if (!simpleError || !fullError) {
+        return errSecParam;
+    }
+    __block CFArrayRef details = NULL;
+    dispatch_sync(trust->_trustQueue, ^{
+        details = CFRetainSafe(trust->_details);
+    });
+    if (!details)
+        return errSecInternal;
+
+    /* We need to map the policy check constants to indexes into our checkmap table. */
+    static dispatch_once_t onceToken;
+    static CFArrayRef policyChecks = NULL;
+    dispatch_once(&onceToken, ^{
+        CFMutableArrayRef _policyChecks = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        #undef POLICYCHECKMACRO
+        #define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, ERRORSTRING) \
+        CFArrayAppendValue(_policyChecks, kSecPolicyCheck##NAME);
+        #include "SecPolicyChecks.list"
+        policyChecks = _policyChecks;
+    });
+
+    /* Build the errors for each cert in the detailed results array */
+    __block CFMutableStringRef fullMutableError = CFStringCreateMutable(NULL, 0);
+    __block SecTrustErrorSubType simpleErrorSubType = kSecTrustErrorSubTypeInvalid;
+    __block OSStatus simpleErrorStatus = errSecInternalError;
+    __block CFIndex simpleErrorCertIndex = kCFNotFound;
+    __block CFIndex ix;
+    CFIndex count = CFArrayGetCount(details);
+    for (ix = 0; ix < count; ix++) {
+        CFDictionaryRef perCertDetails = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
+        if (CFDictionaryGetCount(perCertDetails) == 0) { continue; } // no errors on this cert
+
+        /* Get the cert summary and start the full error details string for this cert */
+        CFStringRef certSummary = SecCertificateCopySubjectSummary(SecTrustGetCertificateAtIndex(trust, ix));
+        CFStringRef format = SecCopyTrustString(SEC_TRUST_CERTIFICATE_ERROR);
+        CFStringAppendFormat(fullMutableError, NULL, format,
+                             ix, certSummary);
+        CFReleaseNull(certSummary);
+        CFReleaseNull(format);
+
+        /* Figure out the errors */
+        __block bool firstError = true;
+        CFDictionaryForEach(perCertDetails, ^(const void *key, const void * __unused value) {
+            CFIndex policyCheckIndex = CFArrayGetFirstIndexOfValue(policyChecks, CFRangeMake(0, CFArrayGetCount(policyChecks)), key);
+            if (policyCheckIndex == kCFNotFound) { return; }
+            /* Keep track of the highest priority error encountered during this evaluation.
+             * If multiple certs have errors of the same subtype we keep the lowest indexed cert. */
+            if (simpleErrorSubType > checkmap[policyCheckIndex].type) {
+                simpleErrorSubType = checkmap[policyCheckIndex].type;
+                simpleErrorCertIndex = ix;
+                simpleErrorStatus = checkmap[policyCheckIndex].status;
+            }
+            /* Add this error to the full error */
+            if (!firstError) { CFStringAppend(fullMutableError, CFSTR(", ")); }
+            CFStringRef errorString = SecCopyTrustString(checkmap[policyCheckIndex].errorKey);
+            CFStringAppend(fullMutableError, errorString);
+            CFReleaseNull(errorString);
+            firstError = false;
+        });
+        CFStringAppend(fullMutableError, CFSTR(";"));
+    }
+    CFReleaseNull(details);
+
+    /* Build the simple error */
+    if (simpleErrorCertIndex == kCFNotFound) { simpleErrorCertIndex = 0; }
+    CFStringRef format = NULL;
+    CFStringRef certSummary = SecCertificateCopySubjectSummary(SecTrustGetCertificateAtIndex(trust, simpleErrorCertIndex));
+    switch (simpleErrorSubType) {
+        case kSecTrustErrorSubTypeRevoked: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_REVOKED);
+            break;
+        }
+        case kSecTrustErrorSubTypeKeySize: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_KEYSIZE);
+            break;
+        }
+        case kSecTrustErrorSubTypeWeakHash: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_WEAKHASH);
+            break;
+        }
+        case kSecTrustErrorSubTypeDenied: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_DENIED);
+            break;
+        }
+        case kSecTrustErrorSubTypeCompliance: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_COMPLIANCE);
+            break;
+        }
+        case kSecTrustErrorSubTypeExpired: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_EXPIRED);
+            break;
+        }
+        case kSecTrustErrorSubTypeTrust: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_TRUST);
+            break;
+        }
+        case kSecTrustErrorSubTypeName: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_NAME);
+            break;
+        }
+        case kSecTrustErrorSubTypeUsage: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_USAGE);
+            break;
+        }
+        case kSecTrustErrorSubTypePinning: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_PINNING);
+            CFAssignRetained(certSummary, SecTrustCopyChainSummary(trust));
+            break;
+        }
+        default: {
+            format = SecCopyTrustString(SEC_TRUST_ERROR_SUBTYPE_INVALID);
+            break;
+        }
+    }
+    if (format && certSummary) {
+        *simpleError = CFStringCreateWithFormat(NULL, NULL, format, certSummary);
+    }
+    CFReleaseNull(format);
+    CFReleaseNull(certSummary);
+    *fullError = fullMutableError;
+    return simpleErrorStatus;
+}
+
+static CFErrorRef SecTrustCopyError(SecTrustRef trust) {
+    if (!trust) { return NULL; }
+    (void)SecTrustEvaluateIfNecessary(trust);
+    OSStatus status = errSecSuccess;
+    __block SecTrustResultType trustResult = kSecTrustResultInvalid;
+    dispatch_sync(trust->_trustQueue, ^{
+        trustResult = trust->_trustResult;
+    });
+    if (trustResult == kSecTrustResultProceed || trustResult == kSecTrustResultUnspecified) {
+        return NULL;
+    }
+
+    CFStringRef detailedError = NULL;
+    CFStringRef simpleError = NULL;
+    status = SecTrustCopyErrorStrings(trust, &simpleError, &detailedError);
+    CFDictionaryRef userInfo = CFDictionaryCreate(NULL, (const void **)&kCFErrorLocalizedDescriptionKey,
+                                                            (const void **)&detailedError, 1,
+                                                            &kCFTypeDictionaryKeyCallBacks,
+                                                            &kCFTypeDictionaryValueCallBacks);
+    CFErrorRef underlyingError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, status, userInfo);
+    CFReleaseNull(userInfo);
+    CFReleaseNull(detailedError);
+
+    const void *keys[] = { kCFErrorLocalizedDescriptionKey, kCFErrorUnderlyingErrorKey };
+    const void *values[] = { simpleError, underlyingError };
+    userInfo = CFDictionaryCreate(NULL, keys, values, 2,
+                                                  &kCFTypeDictionaryKeyCallBacks,
+                                                  &kCFTypeDictionaryValueCallBacks);
+    CFErrorRef error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, status, userInfo);
+    CFReleaseNull(userInfo);
+    CFReleaseNull(simpleError);
+    return error;
+}
+
+bool SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef *error) {
+    SecTrustResultType trustResult = kSecTrustResultInvalid;
+    OSStatus status = SecTrustEvaluate(trust, &trustResult);
+    if (status == errSecSuccess && (trustResult == kSecTrustResultProceed || trustResult == kSecTrustResultUnspecified)) {
+        if (error) {
+            *error = NULL;
+        }
+        return true;
+    }
+    if (error) {
+        if (status != errSecSuccess) {
+            *error = SecCopyLastError(status);
+        } else {
+            *error = SecTrustCopyError(trust);
+        }
+    }
+    return false;
 }
 
 OSStatus SecTrustEvaluateAsync(SecTrustRef trust,
@@ -1051,14 +1312,36 @@ static bool SecXPCDictionarySetDataArray(xpc_object_t message, const char *key, 
     return true;
 }
 
-static bool SecXPCDictionaryCopyChainOptional(xpc_object_t message, const char *key, SecCertificatePathRef *path, CFErrorRef *error) {
+static bool SecXPCDictionaryCopyChainOptional(xpc_object_t message, const char *key, CFArrayRef *path, CFErrorRef *error) {
     xpc_object_t xpc_path = xpc_dictionary_get_value(message, key);
+    CFMutableArrayRef output = NULL;
+    size_t count = 0;
     if (!xpc_path) {
         *path = NULL;
         return true;
     }
-    *path = SecCertificatePathCreateWithXPCArray(xpc_path, error);
-    return *path;
+    require_action_quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
+    require_action_quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
+    output = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+
+    size_t ix;
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef certificate = SecCertificateCreateWithXPCArrayAtIndex(xpc_path, ix, error);
+        if (certificate) {
+            CFArrayAppendValue(output, certificate);
+            CFReleaseNull(certificate);
+        } else {
+            CFReleaseNull(output);
+            break;
+        }
+    }
+
+exit:
+    if (output) {
+        *path = output;
+        return true;
+    }
+    return false;
 }
 
 static int SecXPCDictionaryGetNonZeroInteger(xpc_object_t message, const char *key, CFErrorRef *error) {
@@ -1074,7 +1357,7 @@ static SecTrustResultType handle_trust_evaluate_xpc(enum SecXPCOperation op, CFA
                                                     bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses,
                                                     CFArrayRef SCTs, CFArrayRef trustedLogs,
                                                     CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions,
-                                                    CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error)
+                                                    CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error)
 {
     __block SecTrustResultType tr = kSecTrustResultInvalid;
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
@@ -1229,8 +1512,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
                      the public key from the leaf. */
                     SecCertificateRef leafCert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_certificates, 0);
                     CFArrayRef leafCertArray = CFArrayCreate(NULL, (const void**)&leafCert, 1, &kCFTypeArrayCallBacks);
-                    trust->_chain = SecCertificatePathCreateWithCertificates(leafCertArray, NULL);
-                    CFReleaseNull(leafCertArray);
+                    trust->_chain = leafCertArray;
                     if (error)
                         CFReleaseNull(*error);
                     return true;
@@ -1322,7 +1604,12 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
         SecTrustEvaluateIfNecessary(trust);
         dispatch_sync(trust->_trustQueue, ^{
             if (trust->_chain) {
-                trust->_publicKey = SecCertificatePathCopyPublicKeyAtIndex(trust->_chain, 0);
+                SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_chain, 0);
+#if TARGET_OS_OSX
+                trust->_publicKey = SecCertificateCopyPublicKey_ios(cert);
+#else
+                trust->_publicKey = SecCertificateCopyPublicKey(cert);
+#endif
                 publicKey = CFRetainSafe(trust->_publicKey);
             }
         });
@@ -1338,7 +1625,7 @@ CFIndex SecTrustGetCertificateCount(SecTrustRef trust) {
     __block CFIndex certCount = 1;
     dispatch_sync(trust->_trustQueue, ^{
         if (trust->_chain) {
-            certCount = SecCertificatePathGetCount(trust->_chain);
+            certCount = CFArrayGetCount(trust->_chain);
         }
     });
 	return certCount;
@@ -1359,7 +1646,7 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust,
     SecTrustEvaluateIfNecessary(trust);
     dispatch_sync(trust->_trustQueue, ^{
         if (trust->_chain) {
-            cert = SecCertificatePathGetCertificateAtIndex(trust->_chain, ix);
+            cert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_chain, ix);
         }
     });
     return cert;
@@ -1514,21 +1801,19 @@ SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
             CFMutableDictionaryRef exception_dictionary = CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef)CFArrayGetValueAtIndex(old_exceptions, ix));
             if (!exception_dictionary) { status = errSecAllocate; goto out; }
             if ((options & kSecTrustOptionAllowExpired) != 0) {
-                if (ix == 0) { CFDictionaryAddValue(exception_dictionary, CFSTR("ValidLeaf"), kCFBooleanFalse); }
-                if (ix == (count - 1)) { CFDictionaryAddValue(exception_dictionary, CFSTR("ValidRoot"), kCFBooleanFalse); }
-                if (ix > 0 && ix < (count - 1)) {
-                    CFDictionaryAddValue(exception_dictionary, CFSTR("ValidIntermediates"), kCFBooleanFalse); }
+                CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
             }
-            if ((options & kSecTrustOptionAllowExpiredRoot) != 0) {
-                if (ix == (count - 1)) { CFDictionaryAddValue(exception_dictionary, CFSTR("ValidRoot"), kCFBooleanFalse); }
-            }
-            if ((options & kSecTrustOptionImplicitAnchors) != 0) {
-                /* Check that root is self-signed. (Done by trustd for other case.) */
+            if ((options & (kSecTrustOptionImplicitAnchors | kSecTrustOptionAllowExpiredRoot)) != 0) {
+                /* Check that root is self-signed. */
                 Boolean isSelfSigned = false;
                 SecCertificateRef cert = SecTrustGetCertificateAtIndex(trustRef, ix);
                 if (cert && (errSecSuccess == SecCertificateIsSelfSigned(cert, &isSelfSigned)) &&
                     isSelfSigned) {
-                    CFDictionaryAddValue(exception_dictionary, CFSTR("AnchorTrusted"), kCFBooleanFalse);
+                    if ((options & kSecTrustOptionImplicitAnchors) != 0) {
+                        CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckAnchorTrusted, kCFBooleanFalse);
+                    } else if ((options & kSecTrustOptionAllowExpiredRoot) != 0) {
+                        CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+                    }
                 }
             }
             CFArrayAppendValue(exceptions, exception_dictionary);
@@ -1540,15 +1825,13 @@ SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
                                                                                 &kCFTypeDictionaryValueCallBacks);
         if (!exception_dictionary) { status = errSecAllocate; goto out; }
         if ((options & kSecTrustOptionAllowExpired) != 0) {
-            CFDictionaryAddValue(exception_dictionary, CFSTR("ValidLeaf"), kCFBooleanFalse);
-            CFDictionaryAddValue(exception_dictionary, CFSTR("ValidIntermediates"), kCFBooleanFalse);
-            CFDictionaryAddValue(exception_dictionary, CFSTR("ValidRoot"), kCFBooleanFalse);
+            CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
         }
         if ((options & kSecTrustOptionAllowExpiredRoot) != 0) {
-            CFDictionaryAddValue(exception_dictionary, CFSTR("ValidRoot"), kCFBooleanFalse);
+            CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckValidRoot, kCFBooleanFalse);
         }
         if ((options & kSecTrustOptionImplicitAnchors) != 0) {
-            CFDictionaryAddValue(exception_dictionary, CFSTR("AnchorTrusted"), kCFBooleanFalse);
+            CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckAnchorTrusted, kCFBooleanFalse);
         }
         CFArrayAppendValue(exceptions, exception_dictionary);
         CFReleaseNull(exception_dictionary);
@@ -1586,103 +1869,6 @@ CFArrayRef SecTrustCopyDetailedPropertiesAtIndex(SecTrustRef trust, CFIndex ix) 
     return summary;
 }
 
-#if 0
-
-
-
-/* Valid chain.
-   Can be on any non root cert in the chain.
-   Priority: Top down
-   Short circuit: Yes (No other errors matter after this one)
-   Non recoverable error
-   Trust UI: Invalid certificate chain linkage
-   Cert UI: Invalid linkage to parent certificate
-*/
-CFStringRef kSecPolicyCheckIdLinkage = CFSTR("IdLinkage");
-
-/* X.509 required checks.
-   Can be on any cert in the chain
-   Priority: Top down
-   Short circuit: Yes (No other errors matter after this one)
-   Non recoverable error
-   Trust UI: (One or more) unsupported critical extensions found.
-*/
-/* If we have no names for the extention oids use:
-   Cert UI: One or more unsupported critical extensions found (Non recoverable error).
-   Cert UI: Unsupported 'foo', 'bar', baz' critical extensions found.
-*/
-CFStringRef kSecPolicyCheckCriticalExtensions = CFSTR("CriticalExtensions");
-/* Cert UI: Unsupported critical Qualified Certificate Statements extension found (Non recoverable error). */
-CFStringRef kSecPolicyCheckQualifiedCertStatements = CFSTR("QualifiedCertStatements");
-/* Cert UI: Certificate has an empty subject (and no critial subjectAltname). */
-
-/* Trusted root.
-   Only apply to the anchor.
-   Priority: N/A
-   Short circuit: No (Under discussion)
-   Recoverable
-   Trust UI: Root certificate is not trusted (for this policy/app/host/whatever?)
-   Cert UI: Not a valid anchor
-*/
-CFStringRef kSecPolicyCheckAnchorTrusted = CFSTR("AnchorTrusted");
-CFStringRef kSecPolicyCheckAnchorSHA1 = CFSTR("AnchorSHA1");
-
-CFStringRef kSecPolicyCheckAnchorApple = CFSTR("AnchorApple");
-CFStringRef kSecPolicyAppleAnchorIncludeTestRoots = CFSTR("AnchorAppleTestRoots");
-
-/* Binding.
-   Only applies to leaf
-   Priority: N/A
-   Short Circuit: No
-   Recoverable
-   Trust UI: (Hostname|email address) mismatch
-*/
-CFStringRef kSecPolicyCheckSSLHostname = CFSTR("SSLHostname");
-
-/* Policy specific checks.
-   Can be on any cert in the chain
-   Priority: Top down
-   Short Circuit: No
-   Recoverable
-   Trust UI: Certificate chain is not valid for the current policy.
-   OR: (One or more) certificates in the chain are not valid for the current policy/application
-*/
-CFStringRef kSecPolicyCheckNonEmptySubject = CFSTR("NonEmptySubject");
-/* Cert UI: Non CA certificate used as CA.
-   Cert UI: CA certificate used as leaf.
-   Cert UI: Cert chain length exceeded.
-   Cert UI: Basic constraints extension not critical (non fatal).
-   Cert UI: Leaf certificate has basic constraints extension (non fatal).
- */
-CFStringRef kSecPolicyCheckBasicConstraints = CFSTR("BasicConstraints");
-CFStringRef kSecPolicyCheckKeyUsage = CFSTR("KeyUsage");
-CFStringRef kSecPolicyCheckExtendedKeyUsage = CFSTR("ExtendedKeyUsage");
-/* Checks that the issuer of the leaf has exactly one Common Name and that it
-   matches the specified string. */
-CFStringRef kSecPolicyCheckIssuerCommonName = CFSTR("IssuerCommonName");
-/* Checks that the leaf has exactly one Common Name and that it has the
-   specified string as a prefix. */
-CFStringRef kSecPolicyCheckSubjectCommonNamePrefix = CFSTR("SubjectCommonNamePrefix");
-/* Check that the certificate chain length matches the specificed CFNumberRef
-   length. */
-CFStringRef kSecPolicyCheckChainLength = CFSTR("ChainLength");
-CFStringRef kSecPolicyCheckNotValidBefore = CFSTR("NotValidBefore");
-
-/* Expiration.
-   Can be on any cert in the chain
-   Priority: Top down
-   Short Circuit: No
-   Recoverable
-   Trust UI: One or more certificates have expired or are not valid yet.
-   OS: The (root|intermediate|leaf) certificate (expired on 'date'|is not valid until 'date')
-   Cert UI: Certificate (expired on 'date'|is not valid until 'date')
-*/
-CFStringRef kSecPolicyCheckValidIntermediates = CFSTR("ValidIntermediates");
-CFStringRef kSecPolicyCheckValidLeaf = CFSTR("ValidLeaf");
-CFStringRef kSecPolicyCheckValidRoot = CFSTR("ValidRoot");
-
-#endif
-
 struct TrustFailures {
     bool badLinkage;
     bool unknownCritExtn;
@@ -1691,6 +1877,7 @@ struct TrustFailures {
     bool policyFail;
     bool invalidCert;
     bool weakKey;
+    bool weakHash;
     bool revocation;
 };
 
@@ -1713,8 +1900,7 @@ static void applyDetailProperty(const void *_key, const void *_value,
        purposes. */
     if (CFEqual(key, kSecPolicyCheckIdLinkage)) {
         tf->badLinkage = true;
-    } else if (CFEqual(key, kSecPolicyCheckCriticalExtensions)
-        || CFEqual(key, kSecPolicyCheckQualifiedCertStatements)) {
+    } else if (CFEqual(key, kSecPolicyCheckCriticalExtensions)) {
         tf->unknownCritExtn = true;
     } else if (CFEqual(key, kSecPolicyCheckAnchorTrusted)
         || CFEqual(key, kSecPolicyCheckAnchorSHA1)
@@ -1723,14 +1909,12 @@ static void applyDetailProperty(const void *_key, const void *_value,
         tf->untrustedAnchor = true;
     } else if (CFEqual(key, kSecPolicyCheckSSLHostname)) {
         tf->hostnameMismatch = true;
-    } else if (CFEqual(key, kSecPolicyCheckValidIntermediates)
-        || CFEqual(key, kSecPolicyCheckValidLeaf)
-        || CFEqual(key, kSecPolicyCheckValidRoot)) {
+    } else if (CFEqual(key, kSecPolicyCheckTemporalValidity)) {
         tf->invalidCert = true;
-    } else if (CFEqual(key, kSecPolicyCheckWeakIntermediates)
-               || CFEqual(key, kSecPolicyCheckWeakLeaf)
-               || CFEqual(key, kSecPolicyCheckWeakRoot)) {
+    } else if (CFEqual(key, kSecPolicyCheckWeakKeySize)) {
         tf->weakKey = true;
+    } else if (CFEqual(key, kSecPolicyCheckWeakSignature)) {
+        tf->weakHash = true;
     } else if (CFEqual(key, kSecPolicyCheckRevocation)) {
         tf->revocation = true;
     } else
@@ -1750,15 +1934,18 @@ static void applyDetailProperty(const void *_key, const void *_value,
     }
 }
 
-static void appendError(CFMutableArrayRef properties, CFStringRef error) {
-    CFStringRef localizedError = SecFrameworkCopyLocalizedString(error,
-        CFSTR("SecCertificate"));
-    if (!localizedError) {
-        //secerror("WARNING: localized error string was not found in Security.framework");
-        localizedError = CFRetain(error);
+static void appendError(CFMutableArrayRef properties, CFStringRef error, bool localized) {
+    CFStringRef localizedError = NULL;
+    if (!error) {
+        return;
+    } else if (localized) {
+        //%%% "SecCertificate" should be changed to "Certificate": rdar://37517120
+        localizedError = SecFrameworkCopyLocalizedString(error, CFSTR("SecCertificate"));
+    } else {
+        localizedError = (CFStringRef) CFRetainSafe(error);
     }
     appendProperty(properties, kSecPropertyTypeError, NULL, NULL,
-                   localizedError);
+                   localizedError, localized);
     CFReleaseNull(localizedError);
 }
 
@@ -1773,6 +1960,7 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust)
         return NULL;
     }
     SecTrustEvaluateIfNecessary(trust);
+    bool localized = true;
     __block CFArrayRef details = NULL;
     dispatch_sync(trust->_trustQueue, ^{
         details = CFRetainSafe(trust->_details);
@@ -1797,27 +1985,30 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust)
     /* The badLinkage and unknownCritExtn failures are short circuited, since
        you can't recover from those errors. */
     if (tf.badLinkage) {
-        appendError(properties, CFSTR("Invalid certificate chain linkage."));
+        appendError(properties, CFSTR("Invalid certificate chain linkage."), localized);
     } else if (tf.unknownCritExtn) {
-        appendError(properties, CFSTR("One or more unsupported critical extensions found."));
+        appendError(properties, CFSTR("One or more unsupported critical extensions found."), localized);
     } else {
         if (tf.untrustedAnchor) {
-            appendError(properties, CFSTR("Root certificate is not trusted."));
+            appendError(properties, CFSTR("Root certificate is not trusted."), localized);
         }
         if (tf.hostnameMismatch) {
-            appendError(properties, CFSTR("Hostname mismatch."));
+            appendError(properties, CFSTR("Hostname mismatch."), localized);
         }
         if (tf.policyFail) {
-            appendError(properties, CFSTR("Policy requirements not met."));
+            appendError(properties, CFSTR("Policy requirements not met."), localized);
         }
         if (tf.invalidCert) {
-            appendError(properties, CFSTR("One or more certificates have expired or are not valid yet."));
+            appendError(properties, CFSTR("One or more certificates have expired or are not valid yet."), localized);
         }
         if (tf.weakKey) {
-            appendError(properties, CFSTR("One or more certificates is using a weak key size."));
+            appendError(properties, CFSTR("One or more certificates is using a weak key size."), localized);
+        }
+        if (tf.weakHash) {
+            appendError(properties, CFSTR("One or more certificates is using a weak signature algorithm."), localized);
         }
         if (tf.revocation) {
-            appendError(properties, CFSTR("One or more certificates have been revoked."));
+            appendError(properties, CFSTR("One or more certificates have been revoked."), localized);
         }
     }
 
@@ -1968,68 +2159,82 @@ CFDictionaryRef SecTrustCopyResult(SecTrustRef trust) {
     return results;
 }
 
-// Return 0 upon error.
-static int to_int_error_request(enum SecXPCOperation op, CFErrorRef *error) {
-    __block int64_t result = 0;
-    securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
-        result = xpc_dictionary_get_int64(response, kSecXPCKeyResult);
-        if (!result)
-            return SecError(errSecInternal, error, CFSTR("int64 missing in response"));
-        return true;
-    });
-    return (int)result;
-}
-
-// version 0 -> error, so we need to start at version 1 or later.
-OSStatus SecTrustGetOTAPKIAssetVersionNumber(int* versionNumber)
-{
-    OSStatus result;
-    os_activity_t trace_activity = os_activity_start("SecTrustGetOTAPKIAssetVersionNumber", OS_ACTIVITY_FLAG_DEFAULT);
-    result = SecOSStatusWith(^bool(CFErrorRef *error) {
-        if (!versionNumber)
-            return SecError(errSecParam, error, CFSTR("versionNumber is NULL"));
-
-        return (*versionNumber = TRUSTD_XPC(sec_ota_pki_asset_version, to_int_error_request, error)) != 0;
-    });
-
-    os_activity_end(trace_activity);
-    return result;
-}
-
 #define do_if_registered(sdp, ...) if (gTrustd && gTrustd->sdp) { return gTrustd->sdp(__VA_ARGS__); }
 
-static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *key, xpc_type_t type)
-{
+static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *key, xpc_type_t type) {
     xpc_object_t value = xpc_dictionary_get_value(dictionary, key);
-
     return value && (xpc_get_type(value) == type);
 }
 
-OSStatus SecTrustOTAPKIGetUpdatedAsset(int* didUpdateAsset)
-{
-	CFErrorRef error = NULL;
-	do_if_registered(sec_ota_pki_get_new_asset, &error);
-
-	int64_t num = 0;
-    xpc_object_t message = securityd_create_message(kSecXPCOpOTAPKIGetNewAsset, &error);
-    if (message)
-	{
-        xpc_object_t response = securityd_message_with_reply_sync(message, &error);
-
-        if (response && xpc_dictionary_entry_is_type(response, kSecXPCKeyResult, XPC_TYPE_INT64))
-		{
-            num = (int64_t) xpc_dictionary_get_int64(response, kSecXPCKeyResult);
-			xpc_release(response);
+static uint64_t do_ota_pki_op (enum SecXPCOperation op, CFErrorRef *error) {
+    uint64_t num = 0;
+    xpc_object_t message = securityd_create_message(op, error);
+    if (message) {
+        xpc_object_t response = securityd_message_with_reply_sync(message, error);
+        if (response && xpc_dictionary_entry_is_type(response, kSecXPCKeyResult, XPC_TYPE_UINT64)) {
+            num = (int64_t) xpc_dictionary_get_uint64(response, kSecXPCKeyResult);
         }
+        if (response && error && xpc_dictionary_entry_is_type(response, kSecXPCKeyError, XPC_TYPE_DICTIONARY)) {
+            xpc_object_t xpc_error = xpc_dictionary_get_value(response, kSecXPCKeyError);
+            if (xpc_error) {
+                *error = SecCreateCFErrorWithXPCObject(xpc_error);
+            }
+        }
+        xpc_release_safe(message);
+        xpc_release_safe(response);
+    }
+    return num;
+}
 
-        xpc_release(message);
-	}
 
-	if (NULL != didUpdateAsset)
-	{
-		*didUpdateAsset = (int)num;
-	}
-	return noErr;
+// version 0 -> error, so we need to start at version 1 or later.
+uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef *error) {
+    do_if_registered(sec_ota_pki_trust_store_version, error);
+
+    os_activity_t activity = os_activity_create("SecTrustGetTrustStoreVersionNumber", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    uint64_t num = do_ota_pki_op(sec_ota_pki_trust_store_version_id, error);
+
+    os_release(activity);
+    return num;
+}
+
+uint64_t SecTrustOTAPKIGetUpdatedAsset(CFErrorRef *error) {
+	do_if_registered(sec_ota_pki_get_new_asset, error);
+
+    os_activity_t activity = os_activity_create("SecTrustOTAPKIGetUpdatedAsset", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    uint64_t num = do_ota_pki_op(kSecXPCOpOTAPKIGetNewAsset, error);
+
+    os_release(activity);
+	return num;
+}
+
+bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttributes, CFErrorRef *error) {
+    if (!eventName || !eventAttributes) {
+        return false;
+    }
+    do_if_registered(sec_tls_analytics_report, eventName, eventAttributes, error);
+
+    os_activity_t activity = os_activity_create("SecTrustReportTLSAnalytics", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block bool result = false;
+    securityd_send_sync_and_do(kSecXPCOpTLSAnaltyicsReport, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        if (!SecXPCDictionarySetString(message, kSecTrustEventNameKey, eventName, block_error)) {
+            return false;
+        }
+        xpc_dictionary_set_value(message, kSecTrustEventAttributesKey, eventAttributes);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
 }
 
 /*
@@ -2069,8 +2274,7 @@ OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType *result)
                                                  &kCFTypeDictionaryKeyCallBacks,
                                                  &kCFTypeDictionaryValueCallBacks);
         CFMutableArrayRef leafCert = CFArrayCreateMutableCopy(NULL, 1, trust->_certificates);
-        trust->_chain = SecCertificatePathCreateWithCertificates(leafCert, NULL);
-        CFReleaseNull(leafCert);
+        trust->_chain = leafCert;
     });
 
     SecLeafPVCDelete(&pvc);
@@ -2123,7 +2327,7 @@ static void serializeCertificate(const void *value, void *context) {
     }
 }
 
-static CFArrayRef SecCertificateArraySerialize(CFArrayRef certificates) {
+static CF_RETURNS_RETAINED CFArrayRef SecCertificateArraySerialize(CFArrayRef certificates) {
     CFMutableArrayRef result = NULL;
     require_quiet(isArray(certificates), errOut);
     CFIndex count = CFArrayGetCount(certificates);
@@ -2174,10 +2378,10 @@ static CFPropertyListRef SecTrustCopyPlist(SecTrustRef trust) {
             CFDictionaryAddValue(output, CFSTR(kSecTrustVerifyDateKey), trust->_verifyDate);
         }
         if (trust->_chain) {
-            CFArrayRef serializedChain = SecCertificatePathCreateSerialized(trust->_chain, NULL);
-            if (serializedChain) {
-                CFDictionaryAddValue(output, CFSTR(kSecTrustChainKey), serializedChain);
-                CFRelease(serializedChain);
+            CFArrayRef serializedCerts = SecCertificateArraySerialize(trust->_chain);
+            if (serializedCerts) {
+                CFDictionaryAddValue(output, CFSTR(kSecTrustChainKey), serializedCerts);
+                CFRelease(serializedCerts);
             }
         }
         if (trust->_details) {
@@ -2226,14 +2430,12 @@ out:
 static OSStatus SecTrustCreateFromPlist(CFPropertyListRef plist, SecTrustRef CF_RETURNS_RETAINED *trust) {
     OSStatus status = errSecParam;
     SecTrustRef output = NULL;
-    CFTypeRef serializedCertificates = NULL, serializedPolicies = NULL, serializedAnchors = NULL,
-                serializedChain = NULL;
+    CFTypeRef serializedCertificates = NULL, serializedPolicies = NULL, serializedAnchors = NULL;
     CFNumberRef trustResultNum = NULL;
     CFArrayRef certificates = NULL, policies = NULL, anchors = NULL, responses = NULL,
-                SCTs = NULL, trustedLogs = NULL, details = NULL, exceptions = NULL;
+                SCTs = NULL, trustedLogs = NULL, details = NULL, exceptions = NULL, chain = NULL;
     CFDateRef verifyDate = NULL;
     CFDictionaryRef info = NULL;
-    SecCertificatePathRef chain = NULL;
 
     require_quiet(CFDictionaryGetTypeID() == CFGetTypeID(plist), out);
     require_quiet(serializedCertificates = CFDictionaryGetValue(plist, CFSTR(kSecTrustCertificatesKey)), out);
@@ -2263,10 +2465,9 @@ static OSStatus SecTrustCreateFromPlist(CFPropertyListRef plist, SecTrustRef CF_
     if (isDate(verifyDate)) {
         output->_verifyDate = CFRetainSafe(verifyDate);
     }
-    serializedChain = CFDictionaryGetValue(plist, CFSTR(kSecTrustChainKey));
-    if (isArray(serializedChain)) {
-        chain = SecCertificatePathCreateDeserialized(serializedChain, NULL);
-        output->_chain = chain;
+    chain = CFDictionaryGetValue(plist, CFSTR(kSecTrustChainKey));
+    if (isArray(chain)) {
+        output->_chain = SecCertificateArrayDeserialize(chain);
     }
     details = CFDictionaryGetValue(plist, CFSTR(kSecTrustDetailsKey));
     if (isArray(details)) {

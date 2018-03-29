@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006-2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2006-2009, 2011-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -14,8 +14,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id: config.h.win32,v 1.28 2011/10/30 23:39:39 marka Exp $ */
 
 /*
  * win32 configuration file
@@ -136,6 +134,11 @@
 
 /* Define if you have DH_generate_parameters(). */
 #define HAVE_DH_GENERATE_PARAMETERS
+
+/* Define if you have getpassphrase in the C library. */
+#define HAVE_GETPASSPHRASE
+
+char *getpassphrase(const char *);
 
 /*
  * Define to 1 if you want to use the DLZ "dlopen" driver
@@ -291,12 +294,6 @@ typedef __int64 off_t;
  */
 @HAVE_LIBXML2@
 
-/*
- * Define when building BIND9.  When building exportable versions
- * of libisc, libdns, etc, this must be removed.
- */
-#define BIND9 1
-
 /** define if struct addrinfo exists */
 #define HAVE_ADDRINFO
 
@@ -305,6 +302,18 @@ typedef __int64 off_t;
 
 /** define if gai_strerror() exists */
 #define HAVE_GAISTRERROR
+
+/* return type of gai_strerror */
+#define IRS_GAISTRERROR_RETURN_T char *
+
+/* Define to the buffer length type used by getnameinfo(3). */
+#define IRS_GETNAMEINFO_BUFLEN_T DWORD
+
+/* Define to the flags type used by getnameinfo(3). */
+#define IRS_GETNAMEINFO_FLAGS_T int
+
+/* Define to the sockaddr length type used by getnameinfo(3). */
+#define IRS_GETNAMEINFO_SOCKLEN_T socklen_t
 
 /* Define to enable the "filter-aaaa-on-v4" and "filter-aaaa-on-v6" options.
    */
@@ -331,8 +340,32 @@ typedef __int64 off_t;
 /* Define if your OpenSSL version supports GOST. */
 @HAVE_OPENSSL_GOST@
 
+/* Define if your PKCS11 provider supports ECDSA. */
+@HAVE_PKCS11_ECDSA@
+
+/* Define if your PKCS11 provider supports GOST. */
+@HAVE_PKCS11_GOST@
+
+/* Define if GOST private keys are encoded in ASN.1. */
+@PREFER_GOSTASN1@
+
+/* Define if your OpenSSL version supports EVP AES */
+@HAVE_OPENSSL_EVP_AES@
+
+/* Define if your OpenSSL version supports AES */
+@HAVE_OPENSSL_AES@
+
 /* HMAC_*() return ints */
 @HMAC_RETURN_INT@
+
+/* Use AES for Client Cookie generation */
+@AES_CC@
+
+/* Use HMAC-SHA1 for Client Cookie generation */
+@HMAC_SHA1_CC@
+
+/* Use HMAC-SHA256 for Client Cookie generation */
+@HMAC_SHA256_CC@
 
 /* Define to 1 if you have the `readline' function. */
 @HAVE_READLINE@
@@ -358,13 +391,27 @@ typedef __int64 off_t;
 /* From enable developer */
 @ISC_LIST_CHECKINIT@
 
+/* Large system tuning */
+@TUNE_LARGE@
+
+/* Verbose query trace logging */
+@WANT_QUERYTRACE@
+
+/*
+ * Define to nothing if C supports flexible array members, and to 1 if it does
+ * not. That way, with a declaration like `struct s { int n; double
+ * d[FLEXIBLE_ARRAY_MEMBER]; };', the struct hack can be used with pre-C99
+ * compilers. When computing the size of such an object, don't use 'sizeof
+ * (struct s)' as it overestimates the size. Use 'offsetof (struct s, d)'
+ * instead. Don't use 'offsetof (struct s, d[0])', as this doesn't work with
+ * MSVC and with C++ compilers.
+ */
+#define FLEXIBLE_ARRAY_MEMBER /**/
+
 /* Avoid warnings with strlen() */
 #ifdef _WIN64
 #define strlen(x)	(unsigned int) strlen(x)
 #endif
-
-/* Define to enable response rate limiting. */
-#define USE_RRL
 
 /* Get SRCID */
 #include "srcid.h"

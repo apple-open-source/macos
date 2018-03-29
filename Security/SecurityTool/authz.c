@@ -254,7 +254,7 @@ authorizationdb(int argc, char * const * argv)
 			break;
 		case '?':
 		default:
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -262,7 +262,7 @@ authorizationdb(int argc, char * const * argv)
 	argv += optind;
 
 	if (argc == 0)
-		return 2; // required right parameter(s)
+		return SHOW_USAGE_MESSAGE; // required right parameter(s)
 
 	OSStatus status;
 
@@ -301,7 +301,7 @@ authorizationdb(int argc, char * const * argv)
 				CFRelease(shortcut_definition);
 			}
 			else
-				return 2; // take one optional argument - no more
+				return SHOW_USAGE_MESSAGE; // take one optional argument - no more
 
 		}
 		else if (!strcmp("remove", argv[0]))
@@ -386,10 +386,10 @@ authorizationdb(int argc, char * const * argv)
                 else if(!strcmp("enable", argv[1]))
                     status = AuthorizationEnableSmartCard(auth_ref, TRUE);
                 else
-                   return 2; // unrecognized parameter
+                   return SHOW_USAGE_MESSAGE; // unrecognized parameter
             }
             else
-                return 2; // required parameter missing
+                return SHOW_USAGE_MESSAGE; // required parameter missing
 		}
 		else if (!strcmp("merge", argv[0])) {
 			status = 1;
@@ -408,7 +408,7 @@ authorizationdb(int argc, char * const * argv)
 			CFMutableDictionaryRef outDict = NULL;
 
 			if (argc < 2 || argc > 3)
-				return 2;
+				return SHOW_USAGE_MESSAGE;
 
 			if (!strcmp("-", argv[1])) {
 				// Merging from <STDIN>.
@@ -492,10 +492,10 @@ bail:
 				CFRelease(outDict);
 		}
 		else
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 	}
 	else
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 
 	if (auth_ref)
 		AuthorizationFree(auth_ref, 0);
@@ -563,7 +563,7 @@ authorize(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -571,7 +571,7 @@ authorize(int argc, char * const *argv)
 	argv += optind;
 
 	if (argc == 0)
-		return 2; // required right parameter(s)
+		return SHOW_USAGE_MESSAGE; // required right parameter(s)
 
 // set up AuthorizationFlags
 	AuthorizationFlags flags = kAuthorizationFlagDefaults |
@@ -682,7 +682,7 @@ execute_with_privileges(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -690,7 +690,7 @@ execute_with_privileges(int argc, char * const *argv)
 	argv += optind;
 
 	if (argc == 0)
-		return 2; // required tool parameter(s)
+		return SHOW_USAGE_MESSAGE; // required tool parameter(s)
 
 	OSStatus status;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +30,6 @@
 
 #import "Logging.h"
 #import "MediaPlayer.h"
-#import "MediaPlayerSPI.h"
 #import "PlatformMediaSession.h"
 #import "SystemMemory.h"
 #import "WebCoreThreadRun.h"
@@ -40,6 +39,8 @@
 #import <MediaPlayer/MPVolumeView.h>
 #import <UIKit/UIApplication.h>
 #import <objc/runtime.h>
+#import <pal/spi/ios/MediaPlayerSPI.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RAMSize.h>
 #import <wtf/RetainPtr.h>
@@ -78,13 +79,14 @@ SOFT_LINK_POINTER(MediaPlayer, MPMediaItemPropertyPlaybackDuration, NSString *)
 SOFT_LINK_POINTER(MediaPlayer, MPNowPlayingInfoPropertyElapsedPlaybackTime, NSString *)
 SOFT_LINK_POINTER(MediaPlayer, MPNowPlayingInfoPropertyPlaybackRate, NSString *)
 SOFT_LINK_POINTER(MediaPlayer, MPVolumeViewWirelessRoutesAvailableDidChangeNotification, NSString *)
-
+SOFT_LINK_POINTER(MediaPlayer, kMRMediaRemoteNowPlayingInfoUniqueIdentifier, NSString *)
 
 #define MPMediaItemPropertyTitle getMPMediaItemPropertyTitle()
 #define MPMediaItemPropertyPlaybackDuration getMPMediaItemPropertyPlaybackDuration()
 #define MPNowPlayingInfoPropertyElapsedPlaybackTime getMPNowPlayingInfoPropertyElapsedPlaybackTime()
 #define MPNowPlayingInfoPropertyPlaybackRate getMPNowPlayingInfoPropertyPlaybackRate()
 #define MPVolumeViewWirelessRoutesAvailableDidChangeNotification getMPVolumeViewWirelessRoutesAvailableDidChangeNotification()
+#define kMRMediaRemoteNowPlayingInfoUniqueIdentifier getkMRMediaRemoteNowPlayingInfoUniqueIdentifier()
 
 WEBCORE_EXPORT NSString* WebUIApplicationWillResignActiveNotification = @"WebUIApplicationWillResignActiveNotification";
 WEBCORE_EXPORT NSString* WebUIApplicationWillEnterForegroundNotification = @"WebUIApplicationWillEnterForegroundNotification";
@@ -130,14 +132,19 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
 
 MediaSessionManageriOS::MediaSessionManageriOS()
     : PlatformMediaSessionManager()
-    , m_objcObserver(adoptNS([[WebMediaSessionHelper alloc] initWithCallback:this]))
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    m_objcObserver = adoptNS([[WebMediaSessionHelper alloc] initWithCallback:this]);
+    END_BLOCK_OBJC_EXCEPTIONS
     resetRestrictions();
 }
 
 MediaSessionManageriOS::~MediaSessionManageriOS()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_objcObserver clearCallback];
+    m_objcObserver = nil;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void MediaSessionManageriOS::resetRestrictions()
@@ -159,7 +166,9 @@ void MediaSessionManageriOS::resetRestrictions()
 
 bool MediaSessionManageriOS::hasWirelessTargetsAvailable()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     return [m_objcObserver hasWirelessTargetsAvailable];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void MediaSessionManageriOS::configureWireLessTargetMonitoring()
@@ -170,10 +179,14 @@ void MediaSessionManageriOS::configureWireLessTargetMonitoring()
 
     LOG(Media, "MediaSessionManageriOS::configureWireLessTargetMonitoring - requiresMonitoring = %s", requiresMonitoring ? "true" : "false");
 
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+
     if (requiresMonitoring)
         [m_objcObserver startMonitoringAirPlayRoutes];
     else
         [m_objcObserver stopMonitoringAirPlayRoutes];
+
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 bool MediaSessionManageriOS::sessionWillBeginPlayback(PlatformMediaSession& session)
@@ -222,6 +235,7 @@ PlatformMediaSession* MediaSessionManageriOS::nowPlayingEligibleSession()
 
 void MediaSessionManageriOS::updateNowPlayingInfo()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     MPNowPlayingInfoCenter *nowPlaying = (MPNowPlayingInfoCenter *)[getMPNowPlayingInfoCenterClass() defaultCenter];
     const PlatformMediaSession* currentSession = this->nowPlayingEligibleSession();
 
@@ -257,6 +271,7 @@ void MediaSessionManageriOS::updateNowPlayingInfo()
     if (std::isfinite(duration) && duration != MediaPlayer::invalidTime())
         info.get()[MPMediaItemPropertyPlaybackDuration] = @(duration);
     info.get()[MPNowPlayingInfoPropertyPlaybackRate] = @(rate);
+    info.get()[kMRMediaRemoteNowPlayingInfoUniqueIdentifier] = @(title.impl() ? title.impl()->hash() : 0);
 
     if (std::isfinite(currentTime) && currentTime != MediaPlayer::invalidTime())
         info.get()[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(currentTime);
@@ -266,6 +281,7 @@ void MediaSessionManageriOS::updateNowPlayingInfo()
 
     m_nowPlayingActive = true;
     [nowPlaying setNowPlayingInfo:info.get()];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 bool MediaSessionManageriOS::sessionCanLoadMedia(const PlatformMediaSession& session) const
@@ -278,9 +294,11 @@ bool MediaSessionManageriOS::sessionCanLoadMedia(const PlatformMediaSession& ses
 
 void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     forEachSession([haveTargets = [m_objcObserver hasWirelessTargetsAvailable]] (PlatformMediaSession& session, size_t) {
         session.externalOutputDeviceAvailableDidChange(haveTargets);
     });
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 } // namespace WebCore
@@ -296,10 +314,14 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
     RetainPtr<WebMediaSessionHelper> strongSelf = self;
     dispatch_async(dispatch_get_main_queue(), [strongSelf]() {
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
         RetainPtr<MPVolumeView> volumeView = adoptNS([allocMPVolumeViewInstance() init]);
         callOnWebThreadOrDispatchAsyncOnMainThread([strongSelf, volumeView]() {
+            BEGIN_BLOCK_OBJC_EXCEPTIONS
             [strongSelf setVolumeView:volumeView];
+            END_BLOCK_OBJC_EXCEPTIONS
         });
+        END_BLOCK_OBJC_EXCEPTIONS
     });
 }
 
@@ -338,8 +360,12 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     [self allocateVolumeView];
 
     // Now playing won't work unless we turn on the delivery of remote control events.
-    [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
-    
+    dispatch_async(dispatch_get_main_queue(), ^ {
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
+        [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
+        END_BLOCK_OBJC_EXCEPTIONS
+    });
+
     return self;
 }
 

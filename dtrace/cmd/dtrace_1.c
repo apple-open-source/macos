@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include <assert.h>
 #include <dtrace.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -49,6 +50,8 @@
 #include <mach/machine.h>
 #include <sys/sysctl.h>
 #include <pthread.h>
+
+#include <IOKit/IOKitLib.h>
 
 #include <System/sys/csr.h>
 #include <TargetConditionals.h>
@@ -109,20 +112,8 @@ static const char *g_ofile = NULL;
 static const char *g_script_name = NULL;
 static FILE *g_ofp = NULL;
 static dtrace_hdl_t *g_dtp;
-static char *g_etcfile = "/etc/system";
-static const char *g_etcbegin = "* vvvv Added by DTrace";
-static const char *g_etcend = "* ^^^^ Added by DTrace";
 
-static const char *g_etc[] =  {
-"*",
-"* The following forceload directives were added by dtrace(1M) to allow for",
-"* tracing during boot.  If these directives are removed, the system will",
-"* continue to function, but tracing will not occur during boot as desired.",
-"* To remove these directives (and this block comment) automatically, run",
-"* \"dtrace -A\" without additional arguments.  See the \"Anonymous Tracing\"",
-"* chapter of the Solaris Dynamic Tracing Guide for details.",
-"*",
-NULL };
+static io_registry_entry_t registry_entry = NULL;
 
 static int
 usage(FILE *fp)
@@ -416,198 +407,6 @@ make_argv(char *s)
 }
 
 static void
-dof_prune(const char *fname)
-{
-	struct stat sbuf;
-	size_t sz, i, j, mark, len;
-	char *buf;
-	int msg = 0, fd;
-
-	if ((fd = open(fname, O_RDONLY)) == -1) {
-		/*
-		 * This is okay only if the file doesn't exist at all.
-		 */
-		if (errno != ENOENT)
-			fatal("failed to open %s", fname);
-		return;
-	}
-
-	if (fstat(fd, &sbuf) == -1)
-		fatal("failed to fstat %s", fname);
-
-	if ((buf = malloc((sz = sbuf.st_size) + 1)) == NULL)
-		fatal("failed to allocate memory for %s", fname);
-
-	if (read(fd, buf, sz) != sz)
-		fatal("failed to read %s", fname);
-
-	buf[sz] = '\0';
-	(void) close(fd);
-
-	if ((fd = open(fname, O_WRONLY | O_TRUNC)) == -1)
-		fatal("failed to open %s for writing", fname);
-
-	len = strlen("dof-data-");
-
-	for (mark = 0, i = 0; i < sz; i++) {
-		if (strncmp(&buf[i], "dof-data-", len) != 0)
-			continue;
-
-		/*
-		 * This is only a match if it's in the 0th column.
-		 */
-		if (i != 0 && buf[i - 1] != '\n')
-			continue;
-
-		if (msg++ == 0) {
-			error("cleaned up old anonymous "
-			    "enabling in %s\n", fname);
-		}
-
-		/*
-		 * We have a match.  First write out our data up until now.
-		 */
-		if (i != mark) {
-			if (write(fd, &buf[mark], i - mark) != i - mark)
-				fatal("failed to write to %s", fname);
-		}
-
-		/*
-		 * Now scan forward until we scan past a newline.
-		 */
-		for (j = i; j < sz && buf[j] != '\n'; j++)
-			continue;
-
-		/*
-		 * Reset our mark.
-		 */
-		if ((mark = j + 1) >= sz)
-			break;
-
-		i = j;
-	}
-
-	if (mark < sz) {
-		if (write(fd, &buf[mark], sz - mark) != sz - mark)
-			fatal("failed to write to %s", fname);
-	}
-
-	(void) close(fd);
-	free(buf);
-}
-
-static void
-etcsystem_prune(void)
-{
-	struct stat sbuf;
-	size_t sz;
-	char *buf, *start, *end;
-	int fd;
-	char *fname = g_etcfile, *tmpname;
-
-	if ((fd = open(fname, O_RDONLY)) == -1)
-		fatal("failed to open %s", fname);
-
-	if (fstat(fd, &sbuf) == -1)
-		fatal("failed to fstat %s", fname);
-
-	if ((buf = malloc((sz = sbuf.st_size) + 1)) == NULL)
-		fatal("failed to allocate memory for %s", fname);
-
-	if (read(fd, buf, sz) != sz)
-		fatal("failed to read %s", fname);
-
-	buf[sz] = '\0';
-	(void) close(fd);
-
-	if ((start = strstr(buf, g_etcbegin)) == NULL)
-		goto out;
-
-	if (strlen(buf) != sz) {
-		fatal("embedded nul byte in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if (strstr(start + 1, g_etcbegin) != NULL) {
-		fatal("multiple start sentinels in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if ((end = strstr(buf, g_etcend)) == NULL) {
-		fatal("missing end sentinel in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if (start > end) {
-		fatal("end sentinel preceeds start sentinel in %s; manual "
-		    "repair of %s required\n", fname, fname);
-	}
-
-	end += strlen(g_etcend) + 1;
-	bcopy(end, start, strlen(end) + 1);
-
-	tmpname = alloca(sz = strlen(fname) + 80);
-	(void) snprintf(tmpname, sz, "%s.dtrace.%d", fname, getpid());
-
-	if ((fd = open(tmpname,
-	    O_WRONLY | O_CREAT | O_EXCL, sbuf.st_mode)) == -1)
-		fatal("failed to create %s", tmpname);
-
-	if (write(fd, buf, strlen(buf)) < strlen(buf)) {
-		(void) unlink(tmpname);
-		fatal("failed to write to %s", tmpname);
-	}
-
-	(void) close(fd);
-
-	if (chown(tmpname, sbuf.st_uid, sbuf.st_gid) != 0) {
-		(void) unlink(tmpname);
-		fatal("failed to chown(2) %s to uid %d, gid %d", tmpname,
-		    (int)sbuf.st_uid, (int)sbuf.st_gid);
-	}
-
-	if (rename(tmpname, fname) == -1)
-		fatal("rename of %s to %s failed", tmpname, fname);
-
-	error("cleaned up forceload directives in %s\n", fname);
-out:
-	free(buf);
-}
-
-static void
-etcsystem_add(void)
-{
-	const char *mods[20];
-	int nmods, line;
-
-	if ((g_ofp = fopen(g_ofile = g_etcfile, "a")) == NULL)
-		fatal("failed to open output file '%s'", g_ofile);
-
-	oprintf("%s\n", g_etcbegin);
-
-	for (line = 0; g_etc[line] != NULL; line++)
-		oprintf("%s\n", g_etc[line]);
-
-	nmods = dtrace_provider_modules(g_dtp, mods,
-	    sizeof (mods) / sizeof (char *) - 1);
-
-	if (nmods >= sizeof (mods) / sizeof (char *))
-		fatal("unexpectedly large number of modules!");
-
-	mods[nmods++] = "dtrace";
-
-	for (line = 0; line < nmods; line++)
-		oprintf("forceload: drv/%s\n", mods[line]);
-
-	oprintf("%s\n", g_etcend);
-
-	if (fclose(g_ofp) == EOF)
-		fatal("failed to close output file '%s'", g_ofile);
-
-	error("added forceload directives to %s\n", g_ofile);
-}
-
-static void
 print_probe_info(const dtrace_probeinfo_t *p)
 {
 	char buf[BUFSIZ];
@@ -723,171 +522,59 @@ exec_prog(const dtrace_cmd_t *dcp)
 
 #include <CoreFoundation/CoreFoundation.h>
 
-// There are byte-order dependancies in the dof_hdr emitted by the byte code compiler.
-// Rather than swizzle, we'll instead insist that each endian-ness is stored on a
-// distinguished property (and only that property is manipulated or referenced by its
-// matching architecture.)
-#if defined(__BIG_ENDIAN__)
-#define BYTE_CODE_CONTAINER CFSTR("Anonymous DOF")
-#else
-#define BYTE_CODE_CONTAINER CFSTR("DOF Anonymous")
-#endif
-
 static void
-dof_update_dictionary(const char *fname, CFMutableDictionaryRef dict)
+dof_prune_all(void)
 {
-	CFURLRef		  fileURL;
-	CFPropertyListRef propertyList;
-	CFDataRef		  xmlData;
-	CFStringRef       errorString;
-	CFDataRef         resourceData;
-	Boolean           status;
-	SInt32            errorCode;
- 
-	
-    fileURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault,    
-               CFStringCreateWithCStringNoCopy(NULL, fname, 0, NULL), // file path name
-               kCFURLPOSIXPathStyle,    // interpret as POSIX path        
-               false );                 // is it a directory?
-			   
-	if (NULL == fileURL)
-		dfatal("failed to open '%s'", fname);
-		
-	// Read the XML file.
-	status = CFURLCreateDataAndPropertiesFromResource(
-			   kCFAllocatorDefault,
-			   fileURL,
-			   &resourceData,            // place to put file data
-			   NULL,      
-			   NULL,
-			   &errorCode);
-			   
-	if (!status)
-		dfatal("failed in CFURLCreateDataAndPropertiesFromResource with code %d", errorCode);
+	CFTypeRef value;
+	CFDataRef data;
+	CFStringRef key_str;
+	int i;
 
-	// Reconstitute the dictionary using the XML data.
-	propertyList = CFPropertyListCreateFromXMLData( kCFAllocatorDefault,
-			   resourceData,
-			   kCFPropertyListMutableContainers,
-			   &errorString);
-			   
-	if (NULL == propertyList)
-		dfatal("failed in CFPropertyListCreateFromXMLData: %s", 
-			CFStringGetCStringPtr(errorString, CFStringGetSystemEncoding()));
+	assert(registry_entry != NULL);
 
-	CFRelease( resourceData );
-
-	CFDictionaryRef IOKPersonalities = 
-		(CFDictionaryRef)CFDictionaryGetValue( propertyList, CFSTR("IOKitPersonalities") );
-	if (NULL == IOKPersonalities)
-		dfatal("failed CFDictionaryGetValue for IOKitPersonalities");
-		
-	CFMutableDictionaryRef dtraceDOF = 
-		(CFMutableDictionaryRef)CFDictionaryGetValue( IOKPersonalities, CFSTR("dtraceDOF") );
-	if (NULL == dtraceDOF)
-		dfatal("failed CFDictionaryGetValue for dtraceDOF");
-		
-	if (dict)
-		CFDictionarySetValue( dtraceDOF, BYTE_CODE_CONTAINER, dict );
-	else
-		CFDictionaryRemoveValue( dtraceDOF, BYTE_CODE_CONTAINER );
-
-	// Convert the property list into XML data.
-	xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, propertyList );
-	CFRelease( propertyList );
-
-	// Write the XML data to the file.
-	status = CFURLWriteDataAndPropertiesToResource (
-			   fileURL,                  // URL to use
-			   xmlData,                  // data to write
-			   NULL,   
-			   &errorCode);            
-
-	if (!status)
-		dfatal("failed in CFURLWriteDataAndPropertiesToResource with code %d", errorCode);
-
-	CFRelease( xmlData );
-	
-	if (strstr(fname, "/System/Library/Extensions/"))
-		utimes("/System/Library/Extensions/", NULL); // "touch" triggers rebuild of mkext archive
+	for (i = 0;; i++) {
+		key_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("dof-data-%d"), i);
+		value = IORegistryEntryCreateCFProperty(registry_entry, key_str, 0, 0);
+		if (value == NULL) {
+			CFRelease(key_str);
+			break;
+		}
+		IORegistryEntrySetCFProperty(registry_entry, CFSTR(kIONVRAMDeletePropertyKey), key_str);
+		CFRelease(key_str);
+	}
 }
 
 static void
-anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n, CFMutableDictionaryRef dict)
+anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n)
 {
-	char key[32];
 	CFDataRef data;
-	CFStringRef keyStr;
-	
-	if (NULL == dof)
+	CFStringRef key_str;
+	kern_return_t kr;
+
+	assert(registry_entry != NULL);
+
+	if (NULL == dof) {
+		dof_prune_all();
 		dfatal("failed to create DOF image for '%s'", dcp->dc_name);
-	
-	snprintf(key, sizeof(key), "dof-data-%d", n);
+	}
 	
 	data = CFDataCreate( kCFAllocatorDefault, (const UInt8 *)dof, dof->dofh_loadsz );
-	if (NULL == data)
-		dfatal("failed CFDataCreate for '%s'", dcp->dc_name);
-
-	keyStr = CFStringCreateWithCString(kCFAllocatorDefault, key, 0);
-	CFDictionarySetValue( dict, keyStr, data );
-	
-	CFRelease( keyStr );
-	CFRelease( data );
-}
-
-static void
-dof_install_dictionary(const char *fname)
-{
-	int i;
-	CFMutableDictionaryRef AnonDOF = 
-		CFDictionaryCreateMutable( kCFAllocatorDefault, 0, 
-								   &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-	
-	if (NULL == AnonDOF)
-		dfatal("failed CFDictionaryCreateMutable");
-
-	for (i = 0; i < g_cmdc; i++) {
-		anon_prog(&g_cmdv[i],
-			dtrace_dof_create(g_dtp, g_cmdv[i].dc_prog, 0), i, AnonDOF);
+	if (NULL == data) {
+		dof_prune_all();
+		errno = EINVAL;
+		fatal("failed CFDataCreate for '%s'", dcp->dc_name);
 	}
-
-	/*
-	 * Dump out the DOF corresponding to the error handler and the
-	 * current options as the final DOF property in the .conf file.
-	 */
-	anon_prog(NULL, dtrace_geterr_dof(g_dtp), i++, AnonDOF);
-	anon_prog(NULL, dtrace_getopt_dof(g_dtp), i++, AnonDOF);
+	key_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("dof-data-%d"), n);
 	
-	dof_update_dictionary(fname, AnonDOF);
-}
-
-/*
- * Link the specified D program in DOF form into an ELF file for use in either
- * helpers, userland provider definitions, or both.  If -o was specified, that
- * path is used as the output file name.  If -o wasn't specified and the input
- * program is from a script whose name is %.d, use basename(%.o) as the output
- * file name.  Otherwise we use "d.out" as the default output file name.
- */
-static void
-link_prog(dtrace_cmd_t *dcp)
-{
-	char *p;
-
-	if (g_cmdc == 1 && g_ofile != NULL) {
-		(void) strlcpy(dcp->dc_ofile, g_ofile, sizeof (dcp->dc_ofile));
-	} else if ((p = strrchr(dcp->dc_arg, '.')) != NULL &&
-	    strcmp(p, ".d") == 0) {
-		p[0] = '\0'; /* strip .d suffix */
-		(void) snprintf(dcp->dc_ofile, sizeof (dcp->dc_ofile),
-		    "%s.o", basename(dcp->dc_arg));
-	} else {
-		(void) snprintf(dcp->dc_ofile, sizeof (dcp->dc_ofile),
-		    g_cmdc > 1 ?  "%s.%d" : "%s", "d.out", (int)(dcp - g_cmdv));
+	
+	if ((kr = IORegistryEntrySetCFProperty(registry_entry, key_str, data)) != KERN_SUCCESS) {
+		dof_prune_all();
+		errno = ENOMEM;
+		fatal("Failed to store DOF to nvram");
 	}
-
-	if (dtrace_program_link(g_dtp, dcp->dc_prog, DTRACE_D_PROBES,
-	    dcp->dc_ofile, g_objc, g_objv) != 0)
-		dfatal("failed to link %s %s", dcp->dc_desc, dcp->dc_name);
+	
+	CFRelease(key_str);
+	CFRelease(data);
 }
 
  /*ARGSUSED*/
@@ -1531,6 +1218,11 @@ main(int argc, char *argv[])
 				break;
 
 			case 'A':
+#if !TARGET_OS_EMBEDDED
+				if (csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0 && csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0) {
+					fatal("system integrity protection restricts the use of anonymous tracing");
+				}
+#endif
 				g_mode = DMODE_ANON;
 				g_exec = 0;
 				mode++;
@@ -1880,6 +1572,12 @@ main(int argc, char *argv[])
 		return (E_USAGE);
 	}
 
+	if (g_ofile != NULL && g_mode == DMODE_ANON) {
+		(void) fprintf(stderr, "%s: -o not valid in combination"
+		    " with -A option\n", g_pname);
+		return (E_USAGE);
+	}
+
 	if (g_ofp == NULL && g_ofile != NULL) {
 		(void) fprintf(stderr, "%s: -B not valid in combination"
 		    " with -o option\n", g_pname);
@@ -1998,31 +1696,33 @@ main(int argc, char *argv[])
 		break;
 
 	case DMODE_ANON:
-		if (g_ofile == NULL)
-			g_ofile = "/System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist";	
-				
-		
-		if (g_cmdc == 0) {
-			dof_update_dictionary(g_ofile, NULL); /* strip out any old Anonymous DOF dictionary */
-			error("removed anonymous enabling in %s\n", g_ofile);
-			error("do 'sudo touch /System/Library/Extensions/' and reboot to enable changes\n");
+		registry_entry = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+		if (registry_entry == NULL) {
+			error("nvram is not supported on this system\n");
 			dtrace_close(g_dtp);
 			return (g_status);
 		}
-		
-		/*
-		 * Construct and populate a new Anonymous DOF dictionary and insert it
-		 * on the plist's dtraceDOF "personality".
-		 */
-		dof_install_dictionary(g_ofile);
 
-		/*
-		 * These messages would use notice() rather than error(), but
-		 * we don't want them suppressed when -A is run on a D program
-		 * that itself contains a #pragma D option quiet.
-		 */
-		error("saved anonymous enabling in %s\n", g_ofile);
-		error("do 'sudo touch /System/Library/Extensions/' and reboot to enable changes\n");
+		dof_prune_all();
+
+		if (g_cmdc == 0) {
+			notice("removed anonymous enabling from nvram\n");
+			dtrace_close(g_dtp);
+			return (g_status);
+		}
+
+
+		for (i = 0; i < g_cmdc; i++) {
+			anon_prog(&g_cmdv[i],
+				dtrace_dof_create(g_dtp, g_cmdv[i].dc_prog, 0), i);
+		}
+
+		anon_prog(NULL, dtrace_geterr_dof(g_dtp), i++);
+		anon_prog(NULL, dtrace_getopt_dof(g_dtp), i++);
+
+		IOObjectRelease(registry_entry);
+
+		notice("saved anonymous enabling in nvram\n");
 		dtrace_close(g_dtp);
 		return (g_status);
 

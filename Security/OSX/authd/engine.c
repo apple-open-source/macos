@@ -434,6 +434,9 @@ _extract_password_from_la(engine_t engine)
 	if (passdata) {
 		if (CFDataGetBytePtr(passdata)) {
 			auth_items_set_data(engine->context, kAuthorizationEnvironmentPassword, CFDataGetBytePtr(passdata), CFDataGetLength(passdata));
+		} else {
+			const char *empty_pass = "\0"; // authd code is unable to process empty strings so passing empty string as terminator only
+			auth_items_set_data(engine->context, kAuthorizationEnvironmentPassword, empty_pass, 1);
 		}
 		CFRelease(passdata);
 	}
@@ -879,7 +882,7 @@ _evaluate_class_rule(engine_t engine, rule_t rule, bool *save_pwd)
     uint32_t total = (uint32_t)rule_get_delegates_count(rule);
     __block uint32_t success_count = 0;
     __block uint32_t count = 0;
-    os_log_debug(AUTHD_LOG, "engine: ** rule %{public}s has %zi delegates kofn = %lli",rule_get_name(rule), total, kofn);
+    os_log_debug(AUTHD_LOG, "engine: ** rule %{public}s has %u delegates kofn = %lli",rule_get_name(rule), total, kofn);
     rule_delegates_iterator(rule, ^bool(rule_t delegate) {
         count++;
         
@@ -1388,11 +1391,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 			save_password = true;
 		}
 		const char *user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
-		require(user, done);
+		require_action(user, done, os_log_debug(AUTHD_LOG, "engine: Missing username"); status = errAuthorizationDenied);
 
 		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
 		struct passwd *pwd = getpwnam(user);
-		require(pwd, done);
+		require_action(pwd, done, os_log_debug(AUTHD_LOG, "engine: Invalid username %s", user); status = errAuthorizationDenied);
 		auth_items_set_uint(engine->context, "sheet-uid", pwd->pw_uid);
 
 		// move sheet-specific items from hints to context
@@ -1810,9 +1813,10 @@ CFTypeRef engine_copy_context(engine_t engine, auth_items_t source)
 
 bool engine_acquire_sheet_data(engine_t engine)
 {
-	uid_t uid = auth_items_get_int(engine->context, "sheet-uid");
-	if (!uid)
+	if (!auth_items_exist(engine->context, "sheet-uid"))
 		return false;
+
+	uid_t uid = auth_items_get_uint(engine->context, "sheet-uid");
 
 	CFReleaseSafe(engine->la_context);
 	engine->la_context = engine_copy_context(engine, engine->hints);

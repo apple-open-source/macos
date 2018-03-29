@@ -494,6 +494,8 @@ bool AppleSmartBattery::pollBatteryState(int type)
 
 void AppleSmartBattery::handleBatteryInserted(void)
 {
+    if (!fWorkLoop) return;
+
     if (!fWorkLoop->inGate()) {
         fWorkLoop->runAction(
                 OSMemberFunctionCast(IOWorkLoop::Action, this,
@@ -511,6 +513,8 @@ void AppleSmartBattery::handleBatteryInserted(void)
 
 void AppleSmartBattery::handleBatteryRemoved(void)
 {
+
+    if (!fWorkLoop) return;
 
     if (!fWorkLoop->inGate()) {
         fWorkLoop->runAction(
@@ -755,6 +759,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
     CommandStruct * cs = (CommandStruct *)ref;
     uint32_t        cmd = kTransactionRestart;
     uint32_t        smcKey = 0;
+    static unsigned int txnFailures;
     
 
     if (!fWorkLoop->inGate()) {
@@ -1075,6 +1080,11 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
     }
 
 exit:
+    if (txnFailures > 5) {
+        BM_ERRLOG("Too many transaction errors, abort poll\n");
+        goto abort;
+    }
+
     /* Kick off the next transaction */
     if (kFinishPolling != next_state) {
         this->initiateNextTransaction(next_state);

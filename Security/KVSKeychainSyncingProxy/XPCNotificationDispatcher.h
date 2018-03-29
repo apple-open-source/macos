@@ -6,7 +6,7 @@
 
 #import <Foundation/Foundation.h>
 
-@protocol XPCNotificationListener
+@protocol XPCNotificationListener <NSObject>
 - (void) handleNotification: (const char *) name;
 @end
 

@@ -20,6 +20,9 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#if OCTAGON
+
 #import "CloudKitMockXCTest.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSControl.h"
@@ -47,8 +50,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable) id mockCKKSKey;
 
-@property (nullable) id<CKKSSelfPeer> currentSelfPeer;
+@property (nullable) CKKSSOSSelfPeer* currentSelfPeer;
+@property (nullable) NSError* currentSelfPeerError;
 @property (nullable) NSMutableSet<id<CKKSPeer>>* currentPeers;
+@property (nullable) NSError* currentPeersError;
+
+@property (nullable) NSError* keychainFetchError;
+
+// A single trusted SOSPeer, but without any CKKS keys
+@property CKKSSOSPeer* remoteSOSOnlyPeer;
 
 @property NSMutableSet<CKRecordZoneID*>* ckksZones;
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
@@ -60,6 +70,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)saveTLKMaterialToKeychain:(CKRecordZoneID*)zoneID;
 - (void)deleteTLKMaterialFromKeychain:(CKRecordZoneID*)zoneID;
 - (void)saveTLKMaterialToKeychainSimulatingSOS:(CKRecordZoneID*)zoneID;
+- (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID;
+- (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID
+                             zonekeys:(ZoneKeys*)zonekeys;
+
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
 - (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
 - (NSMutableArray<NSData*>*)SOSPiggyICloudIdentities;
@@ -79,7 +93,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)rollFakeKeyHierarchyInCloudKit:(CKRecordZoneID*)zoneID;
 
-- (NSDictionary*)fakeRecordDictionary:(NSString*)account zoneID:(CKRecordZoneID*)zoneID;
+- (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account zoneID:(CKRecordZoneID*)zoneID;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount:(NSString* _Nullable)account;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
@@ -135,3 +149,5 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* OCTAGON */

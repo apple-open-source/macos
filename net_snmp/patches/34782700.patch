@@ -1,0 +1,12 @@
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/mibII/interfaces.c net-snmp-5.6.2.1.working/agent/mibgroup/mibII/interfaces.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/mibII/interfaces.c	2015-10-06 16:42:15.000000000 -0700
++++ net-snmp-5.6.2.1.working/agent/mibgroup/mibII/interfaces.c	2017-10-02 18:24:27.000000000 -0700
+@@ -2440,7 +2440,7 @@
+             ilen -= sizeof(*ifam);
+             cp += sizeof(*ifam);
+             sa = (struct sockaddr *) cp;
+-#define ROUND(x) (((x) + sizeof(long) - 1) & ~sizeof(long))
++#define ROUND(x) (((x) + sizeof(uint32_t) - 1) & ~sizeof(uint32_t))
+             for (bit = 1; bit && ilen > 0; bit <<= 1) {
+                 if (!(ifam->ifam_addrs & bit))
+                     continue;

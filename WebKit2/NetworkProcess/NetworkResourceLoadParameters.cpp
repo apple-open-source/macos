@@ -29,6 +29,7 @@
 #include "ArgumentCoders.h"
 #include "DataReference.h"
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/SecurityOriginData.h>
 
 using namespace WebCore;
 
@@ -60,7 +61,7 @@ void NetworkResourceLoadParameters::encode(IPC::Encoder& encoder) const
             const FormDataElement& element = elements[i];
             if (element.m_type == FormDataElement::Type::EncodedFile) {
                 const String& path = element.m_shouldGenerateFile ? element.m_generatedFilename : element.m_filename;
-                SandboxExtension::createHandle(path, SandboxExtension::ReadOnly, requestBodySandboxExtensions[extensionIndex++]);
+                SandboxExtension::createHandle(path, SandboxExtension::Type::ReadOnly, requestBodySandboxExtensions[extensionIndex++]);
             }
         }
         encoder << requestBodySandboxExtensions;
@@ -68,19 +69,32 @@ void NetworkResourceLoadParameters::encode(IPC::Encoder& encoder) const
 
     if (request.url().isLocalFile()) {
         SandboxExtension::Handle requestSandboxExtension;
-        SandboxExtension::createHandle(request.url().fileSystemPath(), SandboxExtension::ReadOnly, requestSandboxExtension);
+        SandboxExtension::createHandle(request.url().fileSystemPath(), SandboxExtension::Type::ReadOnly, requestSandboxExtension);
         encoder << requestSandboxExtension;
     }
 
     encoder.encodeEnum(contentSniffingPolicy);
-    encoder.encodeEnum(allowStoredCredentials);
+    encoder.encodeEnum(contentEncodingSniffingPolicy);
+    encoder.encodeEnum(storedCredentialsPolicy);
     encoder.encodeEnum(clientCredentialPolicy);
+    encoder.encodeEnum(shouldPreconnectOnly);
     encoder << shouldFollowRedirects;
     encoder << shouldClearReferrerOnHTTPSToHTTPRedirect;
     encoder << defersLoading;
     encoder << needsCertificateInfo;
     encoder << maximumBufferingTime;
     encoder << derivedCachedDataTypesToRetrieve;
+
+    encoder << static_cast<bool>(sourceOrigin);
+    if (sourceOrigin)
+        encoder << SecurityOriginData::fromSecurityOrigin(*sourceOrigin);
+    encoder.encodeEnum(mode);
+    encoder << cspResponseHeaders;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    encoder << mainDocumentURL;
+    encoder << contentRuleLists;
+#endif
 }
 
 bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourceLoadParameters& result)
@@ -114,23 +128,28 @@ bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourc
         if (!decoder.decode(requestBodySandboxExtensionHandles))
             return false;
         for (size_t i = 0; i < requestBodySandboxExtensionHandles.size(); ++i) {
-            if (auto extension = SandboxExtension::create(requestBodySandboxExtensionHandles[i]))
+            if (auto extension = SandboxExtension::create(WTFMove(requestBodySandboxExtensionHandles[i])))
                 result.requestBodySandboxExtensions.append(WTFMove(extension));
         }
     }
 
     if (result.request.url().isLocalFile()) {
-        SandboxExtension::Handle resourceSandboxExtensionHandle;
-        if (!decoder.decode(resourceSandboxExtensionHandle))
+        std::optional<SandboxExtension::Handle> resourceSandboxExtensionHandle;
+        decoder >> resourceSandboxExtensionHandle;
+        if (!resourceSandboxExtensionHandle)
             return false;
-        result.resourceSandboxExtension = SandboxExtension::create(resourceSandboxExtensionHandle);
+        result.resourceSandboxExtension = SandboxExtension::create(WTFMove(*resourceSandboxExtensionHandle));
     }
 
     if (!decoder.decodeEnum(result.contentSniffingPolicy))
         return false;
-    if (!decoder.decodeEnum(result.allowStoredCredentials))
+    if (!decoder.decodeEnum(result.contentEncodingSniffingPolicy))
+        return false;
+    if (!decoder.decodeEnum(result.storedCredentialsPolicy))
         return false;
     if (!decoder.decodeEnum(result.clientCredentialPolicy))
+        return false;
+    if (!decoder.decodeEnum(result.shouldPreconnectOnly))
         return false;
     if (!decoder.decode(result.shouldFollowRedirects))
         return false;
@@ -144,6 +163,33 @@ bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourc
         return false;
     if (!decoder.decode(result.derivedCachedDataTypesToRetrieve))
         return false;
+
+    bool hasSourceOrigin;
+    if (!decoder.decode(hasSourceOrigin))
+        return false;
+    if (hasSourceOrigin) {
+        std::optional<SecurityOriginData> sourceOriginData;
+        decoder >> sourceOriginData;
+        if (!sourceOriginData)
+            return false;
+        ASSERT(!sourceOriginData->isEmpty());
+        result.sourceOrigin = sourceOriginData->securityOrigin();
+    }
+    if (!decoder.decodeEnum(result.mode))
+        return false;
+    if (!decoder.decode(result.cspResponseHeaders))
+        return false;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    if (!decoder.decode(result.mainDocumentURL))
+        return false;
+
+    std::optional<Vector<std::pair<String, WebCompiledContentRuleListData>>> contentRuleLists;
+    decoder >> contentRuleLists;
+    if (!contentRuleLists)
+        return false;
+    result.contentRuleLists = WTFMove(*contentRuleLists);
+#endif
 
     return true;
 }

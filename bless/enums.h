@@ -46,7 +46,7 @@ enum {
     kdevice,
     kfile,
 	kfirmware,
-    kfolder,
+    kfolder,			/* 10 */
     kfolder9,
     kgetboot,
     khelp,
@@ -56,7 +56,7 @@ enum {
     klabel,
     klabelfile,
     klegacy,
-    klegacydrivehint,
+    klegacydrivehint,	/* 20 */
     kmkext,
     kmount,
     knetboot,
@@ -64,8 +64,9 @@ enum {
     kopenfolder,
     koptions,
     kpayload,
+	kpersonalize,
     kplist,
-    kquiet,
+    kquiet,				/* 30 */
 	krecovery,
     kreset,
     ksave9,
@@ -75,7 +76,7 @@ enum {
     kshortform,
     kstartupfile,
     kunbless,
-    kuse9,
+    kuse9,				/* 40 */
     kverbose,
     kversion,
     klast

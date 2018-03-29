@@ -29,7 +29,6 @@
 
 #include "Document.h"
 #include "DocumentMarkerController.h"
-#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "Settings.h"
@@ -218,9 +217,7 @@ TextCheckingHelper::TextCheckingHelper(EditorClient& client, Range& range)
 {
 }
 
-TextCheckingHelper::~TextCheckingHelper()
-{
-}
+TextCheckingHelper::~TextCheckingHelper() = default;
 
 String TextCheckingHelper::findFirstMisspelling(int& firstMisspellingOffset, bool markAll, RefPtr<Range>& firstMisspellingRange)
 {

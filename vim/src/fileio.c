@@ -72,7 +72,7 @@ static int au_find_group(char_u *name);
 #  define FIO_PUT_CP(x) (((x) & 0xffff) << 16)	/* put codepage in top word */
 #  define FIO_GET_CP(x)	(((x)>>16) & 0xffff)	/* get codepage from top word */
 # endif
-# ifdef MACOS_X
+# ifdef MACOS_CONVERT
 #  define FIO_MACROMAN	0x20	/* convert MacRoman */
 # endif
 # define FIO_ENDIAN_L	0x80	/* little endian */
@@ -131,7 +131,7 @@ static int make_bom(char_u *buf, char_u *name);
 # ifdef WIN3264
 static int get_win_fio_flags(char_u *ptr);
 # endif
-# ifdef MACOS_X
+# ifdef MACOS_CONVERT
 static int get_mac_fio_flags(char_u *ptr);
 # endif
 #endif
@@ -720,7 +720,29 @@ readfile(
 	/* Set swap file protection bits after creating it. */
 	if (swap_mode > 0 && curbuf->b_ml.ml_mfp != NULL
 			  && curbuf->b_ml.ml_mfp->mf_fname != NULL)
-	    (void)mch_setperm(curbuf->b_ml.ml_mfp->mf_fname, (long)swap_mode);
+	{
+	    char_u *swap_fname = curbuf->b_ml.ml_mfp->mf_fname;
+
+	    /*
+	     * If the group-read bit is set but not the world-read bit, then
+	     * the group must be equal to the group of the original file.  If
+	     * we can't make that happen then reset the group-read bit.  This
+	     * avoids making the swap file readable to more users when the
+	     * primary group of the user is too permissive.
+	     */
+	    if ((swap_mode & 044) == 040)
+	    {
+		stat_T	swap_st;
+
+		if (mch_stat((char *)swap_fname, &swap_st) >= 0
+			&& st.st_gid != swap_st.st_gid
+			&& fchown(curbuf->b_ml.ml_mfp->mf_fd, -1, st.st_gid)
+									 == -1)
+		    swap_mode &= 0600;
+	    }
+
+	    (void)mch_setperm(swap_fname, (long)swap_mode);
+	}
 #endif
     }
 
@@ -1092,7 +1114,7 @@ retry:
 	    fio_flags = get_win_fio_flags(fenc);
 # endif
 
-# ifdef MACOS_X
+# ifdef MACOS_CONVERT
 	/* Conversion from Apple MacRoman to latin1 or UTF-8 */
 	if (fio_flags == 0)
 	    fio_flags = get_mac_fio_flags(fenc);
@@ -1278,7 +1300,7 @@ retry:
 		else if (fio_flags & FIO_CODEPAGE)
 		    size = size / ICONV_MULT;	/* also worst case */
 # endif
-# ifdef MACOS_X
+# ifdef MACOS_CONVERT
 		else if (fio_flags & FIO_MACROMAN)
 		    size = size / ICONV_MULT;	/* also worst case */
 # endif
@@ -1374,7 +1396,8 @@ retry:
 		 * Decrypt the read bytes.  This is done before checking for
 		 * EOF because the crypt layer may be buffering.
 		 */
-		if (cryptkey != NULL && size > 0)
+		if (cryptkey != NULL && curbuf->b_cryptstate != NULL
+								   && size > 0)
 		{
 		    if (crypt_works_inplace(curbuf->b_cryptstate))
 		    {
@@ -1959,17 +1982,17 @@ retry:
 		    {
 			if (fio_flags & FIO_ENDIAN_L)
 			{
-			    u8c = (*--p << 24);
-			    u8c += (*--p << 16);
-			    u8c += (*--p << 8);
+			    u8c = (unsigned)*--p << 24;
+			    u8c += (unsigned)*--p << 16;
+			    u8c += (unsigned)*--p << 8;
 			    u8c += *--p;
 			}
 			else	/* big endian */
 			{
 			    u8c = *--p;
-			    u8c += (*--p << 8);
-			    u8c += (*--p << 16);
-			    u8c += (*--p << 24);
+			    u8c += (unsigned)*--p << 8;
+			    u8c += (unsigned)*--p << 16;
+			    u8c += (unsigned)*--p << 24;
 			}
 		    }
 		    else    /* UTF-8 */
@@ -3181,6 +3204,7 @@ buf_write(
     int		    device = FALSE;	    /* writing to a device */
     stat_T	    st_old;
     int		    prev_got_int = got_int;
+    int		    checking_conversion;
     int		    file_readonly = FALSE;  /* overwritten file is read-only */
     static char	    *err_readonly = "is read-only (cannot override: \"W\" in 'cpoptions')";
 #if defined(UNIX)			    /*XXX fix me sometime? */
@@ -4201,9 +4225,7 @@ buf_write(
 #ifdef FEAT_TITLE
 	need_maketitle = TRUE;	    /* set window title later */
 #endif
-#ifdef FEAT_WINDOWS
 	status_redraw_all();	    /* redraw status lines later */
-#endif
     }
 
     if (end > buf->b_ml.ml_line_count)
@@ -4228,20 +4250,6 @@ buf_write(
 	    goto restore_backup;
 	}
     }
-
-#ifdef MACOS_CLASSIC /* TODO: Is it need for MACOS_X? (Dany) */
-    /*
-     * Before risking to lose the original file verify if there's
-     * a resource fork to preserve, and if cannot be done warn
-     * the users. This happens when overwriting without backups.
-     */
-    if (backup == NULL && overwriting && !append)
-	if (mch_has_resource_fork(fname))
-	{
-	    errmsg = (char_u *)_("E460: The resource fork would be lost (add ! to override)");
-	    goto restore_backup;
-	}
-#endif
 
 #ifdef VMS
     vms_remove_version(fname); /* remove version */
@@ -4300,7 +4308,7 @@ buf_write(
     }
 # endif
 
-# ifdef MACOS_X
+# ifdef MACOS_CONVERT
     if (converted && wb_flags == 0 && (wb_flags = get_mac_fio_flags(fenc)) != 0)
     {
 	write_info.bw_conv_buflen = bufsize * 3;
@@ -4373,437 +4381,489 @@ buf_write(
 #endif
 
     /*
-     * Open the file "wfname" for writing.
-     * We may try to open the file twice: If we can't write to the
-     * file and forceit is TRUE we delete the existing file and try to create
-     * a new one. If this still fails we may have lost the original file!
-     * (this may happen when the user reached his quotum for number of files).
-     * Appending will fail if the file does not exist and forceit is FALSE.
+     * If conversion is taking place, we may first pretend to write and check
+     * for conversion errors.  Then loop again to write for real.
+     * When not doing conversion this writes for real right away.
      */
-    while ((fd = mch_open((char *)wfname, O_WRONLY | O_EXTRA | (append
-			? (forceit ? (O_APPEND | O_CREAT) : O_APPEND)
-			: (O_CREAT | O_TRUNC))
-			, perm < 0 ? 0666 : (perm & 0777))) < 0)
+    for (checking_conversion = TRUE; ; checking_conversion = FALSE)
     {
 	/*
-	 * A forced write will try to create a new file if the old one is
-	 * still readonly. This may also happen when the directory is
-	 * read-only. In that case the mch_remove() will fail.
+	 * There is no need to check conversion when:
+	 * - there is no conversion
+	 * - we make a backup file, that can be restored in case of conversion
+	 *   failure.
 	 */
-	if (errmsg == NULL)
-	{
-#ifdef UNIX
-	    stat_T	st;
-
-	    /* Don't delete the file when it's a hard or symbolic link. */
-	    if ((!newfile && st_old.st_nlink > 1)
-		    || (mch_lstat((char *)fname, &st) == 0
-			&& (st.st_dev != st_old.st_dev
-			    || st.st_ino != st_old.st_ino)))
-		errmsg = (char_u *)_("E166: Can't open linked file for writing");
-	    else
+#ifdef FEAT_MBYTE
+	if (!converted || dobackup)
 #endif
+	    checking_conversion = FALSE;
+
+	if (checking_conversion)
+	{
+	    /* Make sure we don't write anything. */
+	    fd = -1;
+	    write_info.bw_fd = fd;
+	}
+	else
+	{
+	    /*
+	     * Open the file "wfname" for writing.
+	     * We may try to open the file twice: If we can't write to the file
+	     * and forceit is TRUE we delete the existing file and try to
+	     * create a new one. If this still fails we may have lost the
+	     * original file!  (this may happen when the user reached his
+	     * quotum for number of files).
+	     * Appending will fail if the file does not exist and forceit is
+	     * FALSE.
+	     */
+	    while ((fd = mch_open((char *)wfname, O_WRONLY | O_EXTRA | (append
+				? (forceit ? (O_APPEND | O_CREAT) : O_APPEND)
+				: (O_CREAT | O_TRUNC))
+				, perm < 0 ? 0666 : (perm & 0777))) < 0)
 	    {
-		errmsg = (char_u *)_("E212: Can't open file for writing");
-		if (forceit && vim_strchr(p_cpo, CPO_FWRITE) == NULL
-								 && perm >= 0)
+		/*
+		 * A forced write will try to create a new file if the old one
+		 * is still readonly. This may also happen when the directory
+		 * is read-only. In that case the mch_remove() will fail.
+		 */
+		if (errmsg == NULL)
 		{
 #ifdef UNIX
-		    /* we write to the file, thus it should be marked
-		       writable after all */
-		    if (!(perm & 0200))
-			made_writable = TRUE;
-		    perm |= 0200;
-		    if (st_old.st_uid != getuid() || st_old.st_gid != getgid())
-			perm &= 0777;
+		    stat_T	st;
+
+		    /* Don't delete the file when it's a hard or symbolic link.
+		     */
+		    if ((!newfile && st_old.st_nlink > 1)
+			    || (mch_lstat((char *)fname, &st) == 0
+				&& (st.st_dev != st_old.st_dev
+				    || st.st_ino != st_old.st_ino)))
+			errmsg = (char_u *)_("E166: Can't open linked file for writing");
+		    else
 #endif
-		    if (!append)	    /* don't remove when appending */
-			mch_remove(wfname);
-		    continue;
+		    {
+			errmsg = (char_u *)_("E212: Can't open file for writing");
+			if (forceit && vim_strchr(p_cpo, CPO_FWRITE) == NULL
+								  && perm >= 0)
+			{
+#ifdef UNIX
+			    /* we write to the file, thus it should be marked
+			       writable after all */
+			    if (!(perm & 0200))
+				made_writable = TRUE;
+			    perm |= 0200;
+			    if (st_old.st_uid != getuid()
+						  || st_old.st_gid != getgid())
+				perm &= 0777;
+#endif
+			    if (!append)  /* don't remove when appending */
+				mch_remove(wfname);
+			    continue;
+			}
+		    }
 		}
-	    }
-	}
 
 restore_backup:
-	{
-	    stat_T	st;
+		{
+		    stat_T	st;
 
-	    /*
-	     * If we failed to open the file, we don't need a backup. Throw it
-	     * away.  If we moved or removed the original file try to put the
-	     * backup in its place.
-	     */
-	    if (backup != NULL && wfname == fname)
+		    /*
+		     * If we failed to open the file, we don't need a backup.
+		     * Throw it away.  If we moved or removed the original file
+		     * try to put the backup in its place.
+		     */
+		    if (backup != NULL && wfname == fname)
+		    {
+			if (backup_copy)
+			{
+			    /*
+			     * There is a small chance that we removed the
+			     * original, try to move the copy in its place.
+			     * This may not work if the vim_rename() fails.
+			     * In that case we leave the copy around.
+			     */
+			    /* If file does not exist, put the copy in its
+			     * place */
+			    if (mch_stat((char *)fname, &st) < 0)
+				vim_rename(backup, fname);
+			    /* if original file does exist throw away the copy
+			     */
+			    if (mch_stat((char *)fname, &st) >= 0)
+				mch_remove(backup);
+			}
+			else
+			{
+			    /* try to put the original file back */
+			    vim_rename(backup, fname);
+			}
+		    }
+
+		    /* if original file no longer exists give an extra warning
+		     */
+		    if (!newfile && mch_stat((char *)fname, &st) < 0)
+			end = 0;
+		}
+
+#ifdef FEAT_MBYTE
+		if (wfname != fname)
+		    vim_free(wfname);
+#endif
+		goto fail;
+	    }
+	    write_info.bw_fd = fd;
+
+#if defined(WIN3264)
+	    if (backup != NULL && overwriting && !append)
 	    {
 		if (backup_copy)
-		{
-		    /*
-		     * There is a small chance that we removed the original,
-		     * try to move the copy in its place.
-		     * This may not work if the vim_rename() fails.
-		     * In that case we leave the copy around.
-		     */
-		    /* If file does not exist, put the copy in its place */
-		    if (mch_stat((char *)fname, &st) < 0)
-			vim_rename(backup, fname);
-		    /* if original file does exist throw away the copy */
-		    if (mch_stat((char *)fname, &st) >= 0)
-			mch_remove(backup);
-		}
+		    (void)mch_copy_file_attribute(wfname, backup);
 		else
-		{
-		    /* try to put the original file back */
-		    vim_rename(backup, fname);
-		}
+		    (void)mch_copy_file_attribute(backup, wfname);
 	    }
 
-	    /* if original file no longer exists give an extra warning */
-	    if (!newfile && mch_stat((char *)fname, &st) < 0)
-		end = 0;
-	}
-
-#ifdef FEAT_MBYTE
-	if (wfname != fname)
-	    vim_free(wfname);
+	    if (!overwriting && !append)
+	    {
+		if (buf->b_ffname != NULL)
+		    (void)mch_copy_file_attribute(buf->b_ffname, wfname);
+		/* Should copy resource fork */
+	    }
 #endif
-	goto fail;
-    }
-    errmsg = NULL;
-
-#if defined(MACOS_CLASSIC) || defined(WIN3264)
-    /* TODO: Is it need for MACOS_X? (Dany) */
-    /*
-     * On macintosh copy the original files attributes (i.e. the backup)
-     * This is done in order to preserve the resource fork and the
-     * Finder attribute (label, comments, custom icons, file creator)
-     */
-    if (backup != NULL && overwriting && !append)
-    {
-	if (backup_copy)
-	    (void)mch_copy_file_attribute(wfname, backup);
-	else
-	    (void)mch_copy_file_attribute(backup, wfname);
-    }
-
-    if (!overwriting && !append)
-    {
-	if (buf->b_ffname != NULL)
-	    (void)mch_copy_file_attribute(buf->b_ffname, wfname);
-	/* Should copy resource fork */
-    }
-#endif
-
-    write_info.bw_fd = fd;
 
 #ifdef FEAT_CRYPT
-    if (*buf->b_p_key != NUL && !filtering)
-    {
-	char_u		*header;
-	int		header_len;
-
-	buf->b_cryptstate = crypt_create_for_writing(crypt_get_method_nr(buf),
-					  buf->b_p_key, &header, &header_len);
-	if (buf->b_cryptstate == NULL || header == NULL)
-	    end = 0;
-	else
-	{
-	    /* Write magic number, so that Vim knows how this file is
-	     * encrypted when reading it back. */
-	    write_info.bw_buf = header;
-	    write_info.bw_len = header_len;
-	    write_info.bw_flags = FIO_NOCONVERT;
-	    if (buf_write_bytes(&write_info) == FAIL)
-		end = 0;
-	    wb_flags |= FIO_ENCRYPTED;
-	    vim_free(header);
-	}
-    }
-#endif
-
-    write_info.bw_buf = buffer;
-    nchars = 0;
-
-    /* use "++bin", "++nobin" or 'binary' */
-    if (eap != NULL && eap->force_bin != 0)
-	write_bin = (eap->force_bin == FORCE_BIN);
-    else
-	write_bin = buf->b_p_bin;
-
-#ifdef FEAT_MBYTE
-    /*
-     * The BOM is written just after the encryption magic number.
-     * Skip it when appending and the file already existed, the BOM only makes
-     * sense at the start of the file.
-     */
-    if (buf->b_p_bomb && !write_bin && (!append || perm < 0))
-    {
-	write_info.bw_len = make_bom(buffer, fenc);
-	if (write_info.bw_len > 0)
-	{
-	    /* don't convert, do encryption */
-	    write_info.bw_flags = FIO_NOCONVERT | wb_flags;
-	    if (buf_write_bytes(&write_info) == FAIL)
-		end = 0;
-	    else
-		nchars += write_info.bw_len;
-	}
-    }
-    write_info.bw_start_lnum = start;
-#endif
-
-#ifdef FEAT_PERSISTENT_UNDO
-    write_undo_file = (buf->b_p_udf && overwriting && !append
-					      && !filtering && reset_changed);
-    if (write_undo_file)
-	/* Prepare for computing the hash value of the text. */
-	sha256_start(&sha_ctx);
-#endif
-
-    write_info.bw_len = bufsize;
-#ifdef HAS_BW_FLAGS
-    write_info.bw_flags = wb_flags;
-#endif
-    fileformat = get_fileformat_force(buf, eap);
-    s = buffer;
-    len = 0;
-    for (lnum = start; lnum <= end; ++lnum)
-    {
-	/*
-	 * The next while loop is done once for each character written.
-	 * Keep it fast!
-	 */
-	ptr = ml_get_buf(buf, lnum, FALSE) - 1;
-#ifdef FEAT_PERSISTENT_UNDO
-	if (write_undo_file)
-	    sha256_update(&sha_ctx, ptr + 1, (UINT32_T)(STRLEN(ptr + 1) + 1));
-#endif
-	while ((c = *++ptr) != NUL)
-	{
-	    if (c == NL)
-		*s = NUL;		/* replace newlines with NULs */
-	    else if (c == CAR && fileformat == EOL_MAC)
-		*s = NL;		/* Mac: replace CRs with NLs */
-	    else
-		*s = c;
-	    ++s;
-	    if (++len != bufsize)
-		continue;
-	    if (buf_write_bytes(&write_info) == FAIL)
+	    if (*buf->b_p_key != NUL && !filtering)
 	    {
-		end = 0;		/* write error: break loop */
-		break;
-	    }
-	    nchars += bufsize;
-	    s = buffer;
-	    len = 0;
-#ifdef FEAT_MBYTE
-	    write_info.bw_start_lnum = lnum;
-#endif
-	}
-	/* write failed or last line has no EOL: stop here */
-	if (end == 0
-		|| (lnum == end
-		    && (write_bin || !buf->b_p_fixeol)
-		    && (lnum == buf->b_no_eol_lnum
-			|| (lnum == buf->b_ml.ml_line_count && !buf->b_p_eol))))
-	{
-	    ++lnum;			/* written the line, count it */
-	    no_eol = TRUE;
-	    break;
-	}
-	if (fileformat == EOL_UNIX)
-	    *s++ = NL;
-	else
-	{
-	    *s++ = CAR;			/* EOL_MAC or EOL_DOS: write CR */
-	    if (fileformat == EOL_DOS)	/* write CR-NL */
-	    {
-		if (++len == bufsize)
+		char_u		*header;
+		int		header_len;
+
+		buf->b_cryptstate = crypt_create_for_writing(
+						      crypt_get_method_nr(buf),
+					   buf->b_p_key, &header, &header_len);
+		if (buf->b_cryptstate == NULL || header == NULL)
+		    end = 0;
+		else
 		{
+		    /* Write magic number, so that Vim knows how this file is
+		     * encrypted when reading it back. */
+		    write_info.bw_buf = header;
+		    write_info.bw_len = header_len;
+		    write_info.bw_flags = FIO_NOCONVERT;
 		    if (buf_write_bytes(&write_info) == FAIL)
-		    {
-			end = 0;	/* write error: break loop */
-			break;
-		    }
-		    nchars += bufsize;
-		    s = buffer;
-		    len = 0;
+			end = 0;
+		    wb_flags |= FIO_ENCRYPTED;
+		    vim_free(header);
 		}
-		*s++ = NL;
 	    }
+#endif
 	}
-	if (++len == bufsize && end)
-	{
-	    if (buf_write_bytes(&write_info) == FAIL)
-	    {
-		end = 0;		/* write error: break loop */
-		break;
-	    }
-	    nchars += bufsize;
-	    s = buffer;
-	    len = 0;
+	errmsg = NULL;
 
-	    ui_breakcheck();
-	    if (got_int)
-	    {
-		end = 0;		/* Interrupted, break loop */
-		break;
-	    }
-	}
-#ifdef VMS
+	write_info.bw_buf = buffer;
+	nchars = 0;
+
+	/* use "++bin", "++nobin" or 'binary' */
+	if (eap != NULL && eap->force_bin != 0)
+	    write_bin = (eap->force_bin == FORCE_BIN);
+	else
+	    write_bin = buf->b_p_bin;
+
+#ifdef FEAT_MBYTE
 	/*
-	 * On VMS there is a problem: newlines get added when writing blocks
-	 * at a time. Fix it by writing a line at a time.
-	 * This is much slower!
-	 * Explanation: VAX/DECC RTL insists that records in some RMS
-	 * structures end with a newline (carriage return) character, and if
-	 * they don't it adds one.
-	 * With other RMS structures it works perfect without this fix.
+	 * The BOM is written just after the encryption magic number.
+	 * Skip it when appending and the file already existed, the BOM only
+	 * makes sense at the start of the file.
 	 */
-	if (buf->b_fab_rfm == FAB$C_VFC
-		|| ((buf->b_fab_rat & (FAB$M_FTN | FAB$M_CR)) != 0))
+	if (buf->b_p_bomb && !write_bin && (!append || perm < 0))
 	{
-	    int b2write;
-
-	    buf->b_fab_mrs = (buf->b_fab_mrs == 0
-		    ? MIN(4096, bufsize)
-		    : MIN(buf->b_fab_mrs, bufsize));
-
-	    b2write = len;
-	    while (b2write > 0)
+	    write_info.bw_len = make_bom(buffer, fenc);
+	    if (write_info.bw_len > 0)
 	    {
-		write_info.bw_len = MIN(b2write, buf->b_fab_mrs);
+		/* don't convert, do encryption */
+		write_info.bw_flags = FIO_NOCONVERT | wb_flags;
+		if (buf_write_bytes(&write_info) == FAIL)
+		    end = 0;
+		else
+		    nchars += write_info.bw_len;
+	    }
+	}
+	write_info.bw_start_lnum = start;
+#endif
+
+#ifdef FEAT_PERSISTENT_UNDO
+	write_undo_file = (buf->b_p_udf
+			    && overwriting
+			    && !append
+			    && !filtering
+			    && reset_changed
+			    && !checking_conversion);
+	if (write_undo_file)
+	    /* Prepare for computing the hash value of the text. */
+	    sha256_start(&sha_ctx);
+#endif
+
+	write_info.bw_len = bufsize;
+#ifdef HAS_BW_FLAGS
+	write_info.bw_flags = wb_flags;
+#endif
+	fileformat = get_fileformat_force(buf, eap);
+	s = buffer;
+	len = 0;
+	for (lnum = start; lnum <= end; ++lnum)
+	{
+	    /*
+	     * The next while loop is done once for each character written.
+	     * Keep it fast!
+	     */
+	    ptr = ml_get_buf(buf, lnum, FALSE) - 1;
+#ifdef FEAT_PERSISTENT_UNDO
+	    if (write_undo_file)
+		sha256_update(&sha_ctx, ptr + 1,
+					      (UINT32_T)(STRLEN(ptr + 1) + 1));
+#endif
+	    while ((c = *++ptr) != NUL)
+	    {
+		if (c == NL)
+		    *s = NUL;		/* replace newlines with NULs */
+		else if (c == CAR && fileformat == EOL_MAC)
+		    *s = NL;		/* Mac: replace CRs with NLs */
+		else
+		    *s = c;
+		++s;
+		if (++len != bufsize)
+		    continue;
 		if (buf_write_bytes(&write_info) == FAIL)
 		{
-		    end = 0;
+		    end = 0;		/* write error: break loop */
 		    break;
 		}
-		b2write -= MIN(b2write, buf->b_fab_mrs);
+		nchars += bufsize;
+		s = buffer;
+		len = 0;
+#ifdef FEAT_MBYTE
+		write_info.bw_start_lnum = lnum;
+#endif
 	    }
-	    write_info.bw_len = bufsize;
-	    nchars += len;
-	    s = buffer;
-	    len = 0;
+	    /* write failed or last line has no EOL: stop here */
+	    if (end == 0
+		    || (lnum == end
+			&& (write_bin || !buf->b_p_fixeol)
+			&& (lnum == buf->b_no_eol_lnum
+			    || (lnum == buf->b_ml.ml_line_count
+							   && !buf->b_p_eol))))
+	    {
+		++lnum;			/* written the line, count it */
+		no_eol = TRUE;
+		break;
+	    }
+	    if (fileformat == EOL_UNIX)
+		*s++ = NL;
+	    else
+	    {
+		*s++ = CAR;		    /* EOL_MAC or EOL_DOS: write CR */
+		if (fileformat == EOL_DOS)  /* write CR-NL */
+		{
+		    if (++len == bufsize)
+		    {
+			if (buf_write_bytes(&write_info) == FAIL)
+			{
+			    end = 0;	/* write error: break loop */
+			    break;
+			}
+			nchars += bufsize;
+			s = buffer;
+			len = 0;
+		    }
+		    *s++ = NL;
+		}
+	    }
+	    if (++len == bufsize && end)
+	    {
+		if (buf_write_bytes(&write_info) == FAIL)
+		{
+		    end = 0;		/* write error: break loop */
+		    break;
+		}
+		nchars += bufsize;
+		s = buffer;
+		len = 0;
+
+		ui_breakcheck();
+		if (got_int)
+		{
+		    end = 0;		/* Interrupted, break loop */
+		    break;
+		}
+	    }
+#ifdef VMS
+	    /*
+	     * On VMS there is a problem: newlines get added when writing
+	     * blocks at a time. Fix it by writing a line at a time.
+	     * This is much slower!
+	     * Explanation: VAX/DECC RTL insists that records in some RMS
+	     * structures end with a newline (carriage return) character, and
+	     * if they don't it adds one.
+	     * With other RMS structures it works perfect without this fix.
+	     */
+	    if (buf->b_fab_rfm == FAB$C_VFC
+		    || ((buf->b_fab_rat & (FAB$M_FTN | FAB$M_CR)) != 0))
+	    {
+		int b2write;
+
+		buf->b_fab_mrs = (buf->b_fab_mrs == 0
+			? MIN(4096, bufsize)
+			: MIN(buf->b_fab_mrs, bufsize));
+
+		b2write = len;
+		while (b2write > 0)
+		{
+		    write_info.bw_len = MIN(b2write, buf->b_fab_mrs);
+		    if (buf_write_bytes(&write_info) == FAIL)
+		    {
+			end = 0;
+			break;
+		    }
+		    b2write -= MIN(b2write, buf->b_fab_mrs);
+		}
+		write_info.bw_len = bufsize;
+		nchars += len;
+		s = buffer;
+		len = 0;
+	    }
+#endif
 	}
-#endif
-    }
-    if (len > 0 && end > 0)
-    {
-	write_info.bw_len = len;
-	if (buf_write_bytes(&write_info) == FAIL)
-	    end = 0;		    /* write error */
-	nchars += len;
-    }
-
-#if defined(UNIX) && defined(HAVE_FSYNC)
-    /* On many journalling file systems there is a bug that causes both the
-     * original and the backup file to be lost when halting the system right
-     * after writing the file.  That's because only the meta-data is
-     * journalled.  Syncing the file slows down the system, but assures it has
-     * been written to disk and we don't lose it.
-     * For a device do try the fsync() but don't complain if it does not work
-     * (could be a pipe).
-     * If the 'fsync' option is FALSE, don't fsync().  Useful for laptops. */
-    if (p_fs && fsync(fd) != 0 && !device)
-    {
-	errmsg = (char_u *)_("E667: Fsync failed");
-	end = 0;
-    }
-#endif
-
-#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
-    /* Probably need to set the security context. */
-    if (!backup_copy)
-	mch_copy_sec(backup, wfname);
-#endif
-
-#ifdef UNIX
-    /* When creating a new file, set its owner/group to that of the original
-     * file.  Get the new device and inode number. */
-    if (backup != NULL && !backup_copy)
-    {
-# ifdef HAVE_FCHOWN
-	stat_T	st;
-
-	/* don't change the owner when it's already OK, some systems remove
-	 * permission or ACL stuff */
-	if (mch_stat((char *)wfname, &st) < 0
-		|| st.st_uid != st_old.st_uid
-		|| st.st_gid != st_old.st_gid)
+	if (len > 0 && end > 0)
 	{
-	    ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
-	    if (perm >= 0)	/* set permission again, may have changed */
-		(void)mch_setperm(wfname, perm);
+	    write_info.bw_len = len;
+	    if (buf_write_bytes(&write_info) == FAIL)
+		end = 0;		    /* write error */
+	    nchars += len;
 	}
-# endif
-	buf_setino(buf);
+
+	/* Stop when writing done or an error was encountered. */
+	if (!checking_conversion || end == 0)
+	    break;
+
+	/* If no error happened until now, writing should be ok, so loop to
+	 * really write the buffer. */
     }
-    else if (!buf->b_dev_valid)
-	/* Set the inode when creating a new file. */
-	buf_setino(buf);
+
+    /* If we started writing, finish writing. Also when an error was
+     * encountered. */
+    if (!checking_conversion)
+    {
+#if defined(UNIX) && defined(HAVE_FSYNC)
+	/*
+	 * On many journalling file systems there is a bug that causes both the
+	 * original and the backup file to be lost when halting the system
+	 * right after writing the file.  That's because only the meta-data is
+	 * journalled.  Syncing the file slows down the system, but assures it
+	 * has been written to disk and we don't lose it.
+	 * For a device do try the fsync() but don't complain if it does not
+	 * work (could be a pipe).
+	 * If the 'fsync' option is FALSE, don't fsync().  Useful for laptops.
+	 */
+	if (p_fs && fsync(fd) != 0 && !device)
+	{
+	    errmsg = (char_u *)_("E667: Fsync failed");
+	    end = 0;
+	}
 #endif
 #ifdef HAVE_COPYFILE
     if (!backup_copy && copyfile_state)
 	copyfile(NULL, (char*)wfname, copyfile_state, COPYFILE_XATTR);
 #endif
 
-    if (close(fd) != 0)
-    {
-	errmsg = (char_u *)_("E512: Close failed");
-	end = 0;
-    }
+#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
+	/* Probably need to set the security context. */
+	if (!backup_copy)
+	    mch_copy_sec(backup, wfname);
+#endif
 
 #ifdef UNIX
-    if (made_writable)
-	perm &= ~0200;		/* reset 'w' bit for security reasons */
-#endif
-    if (perm >= 0)		/* set perm. of new file same as old file */
-	(void)mch_setperm(wfname, perm);
-#ifdef HAVE_ACL
-    /*
-     * Probably need to set the ACL before changing the user (can't set the
-     * ACL on a file the user doesn't own).
-     * On Solaris, with ZFS and the aclmode property set to "discard" (the
-     * default), chmod() discards all part of a file's ACL that don't represent
-     * the mode of the file.  It's non-trivial for us to discover whether we're
-     * in that situation, so we simply always re-set the ACL.
-     */
-# ifndef HAVE_SOLARIS_ZFS_ACL
-    if (!backup_copy)
+	/* When creating a new file, set its owner/group to that of the
+	 * original file.  Get the new device and inode number. */
+	if (backup != NULL && !backup_copy)
+	{
+# ifdef HAVE_FCHOWN
+	    stat_T	st;
+
+	    /* don't change the owner when it's already OK, some systems remove
+	     * permission or ACL stuff */
+	    if (mch_stat((char *)wfname, &st) < 0
+		    || st.st_uid != st_old.st_uid
+		    || st.st_gid != st_old.st_gid)
+	    {
+		ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
+		if (perm >= 0)	/* set permission again, may have changed */
+		    (void)mch_setperm(wfname, perm);
+	    }
 # endif
-	mch_set_acl(wfname, acl);
+	    buf_setino(buf);
+	}
+	else if (!buf->b_dev_valid)
+	    /* Set the inode when creating a new file. */
+	    buf_setino(buf);
+#endif
+
+	if (close(fd) != 0)
+	{
+	    errmsg = (char_u *)_("E512: Close failed");
+	    end = 0;
+	}
+
+#ifdef UNIX
+	if (made_writable)
+	    perm &= ~0200;	/* reset 'w' bit for security reasons */
+#endif
+	if (perm >= 0)		/* set perm. of new file same as old file */
+	    (void)mch_setperm(wfname, perm);
+#ifdef HAVE_ACL
+	/*
+	 * Probably need to set the ACL before changing the user (can't set the
+	 * ACL on a file the user doesn't own).
+	 * On Solaris, with ZFS and the aclmode property set to "discard" (the
+	 * default), chmod() discards all part of a file's ACL that don't
+	 * represent the mode of the file.  It's non-trivial for us to discover
+	 * whether we're in that situation, so we simply always re-set the ACL.
+	 */
+# ifndef HAVE_SOLARIS_ZFS_ACL
+	if (!backup_copy)
+# endif
+	    mch_set_acl(wfname, acl);
 #endif
 #ifdef FEAT_CRYPT
-    if (buf->b_cryptstate != NULL)
-    {
-	crypt_free_state(buf->b_cryptstate);
-	buf->b_cryptstate = NULL;
-    }
+	if (buf->b_cryptstate != NULL)
+	{
+	    crypt_free_state(buf->b_cryptstate);
+	    buf->b_cryptstate = NULL;
+	}
 #endif
 
 #if defined(FEAT_MBYTE) && defined(FEAT_EVAL)
-    if (wfname != fname)
-    {
-	/*
-	 * The file was written to a temp file, now it needs to be converted
-	 * with 'charconvert' to (overwrite) the output file.
-	 */
-	if (end != 0)
+	if (wfname != fname)
 	{
-	    if (eval_charconvert(enc_utf8 ? (char_u *)"utf-8" : p_enc, fenc,
-						       wfname, fname) == FAIL)
+	    /*
+	     * The file was written to a temp file, now it needs to be
+	     * converted with 'charconvert' to (overwrite) the output file.
+	     */
+	    if (end != 0)
 	    {
-		write_info.bw_conv_error = TRUE;
-		end = 0;
+		if (eval_charconvert(enc_utf8 ? (char_u *)"utf-8" : p_enc,
+						  fenc, wfname, fname) == FAIL)
+		{
+		    write_info.bw_conv_error = TRUE;
+		    end = 0;
+		}
 	    }
+	    mch_remove(wfname);
+	    vim_free(wfname);
 	}
-	mch_remove(wfname);
-	vim_free(wfname);
-    }
 #endif
+    }
 
     if (end == 0)
     {
+	/*
+	 * Error encountered.
+	 */
 	if (errmsg == NULL)
 	{
 #ifdef FEAT_MBYTE
@@ -5178,10 +5238,6 @@ nofail:
 
     got_int |= prev_got_int;
 
-#ifdef MACOS_CLASSIC /* TODO: Is it need for MACOS_X? (Dany) */
-    /* Update machine specific information. */
-    mch_post_buffer_write(buf);
-#endif
     return retval;
 }
 
@@ -5727,6 +5783,10 @@ buf_write_bytes(struct bw_info *ip)
     }
 #endif /* FEAT_MBYTE */
 
+    if (ip->bw_fd < 0)
+	/* Only checking conversion, which is OK if we get here. */
+	return OK;
+
 #ifdef FEAT_CRYPT
     if (flags & FIO_ENCRYPTED)
     {
@@ -5947,7 +6007,7 @@ get_win_fio_flags(char_u *ptr)
 }
 #endif
 
-#ifdef MACOS_X
+#ifdef MACOS_CONVERT
 /*
  * Check "ptr" for a Carbon supported encoding and return the FIO_ flags
  * needed for the internal conversion to/from utf-8 or latin1.
@@ -6170,10 +6230,8 @@ shorten_fnames(int force)
 	 * also have a swap file. */
 	mf_fullname(buf->b_ml.ml_mfp);
     }
-#ifdef FEAT_WINDOWS
     status_redraw_all();
     redraw_tabline = TRUE;
-#endif
 }
 
 #if (defined(FEAT_DND) && defined(FEAT_GUI_GTK)) \
@@ -6856,15 +6914,16 @@ buf_check_timestamp(
      * this buffer. */
     if (buf->b_ffname == NULL
 	    || buf->b_ml.ml_mfp == NULL
-#if defined(FEAT_QUICKFIX)
 	    || *buf->b_p_bt != NUL
-#endif
 	    || buf->b_saving
 #ifdef FEAT_AUTOCMD
 	    || busy
 #endif
 #ifdef FEAT_NETBEANS_INTG
 	    || isNetbeansBuffer(buf)
+#endif
+#ifdef FEAT_TERMINAL
+	    || buf->b_term != NULL
 #endif
 	    )
 	return 0;
@@ -7707,6 +7766,8 @@ static struct event_name
     {"BufWritePost",	EVENT_BUFWRITEPOST},
     {"BufWritePre",	EVENT_BUFWRITEPRE},
     {"BufWriteCmd",	EVENT_BUFWRITECMD},
+    {"CmdlineEnter",	EVENT_CMDLINEENTER},
+    {"CmdlineLeave",	EVENT_CMDLINELEAVE},
     {"CmdwinEnter",	EVENT_CMDWINENTER},
     {"CmdwinLeave",	EVENT_CMDWINLEAVE},
     {"CmdUndefined",	EVENT_CMDUNDEFINED},
@@ -8837,7 +8898,7 @@ do_doautocmd(
     /*
      * Loop over the events.
      */
-    while (*arg && !VIM_ISWHITE(*arg))
+    while (*arg && !ends_excmd(*arg) && !VIM_ISWHITE(*arg))
 	if (apply_autocmds_group(event_name2nr(arg, &arg),
 				      fname, NULL, TRUE, group, curbuf, NULL))
 	    nothing_done = FALSE;
@@ -8935,9 +8996,7 @@ aucmd_prepbuf(
     buf_T	*buf)		/* new curbuf */
 {
     win_T	*win;
-#ifdef FEAT_WINDOWS
     int		save_ea;
-#endif
 #ifdef FEAT_AUTOCHDIR
     int		save_acd;
 #endif
@@ -8946,13 +9005,9 @@ aucmd_prepbuf(
     if (buf == curbuf)		/* be quick when buf is curbuf */
 	win = curwin;
     else
-#ifdef FEAT_WINDOWS
 	FOR_ALL_WINDOWS(win)
 	    if (win->w_buffer == buf)
 		break;
-#else
-	win = NULL;
-#endif
 
     /* Allocate "aucmd_win" when needed.  If this fails (out of memory) fall
      * back to using the current window. */
@@ -8998,7 +9053,6 @@ aucmd_prepbuf(
 	globaldir = NULL;
 
 
-#ifdef FEAT_WINDOWS
 	/* Split the current window, put the aucmd_win in the upper half.
 	 * We don't want the BufEnter or WinEnter autocommands. */
 	block_autocmds();
@@ -9006,20 +9060,19 @@ aucmd_prepbuf(
 	save_ea = p_ea;
 	p_ea = FALSE;
 
-# ifdef FEAT_AUTOCHDIR
+#ifdef FEAT_AUTOCHDIR
 	/* Prevent chdir() call in win_enter_ext(), through do_autochdir(). */
 	save_acd = p_acd;
 	p_acd = FALSE;
-# endif
+#endif
 
 	(void)win_split_ins(0, WSP_TOP, aucmd_win, 0);
 	(void)win_comp_pos();   /* recompute window positions */
 	p_ea = save_ea;
-# ifdef FEAT_AUTOCHDIR
+#ifdef FEAT_AUTOCHDIR
 	p_acd = save_acd;
-# endif
-	unblock_autocmds();
 #endif
+	unblock_autocmds();
 	curwin = aucmd_win;
     }
     curbuf = buf;
@@ -9036,14 +9089,11 @@ aucmd_prepbuf(
 aucmd_restbuf(
     aco_save_T	*aco)		/* structure holding saved values */
 {
-#ifdef FEAT_WINDOWS
     int dummy;
-#endif
 
     if (aco->use_aucmd_win)
     {
 	--curbuf->b_nwindows;
-#ifdef FEAT_WINDOWS
 	/* Find "aucmd_win", it can't be closed, but it may be in another tab
 	 * page. Do not trigger autocommands here. */
 	block_autocmds();
@@ -9084,12 +9134,9 @@ win_found:
 	else
 	    /* Hmm, original window disappeared.  Just use the first one. */
 	    curwin = firstwin;
-# ifdef FEAT_EVAL
+#ifdef FEAT_EVAL
 	vars_clear(&aucmd_win->w_vars->dv_hashtab);  /* free all w: variables */
 	hash_init(&aucmd_win->w_vars->dv_hashtab);   /* re-use the hashtab */
-# endif
-#else
-	curwin = aco->save_curwin;
 #endif
 	curbuf = curwin->w_buffer;
 
@@ -9115,9 +9162,7 @@ win_found:
     else
     {
 	/* restore curwin */
-#ifdef FEAT_WINDOWS
 	if (win_valid(aco->save_curwin))
-#endif
 	{
 	    /* Restore the buffer which was previously edited by curwin, if
 	     * it was changed, we are still the same window and the buffer is
@@ -9354,12 +9399,14 @@ apply_autocmds_group(
 #endif
     int		did_save_redobuff = FALSE;
     save_redo_T	save_redo;
+    int		save_KeyTyped = KeyTyped;
 
     /*
      * Quickly return if there are no autocommands for this event or
      * autocommands are blocked.
      */
-    if (first_autopat[(int)event] == NULL || autocmd_blocked > 0)
+    if (event == NUM_EVENTS || first_autopat[(int)event] == NULL
+	    || autocmd_blocked > 0)
 	goto BYPASS_AU;
 
     /*
@@ -9432,7 +9479,7 @@ apply_autocmds_group(
     {
 	if (event == EVENT_COLORSCHEME || event == EVENT_OPTIONSET)
 	    autocmd_fname = NULL;
-	else if (fname != NULL && *fname != NUL)
+	else if (fname != NULL && !ends_excmd(*fname))
 	    autocmd_fname = fname;
 	else if (buf != NULL)
 	    autocmd_fname = buf->b_ffname;
@@ -9649,6 +9696,7 @@ apply_autocmds_group(
 	prof_child_exit(&wait_time);
 # endif
 #endif
+    KeyTyped = save_KeyTyped;
     vim_free(fname);
     vim_free(sfname);
     --nesting;		/* see matching increment above */

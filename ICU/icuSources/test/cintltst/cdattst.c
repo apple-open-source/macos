@@ -1945,8 +1945,8 @@ typedef struct {
 
 static const StandardPatternItem stdPatternItems[] = {
     { "en_JP", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10" },
-    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
-    { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
+    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 5:10 AM" },
+    { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 5:10 AM" },
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };

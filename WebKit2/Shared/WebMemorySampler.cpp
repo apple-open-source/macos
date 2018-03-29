@@ -70,7 +70,7 @@ void WebMemorySampler::start(const double interval)
     initializeTimers(interval);
 }
 
-void WebMemorySampler::start(const SandboxExtension::Handle& sampleLogFileHandle, const String& sampleLogFilePath, const double interval) 
+void WebMemorySampler::start(SandboxExtension::Handle&& sampleLogFileHandle, const String& sampleLogFilePath, const double interval)
 {
     if (m_isRunning) 
         return;
@@ -81,7 +81,7 @@ void WebMemorySampler::start(const SandboxExtension::Handle& sampleLogFileHandle
         return;
     }
         
-    initializeSandboxedLogFile(sampleLogFileHandle, sampleLogFilePath);
+    initializeSandboxedLogFile(WTFMove(sampleLogFileHandle), sampleLogFilePath);
     initializeTimers(interval);
    
 }
@@ -104,7 +104,7 @@ void WebMemorySampler::stop()
     if (!m_isRunning) 
         return;
     m_sampleTimer.stop();
-    closeFile(m_sampleLogFile);
+    FileSystem::closeFile(m_sampleLogFile);
 
     printf("Stopped memory sampler for process %s %d\n", processName().utf8().data(), getpid());
     // Flush stdout buffer so python script can be guaranteed to read up to this point.
@@ -127,17 +127,17 @@ bool WebMemorySampler::isRunning() const
     
 void WebMemorySampler::initializeTempLogFile()
 {
-    m_sampleLogFilePath = openTemporaryFile(processName(), m_sampleLogFile);
+    m_sampleLogFilePath = FileSystem::openTemporaryFile(processName(), m_sampleLogFile);
     writeHeaders();
 }
 
-void WebMemorySampler::initializeSandboxedLogFile(const SandboxExtension::Handle& sampleLogSandboxHandle, const String& sampleLogFilePath)
+void WebMemorySampler::initializeSandboxedLogFile(SandboxExtension::Handle&& sampleLogSandboxHandle, const String& sampleLogFilePath)
 {
-    m_sampleLogSandboxExtension = SandboxExtension::create(sampleLogSandboxHandle);
+    m_sampleLogSandboxExtension = SandboxExtension::create(WTFMove(sampleLogSandboxHandle));
     if (m_sampleLogSandboxExtension)
         m_sampleLogSandboxExtension->consume();
     m_sampleLogFilePath = sampleLogFilePath;
-    m_sampleLogFile = openFile(m_sampleLogFilePath, OpenForWrite);
+    m_sampleLogFile = FileSystem::openFile(m_sampleLogFilePath, FileSystem::FileOpenMode::Write);
     writeHeaders();
 }
 
@@ -146,7 +146,7 @@ void WebMemorySampler::writeHeaders()
     String processDetails = String::format("Process: %s Pid: %d\n", processName().utf8().data(), getpid());
 
     CString utf8String = processDetails.utf8();
-    writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
+    FileSystem::writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
 }
 
 void WebMemorySampler::sampleTimerFired()
@@ -163,7 +163,7 @@ void WebMemorySampler::stopTimerFired()
     stop();
 }
 
-void WebMemorySampler::appendCurrentMemoryUsageToFile(PlatformFileHandle&)
+void WebMemorySampler::appendCurrentMemoryUsageToFile(FileSystem::PlatformFileHandle&)
 {
     // Collect statistics from allocators and get RSIZE metric
     StringBuilder statString;
@@ -182,7 +182,7 @@ void WebMemorySampler::appendCurrentMemoryUsageToFile(PlatformFileHandle&)
     statString.append('\n');
 
     CString utf8String = statString.toString().utf8();
-    writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
+    FileSystem::writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
 }
 
 }

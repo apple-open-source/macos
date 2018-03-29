@@ -39,6 +39,9 @@
 // Insert yourself as high up the linearized list of dependencies as possible
 - (void)linearDependenciesWithSelfFirst:(NSHashTable*)collection;
 
+// Set completionBlock to remove all dependencies - break strong references.
+- (void)removeDependenciesUponCompletion;
+
 // Return a stringified representation of this operation's live dependencies.
 - (NSString*)pendingDependenciesString:(NSString*)prefix;
 @end

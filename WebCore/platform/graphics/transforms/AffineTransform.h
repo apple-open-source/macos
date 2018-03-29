@@ -34,14 +34,16 @@
 
 #if USE(CG)
 typedef struct CGAffineTransform CGAffineTransform;
-#elif USE(CAIRO)
-#include <cairo.h>
 #endif
 
 #if PLATFORM(WIN)
 struct D2D_MATRIX_3X2_F;
 typedef D2D_MATRIX_3X2_F D2D1_MATRIX_3X2_F;
 #endif
+
+namespace WTF {
+class TextStream;
+}
 
 namespace WebCore {
 
@@ -52,7 +54,6 @@ class FloatSize;
 class IntPoint;
 class IntSize;
 class IntRect;
-class TextStream;
 class TransformationMatrix;
 
 class AffineTransform {
@@ -109,12 +110,13 @@ public:
     WEBCORE_EXPORT AffineTransform& multiply(const AffineTransform& other);
     WEBCORE_EXPORT AffineTransform& scale(double);
     AffineTransform& scale(double sx, double sy); 
-    WEBCORE_EXPORT AffineTransform& scaleNonUniform(double sx, double sy);
+    WEBCORE_EXPORT AffineTransform& scaleNonUniform(double sx, double sy); // Same as scale(sx, sy).
     WEBCORE_EXPORT AffineTransform& scale(const FloatSize&);
     WEBCORE_EXPORT AffineTransform& rotate(double);
     AffineTransform& rotateFromVector(double x, double y);
     WEBCORE_EXPORT AffineTransform& translate(double tx, double ty);
     WEBCORE_EXPORT AffineTransform& translate(const FloatPoint&);
+    WEBCORE_EXPORT AffineTransform& translate(const FloatSize&);
     WEBCORE_EXPORT AffineTransform& shear(double sx, double sy);
     WEBCORE_EXPORT AffineTransform& flipX();
     WEBCORE_EXPORT AffineTransform& flipY();
@@ -177,8 +179,6 @@ public:
 
 #if USE(CG)
     WEBCORE_EXPORT operator CGAffineTransform() const;
-#elif USE(CAIRO)
-    operator cairo_matrix_t() const;
 #endif
 
 #if PLATFORM(WIN)
@@ -207,7 +207,7 @@ private:
 
 WEBCORE_EXPORT AffineTransform makeMapBetweenRects(const FloatRect& source, const FloatRect& dest);
 
-WEBCORE_EXPORT TextStream& operator<<(TextStream&, const AffineTransform&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const AffineTransform&);
 
 }
 

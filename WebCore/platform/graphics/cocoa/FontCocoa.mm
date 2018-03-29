@@ -28,16 +28,15 @@
 #import "Font.h"
 
 #import "Color.h"
-#import "CoreGraphicsSPI.h"
-#import "CoreTextSPI.h"
 #import "FloatRect.h"
 #import "FontCache.h"
 #import "FontCascade.h"
 #import "FontDescription.h"
 #import "OpenTypeCG.h"
 #import "SharedBuffer.h"
-#import "WebCoreSystemInterface.h"
 #import <float.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <pal/spi/cocoa/CoreTextSPI.h>
 #import <unicode/uchar.h>
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
@@ -206,8 +205,7 @@ void Font::platformCharWidthInit()
 {
     m_avgCharWidth = 0;
     m_maxCharWidth = 0;
-    
-#if PLATFORM(MAC)
+
     auto os2Table = adoptCF(CTFontCopyTable(m_platformData.font(), kCTFontTableOS2, kCTFontTableOptionNoOptions));
     if (os2Table && CFDataGetLength(os2Table.get()) >= 4) {
         const UInt8* os2 = CFDataGetBytePtr(os2Table.get());
@@ -225,7 +223,6 @@ void Font::platformCharWidthInit()
         float diff = static_cast<float>(xMax - xMin);
         m_maxCharWidth = scaleEmToUnits(diff, m_fontMetrics.unitsPerEm()) * m_platformData.size();
     }
-#endif
 
     // Fallback to a cross-platform estimate, which will populate these values if they are non-positive.
     initCharWidths();

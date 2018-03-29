@@ -99,6 +99,7 @@ enum
     errSecFailedToSendIDSMessage = -25334,  /* Failed to send IDS message. */
     errSecDeviceIDNoMatch        = -25335,  /* The provided device ID does not match any device IDs in the ids account. */
     errSecPeersNotAvailable      = -25336,  /* No peers in the circle are available/online. */
+    errSecErrorStringNotAvailable= -25337,  /* Unable to load error string for error */
 };
 
 // Guard for CFNetwork
@@ -110,7 +111,17 @@ const char *cssmErrorString(CSSM_RETURN error)
 #endif
 
 OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    API_AVAILABLE(macos(10.4), ios(NA), bridgeos(NA));
+
+/*
+ * For used when running in root session as a agent/daemon and want to redirect to
+ * a background user session. This call must be called before any Sec calls are done,
+ * so very early in main().
+ *
+ * This only apply to MacOS where background session exists.
+ */
+void _SecSetSecuritydTargetUID(uid_t uid);
+
 
 __END_DECLS
 

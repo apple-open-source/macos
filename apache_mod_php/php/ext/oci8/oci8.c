@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -509,6 +509,10 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_oci_register_taf_callback, 0, 0, 1)
 	ZEND_ARG_INFO(0, connection_resource)
 	ZEND_ARG_INFO(0, function_name)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_oci_unregister_taf_callback, 0, 0, 1)
+	ZEND_ARG_INFO(0, connection_resource)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ LOB Method arginfo */
@@ -707,6 +711,7 @@ PHP_FUNCTION(oci_collection_size);
 PHP_FUNCTION(oci_collection_max);
 PHP_FUNCTION(oci_collection_trim);
 PHP_FUNCTION(oci_register_taf_callback);
+PHP_FUNCTION(oci_unregister_taf_callback);
 /* }}} */
 
 /* {{{ extension definition structures
@@ -790,6 +795,7 @@ static const zend_function_entry php_oci_functions[] = {
 	PHP_FE(oci_collection_trim,			arginfo_oci_collection_trim)
 	PHP_FE(oci_new_collection,			arginfo_oci_new_collection)
 	PHP_FE(oci_register_taf_callback,   arginfo_oci_register_taf_callback)
+	PHP_FE(oci_unregister_taf_callback, arginfo_oci_unregister_taf_callback)
 
 	PHP_FALIAS(oci_free_cursor,		oci_free_statement,		arginfo_oci_free_statement)
 	PHP_FALIAS(ocifreecursor,		oci_free_statement,		arginfo_oci_free_statement)
@@ -1396,6 +1402,8 @@ void php_oci_define_hash_dtor(zval *data)
 		define->name = NULL;
 	}
 
+	zval_ptr_dtor(&define->val);
+
     efree(define);
 }
 /* }}} */
@@ -1408,9 +1416,9 @@ void php_oci_bind_hash_dtor(zval *data)
 {
 	php_oci_bind *bind = (php_oci_bind *) Z_PTR_P(data);
 
-	if (!Z_ISUNDEF(bind->parameter)) {
-		zval_ptr_dtor(&bind->parameter);
-		ZVAL_UNDEF(&bind->parameter);
+	if (!Z_ISUNDEF(bind->val)) {
+		zval_ptr_dtor(&bind->val);
+		ZVAL_UNDEF(&bind->val);
 	}
 
 	if (bind->array.elements) {
@@ -2636,7 +2644,7 @@ void php_oci_fetch_row (INTERNAL_FUNCTION_PARAMETERS, int mode, int expected_arg
 	if (placeholder == NULL) {
 		placeholder = return_value;
 	} else {
-		zval_dtor(placeholder);
+		zval_ptr_dtor(placeholder);
 	}
 
 	array_init(placeholder);
@@ -2702,7 +2710,7 @@ static int php_oci_persistent_helper(zval *zv)
 
 		/* Remove TAF callback function as it's bound to current request */
 		if (connection->used_this_request && !Z_ISUNDEF(connection->taf_callback) && !Z_ISNULL(connection->taf_callback)) {
-			php_oci_disable_taf_callback(connection);
+			php_oci_unregister_taf_callback(connection);
 		}
 
 		if (!connection->used_this_request && OCI_G(persistent_timeout) != -1) {

@@ -688,3 +688,133 @@ finish:
     SAFE_RELEASE(unstagedKexts);
     return finalKexts;
 }
+
+NSURL *
+createURLWithoutPrefix(NSURL *url, NSString *prefix)
+{
+    if (![url.path hasPrefix:prefix]) {
+        return url;
+    }
+
+    NSMutableArray *components = [NSMutableArray arrayWithObject:@"/"];
+    NSRange prefixRange = NSMakeRange(prefix.pathComponents.count,
+                                      url.pathComponents.count - prefix.pathComponents.count);
+    NSArray *sourceComponents = [url.pathComponents subarrayWithRange:prefixRange];
+    [components addObjectsFromArray:sourceComponents];
+    return [NSURL fileURLWithPathComponents:components];
+}
+
+Boolean
+pruneStagingDirectoryHelper(NSString *stagingRoot)
+{
+    Boolean success = true;
+    NSError *error = nil;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSDirectoryEnumerator *enumerator = nil;
+    NSArray<NSURLResourceKey> *keys = @[NSURLIsDirectoryKey];
+    NSMutableArray *kextsToCheck = [NSMutableArray array];
+
+    NSURL *stagingBaseURL = [NSURL fileURLWithPath:stagingRoot isDirectory:YES];
+
+    enumerator = [fm enumeratorAtURL:stagingBaseURL
+          includingPropertiesForKeys:keys
+                             options:(NSDirectoryEnumerationOptions)0
+                        errorHandler:^(NSURL *url, NSError *error) {
+                            OSKextLogCFString(NULL,
+                                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                              CFSTR("Error pruning staging area: %@, %@"),
+                                              url.path, error);
+                            return YES;
+                        }];
+
+    for (NSURL *url in enumerator) {
+        NSNumber *isDirectory = nil;
+
+        if ([url getResourceValue:&isDirectory forKey:NSURLIsDirectoryKey error:nil]) {
+            if (isDirectory && isDirectory.boolValue) {
+                if ([url.lastPathComponent.pathExtension isEqualToString:@"kext"]) {
+                    [kextsToCheck addObject:url];
+                    [enumerator skipDescendants];
+                }
+            }
+        }
+    }
+
+    for (NSURL *stagedURL in kextsToCheck) {
+        NSURL *parentURL = nil;
+        NSURL *unstagedURL = nil;
+
+        // Check if it still exists on the filesystem.
+        unstagedURL = createURLWithoutPrefix(stagedURL, stagingRoot);
+        if ([fm fileExistsAtPath:unstagedURL.path]) {
+            continue;
+        }
+
+        // If not, remove it.
+        OSKextLogCFString(NULL,
+                          kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
+                          CFSTR("Pruning deleted kernel extension: %@"),
+                          unstagedURL.path);
+        if (![fm removeItemAtURL:stagedURL error:&error]) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("Unable to delete kernel extension: %@, %@"),
+                              stagedURL.path, error);
+        }
+
+        // Then walk up directories to see if we need to remove empty parents.
+        parentURL = [stagedURL URLByDeletingLastPathComponent];
+        while ([stagedURL isNotEqualTo:parentURL]) {
+            NSArray *contents = [fm contentsOfDirectoryAtPath:parentURL.path error:&error];
+
+            // If parent is now empty, remove it...otherwise, move on to the next kext.
+            if (contents.count == 0) {
+                if (![fm removeItemAtURL:parentURL error:&error]) {
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                      CFSTR("Unable to delete empty staging directory: %@, %@"),
+                                      parentURL.path, error);
+                }
+                parentURL = [parentURL URLByDeletingLastPathComponent];
+            } else {
+                break;
+            }
+        }
+    }
+
+    return success;
+}
+
+Boolean
+pruneStagingDirectory(void)
+{
+    return pruneStagingDirectoryHelper(@SECURE_KEXT_STAGING_PATH);
+}
+
+Boolean
+clearStagingDirectoryHelper(NSString *stagingRoot)
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSURL *baseURL = [NSURL fileURLWithPath:stagingRoot isDirectory:YES];
+
+    // Enumerate all directories in the top-level staging directory and remove them.
+    NSArray *contents = [fm contentsOfDirectoryAtPath:stagingRoot error:nil];
+    for (NSString *itemName in contents) {
+        NSError *error = nil;
+        NSURL *itemURL = [baseURL URLByAppendingPathComponent:itemName];
+
+        if (![fm removeItemAtURL:itemURL error:&error]) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("Unable to delete extension: %@, %@"),
+                              itemURL.path, error);
+        }
+    }
+    return true;
+}
+
+Boolean
+clearStagingDirectory(void)
+{
+    return clearStagingDirectoryHelper(@SECURE_KEXT_STAGING_PATH);
+}

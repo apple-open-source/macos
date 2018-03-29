@@ -156,6 +156,8 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSLinearGradientValue>(*this, other);
         case RadialGradientClass:
             return compareCSSValues<CSSRadialGradientValue>(*this, other);
+        case ConicGradientClass:
+            return compareCSSValues<CSSConicGradientValue>(*this, other);
         case CrossfadeClass:
             return compareCSSValues<CSSCrossfadeValue>(*this, other);
         case ImageClass:
@@ -254,6 +256,8 @@ String CSSValue::cssText() const
         return downcast<CSSLinearGradientValue>(*this).customCSSText();
     case RadialGradientClass:
         return downcast<CSSRadialGradientValue>(*this).customCSSText();
+    case ConicGradientClass:
+        return downcast<CSSConicGradientValue>(*this).customCSSText();
     case CrossfadeClass:
         return downcast<CSSCrossfadeValue>(*this).customCSSText();
     case ImageClass:
@@ -359,6 +363,9 @@ void CSSValue::destroy()
     case RadialGradientClass:
         delete downcast<CSSRadialGradientValue>(this);
         return;
+    case ConicGradientClass:
+        delete downcast<CSSConicGradientValue>(this);
+        return;
     case CrossfadeClass:
         delete downcast<CSSCrossfadeValue>(this);
         return;
@@ -452,15 +459,15 @@ void CSSValue::destroy()
     ASSERT_NOT_REACHED();
 }
 
-Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper() const
+Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper(CSSStyleDeclaration& styleDeclaration) const
 {
     if (isImageValue() || isCursorImageValue())
-        return downcast<CSSImageValue>(this)->createDeprecatedCSSOMWrapper();
+        return downcast<CSSImageValue>(this)->createDeprecatedCSSOMWrapper(styleDeclaration);
     if (isPrimitiveValue())
-        return DeprecatedCSSOMPrimitiveValue::create(downcast<CSSPrimitiveValue>(*this));
+        return DeprecatedCSSOMPrimitiveValue::create(downcast<CSSPrimitiveValue>(*this), styleDeclaration);
     if (isValueList())
-        return DeprecatedCSSOMValueList::create(downcast<CSSValueList>(*this));
-    return DeprecatedCSSOMComplexValue::create(*this);
+        return DeprecatedCSSOMValueList::create(downcast<CSSValueList>(*this), styleDeclaration);
+    return DeprecatedCSSOMComplexValue::create(*this, styleDeclaration);
 }
 
 bool CSSValue::treatAsInheritedValue(CSSPropertyID propertyID) const

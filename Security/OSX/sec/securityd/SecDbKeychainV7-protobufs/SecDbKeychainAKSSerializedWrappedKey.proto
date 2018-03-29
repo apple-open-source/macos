@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+message SecDbKeychainSerializedAKSWrappedKey {
+    required bytes wrappedKey = 1;
+    optional bytes refKeyBlob = 2;
+    required uint32 type = 3;
+}

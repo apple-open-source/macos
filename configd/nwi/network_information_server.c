@@ -395,7 +395,7 @@ add_state_handler()
 		if (state_data_size > MAX_STATEDUMP_SIZE) {
 			SC_log(LOG_ERR, "Network information : state data too large (%zd > %zd)",
 			       state_data_size,
-			       MAX_STATEDUMP_SIZE);
+			       (size_t)MAX_STATEDUMP_SIZE);
 			return NULL;
 		}
 

@@ -39,6 +39,7 @@
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <pthread.h>
+#include <notify.h>
 
 #include "PMSettings.h"
 #include "BatteryTimeRemaining.h"
@@ -53,6 +54,7 @@
 #define kIOPMAppName        CFSTR("PowerManagement configd")
 #define kIOPMSCPrefsFile    "/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist"
 
+#define kAlarmDataKey        CFSTR("AlarmData")
 os_log_t pmSettings_log = NULL;
 #undef   LOG_STREAM
 #define  LOG_STREAM   pmSettings_log
@@ -77,15 +79,6 @@ enum {
  */
 static CFDictionaryRef                  energySettings = NULL;
 
-/*
- * Cached settings
- * These are cached at the start of powerd to set the
- * values after the features are published. Without this caching,
- * any call to set preferences will remove values for features
- * that are not yet published by the kexts. This results in loss
- * of user set values.
- */
-static CFMutableDictionaryRef           bootTimePrefs = NULL;
 
 /* Global - currentPowerSource
  * Keeps track of current power - battery or AC
@@ -114,9 +107,8 @@ static IOReturn activate_profiles(
         bool                            removeUnsupported);
 static IOReturn PMActivateSystemPowerSettings( void );
 
-static CFMutableDictionaryRef  copyBootTimePrefs();
-static void mergeBootTimePrefs(void);
-static void updatePowerNapSetting(CFMutableDictionaryRef prefs);
+static void  migrateSCPrefs();
+static void updatePowerNapSetting(void);
 
 
 
@@ -282,6 +274,18 @@ setDisplaySleepFactor(unsigned int factor)
 
     setDisplayToDimTimer(IO_OBJECT_NULL, displaySleepTimer);
 }
+
+__private_extern__ void saveAlarmInfo(CFDictionaryRef info)
+{
+    CFPreferencesSetValue(kAlarmDataKey, info, CFSTR(kIOPMCFPrefsPath), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    CFPreferencesSynchronize(CFSTR(kIOPMCFPrefsPath), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+}
+
+__private_extern__ CFDictionaryRef copyAlarmInfo()
+{
+    return CFPreferencesCopyValue(kAlarmDataKey, CFSTR(kIOPMCFPrefsPath), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+}
+
 
 
 // Providing activateSettingsOverrides to PMAssertions.c
@@ -508,13 +512,14 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
     CFURLRef    url = NULL;
     Boolean createFile = false;
     Boolean haveFile = false;
+	Boolean deleteFile = false;
     struct stat statBuf;
     char    path[MAXPATHLEN];
     int        fd;
     long long    size;
     size_t    len;
     fstore_t    prealloc;
-    off_t    filesize;
+    off_t    filesize = 0;
     off_t    minFileSize = 0;
     off_t    maxFileSize = 0;
     bool     apo_available = false;
@@ -529,29 +534,20 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
         return 0;
     }
 
-    if ((modeNum = CFDictionaryGetValue(dict, CFSTR(kIOHibernateModeKey)))
-        && isA_CFNumber(modeNum))
+    if ((modeNum = CFDictionaryGetValue(dict, CFSTR(kIOHibernateModeKey))) && isA_CFNumber(modeNum))
         CFNumberGetValue(modeNum, kCFNumberSInt32Type, &modeValue);
     else
         modeNum = NULL;
 
     apo_available = IOPMFeatureIsAvailable(CFSTR(kIOPMAutoPowerOffEnabledKey), NULL);
-    if (apo_available &&
-        (apo_enabled_cf = CFDictionaryGetValue(dict, CFSTR(kIOPMAutoPowerOffEnabledKey ))) &&
-        isA_CFNumber(apo_enabled_cf))
+    if (apo_available && (apo_enabled_cf = CFDictionaryGetValue(dict, CFSTR(kIOPMAutoPowerOffEnabledKey ))) && isA_CFNumber(apo_enabled_cf))
     {
         CFNumberGetValue(apo_enabled_cf, kCFNumberSInt32Type, &apo_enabled);
     }
 
-    if ((modeValue || (apo_available && apo_enabled))
-        && (obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey)))
-        && isA_CFString(obj))
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey))) && isA_CFString(obj))
         do
         {
-            url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, obj, kCFURLPOSIXPathStyle, true);
-
-            if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *) path, MAXPATHLEN))
-                break;
 
             len = sizeof(size);
             if (sysctlbyname("hw.memsize", &size, &len, NULL, 0))
@@ -569,24 +565,32 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
             minFileSize = filesize;
             maxFileSize = 0;
 
-            if (0 != stat(path, &statBuf)) createFile = true;
-            else
-            {
+            url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, obj, kCFURLPOSIXPathStyle, true);
+
+            if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *) path, MAXPATHLEN))
+                break;
+
+            if (0 != stat(path, &statBuf)) {
+				createFile = true;
+			} else {
                 if ((S_IFBLK == (S_IFMT & statBuf.st_mode))
-                    || (S_IFCHR == (S_IFMT & statBuf.st_mode)))
-                {
+                    || (S_IFCHR == (S_IFMT & statBuf.st_mode))) {
                     haveFile = true;
-                }
-                else if (S_IFREG == (S_IFMT & statBuf.st_mode))
-                {
+                } else if (S_IFREG == (S_IFMT & statBuf.st_mode)) {
                     if ((statBuf.st_size == filesize) || (kIOHibernateModeFileResize & modeValue))
                         haveFile = true;
                     else
                         createFile = true;
-                }
-                else
+                } else {
                     break;
+				}
             }
+
+			if (!(modeValue || (apo_available && apo_enabled))) {
+				INFO_LOG("sleepimage file flagged for deletion\n");
+				deleteFile = true;
+				break;
+			}
 
             if (createFile)
             {
@@ -702,8 +706,11 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
                 break;
 
             IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
-        }
-    while (false);
+        } while (false);
+
+	if (haveFile && deleteFile) {
+			unlink(path);
+	}
 
     if (modeNum)
         IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateModeKey), modeNum);
@@ -1115,8 +1122,8 @@ __private_extern__ void PMSettings_prime(void)
 {
 
     pmSettings_log = os_log_create(PM_LOG_SYSTEM, PMSETTINGS_LOG);
-    bootTimePrefs = copyBootTimePrefs();
-    updatePowerNapSetting(bootTimePrefs);
+    migrateSCPrefs();
+    updatePowerNapSetting();
 
     // Open a connection to the Power Manager.
     gPowerManager = IOPMFindPowerManagement(MACH_PORT_NULL);
@@ -1137,9 +1144,6 @@ __private_extern__ void PMSettings_prime(void)
     } else {
         currentPowerSource = CFSTR(kIOPMACPowerKey);
     }
-
-    // Merge bootTimePrefs to any current settings
-    mergeBootTimePrefs();
 
     // load the initial configuration from the database
     energySettings = IOPMCopyActivePMPreferences();
@@ -1162,37 +1166,26 @@ PMSettingsSupportedPrefsListHasChanged(void)
 {
     // The "supported prefs have changed" notification is generated 
     // by a kernel driver annnouncing a new supported feature, or unloading
-    // and removing support. Let's re-evaluate our known settings.
-    // First check if cached settings can be applied to newly discovered features
+    // and removing support. Force trigger prefernces re-evaluation
 
-    mergeBootTimePrefs();
-    PMSettingsPrefsHaveChanged();    
+    notify_post(kIOPMPrefsChangeNotify);
 }
 
-static void updatePowerNapSetting(CFMutableDictionaryRef prefs)
+static void updatePowerNapSetting( )
 {
     char     *model = NULL;
     uint32_t majorRev;
     uint32_t minorRev;
     IOReturn rc;
 
+    CFMutableDictionaryRef prefs = NULL;
     CFDictionaryRef systemSettings = NULL; 
     CFMutableDictionaryRef prefsForSrc;
-
-    if (!prefs) {
-        INFO_LOG("No prefs to update\n");
-        return;
-    }
-    prefsForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(prefs, CFSTR(kIOPMACPowerKey));
-    if (!isA_CFDictionary(prefsForSrc)) {
-        INFO_LOG("Invalid prefs found\n");
-        goto exit;
-    }
 
     rc = IOCopyModel(&model, &majorRev, &minorRev);
     if (rc != kIOReturnSuccess) {
         INFO_LOG("Failed to get the model name\n");
-        return;
+        goto exit;
     }
 
     systemSettings = IOPMCopySystemPowerSettings();
@@ -1207,6 +1200,19 @@ static void updatePowerNapSetting(CFMutableDictionaryRef prefs)
         ERROR_LOG("Failed to set system setting 'UpdateDarkWakeBGSetting'. rc=0x%x\n", rc);
         goto exit;
     }
+
+    prefs = IOPMCopyPreferencesOnFile();
+    if (!prefs) {
+        INFO_LOG("No prefs to update\n");
+        goto exit;
+    }
+
+    prefsForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(prefs, CFSTR(kIOPMACPowerKey));
+    if (!isA_CFDictionary(prefsForSrc)) {
+        INFO_LOG("Invalid prefs found\n");
+        goto exit;
+    }
+
 
     // Remove any autopower off delay settings
     IOPMSetPMPreference(CFSTR(kIOPMAutoPowerOffDelayKey), NULL, NULL);
@@ -1240,6 +1246,10 @@ exit:
     }
     if (model != NULL) {
         free(model);
+    }
+    if (prefs) {
+        IOPMSetPMPreferences(prefs);
+        CFRelease(prefs);
     }
     return;
 }
@@ -1286,63 +1296,6 @@ exit:
     return modified;
 }
 
-// Merge existing settings with any cached at boot.
-// These cached settings may have values for features that are
-// not yet published or just published
-void mergeBootTimePrefs(void)
-{
-    CFMutableDictionaryRef currentForSrc, cachedForSrc;
-    CFMutableDictionaryRef currentPrefs = NULL;
-    bool modified = false;
-    bool prefsUpdated = false;
-
-    if (!bootTimePrefs) {
-        return;
-    }
-
-    currentPrefs = IOPMCopyPMPreferences();
-    INFO_LOG("Saved prefs: %@\n", currentPrefs);
-
-    if (!isA_CFDictionary(currentPrefs)) {
-        return;
-    }
-
-    CFStringRef pwrSrc[] = {CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), CFSTR(kIOPMUPSPowerKey)};
-
-    for (int i = 0; i < sizeof(pwrSrc)/sizeof(pwrSrc[0]); i++) {
-
-        currentForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(currentPrefs, pwrSrc[i]);
-        cachedForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(bootTimePrefs, pwrSrc[i]);
-
-        if (isA_CFDictionary(currentForSrc) && isA_CFDictionary(cachedForSrc)) {
-            modified = mergePrefsForSrc(currentForSrc, cachedForSrc);
-
-            INFO_LOG("Merging cached prefs for src %@ to: %@\n", pwrSrc[i], currentForSrc);
-            if(modified) {
-                CFDictionarySetValue(currentPrefs, pwrSrc[i], currentForSrc);
-                prefsUpdated = true;
-            }
-
-            if (CFDictionaryGetCount(cachedForSrc) == 0) {
-                CFDictionaryRemoveValue(bootTimePrefs, pwrSrc[i]);
-            }
-        }
-    }
-
-
-    if (CFDictionaryGetCount(bootTimePrefs) == 0) {
-        CFRelease(bootTimePrefs);
-        bootTimePrefs = NULL;
-    }
-
-    if (prefsUpdated) {
-        IOPMRemoveIrrelevantProperties(currentPrefs);
-        IOPMSetPMPreferences(currentPrefs);
-    }
-
-    CFRelease(currentPrefs);
-    return;
-}
 
 static IOReturn PMActivateSystemPowerSettings( void )
 {
@@ -1399,7 +1352,7 @@ PMSettingsPrefsHaveChanged(void)
     // re-read preferences into memory
     if(energySettings) CFRelease(energySettings);
 
-    energySettings = IOPMCopyActivePMPreferences();
+    energySettings = IOPMCopyPMPreferences();
 
     // push new preferences out to the kernel
     if(isA_CFDictionary(energySettings)) {
@@ -1665,9 +1618,9 @@ exit:
 
 /*
  * This function merges old SC based prefs on disk and new CF based prefs
- * on disk and returns on single dictionary
+ * on disk and saves them to disk
  */
-CFMutableDictionaryRef  copyBootTimePrefs()
+void migrateSCPrefs()
 {
     CFDictionaryRef         oldPrefs = NULL;
     CFMutableDictionaryRef  mergedPrefs = NULL;
@@ -1679,6 +1632,7 @@ CFMutableDictionaryRef  copyBootTimePrefs()
     // Check for old SCPreferences
     if ((lstat(kIOPMSCPrefsFile, &info) != 0) || !S_ISREG(info.st_mode)) {
         INFO_LOG("No SC based prefs file found\n");
+        goto exit;
     }
     else {
         oldPrefs = copyOldPrefs();
@@ -1686,7 +1640,6 @@ CFMutableDictionaryRef  copyBootTimePrefs()
             INFO_LOG("No SC Preferences to migrate\n");
         }
     }
-
 
     mergedPrefs = IOPMCopyPreferencesOnFile();
     if (!mergedPrefs) {
@@ -1735,10 +1688,12 @@ CFMutableDictionaryRef  copyBootTimePrefs()
 
     INFO_LOG("Merged prefs on start: %@\n", mergedPrefs);
 
+    IOPMSetPMPreferences(mergedPrefs);
 exit:
     if (oldPrefs)   CFRelease(oldPrefs);
+    if (mergedPrefs) CFRelease(mergedPrefs);
 
-    return mergedPrefs;
+    return;
 
 }
 

@@ -137,7 +137,7 @@ static SecKeyRef findExistingEncryptionKey(SecKeychainRef kc)
     return nullptr;
 }
 
-static SecKeyRef generateEncryptionKey(SecKeychainRef kc)
+static CF_RETURNS_RETAINED SecKeyRef generateEncryptionKey(SecKeychainRef kc)
 {
     SecAccessRef access = createAccess(nil, EncryptionKeyLabel, false);
     if (!access) {

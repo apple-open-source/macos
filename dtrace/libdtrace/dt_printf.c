@@ -159,7 +159,7 @@ static int
 pfcheck_dint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
 	if (dnp->dn_flags & DT_NF_SIGNED)
-		pfd->pfd_flags |= DT_PFCONV_SIGNED;
+		pfd->pfd_fmt[strlen(pfd->pfd_fmt) - 1] = 'i';
 	else
 		pfd->pfd_fmt[strlen(pfd->pfd_fmt) - 1] = 'u';
 
@@ -227,8 +227,8 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (ctf_type_printf_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp, dnp->dn_type),
-	                               pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
+	return (ctf_type_printf_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
+	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
 }
 
 /*ARGSUSED*/
@@ -340,7 +340,7 @@ pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	do {
 		n = len;
 		s = alloca(n);
-	} while ((len = dtrace_addr2str(dtp, val, s, n)) >= n);
+	} while ((len = dtrace_addr2str(dtp, val, s, n)) > n);
 
 	return (dt_printf(dtp, fp, format, s));
 }
@@ -606,7 +606,7 @@ static const dt_pfconv_t _dtrace_conversions[] = {
 { "hu", "u", "unsigned short", pfcheck_type, pfprint_uint },
 { "hx", "x", "short", pfcheck_xshort, pfprint_uint },
 { "hX", "X", "short", pfcheck_xshort, pfprint_uint },
-{ "i", "i", pfproto_xint, pfcheck_dint, pfprint_dint },
+{ "i", "i", pfproto_xint, pfcheck_xint, pfprint_sint },
 { "k", "s", "stack", pfcheck_stack, pfprint_stack },
 { "lc", "lc", "int", pfcheck_type, pfprint_sint }, /* a.k.a. wint_t */
 { "ld",	"d", "long", pfcheck_type, pfprint_sint },
@@ -1241,7 +1241,8 @@ pfprint_standard_deviation(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	if (size != sizeof (uint64_t) * 4)
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 
-	return (dt_printf(dtp, fp, format, dt_stddev((uint64_t*) data, normal)));
+	return (dt_printf(dtp, fp, format,
+	    dt_stddev((uint64_t *)data, normal)));
 }
 
 /*ARGSUSED*/

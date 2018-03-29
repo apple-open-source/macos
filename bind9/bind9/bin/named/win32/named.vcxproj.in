@@ -53,21 +53,22 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;@USE_OPENSSL@@USE_GSSAPI@BUILDER="Visual Studio";_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <PreprocessorDefinitions>WIN32;@CRYPTO@@USE_GSSAPI@BUILDER="Visual Studio";_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeaderOutputFile>.\$(Configuration)\$(TargetName).pch</PrecompiledHeaderOutputFile>
       <AssemblerListingLocation>.\$(Configuration)\</AssemblerListingLocation>
       <ObjectFileName>.\$(Configuration)\</ObjectFileName>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <BrowseInformation>true</BrowseInformation>
       <AdditionalIncludeDirectories>@OPENSSL_INC@@GSSAPI_INC@@GEOIP_INC@.\;..\..\..\;@LIBXML2_INC@..\win32\include;..\include;..\..\..\lib\isc\win32;..\..\..\lib\isc\win32\include;..\..\..\lib\isc\include;..\..\..\lib\dns\include;..\..\..\lib\isccc\include;..\..\..\lib\lwres\win32\include;..\..\..\lib\lwres\include;..\..\..\lib\isccfg\include;..\..\..\lib\bind9\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OutputFile>..\..\..\Build\$(Configuration)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>..\..\..\lib\isc\win32\$(Configuration);..\..\..\lib\dns\win32\$(Configuration);..\..\..\lib\isccc\win32\$(Configuration);..\..\..\lib\lwres\win32\$(Configuration);..\..\..\lib\isccfg\win32\$(Configuration);..\..\..\lib\bind9\win32\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>@LIBXML2_LIB@@GSSAPI_LIB@@GEOIP_LIB@libisc.lib;libdns.lib;libisccc.lib;liblwres.lib;libisccfg.lib;libbind9.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>@LIBXML2_LIB@@OPENSSL_LIB@@GSSAPI_LIB@@GEOIP_LIB@libisc.lib;libdns.lib;libisccc.lib;liblwres.lib;libisccfg.lib;libbind9.lib;version.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|@PLATFORM@'">
@@ -78,7 +79,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>@INTRINSIC@</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;@USE_OPENSSL@@USE_GSSAPI@BUILDER="Visual Studio";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;@CRYPTO@@USE_GSSAPI@BUILDER="Visual Studio";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <StringPooling>true</StringPooling>
@@ -87,6 +88,7 @@
       <ObjectFileName>.\$(Configuration)\</ObjectFileName>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <AdditionalIncludeDirectories>@OPENSSL_INC@@GSSAPI_INC@@GEOIP_INC@.\;..\..\..\;@LIBXML2_INC@..\win32\include;..\include;..\..\..\lib\isc\win32;..\..\..\lib\isc\win32\include;..\..\..\lib\isc\include;..\..\..\lib\dns\include;..\..\..\lib\isccc\include;..\..\..\lib\lwres\win32\include;..\..\..\lib\lwres\include;..\..\..\lib\isccfg\include;..\..\..\lib\bind9\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -96,7 +98,7 @@
       <OutputFile>..\..\..\Build\$(Configuration)\$(TargetName)$(TargetExt)</OutputFile>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalLibraryDirectories>..\..\..\lib\isc\win32\$(Configuration);..\..\..\lib\dns\win32\$(Configuration);..\..\..\lib\isccc\win32\$(Configuration);..\..\..\lib\lwres\win32\$(Configuration);..\..\..\lib\isccfg\win32\$(Configuration);..\..\..\lib\bind9\win32\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>@LIBXML2_LIB@@GSSAPI_LIB@@GEOIP_LIB@libisc.lib;libdns.lib;libisccc.lib;liblwres.lib;libisccfg.lib;libbind9.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>@LIBXML2_LIB@@OPENSSL_LIB@@GSSAPI_LIB@@GEOIP_LIB@libisc.lib;libdns.lib;libisccc.lib;liblwres.lib;libisccfg.lib;libbind9.lib;version.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -156,6 +158,7 @@
     <ClInclude Include="..\include\named\main.h" />
     <ClInclude Include="..\include\named\notify.h" />
     <ClInclude Include="..\include\named\query.h" />
+    <ClInclude Include="..\include\named\seccomp.h" />
     <ClInclude Include="..\include\named\server.h" />
     <ClInclude Include="..\include\named\sortlist.h" />
     <ClInclude Include="..\include\named\statschannel.h" />

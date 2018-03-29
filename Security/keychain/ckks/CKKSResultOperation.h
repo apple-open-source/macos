@@ -27,6 +27,8 @@
 #import <dispatch/dispatch.h>
 #import "keychain/ckks/NSOperationCategories.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSCondition;
 
 #define CKKSResultErrorDomain @"CKKSResultOperationError"
@@ -36,10 +38,17 @@ enum {
     CKKSResultTimedOut = 3,
 };
 
+#define CKKSResultDescriptionErrorDomain @"CKKSResultOperationDescriptionError"
+
 @interface CKKSResultOperation : NSBlockOperation
-@property NSError* error;
-@property NSDate* finishDate;
+@property (nullable) NSError* error;
+@property (nullable) NSDate* finishDate;
 @property CKKSCondition* completionHandlerDidRunCondition;
+
+@property NSInteger descriptionErrorCode; // Set to non-0 for inclusion of this operation in NSError chains. Code is application-dependent.
+
+// If you subclass CKKSResultOperation, this is the method corresponding to descriptionErrorCode. Fill it in to your heart's content.
+- (NSError* _Nullable)descriptionError;
 
 // Very similar to addDependency, but:
 //   if the dependent operation has an error or is canceled, cancel this operation
@@ -66,7 +75,11 @@ enum {
 // Call this to prevent the timeout on this operation from occuring.
 // Upon return, either this operation is cancelled, or the timeout will never fire.
 - (void)invalidateTimeout;
+
+// Reports the state of this operation. Used for making up description strings.
+- (NSString*)operationStateString;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif // OCTAGON
 

@@ -80,6 +80,9 @@ PluginProcessProxy::PluginProcessProxy(PluginProcessManager* PluginProcessManage
 
 PluginProcessProxy::~PluginProcessProxy()
 {
+    if (m_connection)
+        m_connection->invalidate();
+
     ASSERT(m_pendingFetchWebsiteDataRequests.isEmpty());
     ASSERT(m_pendingFetchWebsiteDataCallbacks.isEmpty());
     ASSERT(m_pendingDeleteWebsiteDataRequests.isEmpty());
@@ -126,7 +129,7 @@ void PluginProcessProxy::fetchWebsiteData(WTF::Function<void (Vector<String>)>&&
     m_connection->send(Messages::PluginProcess::GetSitesWithData(callbackID), 0);
 }
 
-void PluginProcessProxy::deleteWebsiteData(std::chrono::system_clock::time_point modifiedSince, WTF::Function<void ()>&& completionHandler)
+void PluginProcessProxy::deleteWebsiteData(WallTime modifiedSince, WTF::Function<void ()>&& completionHandler)
 {
     uint64_t callbackID = generateCallbackID();
     m_pendingDeleteWebsiteDataCallbacks.set(callbackID, WTFMove(completionHandler));

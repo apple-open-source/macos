@@ -7008,6 +7008,9 @@ add_reachability_flags_to_candidate(CandidateRef candidate, CFDictionaryRef serv
     SCNetworkReachabilityFlags	flags = kSCNetworkReachabilityFlagsReachable;
     CFStringRef			vpn_server_address = NULL;
 
+    assert(candidate != NULL);
+    assert(services_info != NULL);
+
     VPNAttributesGet(candidate->serviceID,
 		     services_info,
 		     &flags,
@@ -7051,6 +7054,8 @@ ElectionResultsGetPrimary(ElectionResultsRef results,
     CandidateRef	primary = NULL;
     Boolean		primary_is_null = FALSE;
     RouteListRef	routes = NULL;
+
+    assert(services_info != NULL);
 
     if (results != NULL) {
 	CandidateRef		deferred[results->count];
@@ -8128,6 +8133,9 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
     /* grab a snapshot of everything we need */
     services_info = services_info_copy(session, service_changes);
+    assert(services_info != NULL);
+
+    /* grab the service order */
     service_order = service_order_get(services_info);
     if (service_order != NULL) {
 	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {

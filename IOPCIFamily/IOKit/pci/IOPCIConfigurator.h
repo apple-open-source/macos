@@ -154,6 +154,10 @@ enum {
     kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
     kIOPCIConfiguratorNoTerminate    = 0x00200000,
     kIOPCIConfiguratorDeferHotPlug   = 0x00400000,
+    //                               = 0x00800000,
+
+    kIOPCIConfiguratorTBPanics       = 0x01000000,
+    kIOPCIConfiguratorTBUSBCPanics   = 0x02000000,
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
@@ -190,7 +194,6 @@ enum {
     kPCIDeviceStatePropertiesDone    = 0x00000002,
     kPCIDeviceStateTreeConnected     = 0x00000004,
     kPCIDeviceStateConfigurationDone = 0x00000008,
-
     kPCIDeviceStateScanned          = 0x00000010,
     kPCIDeviceStateAllocatedBus     = 0x00000020,
     kPCIDeviceStateTotalled         = 0x00000040,
@@ -198,6 +201,7 @@ enum {
     kPCIDeviceStateChildChanged     = 0x00000100,
 	kPCIDeviceStateChildAdded       = 0x00000200,
     kPCIDeviceStateNoLink           = 0x00000400,
+    kPCIDeviceStateRangesProbed     = 0x00000800,
 
 	kPCIDeviceStateConfigProtectShift = 15,
 	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
@@ -207,7 +211,10 @@ enum {
     kPCIDeviceStateEjected          = 0x40000000,
     kPCIDeviceStateToKill           = 0x20000000,
     kPCIDeviceStatePaused           = 0x10000000,
-    kPCIDeviceStateRequestPause     = 0x08000000
+    kPCIDeviceStateRequestPause     = 0x08000000,
+    kPCIDeviceStateHidden           = 0x04000000,
+
+    kPCIDeviceStateDeadOrHidden     = kPCIDeviceStateDead | kPCIDeviceStateHidden
 };
 
 enum {
@@ -359,7 +366,7 @@ protected:
 	int32_t bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge);
 
     void    configure(uint32_t options);
-    void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t resetMask);
+    void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum);
 
     void    logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, char c);
     IOPCIRange * bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type);
@@ -382,7 +389,8 @@ protected:
 								IOPCIConfigEntry ** childList);
 	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
-    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space, uint32_t resetMask);
+    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
+    void    bridgeProbeChildRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
     void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
     void    deviceProbeRanges(IOPCIConfigEntry * device, uint32_t resetMask);
@@ -397,6 +405,7 @@ protected:
 	bool    treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask);
     void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
+    void    bridgeFinishProbe(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);
     OSDictionary * constructProperties(IOPCIConfigEntry * device);
     void           constructAddressingProperties(IOPCIConfigEntry * device, OSDictionary * propTable);

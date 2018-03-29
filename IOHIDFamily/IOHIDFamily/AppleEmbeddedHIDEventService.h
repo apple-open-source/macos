@@ -68,3 +68,4 @@ protected:
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */
+

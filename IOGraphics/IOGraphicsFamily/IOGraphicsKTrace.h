@@ -12,6 +12,7 @@
 #include <sys/kdebug.h>
 
 #include "GTrace.hpp"
+#include "GMetric.hpp"
 
 
 // KTracing and GTracing always enabled.
@@ -19,6 +20,7 @@
 #if GTRACE_REVISION >= 0x1
 class GTrace;
 extern GTrace *     gGTrace;
+extern GMetricsRecorder * gGMetrics;
 
 #ifndef IOG_KTRACE
     #define IOG_KTRACE(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_) \
@@ -26,6 +28,7 @@ extern GTrace *     gGTrace;
             KERNEL_DEBUG_CONSTANT_RELEASE(IOKDBG_CODE(DBG_IOGRAPHICS, _f_) | _t_, \
                                           _a1_, _a2_, _a3_, _a4_, 0);\
             GTRACE((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_);\
+            GMETRIC(_t1_, _t_, GMETRIC_DATA_FROM_FUNC(_f_)); \
         }while(0)
 #endif /*IOG_KTRACE*/
 
@@ -287,8 +290,7 @@ extern uint32_t gIOGATFlags;
 #define IOFB_FID_setupCursor                            12
 #define IOFB_FID_stopCursor                             13
 #define IOFB_FID_extCreateSharedCursor                  14
-#define IOFB_FID_deepFramebuffer                        15
-#define IOFB_FID_validFramebuffer                       16
+// 15-16 unused since Sept 2017
 #define IOFB_FID_closestDepth                           17
 #define IOFB_FID_extGetPixelInformation                 18
 #define IOFB_FID_extGetCurrentDisplayMode               19
@@ -521,6 +523,9 @@ extern uint32_t gIOGATFlags;
 #define IOFB_FID_extCopySharedCursor                    246
 #define IOFB_FID_newDiagnosticUserClient                247
 #define IOFB_FID_extSetHibernateGammaTable              248
+#define IOFB_FID_closeNoSys                             249
+#define IOFB_FID_clamshellOfflineShouldChange           250
+
 // IOFramebufferParameterHandler
 #define IOFBPH_FID_reserved                             0
 #define IOFBPH_FID_withFramebuffer                      1

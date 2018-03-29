@@ -56,6 +56,7 @@
 /* Begin PBXBuildFile section */
 		44258B5E1E241DA500DEB7B7 /* Libxml2XCTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */; };
 		44258B601E241DA500DEB7B7 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		442840BC2005CF1E003C405B /* module.modulemap in Install module map */ = {isa = PBXBuildFile; fileRef = 442840BA2005CE80003C405B /* module.modulemap */; };
 		442F40651E09F166004826DD /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		442F406D1E09F172004826DD /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
 		443AB8FB1E31678A005C2ED8 /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
@@ -488,6 +489,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		442840BB2005CEF0003C405B /* Install module map */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/include/libxml2;
+			dstSubfolderSpec = 0;
+			files = (
+				442840BC2005CF1E003C405B /* module.modulemap in Install module map */,
+			);
+			name = "Install module map";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		44877C921EADB79900B105D1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -527,7 +539,7 @@
 		5DB38ADF14F87AE80060A507 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1/";
+			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B0614F87EBA0060A507 /* xmllint.1 in Install Man Page */,
@@ -538,7 +550,7 @@
 		5DB38B0D14F880AA0060A507 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1/";
+			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B1914F8811C0060A507 /* xmlcatalog.1 in Install Man Page */,
@@ -549,7 +561,7 @@
 		5DB38B1C14F8828C0060A507 /* Install License File */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
+			dstPath = /usr/local/OpenSourceLicenses;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B2514F884320060A507 /* libxml2.txt in Install License File */,
@@ -560,7 +572,7 @@
 		5DB38B1F14F882CA0060A507 /* Install Open Source Property List */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
+			dstPath = /usr/local/OpenSourceVersions;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B2114F882EE0060A507 /* libxml2.plist in Install Open Source Property List */,
@@ -571,7 +583,7 @@
 		5DB38B2614F884D60060A507 /* Install libxml Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man3";
+			dstPath = /usr/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B2814F885040060A507 /* libxml.3 in Install libxml Man Page */,
@@ -582,7 +594,7 @@
 		5DB38B2A14F886B60060A507 /* Install xml2-config */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/bin";
+			dstPath = /usr/bin;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B2B14F886C30060A507 /* xml2-config in Install xml2-config */,
@@ -593,7 +605,7 @@
 		5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				5DB38B2F14F887410060A507 /* xml2-config.1 in Install xml2-config Man Page */,
@@ -607,6 +619,7 @@
 		44258B5B1E241DA500DEB7B7 /* Libxml2XCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Libxml2XCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Libxml2XCTests.m; sourceTree = "<group>"; };
 		44258B5F1E241DA500DEB7B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		442840BA2005CE80003C405B /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		442F40601E09EC71004826DD /* runtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = runtest.c; sourceTree = "<group>"; };
 		442F406C1E09F166004826DD /* runtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = runtest; sourceTree = BUILT_PRODUCTS_DIR; };
 		442F40741E09F284004826DD /* ToolExecutable.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = ToolExecutable.xcconfig; sourceTree = "<group>"; };
@@ -693,8 +706,8 @@
 		5D58B01314F81A8D00BE69D8 /* xmlwriter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlwriter.c; sourceTree = "<group>"; };
 		5D58B01414F81A8D00BE69D8 /* xpath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpath.c; sourceTree = "<group>"; };
 		5D58B01514F81A8D00BE69D8 /* xpointer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpointer.c; sourceTree = "<group>"; };
-		5D58B05E14F81AF200BE69D8 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
-		5D58B06114F81D2D00BE69D8 /* xmlversion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlversion.h; path = libxml/xmlversion.h; sourceTree = "<group>"; };
+		5D58B05E14F81AF200BE69D8 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = include/config.h; sourceTree = "<group>"; };
+		5D58B06114F81D2D00BE69D8 /* xmlversion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlversion.h; path = include/libxml/xmlversion.h; sourceTree = "<group>"; };
 		5D58B06414F824A500BE69D8 /* libicucore.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libicucore.dylib; path = /usr/lib/libicucore.dylib; sourceTree = "<absolute>"; };
 		5D58B06614F824C400BE69D8 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 		5D58B06A14F8261200BE69D8 /* c14n.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = c14n.h; path = libxml/c14n.h; sourceTree = "<group>"; };
@@ -1107,6 +1120,7 @@
 			children = (
 				5D58B05E14F81AF200BE69D8 /* config.h */,
 				448D7E421EA5CC4100ECC756 /* empty.c */,
+				442840BA2005CE80003C405B /* module.modulemap */,
 				5DB38B2914F886A10060A507 /* xml2-config */,
 				5D58B06114F81D2D00BE69D8 /* xmlversion.h */,
 			);
@@ -1636,6 +1650,7 @@
 				5DB38B1C14F8828C0060A507 /* Install License File */,
 				5DB38B1F14F882CA0060A507 /* Install Open Source Property List */,
 				5DB38B2614F884D60060A507 /* Install libxml Man Page */,
+				442840BB2005CEF0003C405B /* Install module map */,
 				5DB38B2A14F886B60060A507 /* Install xml2-config */,
 				5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */,
 			);

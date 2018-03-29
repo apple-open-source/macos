@@ -196,11 +196,19 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 }
 
 ItemImpl::~ItemImpl()
-{
+try {
 	if (secd_PersistentRef) {
 		CFRelease(secd_PersistentRef);
 	}
+} catch (...) {
+#ifndef NDEBUG
+    /* if we get an exception in destructor, presumably the mutex, lets throw if we
+     * are in a debug build (ie reach end of block) */
+#else
+    return;
+#endif
 }
+
 
 
 

@@ -51,6 +51,7 @@
 #include <wtf/WindowsExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringView.h>
+#include <wtf/text/win/WCharStringExtras.h>
 #include <wtf/win/GDIObject.h>
 
 namespace WebCore {
@@ -97,12 +98,6 @@ std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
         clipboardData = 0;
     pasteboard->setExternalDataObject(clipboardData.get());
     return pasteboard;
-}
-
-std::unique_ptr<Pasteboard> Pasteboard::createPrivate()
-{
-    // Windows has no "Private pasteboard" concept.
-    return createForCopyAndPaste();
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -181,14 +176,12 @@ enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardD
 
 static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
 {
-    String strippedType = type.stripWhiteSpace();
-
     // two special cases for IE compatibility
-    if (equalLettersIgnoringASCIICase(strippedType, "text") || equalLettersIgnoringASCIICase(strippedType, "text/plain") || strippedType.startsWith("text/plain;", false))
+    if (equalLettersIgnoringASCIICase(type, "text/plain"))
         return ClipboardDataTypeText;
-    if (equalLettersIgnoringASCIICase(strippedType, "url") || equalLettersIgnoringASCIICase(strippedType, "text/uri-list"))
+    if (equalLettersIgnoringASCIICase(type, "text/uri-list"))
         return ClipboardDataTypeURL;
-    if (equalLettersIgnoringASCIICase(strippedType, "text/html"))
+    if (equalLettersIgnoringASCIICase(type, "text/html"))
         return ClipboardDataTypeTextHTML;
 
     return ClipboardDataTypeNone;
@@ -239,19 +232,19 @@ bool Pasteboard::hasData()
 
 static void addMimeTypesForFormat(ListHashSet<String>& results, const FORMATETC& format)
 {
-    // URL and Text are provided for compatibility with IE's model
-    if (format.cfFormat == urlFormat()->cfFormat || format.cfFormat == urlWFormat()->cfFormat) {
-        results.add("URL");
+    if (format.cfFormat == urlFormat()->cfFormat || format.cfFormat == urlWFormat()->cfFormat)
         results.add("text/uri-list");
-    }
-
-    if (format.cfFormat == plainTextWFormat()->cfFormat || format.cfFormat == plainTextFormat()->cfFormat) {
-        results.add("Text");
+    if (format.cfFormat == plainTextWFormat()->cfFormat || format.cfFormat == plainTextFormat()->cfFormat)
         results.add("text/plain");
-    }
 }
 
-Vector<String> Pasteboard::types()
+Vector<String> Pasteboard::typesSafeForBindings(const String&)
+{
+    notImplemented();
+    return { };
+}
+
+Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
 {
     ListHashSet<String> results;
 
@@ -280,9 +273,13 @@ Vector<String> Pasteboard::types()
         }
     }
 
-    Vector<String> vector;
-    copyToVector(results, vector);
-    return vector;
+    return copyToVector(results);
+}
+
+String Pasteboard::readOrigin()
+{
+    notImplemented();
+    return { };
 }
 
 String Pasteboard::readString(const String& type)
@@ -305,38 +302,60 @@ String Pasteboard::readString(const String& type)
     return "";
 }
 
-Vector<String> Pasteboard::readFilenames()
+String Pasteboard::readStringInCustomData(const String&)
 {
-    Vector<String> fileNames;
+    notImplemented();
+    return { };
+}
 
+struct PasteboardFileCounter final : PasteboardFileReader {
+    void readFilename(const String&) final { ++count; }
+    void readBuffer(const String&, const String&, Ref<SharedBuffer>&&) final { ++count; }
+
+    unsigned count { 0 };
+};
+
+bool Pasteboard::containsFiles()
+{
+    // FIXME: This implementation can be slightly more efficient by avoiding calls to DragQueryFileW.
+    PasteboardFileCounter reader;
+    read(reader);
+    return reader.count;
+}
+
+void Pasteboard::read(PasteboardFileReader& reader)
+{
 #if USE(CF)
     if (m_dataObject) {
         STGMEDIUM medium;
         if (FAILED(m_dataObject->GetData(cfHDropFormat(), &medium)))
-            return fileNames;
+            return;
 
         HDROP hdrop = reinterpret_cast<HDROP>(GlobalLock(medium.hGlobal));
         if (!hdrop)
-            return fileNames;
+            return;
 
         WCHAR filename[MAX_PATH];
         UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
         for (UINT i = 0; i < fileCount; i++) {
             if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
                 continue;
-            fileNames.append(filename);
+            reader.readFilename(nullTerminatedWCharToString(filename));
         }
 
         GlobalUnlock(medium.hGlobal);
         ReleaseStgMedium(&medium);
-        return fileNames;
+        return;
     }
-    if (!m_dragDataMap.contains(cfHDropFormat()->cfFormat))
-        return fileNames;
-    return m_dragDataMap.get(cfHDropFormat()->cfFormat);
+    auto list = m_dragDataMap.find(cfHDropFormat()->cfFormat);
+    if (list == m_dragDataMap.end())
+        return;
+
+    for (auto& filename : list->value)
+        reader.readFilename(filename);
 #else
     notImplemented();
-    return fileNames;
+    return { };
 #endif
 }
 
@@ -632,7 +651,7 @@ void Pasteboard::writeURLToDataObject(const URL& kurl, const String& titleStr)
     WebCore::writeURL(m_writableDataObject.get(), kurl, titleStr, true, true);
 
     String url = kurl.string();
-    ASSERT(url.containsOnlyASCII()); // URL::string() is URL encoded.
+    ASSERT(url.isAllASCII()); // URL::string() is URL encoded.
 
     String fsPath = filesystemPathFromUrlOrTitle(url, titleStr, L".URL", true);
     String contentString("[InternetShortcut]\r\nURL=" + url + "\r\n");
@@ -760,11 +779,6 @@ void Pasteboard::writeImage(Element& element, const URL&, const String&)
         ::SetClipboardData(CF_BITMAP, resultBitmap.leak());
         ::CloseClipboard();
     }
-}
-
-void Pasteboard::writePasteboard(const Pasteboard& sourcePasteboard)
-{
-    notImplemented();
 }
 
 bool Pasteboard::canSmartReplace()
@@ -946,7 +960,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Shared
         // windows does not enjoy a leading slash on paths
         if (localPath[0] == '/')
             localPath = localPath.substring(1);
-        const Vector<UChar>& localPathWide = localPath.charactersWithNullTermination();
+        auto localPathWide = stringToNullTerminatedWChar(localPath);
         LPCWSTR localPathStr = localPathWide.data();
         if (localPathStr && wcslen(localPathStr) + 1 < MAX_PATH)
             wcscpy_s(filePath, MAX_PATH, localPathStr);
@@ -957,7 +971,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Shared
         WCHAR extension[MAX_PATH];
         if (!::GetTempPath(WTF_ARRAY_LENGTH(tempPath), tempPath))
             return 0;
-        if (!::PathAppend(tempPath, fileName.charactersWithNullTermination().data()))
+        if (!::PathAppend(tempPath, stringToNullTerminatedWChar(fileName).data()))
             return 0;
         LPCWSTR foundExtension = ::PathFindExtension(tempPath);
         if (foundExtension) {
@@ -1059,11 +1073,15 @@ void Pasteboard::write(const PasteboardWebContent&)
 {
 }
 
-void Pasteboard::read(PasteboardWebContentReader&)
+void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy)
 {
 }
 
 void Pasteboard::write(const PasteboardImage&)
+{
+}
+
+void Pasteboard::writeCustomData(const PasteboardCustomData&)
 {
 }
 

@@ -54,11 +54,19 @@ SecAccessConstraintRef SecAccessConstraintCreatePolicy(CFAllocatorRef allocator,
 /*! Creates constraint which requires passcode verification. */
 SecAccessConstraintRef SecAccessConstraintCreatePasscode(CFAllocatorRef allocator);
 
-/*! Creates constraint which requires TouchID verification.*/
-SecAccessConstraintRef SecAccessConstraintCreateTouchIDAny(CFAllocatorRef allocator, CFDataRef catacombUUID);
+/*! Creates constraint which requires Touch ID or Face ID verification.*/
+SecAccessConstraintRef SecAccessConstraintCreateBiometryAny(CFAllocatorRef allocator, CFDataRef catacombUUID);
 
-/*! Creates constraint which requires TouchID verification.*/
-SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash);
+/*! Creates constraint which requires Touch ID verification.*/
+SecAccessConstraintRef SecAccessConstraintCreateTouchIDAny(CFAllocatorRef allocator, CFDataRef catacombUUID)
+API_DEPRECATED_WITH_REPLACEMENT("SecAccessConstraintCreateBiometryAny", macos(10.12.1, 10.13.4), ios(9.0, 11.3));
+
+/*! Creates constraint which requires Touch ID or Face ID verification.*/
+SecAccessConstraintRef SecAccessConstraintCreateBiometryCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash);
+
+/*! Creates constraint which requires Touch ID verification.*/
+SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash)
+API_DEPRECATED_WITH_REPLACEMENT("SecAccessConstraintCreateBiometryCurrentSet", macos(10.12.1, 10.13.4), ios(9.0, 11.3));
 
 /*! Creates constraint composed of other constraints.
     @param numRequired Number of constraints required to be satisfied in order to consider overal constraint satisfied.

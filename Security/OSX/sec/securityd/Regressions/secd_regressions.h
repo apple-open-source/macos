@@ -97,5 +97,6 @@ ONE_TEST(secd_200_logstate)
 ONE_TEST(secd_201_coders)
 ONE_TEST(secd_202_recoverykey)
 ONE_TEST(secd_210_keyinterest)
+ONE_TEST(secd_700_sftm)
 DISABLED_ONE_TEST(secd_230_keybagtable)
 

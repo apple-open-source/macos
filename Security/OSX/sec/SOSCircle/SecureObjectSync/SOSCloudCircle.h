@@ -130,6 +130,11 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
 bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error);
 
 /*!
+ This variant adds the dsid to the call
+ */
+
+bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
+/*!
  @function SOSCCCopyDeviceID
  @abstract Retrieves this device's IDS device ID
  @param error What went wrong if we returned false

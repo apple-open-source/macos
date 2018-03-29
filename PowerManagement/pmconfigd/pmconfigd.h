@@ -140,7 +140,7 @@ static int kPMSpindumpDelayOnFullWake = 15; // Take spindump 15secs after fullwa
 // Global keys
 static CFStringRef              gTZNotificationNameString           = NULL;
 
-static IOPMNotificationHandle   gESPreferences                      = 0;
+IOPMNotificationHandle          gESPreferences                      = 0;
 
 static io_connect_t             _pm_ack_port                        = 0;
 static io_iterator_t            _ups_added_noteref                  = 0;

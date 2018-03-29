@@ -105,7 +105,7 @@ void AudioBufferSourceNode::process(size_t framesToProcess)
 
     // After calling setBuffer() with a buffer having a different number of channels, there can in rare cases be a slight delay
     // before the output bus is updated to the new number of channels because of use of tryLocks() in the context's updating system.
-    // In this case, if the the buffer has just been changed and we're not quite ready yet, then just output silence.
+    // In this case, if the buffer has just been changed and we're not quite ready yet, then just output silence.
     if (numberOfChannels() != buffer()->numberOfChannels()) {
         outputBus.zero();
         return;
@@ -455,16 +455,16 @@ ExceptionOr<void> AudioBufferSourceNode::startPlaying(BufferPlaybackMode playbac
     context().nodeWillBeginPlayback();
 
     if (m_playbackState != UNSCHEDULED_STATE)
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     if (!std::isfinite(when) || (when < 0))
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     if (!std::isfinite(grainOffset) || (grainOffset < 0))
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     if (!std::isfinite(grainDuration) || (grainDuration < 0))
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     if (!buffer())
         return { };

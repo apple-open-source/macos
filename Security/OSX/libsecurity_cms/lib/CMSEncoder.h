@@ -266,7 +266,8 @@ typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
     /*
      * Include the Apple Codesigning Hash Agility.
      */
-    kCMSAttrAppleCodesigningHashAgility = 0x0010
+    kCMSAttrAppleCodesigningHashAgility = 0x0010,
+    kCMSAttrAppleCodesigningHashAgilityV2 = 0x0020,
 };
 
 /*

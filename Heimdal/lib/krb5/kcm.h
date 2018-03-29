@@ -92,6 +92,7 @@ typedef enum kcm_operation {
     KCM_OP_CRED_LABEL_SET,
     /* */
     KCM_OP_CHECK_NTLM_CHALLENGE,
+    KCM_OP_GET_CACHE_PRINCIPAL_LIST,
     KCM_OP_MAX
 } kcm_operation;
 

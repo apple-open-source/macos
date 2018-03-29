@@ -219,6 +219,8 @@
 		3FE91FFB16A90E6C00D1238A /* legacy_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = legacy_malloc.h; sourceTree = "<group>"; };
 		3FE9201016A9109E00D1238A /* libmalloc_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		456E51C9197DF0D600A7E488 /* libmalloc_stress_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_stress_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CB962B01F7E9F610046942E /* asan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = asan.c; sourceTree = "<group>"; };
+		8CB962B11F7E9FD00046942E /* tsan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tsan.c; sourceTree = "<group>"; };
 		925383D01BD03B4A00F745DB /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		925383D11BD03B4A00F745DB /* stress_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stress_test.c; sourceTree = "<group>"; };
 		925383D31BD03B8F00F745DB /* manpages.lst */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = manpages.lst; sourceTree = "<group>"; };
@@ -479,6 +481,8 @@
 		925383BD1BD03B4A00F745DB /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				8CB962B01F7E9F610046942E /* asan.c */,
+				8CB962B11F7E9FD00046942E /* tsan.c */,
 				C931B58F1C81248100D0D230 /* madvise.c */,
 				C9F8C2691D74C93A008C4044 /* magazine_rack.c */,
 				C9F8C2681D70B521008C4044 /* magazine_small_test.c */,

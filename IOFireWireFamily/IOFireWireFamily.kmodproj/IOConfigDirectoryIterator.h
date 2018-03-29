@@ -35,14 +35,14 @@ protected:
     OSSet *	fDirectorySet;
     OSIterator * fDirectoryIterator;
 	
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 public:
     virtual IOReturn init(IOConfigDirectory *owner, UInt32 testVal, UInt32 testMask);
     
-    virtual void reset();
+    virtual void reset(void) APPLE_KEXT_OVERRIDE;
 
-    virtual bool isValid();
+    virtual bool isValid(void) APPLE_KEXT_OVERRIDE;
 
-    virtual OSObject *getNextObject();
+    virtual OSObject *getNextObject(void) APPLE_KEXT_OVERRIDE;
 };

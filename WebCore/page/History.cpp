@@ -28,7 +28,6 @@
 
 #include "BackForwardController.h"
 #include "Document.h"
-#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -63,7 +62,7 @@ unsigned History::length() const
 ExceptionOr<History::ScrollRestoration> History::scrollRestoration() const
 {
     if (!m_frame)
-        return Exception { SECURITY_ERR };
+        return Exception { SecurityError };
 
     auto* historyItem = m_frame->loader().history().currentItem();
     if (!historyItem)
@@ -75,7 +74,7 @@ ExceptionOr<History::ScrollRestoration> History::scrollRestoration() const
 ExceptionOr<void> History::setScrollRestoration(ScrollRestoration scrollRestoration)
 {
     if (!m_frame)
-        return Exception { SECURITY_ERR };
+        return Exception { SecurityError };
 
     auto* historyItem = m_frame->loader().history().currentItem();
     if (historyItem)
@@ -176,13 +175,13 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
 
     URL fullURL = urlForState(urlString);
     if (!fullURL.isValid())
-        return Exception { SECURITY_ERR };
+        return Exception { SecurityError };
 
     const URL& documentURL = m_frame->document()->url();
 
     auto createBlockedURLSecurityErrorWithMessageSuffix = [&] (const char* suffix) {
         const char* functionName = stateObjectType == StateObjectType::Replace ? "history.replaceState()" : "history.pushState()";
-        return Exception { SECURITY_ERR, makeString("Blocked attempt to use ", functionName, " to change session history URL from ", documentURL.stringCenterEllipsizedToLength(), " to ", fullURL.stringCenterEllipsizedToLength(), ". ", suffix) };
+        return Exception { SecurityError, makeString("Blocked attempt to use ", functionName, " to change session history URL from ", documentURL.stringCenterEllipsizedToLength(), " to ", fullURL.stringCenterEllipsizedToLength(), ". ", suffix) };
     };
     if (!protocolHostAndPortAreEqual(fullURL, documentURL) || fullURL.user() != documentURL.user() || fullURL.pass() != documentURL.pass())
         return createBlockedURLSecurityErrorWithMessageSuffix("Protocols, domains, ports, usernames, and passwords must match.");
@@ -207,8 +206,8 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
     
     if (mainHistory->m_currentStateObjectTimeSpanObjectsAdded >= perStateObjectTimeSpanLimit) {
         if (stateObjectType == StateObjectType::Replace)
-            return Exception { SECURITY_ERR, String::format("Attempt to use history.replaceState() more than %u times per %f seconds", perStateObjectTimeSpanLimit, stateObjectTimeSpan) };
-        return Exception { SECURITY_ERR, String::format("Attempt to use history.pushState() more than %u times per %f seconds", perStateObjectTimeSpanLimit, stateObjectTimeSpan) };
+            return Exception { SecurityError, String::format("Attempt to use history.replaceState() more than %u times per %f seconds", perStateObjectTimeSpanLimit, stateObjectTimeSpan) };
+        return Exception { SecurityError, String::format("Attempt to use history.pushState() more than %u times per %f seconds", perStateObjectTimeSpanLimit, stateObjectTimeSpan) };
     }
 
     Checked<unsigned> titleSize = title.length();
@@ -229,8 +228,8 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
 
     if (newTotalUsage > totalStateObjectPayloadLimit) {
         if (stateObjectType == StateObjectType::Replace)
-            return Exception { QUOTA_EXCEEDED_ERR, ASCIILiteral("Attempt to store more data than allowed using history.replaceState()") };
-        return Exception { QUOTA_EXCEEDED_ERR, ASCIILiteral("Attempt to store more data than allowed using history.pushState()") };
+            return Exception { QuotaExceededError, ASCIILiteral("Attempt to store more data than allowed using history.replaceState()") };
+        return Exception { QuotaExceededError, ASCIILiteral("Attempt to store more data than allowed using history.pushState()") };
     }
 
     m_mostRecentStateObjectUsage = payloadSize.unsafeGet();

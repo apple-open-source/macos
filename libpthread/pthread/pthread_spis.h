@@ -70,9 +70,12 @@ __BEGIN_DECLS
 #define _PTHREAD_MUTEX_POLICY_FAIRSHARE		1
 #define _PTHREAD_MUTEX_POLICY_FIRSTFIT		2
 
-/* sets the mutex policy attributes */
+/* manipulate the mutex policy attributes */
 __API_AVAILABLE(macos(10.7), ios(5.0))
 int pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *, int );
+
+__API_AVAILABLE(macos(10.13.4), ios(11.3))
+int pthread_mutexattr_getpolicy_np(const pthread_mutexattr_t *, int * );
 
 #endif /* (!_POSIX_C_SOURCE && !_XOPEN_SOURCE) || _DARWIN_C_SOURCE */
 

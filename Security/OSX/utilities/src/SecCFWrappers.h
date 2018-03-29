@@ -424,7 +424,7 @@ static inline char *CFStringToCString(CFStringRef inStr)
 
     // need to extract into buffer
     CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
-    size_t len = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8);
+    size_t len = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
     char *buffer = (char *)malloc(len);                 // pessimistic
     if (!CFStringGetCString(inStr, buffer, len, kCFStringEncodingUTF8))
         buffer[0] = 0;

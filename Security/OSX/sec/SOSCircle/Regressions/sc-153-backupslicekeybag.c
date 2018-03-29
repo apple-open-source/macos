@@ -34,7 +34,7 @@
 
 #define encode_decode_count 2
 #if !TARGET_IPHONE_SIMULATOR
-static SOSBackupSliceKeyBagRef EncodeDecode(SOSBackupSliceKeyBagRef bag)
+static CF_RETURNS_RETAINED SOSBackupSliceKeyBagRef EncodeDecode(SOSBackupSliceKeyBagRef bag)
 {
     SOSBackupSliceKeyBagRef result = NULL;
     CFErrorRef localError = NULL;

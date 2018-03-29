@@ -28,6 +28,7 @@
 
 #import "WKSharedAPICast.h"
 #import "WKWebProcessPlugInFrameInternal.h"
+#import <WebCore/HTMLTextFormControlElement.h>
 #import <WebCore/IntRect.h>
 #import <WebKit/WebImage.h>
 
@@ -118,6 +119,63 @@ using namespace WebKit;
 - (void)setHTMLInputElementIsAutoFilled:(BOOL)isAutoFilled
 {
     _nodeHandle->setHTMLInputElementAutoFilled(isAutoFilled);
+}
+
+- (BOOL)isHTMLInputElementAutoFillButtonEnabled
+{
+    return _nodeHandle->isHTMLInputElementAutoFillButtonEnabled();
+}
+
+static WebCore::AutoFillButtonType toAutoFillButtonType(_WKAutoFillButtonType autoFillButtonType)
+{
+    switch (autoFillButtonType) {
+    case _WKAutoFillButtonTypeNone:
+        return WebCore::AutoFillButtonType::None;
+    case _WKAutoFillButtonTypeContacts:
+        return WebCore::AutoFillButtonType::Contacts;
+    case _WKAutoFillButtonTypeCredentials:
+        return WebCore::AutoFillButtonType::Credentials;
+    case _WKAutoFillButtonTypeStrongConfirmationPassword:
+        return WebCore::AutoFillButtonType::StrongConfirmationPassword;
+    case _WKAutoFillButtonTypeStrongPassword:
+        return WebCore::AutoFillButtonType::StrongPassword;
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::AutoFillButtonType::None;
+}
+
+static _WKAutoFillButtonType toWKAutoFillButtonType(WebCore::AutoFillButtonType autoFillButtonType)
+{
+    switch (autoFillButtonType) {
+    case WebCore::AutoFillButtonType::None:
+        return _WKAutoFillButtonTypeNone;
+    case WebCore::AutoFillButtonType::Contacts:
+        return _WKAutoFillButtonTypeContacts;
+    case WebCore::AutoFillButtonType::Credentials:
+        return _WKAutoFillButtonTypeCredentials;
+    case WebCore::AutoFillButtonType::StrongConfirmationPassword:
+        return _WKAutoFillButtonTypeStrongConfirmationPassword;
+    case WebCore::AutoFillButtonType::StrongPassword:
+        return _WKAutoFillButtonTypeStrongPassword;
+    }
+    ASSERT_NOT_REACHED();
+    return _WKAutoFillButtonTypeNone;
+
+}
+
+- (void)setHTMLInputElementAutoFillButtonEnabledWithButtonType:(_WKAutoFillButtonType)autoFillButtonType
+{
+    _nodeHandle->setHTMLInputElementAutoFillButtonEnabled(toAutoFillButtonType(autoFillButtonType));
+}
+
+- (_WKAutoFillButtonType)htmlInputElementAutoFillButtonType
+{
+    return toWKAutoFillButtonType(_nodeHandle->htmlInputElementAutoFillButtonType());
+}
+
+- (_WKAutoFillButtonType)htmlInputElementLastAutoFillButtonType
+{
+    return toWKAutoFillButtonType(_nodeHandle->htmlInputElementLastAutoFillButtonType());
 }
 
 - (BOOL)HTMLInputElementIsUserEdited

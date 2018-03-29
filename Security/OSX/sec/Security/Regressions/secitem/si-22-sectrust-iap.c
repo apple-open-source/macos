@@ -1,7 +1,8 @@
 /*
- * Copyright (c) 2006-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2017 Apple Inc. All Rights Reserved.
  */
 
+#include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
@@ -16,7 +17,7 @@
 
 #include "si-22-sectrust-iap.h"
 
-static void tests(void)
+static void test_v1(void)
 {
     SecTrustRef trust;
 	SecCertificateRef iAP1CA, iAP2CA, leaf0, leaf1;
@@ -79,7 +80,7 @@ static void tests(void)
 static void test_v3(void) {
     SecCertificateRef v3CA = NULL, v3leaf = NULL;
     isnt(v3CA = SecCertificateCreateWithBytes(NULL, _v3ca, sizeof(_v3ca)),
-         NULL, "create v3leaf");
+         NULL, "create v3 CA");
     isnt(v3leaf = SecCertificateCreateWithBytes(NULL, _v3leaf, sizeof(_v3leaf)),
          NULL, "create v3leaf");
 
@@ -108,7 +109,6 @@ trustFail:
     CFReleaseSafe(anchors);
     CFReleaseSafe(date);
 
-#if TARGET_OS_IPHONE
     /* Test interface for determining iAuth version */
     SecCertificateRef leaf0 = NULL, leaf1 = NULL;
     isnt(leaf0 = SecCertificateCreateWithBytes(NULL, _leaf0, sizeof(_leaf0)),
@@ -151,20 +151,15 @@ trustFail:
        "compare expected output");
     CFReleaseNull(extensionData);
     CFReleaseNull(malformedV3leaf);
-#endif
     CFReleaseSafe(v3leaf);
     CFReleaseSafe(v3CA);
 }
 
 int si_22_sectrust_iap(int argc, char *const *argv)
 {
-#if TARGET_OS_IPHONE
 	plan_tests(14+20);
-#else
-    plan_tests(14+8);
-#endif
 
-	tests();
+	test_v1();
     test_v3();
 
 	return 0;

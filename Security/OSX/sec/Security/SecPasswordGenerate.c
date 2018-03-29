@@ -505,6 +505,8 @@ static int SecPasswordNumberOfRepeatedDigits(CFStringRef passcode){
     int finalRepeating = 0;
     if(highest != NULL)
         CFNumberGetValue(highest, kCFNumberIntType, &finalRepeating);
+
+    CFReleaseNull(highestRepeatingcount);
     return finalRepeating;
 }
 

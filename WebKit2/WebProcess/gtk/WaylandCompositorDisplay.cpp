@@ -28,7 +28,7 @@
 
 #if PLATFORM(WAYLAND)
 
-#include "WebKit2WaylandClientProtocol.h"
+#include "WebKitWaylandClientProtocol.h"
 #include "WebPage.h"
 
 using namespace WebCore;
@@ -38,6 +38,9 @@ namespace WebKit {
 std::unique_ptr<WaylandCompositorDisplay> WaylandCompositorDisplay::create(const String& displayName)
 {
     if (displayName.isNull())
+        return nullptr;
+
+    if (PlatformDisplay::sharedDisplay().type() != PlatformDisplay::Type::Wayland)
         return nullptr;
 
     struct wl_display* display = wl_display_connect(displayName.utf8().data());

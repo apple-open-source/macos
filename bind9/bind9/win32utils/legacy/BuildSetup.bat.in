@@ -46,17 +46,21 @@ copy ..\..\HISTORY ..\..\Build\Release
 copy ..\readme1st.txt ..\..\Build\Release
 copy ..\index.html ..\..\Build\Release
 copy ..\..\doc\arm\*.html ..\..\Build\Release
+copy ..\..\doc\arm\notes.pdf ..\..\Build\Release
 copy ..\..\doc\arm\Bv9ARM.pdf ..\..\Build\Release
 copy ..\..\CHANGES ..\..\Build\Release
-if Exist ..\CHANGES.SE copy ..\CHANGES.SE ..\Build\Release
+if Exist ..\..\CHANGES.SE copy ..\..\CHANGES.SE ..\..\Build\Release
 copy ..\..\FAQ ..\..\Build\Release
 
 echo Copying the standalone manual pages.
 
 copy ..\..\bin\named\named.html ..\..\Build\Release
+copy ..\..\bin\named\named.conf.html ..\..\Build\Release
+copy ..\..\bin\named\lwresd.html ..\..\Build\Release
 copy ..\..\bin\rndc\*.html ..\..\Build\Release
 copy ..\..\bin\confgen\*.html ..\..\Build\Release
 copy ..\..\bin\dig\*.html ..\..\Build\Release
+copy ..\..\bin\delv\*.html ..\..\Build\Release
 copy ..\..\bin\nsupdate\*.html ..\..\Build\Release
 copy ..\..\bin\check\*.html ..\..\Build\Release
 copy ..\..\bin\dnssec\dnssec-keygen.html ..\..\Build\Release
@@ -71,14 +75,17 @@ copy ..\..\bin\dnssec\dnssec-importkey.html ..\..\Build\Release
 copy ..\..\bin\python\dnssec-checkds.html ..\..\Build\Release
 copy ..\..\bin\python\dnssec-coverage.html ..\..\Build\Release
 @END PYTHON
+@IF PKCS11
 copy ..\..\bin\pkcs11\pkcs11-keygen.html ..\..\Build\Release
 copy ..\..\bin\pkcs11\pkcs11-list.html ..\..\Build\Release
 copy ..\..\bin\pkcs11\pkcs11-destroy.html ..\..\Build\Release
 copy ..\..\bin\pkcs11\pkcs11-tokens.html ..\..\Build\Release
+@END PKCS11
 copy ..\..\bin\tools\arpaname.html ..\..\Build\Release
 copy ..\..\bin\tools\genrandom.html ..\..\Build\Release
 copy ..\..\bin\tools\isc-hmac-fixup.html ..\..\Build\Release
 copy ..\..\bin\tools\named-journalprint.html ..\..\Build\Release
+copy ..\..\bin\tools\named-rrchecker.html ..\..\Build\Release
 copy ..\..\bin\tools\nsec3hash.html ..\..\Build\Release
 
 echo Copying the migration notes.
@@ -127,10 +134,10 @@ copy @GEOIP_DLL@ ..\..\Build\Debug\
 @IF IDNKIT
 echo Copying the IDN kit DLL.
 
-copy @IDN_DLL@ ..\Build\Release\
-copy @IDN_DLL@ ..\Build\Debug\
-copy @ICONV_DLL@ ..\Build\Release\
-copy @ICONV_DLL@ ..\Build\Debug\
+copy @IDN_DLL@ ..\..\Build\Release\
+copy @IDN_DLL@ ..\..\Build\Debug\
+copy @ICONV_DLL@ ..\..\Build\Release\
+copy @ICONV_DLL@ ..\..\Build\Debug\
 @END IDNKIT
 
 echo Copying the redistributable runtime object.
@@ -141,6 +148,13 @@ rem
 
 copy /Y @VCREDIST_PATH@ ..\..\Build\Release\
 copy /Y @VCREDIST_PATH@ ..\..\Build\Debug\
+
+echo Copying install files (flags and file list).
+
+copy ..\InstallFlags ..\..\Build\Release\
+copy ..\InstallFlags ..\..\Build\Debug\
+copy ..\InstallFiles ..\..\Build\Release\
+copy ..\InstallFiles ..\..\Build\Debug\
 
 @IF TESTS
 cd ..\..\bin\tests\dst

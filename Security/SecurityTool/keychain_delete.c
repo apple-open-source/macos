@@ -55,7 +55,7 @@ do_delete_certificate(CFTypeRef keychainOrArray, const char *name, const char *h
     OSStatus result = noErr;
     SecKeychainItemRef itemToDelete = NULL;
     if (!name && !hash) {
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     itemToDelete = find_unique_certificate(keychainOrArray, name, hash);
@@ -200,7 +200,7 @@ keychain_delete(int argc, char * const *argv)
 		{
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 

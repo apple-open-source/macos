@@ -318,7 +318,7 @@ enum
 #define DBG_IOG_MUX_POWER_MESSAGE           24  // 0x18 0x5320060: arg1 messageType/error, arg2 0/-1 (success early exit 1),-2 (success early exit 2), 0 (final exit)
 #define DBG_IOG_FB_POWER_CHANGE             25  // 0x19 0x5320064: arg1 regID, arg2 powerOrdinal
 #define DBG_IOG_WAKE_FROM_DOZE              26  // 0x1A 0x5320068: arg1 x, arg2 y
-#define DBG_IOG_RECEIVE_POWER_NOTIFICATION  27  // 0x1B 0x532006C: arg1 DBG_IOG_PWR_EVENT_xxx enum (below)
+#define DBG_IOG_RECEIVE_POWER_NOTIFICATION  27  // 0x1B 0x532006C: arg1 DBG_IOG_PWR_EVENT_xxx enum (below), arg2 pmValue
 #define DBG_IOG_CHANGE_POWER_STATE_PRIV     28  // 0x1C 0x5320070: arg1 DBG_IOG_SOURCE_xxx (below), arg2 state
 #define DBG_IOG_CLAMP_POWER_ON              29  // 0x1D 0x5320074: arg1 DBG_IOG_SOURCE_xxx (below)
 #define DBG_IOG_SET_TIMER_PERIOD            30  // 0x1E 0x5320078: arg1 DBG_IOG_SOURCE_xxx (below), arg2 idle time
@@ -332,6 +332,7 @@ enum
 #define DBG_IOG_VRAM_CONFIG                 39  // 0x27 0x532009c: arg1 regID, arg2 height, arg3 rowBytes, arg4 len
 #define DBG_IOG_SET_GAMMA_TABLE             40  // 0x28 0x53200A0: arg1 regID, arg2 DBG_IOG_SOURCE_xxx (below), arg3 exit-error
 #define DBG_IOG_NEW_USER_CLIENT             41  // 0x29 0x53200a4: arg1 regID, arg2 type, arg3  exit-error, arg4 0->normal, 1->diagnostic, 2->waitQuiet
+#define DBG_IOG_FB_CLOSE                    42  // 0x2A 0x53200a8: arg1 regID, arg2 sys
 
 // Multiple sources
 #define DBG_IOG_SET_DISPLAY_MODE            100 // 0x64 0x5320190: arg1 DBG_IOG_SOURCE_xxx (below), arg2 regID, arg3 entry-modeID/exit-error, arg4 entry-depth/exit-0.
@@ -369,11 +370,13 @@ enum
 #define DBG_IOG_SOURCE_SYSWORK_RESETCLAMSHELL       29
 #define DBG_IOG_SOURCE_SYSWORK_ENABLECLAMSHELL      30
 #define DBG_IOG_SOURCE_SYSWORK_PROBECLAMSHELL       31
+#define DBG_IOG_SOURCE_CLAMSHELL_OFFLINE_CHANGE     32
 
 // IOGraphics receive power notification event types
 #define DBG_IOG_PWR_EVENT_DESKTOPMODE               1
 #define DBG_IOG_PWR_EVENT_DISPLAYONLINE             2
 #define DBG_IOG_PWR_EVENT_SYSTEMPWRCHANGE           3
+#define DBG_IOG_PWR_EVENT_PROCCONNECTCHANGE         4
 // Clamshell States
 #define DBG_IOG_CLAMSHELL_STATE_NOT_PRESENT         0
 #define DBG_IOG_CLAMSHELL_STATE_CLOSED              1
@@ -391,14 +394,21 @@ enum
  * Not on IOG workloops.
  * Provider and arg are ignored.
  * Since IOGRAPHICSTYPES_REV 49. */
-#define kIOMessageGraphicsNotifyTerminated iog_msg(0x2001)
+#define kIOMessageGraphicsNotifyTerminated                      iog_msg(0x2001)
 
 /* Request IOFramebuffer::probeAccelerator().
  * Not on IOG workloops.
  * Provider and arg are ignored.
  * Since IOGRAPHICSTYPES_REV 52. */
-#define kIOMessageGraphicsProbeAccelerator iog_msg(0x2002)
+#define kIOMessageGraphicsProbeAccelerator                      iog_msg(0x2002)
 
+/* Eject messages to IOAccelerator.
+ * Not on IOG workloops.
+ * Provider and arg are ignored.
+ * Since IOGRAPHICSTYPES_REV 62. */
+#define kIOMessageGraphicsDeviceEject                           iog_msg(0x2003)
+#define kIOMessageGraphicsDeviceEjectFinalize                   iog_msg(0x2004)
+#define kIOMessageGraphicsDeviceEjectCancel                     iog_msg(0x2005)
 
 enum {
     kVendorDeviceNVidia,

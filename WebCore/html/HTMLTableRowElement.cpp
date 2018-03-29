@@ -25,7 +25,6 @@
 #include "config.h"
 #include "HTMLTableRowElement.h"
 
-#include "ExceptionCode.h"
 #include "GenericCachedHTMLCollection.h"
 #include "HTMLNames.h"
 #include "HTMLTableCellElement.h"
@@ -55,7 +54,7 @@ Ref<HTMLTableRowElement> HTMLTableRowElement::create(const QualifiedName& tagNam
     return adoptRef(*new HTMLTableRowElement(tagName, document));
 }
 
-static inline HTMLTableElement* findTable(const HTMLTableRowElement& row)
+static inline RefPtr<HTMLTableElement> findTable(const HTMLTableRowElement& row)
 {
     auto* parent = row.parentNode();
     if (is<HTMLTableElement>(parent))
@@ -70,7 +69,7 @@ static inline HTMLTableElement* findTable(const HTMLTableRowElement& row)
 
 int HTMLTableRowElement::rowIndex() const
 {
-    auto* table = findTable(*this);
+    auto table = findTable(*this);
     if (!table)
         return -1;
 
@@ -86,7 +85,7 @@ int HTMLTableRowElement::rowIndex() const
 
 static inline RefPtr<HTMLCollection> findRows(const HTMLTableRowElement& row)
 {
-    auto* parent = row.parentNode();
+    auto parent = makeRefPtr(row.parentNode());
     if (is<HTMLTableSectionElement>(parent))
         return downcast<HTMLTableSectionElement>(*parent).rows();
     if (is<HTMLTableElement>(parent))
@@ -112,11 +111,11 @@ int HTMLTableRowElement::sectionRowIndex() const
 ExceptionOr<Ref<HTMLTableCellElement>> HTMLTableRowElement::insertCell(int index)
 {
     if (index < -1)
-        return Exception { INDEX_SIZE_ERR };
+        return Exception { IndexSizeError };
     auto children = cells();
     int numCells = children->length();
     if (index > numCells)
-        return Exception { INDEX_SIZE_ERR };
+        return Exception { IndexSizeError };
     auto cell = HTMLTableCellElement::create(tdTag, document());
     ExceptionOr<void> result;
     if (index < 0 || index >= numCells)
@@ -138,7 +137,7 @@ ExceptionOr<void> HTMLTableRowElement::deleteCell(int index)
         index = numCells - 1;
     }
     if (index < 0 || index >= numCells)
-        return Exception { INDEX_SIZE_ERR };
+        return Exception { IndexSizeError };
     return removeChild(*children->item(index));
 }
 

@@ -1917,6 +1917,29 @@ Boolean isKextdRunning(void)
     return( FALSE );
 }
 
+Boolean isNetBooted(void)
+{
+    Boolean isNetBooted = FALSE;
+    uint32_t isNetBootInt = 0;
+    size_t size = sizeof(isNetBootInt);
+    int error = 0;
+
+    error = sysctlbyname("kern.netboot", (void*)&isNetBootInt, &size, NULL, 0);
+    if (error != 0)
+    {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "Unable to read netboot sysctl: %d", error);
+        isNetBooted = FALSE;
+        goto __out;
+    }
+
+    isNetBooted = isNetBootInt != 0;
+
+__out:
+    return isNetBooted;
+}
+
 #if HAVE_DANGERZONE
 
 /*******************************************************************************

@@ -821,7 +821,7 @@ it{
             }
             month{
                 dnam{"mese"}
-                one{"{0}mesi"}
+                one{"{0}mese"}
                 other{"{0}mesi"}
             }
             second{

@@ -221,6 +221,8 @@ struct SecKeychainAttributeInfo
 };
 typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 
+#endif // SEC_OS_OSX_INCLUDES
+
 /*!
     @function SecCopyErrorMessageString
     @abstract Returns a string describing the specified error result code.
@@ -230,9 +232,7 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 */
 __nullable
 CFStringRef SecCopyErrorMessageString(OSStatus status, void * __nullable reserved)
-    __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
-
-#endif // SEC_OS_OSX_INCLUDES
+    __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_11_3);
 
 #undef SECTYPE
 
@@ -310,11 +310,12 @@ CF_ENUM(OSStatus)
 {
     errSecSuccess                            = 0,       /* No error. */
     errSecUnimplemented                      = -4,      /* Function or operation not implemented. */
+    errSecDiskFull                           = -34,     /* The disk is full. */
     errSecDskFull                            = -34,
-    errSecIO                                 = -36,     /*I/O error (bummers)*/
-    errSecOpWr                               = -49,     /*file already open with write permission*/
+    errSecIO                                 = -36,     /* I/O error. */
+    errSecOpWr                               = -49,     /* File already open with write permission. */
     errSecParam                              = -50,     /* One or more parameters passed to a function were not valid. */
-    errSecWrPerm                             = -61,     /* write permissions error*/
+    errSecWrPerm                             = -61,     /* Write permissions error. */
     errSecAllocate                           = -108,    /* Failed to allocate memory. */
     errSecUserCanceled                       = -128,    /* User canceled the operation. */
     errSecBadReq                             = -909,    /* Bad parameter or invalid state for operation. */
@@ -344,7 +345,7 @@ CF_ENUM(OSStatus)
     errSecInteractionNotAllowed              = -25308,    /* User interaction is not allowed. */
     errSecReadOnlyAttr                       = -25309,    /* The specified attribute could not be modified. */
     errSecWrongSecVersion                    = -25310,    /* This keychain was created by a different version of the system software and cannot be opened. */
-    errSecKeySizeNotAllowed                  = -25311,    /* This item specifies a key size which is too large. */
+    errSecKeySizeNotAllowed                  = -25311,    /* This item specifies a key size which is too large or too small. */
     errSecNoStorageModule                    = -25312,    /* A required component (data storage module) could not be loaded. You may need to restart your computer. */
     errSecNoCertificateModule                = -25313,    /* A required component (certificate module) could not be loaded. You may need to restart your computer. */
     errSecNoPolicyModule                     = -25314,    /* A required component (policy module) could not be loaded. You may need to restart your computer. */
@@ -385,7 +386,6 @@ CF_ENUM(OSStatus)
     errSecAppleInvalidKeyEndDate             = -67593,    /* The specified key has an invalid end date. */
     errSecConversionError                    = -67594,    /* A conversion error has occurred. */
     errSecAppleSSLv2Rollback                 = -67595,    /* A SSLv2 rollback error has occurred. */
-    errSecDiskFull                           = -34,        /* The disk is full. */
     errSecQuotaExceeded                      = -67596,    /* The quota was exceeded. */
     errSecFileTooBig                         = -67597,    /* The file is too big. */
     errSecInvalidDatabaseBlob                = -67598,    /* The specified database has an invalid blob. */
@@ -447,16 +447,16 @@ CF_ENUM(OSStatus)
     errSecTrustSettingDeny                   = -67654,    /* The trust setting for this policy was set to Deny. */
     errSecInvalidSubjectName                 = -67655,    /* An invalid certificate subject name was encountered. */
     errSecUnknownQualifiedCertStatement      = -67656,    /* An unknown qualified certificate statement was encountered. */
-    errSecMobileMeRequestQueued              = -67657,    /* The MobileMe request will be sent during the next connection. */
-    errSecMobileMeRequestRedirected          = -67658,    /* The MobileMe request was redirected. */
-    errSecMobileMeServerError                = -67659,    /* A MobileMe server error occurred. */
-    errSecMobileMeServerNotAvailable         = -67660,    /* The MobileMe server is not available. */
-    errSecMobileMeServerAlreadyExists        = -67661,    /* The MobileMe server reported that the item already exists. */
-    errSecMobileMeServerServiceErr           = -67662,    /* A MobileMe service error has occurred. */
-    errSecMobileMeRequestAlreadyPending      = -67663,    /* A MobileMe request is already pending. */
-    errSecMobileMeNoRequestPending           = -67664,    /* MobileMe has no request pending. */
-    errSecMobileMeCSRVerifyFailure           = -67665,    /* A MobileMe CSR verification failure has occurred. */
-    errSecMobileMeFailedConsistencyCheck     = -67666,    /* MobileMe has found a failed consistency check. */
+    errSecMobileMeRequestQueued              = -67657,
+    errSecMobileMeRequestRedirected          = -67658,
+    errSecMobileMeServerError                = -67659,
+    errSecMobileMeServerNotAvailable         = -67660,
+    errSecMobileMeServerAlreadyExists        = -67661,
+    errSecMobileMeServerServiceErr           = -67662,
+    errSecMobileMeRequestAlreadyPending      = -67663,
+    errSecMobileMeNoRequestPending           = -67664,
+    errSecMobileMeCSRVerifyFailure           = -67665,
+    errSecMobileMeFailedConsistencyCheck     = -67666,
     errSecNotInitialized                     = -67667,    /* A function was called without initializing CSSM. */
     errSecInvalidHandleUsage                 = -67668,    /* The CSSM handle does not match with the service type. */
     errSecPVCReferentNotFound                = -67669,    /* A reference to the calling module was not found in the list of authorized callers. */
@@ -633,7 +633,7 @@ CF_ENUM(OSStatus)
     errSecInvalidStopOnPolicy                = -67840,    /* The stop-on policy was not valid. */
     errSecInvalidTuple                       = -67841,    /* The tuple was not valid. */
     errSecMultipleValuesUnsupported          = -67842,    /* Multiple values are not supported. */
-    errSecNotTrusted                         = -67843,    /* The trust policy was not trusted. */
+    errSecNotTrusted                         = -67843,    /* The certificate was not trusted. */
     errSecNoDefaultAuthority                 = -67844,    /* No default authority was detected. */
     errSecRejectedForm                       = -67845,    /* The trust policy had a rejected form. */
     errSecRequestLost                        = -67846,    /* The request was lost. */

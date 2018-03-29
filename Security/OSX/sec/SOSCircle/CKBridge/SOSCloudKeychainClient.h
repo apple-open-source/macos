@@ -67,8 +67,8 @@ struct SOSCloudTransport
     void (*put)(SOSCloudTransportRef transport, CFDictionaryRef valuesToPut, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*updateKeys)(SOSCloudTransportRef transport, CFDictionaryRef keys, CFStringRef accountUUID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
-    void (*sendIDSMessage)(SOSCloudTransportRef transport, CFDictionaryRef data, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
-    void (*sendFragmentedIDSMessage)(SOSCloudTransportRef transport, CFDictionaryRef data, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*sendIDSMessage)(SOSCloudTransportRef transport, CFDictionaryRef data, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*sendFragmentedIDSMessage)(SOSCloudTransportRef transport, CFDictionaryRef data, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*retrieveMessages) (SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*getDeviceID)(SOSCloudTransportRef transport, CloudKeychainReplyBlock replyBlock);
 
@@ -96,16 +96,10 @@ struct SOSCloudTransport
 
 };
 
-/* Call this function before calling any other function in this header to provide
-   an alternate transport, the default transport talks to CloudKeychainProxy via xpc. */
-void SOSCloudKeychainSetTransport(SOSCloudTransportRef transport);
-
 void SOSCloudKeychainGetIDSDeviceID(CloudKeychainReplyBlock replyBlock);
-void SOSCloudKeychainSendIDSMessage(CFDictionaryRef message, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CFBooleanRef fragmentation, CloudKeychainReplyBlock replyBlock);
 void SOSCloudKeychainRetrievePendingMessageFromProxy(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
 void SOSCloudKeychainUpdateKeys(CFDictionaryRef keys, CFStringRef accountUUID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
-void SOSCloudKeychainUnRegisterKeys(CFArrayRef keysToUnregister, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
 void SOSCloudKeychainPutObjectsInCloud(CFDictionaryRef objects, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
@@ -133,6 +127,7 @@ CFDictionaryRef SOSCloudCopyKVSState(void);
 void SOSCloudKeychainGetIDSDeviceAvailability(CFArrayRef ids, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 void SOSCloudKeychainRemoveKeys(CFArrayRef keys, CFStringRef accountUUID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 void SOSCloudKeychainRetrieveCountersFromIDSProxy(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+void SOSCloudKeychainSendIDSMessage(CFDictionaryRef message, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CFBooleanRef fragmentation, CloudKeychainReplyBlock replyBlock);
 
 
 __END_DECLS

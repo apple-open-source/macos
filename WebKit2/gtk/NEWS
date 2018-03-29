@@ -1,4 +1,54 @@
 =================
+WebKitGTK+ 2.19.3
+=================
+
+What's new in WebKitGTK+ 2.19.3?
+
+  - Fix web process crash at startup in bmalloc.
+  - Fix several memory leaks in GStreamer media backend.
+  - WebKitWebDriver process no longer links to libjavascriptcoregtk.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.19.2
+=================
+
+What's new in WebKitGTK+ 2.19.2?
+
+  - Add new API to add, retrieve and delete cookies via WebKitCookieManager.
+  - Add functions to WebSettings to convert font sizes between points and pixels.
+  - Ensure cookie operations take effect when they happen before a web process has been spawned.
+  - Automatically adjust font size when GtkSettings:gtk-xft-dpi changes.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.19.1
+=================
+
+What's new in WebKitGTK+ 2.19.1?
+
+  - Add initial resource load statistics support.
+  - Add API to expose availability of certain editing commands in WebKitEditorState.
+  - Add API to query whether a WebKitNavigationAction is a redirect or not.
+  - Improve complex text rendering.
+  - Add support for the "system" CSS font family.
+  - Implement low power mode.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.17.5
+=================
+
+What's new in WebKitGTK+ 2.17.5?
+
+  - Add initial implementation of WebDriver.
+  - Enable GStreamerGL by default when building with GStreamer >= 1.10.
+  - Fix position of context menu in Wayland.
+  - Properly close cookies database at network process exit.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Ukrainian.
+
+=================
 WebKitGTK+ 2.17.4
 =================
 

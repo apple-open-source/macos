@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008, 2012-2014, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -47,7 +47,7 @@
  * It declares inet_aton(), inet_ntop(), and inet_pton().
  *
  * It ensures that #INADDR_LOOPBACK, #INADDR_ANY, #IN6ADDR_ANY_INIT,
- * in6addr_any, and in6addr_loopback are available.
+ * IN6ADDR_V4MAPPED_INIT, in6addr_any, and in6addr_loopback are available.
  *
  * It ensures that IN_MULTICAST() is available to check for multicast
  * addresses.
@@ -121,6 +121,15 @@
 #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
 #else
 #define IN6ADDR_LOOPBACK_INIT { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } }
+#endif
+#endif
+
+#ifndef IN6ADDR_V4MAPPED_INIT
+#ifdef s6_addr
+/*% IPv6 v4mapped prefix init */
+#define IN6ADDR_V4MAPPED_INIT { { { 0,0,0,0,0,0,0,0,0,0,0xff,0xff,0,0,0,0 } } }
+#else
+#define IN6ADDR_V4MAPPED_INIT { { 0,0,0,0,0,0,0,0,0,0,0xff,0xff,0,0,0,0 } }
 #endif
 #endif
 
@@ -351,6 +360,21 @@ isc_net_probeunix(void);
 /*
  * Returns whether UNIX domain sockets are supported.
  */
+
+#define ISC_NET_DSCPRECVV4	0x01	/* Can receive sent DSCP value IPv4 */
+#define ISC_NET_DSCPRECVV6	0x02	/* Can receive sent DSCP value IPv6 */
+#define ISC_NET_DSCPSETV4	0x04	/* Can set DSCP on socket IPv4 */
+#define ISC_NET_DSCPSETV6	0x08	/* Can set DSCP on socket IPv6 */
+#define ISC_NET_DSCPPKTV4	0x10	/* Can set DSCP on per packet IPv4 */
+#define ISC_NET_DSCPPKTV6	0x20	/* Can set DSCP on per packet IPv6 */
+#define ISC_NET_DSCPALL		0x3f	/* All valid flags */
+
+unsigned int
+isc_net_probedscp(void);
+/*%<
+ * Probe the level of DSCP support.
+ */
+
 
 isc_result_t
 isc_net_getudpportrange(int af, in_port_t *low, in_port_t *high);

@@ -23,7 +23,7 @@
 
 #import <Foundation/Foundation.h>
 
-@protocol CKKSControlProtocol
+@protocol CKKSControlProtocol <NSObject>
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
 - (void)rpcResetLocal:    (NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcResetCloudKit: (NSString*)viewName reply: (void(^)(NSError* result)) reply;
@@ -33,9 +33,7 @@
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcGetAnalyticsSysdiagnoseWithReply:(void (^)(NSString* sysdiagnose, NSError* error))reply;
-- (void)rpcGetAnalyticsJSONWithReply:(void (^)(NSData* json, NSError* error))reply;
-- (void)rpcForceUploadAnalyticsWithReply:(void (^)(BOOL success, NSError* error))reply;
+- (void)rpcGetCKDeviceIDWithReply: (void (^)(NSString* ckdeviceID))reply;
 @end
 
 NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface);

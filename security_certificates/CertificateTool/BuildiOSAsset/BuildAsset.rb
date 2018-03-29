@@ -20,7 +20,7 @@ class BuildPKIAsset
     
     def validate_path(path, isDir = true)
         return false if path.nil? || path.empty?
-        return false if !FileTest.exists?(path)
+        return false if !FileTest.exist?(path)
         return false if isDir != FileTest.directory?(path)
         true
     end
@@ -60,7 +60,7 @@ class BuildPKIAsset
         
         @info_plist_path = File.join(File.join(File.expand_path(project_path), "../config"), "Info-Asset.plist")
         
-        if !FileTest.exists? @info_plist_path
+        if !FileTest.exist? @info_plist_path
           puts "Could not find the Info.plist file"
           exit
         end
@@ -128,7 +128,7 @@ class BuildPKIAsset
         file_list = %w(AppleESCertificates.plist AssetVersion.plist Blocked.plist GrayListedKeys.plist Allowed.plist EVRoots.plist certsIndex.data certsTable.data manifest.data TrustedCTLogs.plist)
         file_list.each do |file|
             file_path = File.join(@base_path, file)
-            if !FileTest.exists?(file_path)
+            if !FileTest.exist?(file_path)
                 output_str(nil, true)
                 output_str( " ") 
                 puts "#{file_path} is missing in the base directory"

@@ -159,7 +159,7 @@ int keychain_add_internet_password(int argc, char * const *argv)
                 break;
             case '?':
             default:
-                return 2; /* @@@ Return 2 triggers usage message. */
+                return SHOW_USAGE_MESSAGE;
 		}
 	}
     
@@ -176,7 +176,7 @@ int keychain_add_internet_password(int argc, char * const *argv)
 		}
 	}
 	else if (argc != 0)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
     
 	result = do_addinternetpassword(keychainName, serverName, securityDomain,
                                     accountName, path, port, protocol,authenticationType, passwordData);

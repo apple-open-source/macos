@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009, 2013-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -203,6 +203,16 @@ isc_app_run(void);
  *\li	ISC_R_RELOAD			Reload has been requested.
  */
 
+isc_boolean_t
+isc_app_isrunning(void);
+/*!<
+ * \brief Return if the ISC library application is running.
+ *
+ * Returns:
+ *\li	ISC_TRUE    App is running.
+ *\li	ISC_FALSE   App is not running.
+ */
+
 isc_result_t
 isc_app_ctxshutdown(isc_appctx_t *ctx);
 
@@ -352,7 +362,6 @@ isc_appctx_settimermgr(isc_appctx_t *ctx, isc_timermgr_t *timermgr);
  *\li	'timermgr' is a valid timer manager.
  */
 
-#ifdef USE_APPIMPREGISTER
 /*%<
  * See isc_appctx_create() above.
  */
@@ -375,7 +384,6 @@ isc__app_register(void);
  * usually do not have to care about this function: it would call
  * isc_lib_register(), which internally calls this function.
  */
-#endif /* USE_APPIMPREGISTER */
 
 ISC_LANG_ENDDECLS
 

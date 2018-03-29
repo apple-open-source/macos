@@ -87,7 +87,7 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		4D0AF45506389034001DAB44 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
 			dstSubfolderSpec = 0;
 			files = (
@@ -100,7 +100,7 @@
 				4D0AF45C06389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in CopyFiles */,
 				4D0AF45D06389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		4D0AF48406389034001DAB44 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -612,7 +612,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.7;
+				MODULE_VERSION = 4.2.8;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -645,7 +645,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.7;
+				MODULE_VERSION = 4.2.8;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -678,7 +678,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.7;
+				MODULE_VERSION = 4.2.8;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -709,7 +709,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.2.7;
+				MODULE_VERSION = 4.2.8;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -809,6 +809,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Development;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				SDKROOT = macosx.internal;
 			};
 			name = Development;
@@ -817,6 +818,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Deployment;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
@@ -825,6 +827,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = FireLog;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				SDKROOT = macosx.internal;
 			};
 			name = FireLog;
@@ -833,6 +836,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Default;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				SDKROOT = macosx.internal;
 			};
 			name = Default;

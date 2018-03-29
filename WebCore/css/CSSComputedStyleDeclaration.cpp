@@ -53,7 +53,7 @@
 #include "CursorList.h"
 #include "DeprecatedCSSOMValue.h"
 #include "Document.h"
-#include "ExceptionCode.h"
+#include "DocumentTimeline.h"
 #include "FontCascade.h"
 #include "FontSelectionValueInlines.h"
 #include "FontTaggedSettings.h"
@@ -138,6 +138,7 @@ static const CSSPropertyID computedProperties[] = {
     CSSPropertyBoxShadow,
     CSSPropertyBoxSizing,
     CSSPropertyCaptionSide,
+    CSSPropertyCaretColor,
     CSSPropertyClear,
     CSSPropertyClip,
     CSSPropertyColor,
@@ -417,14 +418,6 @@ static const CSSPropertyID computedProperties[] = {
     CSSPropertyWebkitUserDrag,
     CSSPropertyWebkitUserModify,
     CSSPropertyWebkitUserSelect,
-#if ENABLE(CSS_REGIONS)
-    CSSPropertyWebkitFlowInto,
-    CSSPropertyWebkitFlowFrom,
-    CSSPropertyWebkitRegionBreakAfter,
-    CSSPropertyWebkitRegionBreakBefore,
-    CSSPropertyWebkitRegionBreakInside,
-    CSSPropertyWebkitRegionFragment,
-#endif
     CSSPropertyShapeImageThreshold,
     CSSPropertyShapeMargin,
     CSSPropertyShapeOutside,
@@ -787,7 +780,7 @@ static RefPtr<CSSValue> positionOffsetValue(const RenderStyle& style, CSSPropert
     // We should return the "used value".
     auto& box = downcast<RenderBox>(*renderer);
     auto* containingBlock = box.containingBlock();
-    if (box.isRelPositioned() || !containingBlock)
+    if (box.isRelativelyPositioned() || !containingBlock)
         return zoomAdjustedPixelValue(getOffsetUsedStyleRelative(box, propertyID), style);
     if (renderer->isOutOfFlowPositioned())
         return zoomAdjustedPixelValue(getOffsetUsedStyleOutOfFlowPositioned(*containingBlock, box, propertyID), style);
@@ -1668,9 +1661,7 @@ CSSComputedStyleDeclaration::CSSComputedStyleDeclaration(Element& element, bool 
     (pseudoElementName.substringSharingImpl(nameWithoutColonsStart))));
 }
 
-CSSComputedStyleDeclaration::~CSSComputedStyleDeclaration()
-{
-}
+CSSComputedStyleDeclaration::~CSSComputedStyleDeclaration() = default;
 
 void CSSComputedStyleDeclaration::ref()
 {
@@ -1702,7 +1693,7 @@ String CSSComputedStyleDeclaration::cssText() const
 
 ExceptionOr<void> CSSComputedStyleDeclaration::setCssText(const String&)
 {
-    return Exception { NO_MODIFICATION_ALLOWED_ERR };
+    return Exception { NoModificationAllowedError };
 }
 
 RefPtr<CSSPrimitiveValue> ComputedStyleExtractor::getFontSizeCSSValuePreferringKeyword()
@@ -1916,8 +1907,6 @@ static Ref<CSSValueList> contentToCSSValue(const RenderStyle& style)
         else if (is<TextContentData>(*contentData))
             list->append(cssValuePool.createValue(downcast<TextContentData>(*contentData).text(), CSSPrimitiveValue::CSS_STRING));
     }
-    if (style.hasFlowFrom())
-        list->append(cssValuePool.createValue(style.regionThread(), CSSPrimitiveValue::CSS_STRING));
     return list;
 }
 
@@ -2290,24 +2279,6 @@ static CSSValueID convertToColumnBreak(BreakInside value)
     return CSSValueAuto;
 }
 
-#if ENABLE(CSS_REGIONS)
-static CSSValueID convertToRegionBreak(BreakBetween value)
-{
-    if (value == RegionBreakBetween)
-        return CSSValueAlways;
-    if (value == AvoidBreakBetween || value == AvoidRegionBreakBetween)
-        return CSSValueAvoid;
-    return CSSValueAuto;
-}
-    
-static CSSValueID convertToRegionBreak(BreakInside value)
-{
-    if (value == AvoidBreakInside || value == AvoidRegionBreakInside)
-        return CSSValueAvoid;
-    return CSSValueAuto;
-}
-#endif
-
 static inline bool isNonReplacedInline(RenderObject& renderer)
 {
     return renderer.isInline() && !renderer.isReplaced();
@@ -2370,7 +2341,7 @@ static bool isLayoutDependent(CSSPropertyID propertyID, const RenderStyle* style
     }
 }
 
-Element* ComputedStyleExtractor::styledElement()
+Element* ComputedStyleExtractor::styledElement() const
 {
     if (!m_element)
         return nullptr;
@@ -2380,6 +2351,19 @@ Element* ComputedStyleExtractor::styledElement()
     if (m_pseudoElementSpecifier == AFTER && (pseudoElement = m_element->afterPseudoElement()))
         return pseudoElement;
     return m_element.get();
+}
+
+
+RenderElement* ComputedStyleExtractor::styledRenderer() const
+{
+    auto* element = styledElement();
+    if (!element)
+        return nullptr;
+    if (m_pseudoElementSpecifier != NOPSEUDO && element == m_element.get())
+        return nullptr;
+    if (element->hasDisplayContents())
+        return nullptr;
+    return element->renderer();
 }
 
 static bool isImplicitlyInheritedGridOrFlexProperty(CSSPropertyID propertyID)
@@ -2466,7 +2450,10 @@ static inline const RenderStyle* computeRenderStyleForProperty(Element& element,
     auto* renderer = element.renderer();
 
     if (renderer && renderer->isComposited() && CSSAnimationController::supportsAcceleratedAnimationOfProperty(propertyID)) {
-        ownedStyle = renderer->animation().getAnimatedStyleForRenderer(*renderer);
+        if (auto timeline = element.document().existingTimeline())
+            ownedStyle = timeline->animatedStyleForRenderer(*renderer);
+        else
+            ownedStyle = renderer->animation().animatedStyleForRenderer(*renderer);
         if (pseudoElementSpecifier && !element.isPseudoElement()) {
             // FIXME: This cached pseudo style will only exist if the animation has been run at least once.
             return ownedStyle->getCachedPseudoStyle(pseudoElementSpecifier);
@@ -2659,7 +2646,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
 
     std::unique_ptr<RenderStyle> ownedStyle;
     const RenderStyle* style = nullptr;
-    RenderObject* renderer = nullptr;
+    RenderElement* renderer = nullptr;
     bool forceFullLayout = false;
     if (updateLayout) {
         Document& document = m_element->document();
@@ -2668,7 +2655,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
             // Style update may change styledElement() to PseudoElement or back.
             styledElement = this->styledElement();
         }
-        renderer = styledElement->renderer();
+        renderer = styledRenderer();
 
         if (propertyID == CSSPropertyDisplay && !renderer && is<SVGElement>(*styledElement) && !downcast<SVGElement>(*styledElement).isValid())
             return nullptr;
@@ -2688,7 +2675,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
 
     if (!updateLayout || forceFullLayout) {
         style = computeRenderStyleForProperty(*styledElement, m_pseudoElementSpecifier, propertyID, ownedStyle);
-        renderer = styledElement->renderer();
+        renderer = styledRenderer();
     }
 
     if (!style)
@@ -2892,6 +2879,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
             return valueForShadow(style->boxShadow(), propertyID, *style);
         case CSSPropertyCaptionSide:
             return cssValuePool.createValue(style->captionSide());
+        case CSSPropertyCaretColor:
+            return m_allowVisitedStyle ? cssValuePool.createColorValue(style->visitedDependentColor(CSSPropertyCaretColor)) : currentColorOrValidColor(style, style->caretColor());
         case CSSPropertyClear:
             return cssValuePool.createValue(style->clear());
         case CSSPropertyColor:
@@ -2932,14 +2921,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
             return zoomAdjustedPixelValue(style->columnWidth(), *style);
         case CSSPropertyTabSize:
             return cssValuePool.createValue(style->tabSize(), CSSPrimitiveValue::CSS_NUMBER);
-#if ENABLE(CSS_REGIONS)
-        case CSSPropertyWebkitRegionBreakAfter:
-            return cssValuePool.createValue(convertToRegionBreak(style->breakAfter()));
-        case CSSPropertyWebkitRegionBreakBefore:
-            return cssValuePool.createValue(convertToRegionBreak(style->breakBefore()));
-        case CSSPropertyWebkitRegionBreakInside:
-            return cssValuePool.createValue(convertToRegionBreak(style->breakInside()));
-#endif
         case CSSPropertyCursor: {
             RefPtr<CSSValueList> list;
             auto* cursors = style->cursors();
@@ -3342,6 +3323,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
                 list->append(cssValuePool.createValue(style->textEmphasisMark()));
                 return WTFMove(list);
             }
+            RELEASE_ASSERT_NOT_REACHED();
         case CSSPropertyTextIndent: {
             // If CSS3_TEXT is disabled or text-indent has only one value(<length> | <percentage>),
             // getPropertyCSSValue() returns CSSValue.
@@ -3814,18 +3796,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
                 list->append(cssValuePool.createValue(downcast<BoxClipPathOperation>(*operation).referenceBox()));
             return WTFMove(list);
         }
-#if ENABLE(CSS_REGIONS)
-        case CSSPropertyWebkitFlowInto:
-            if (!style->hasFlowInto())
-                return cssValuePool.createIdentifierValue(CSSValueNone);
-            return cssValuePool.createValue(style->flowThread(), CSSPrimitiveValue::CSS_STRING);
-        case CSSPropertyWebkitFlowFrom:
-            if (!style->hasFlowFrom())
-                return cssValuePool.createIdentifierValue(CSSValueNone);
-            return cssValuePool.createValue(style->regionThread(), CSSPrimitiveValue::CSS_STRING);
-        case CSSPropertyWebkitRegionFragment:
-            return cssValuePool.createValue(style->regionFragment());
-#endif
         case CSSPropertyShapeMargin:
             return cssValuePool.createValue(style->shapeMargin(), *style);
         case CSSPropertyShapeImageThreshold:
@@ -4015,6 +3985,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
         /* Unimplemented @font-face properties */
         case CSSPropertySrc:
         case CSSPropertyUnicodeRange:
+        case CSSPropertyFontDisplay:
             break;
 
         /* Other unimplemented properties */
@@ -4128,9 +4099,8 @@ String CSSComputedStyleDeclaration::item(unsigned i) const
     const auto& customProperties = style->customProperties();
     if (index >= customProperties.size())
         return String();
-    
-    Vector<String, 4> results;
-    copyKeysToVector(customProperties, results);
+
+    auto results = copyToVector(customProperties.keys());
     return results.at(index);
 }
 
@@ -4224,7 +4194,7 @@ RefPtr<DeprecatedCSSOMValue> CSSComputedStyleDeclaration::getPropertyCSSValue(co
         auto value = ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).customPropertyValue(propertyName);
         if (!value)
             return nullptr;
-        return value->createDeprecatedCSSOMWrapper();
+        return value->createDeprecatedCSSOMWrapper(*this);
     }
 
     CSSPropertyID propertyID = cssPropertyID(propertyName);
@@ -4233,7 +4203,7 @@ RefPtr<DeprecatedCSSOMValue> CSSComputedStyleDeclaration::getPropertyCSSValue(co
     auto value = getPropertyCSSValue(propertyID);
     if (!value)
         return nullptr;
-    return value->createDeprecatedCSSOMWrapper();
+    return value->createDeprecatedCSSOMWrapper(*this);
 }
 
 String CSSComputedStyleDeclaration::getPropertyValue(const String &propertyName)
@@ -4265,12 +4235,12 @@ bool CSSComputedStyleDeclaration::isPropertyImplicit(const String&)
 
 ExceptionOr<void> CSSComputedStyleDeclaration::setProperty(const String&, const String&, const String&)
 {
-    return Exception { NO_MODIFICATION_ALLOWED_ERR };
+    return Exception { NoModificationAllowedError };
 }
 
 ExceptionOr<String> CSSComputedStyleDeclaration::removeProperty(const String&)
 {
-    return Exception { NO_MODIFICATION_ALLOWED_ERR };
+    return Exception { NoModificationAllowedError };
 }
     
 RefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValueInternal(CSSPropertyID propertyID)
@@ -4285,7 +4255,7 @@ String CSSComputedStyleDeclaration::getPropertyValueInternal(CSSPropertyID prope
 
 ExceptionOr<bool> CSSComputedStyleDeclaration::setPropertyInternal(CSSPropertyID, const String&, bool)
 {
-    return Exception { NO_MODIFICATION_ALLOWED_ERR };
+    return Exception { NoModificationAllowedError };
 }
 
 Ref<CSSValueList> ComputedStyleExtractor::getBackgroundShorthandValue()

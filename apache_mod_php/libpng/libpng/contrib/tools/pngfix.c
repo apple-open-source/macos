@@ -1,8 +1,7 @@
 /* pngfix.c
  *
- * Copyright (c) 2014-2015 John Cunningham Bowler
- *
- * Last changed in libpng 1.6.20 [December 3, 2015]
+ * Last changed in libpng 1.6.31 [July 27, 2017]
+ * Copyright (c) 2014-2017 John Cunningham Bowler
  *
  * This code is released under the libpng license.
  * For conditions of distribution and use, see the disclaimer
@@ -319,13 +318,13 @@ uarb_mult32(uarb acc, int a_digits, uarb num, int n_digits, png_uint_32 val)
       a_digits = uarb_mult_digit(acc, a_digits, num, n_digits,
          (png_uint_16)(val & 0xffff));
 
-      /* Because n_digits and val are >0 the following must be true: */
-      assert(a_digits > 0);
-
       val >>= 16;
       if (val > 0)
          a_digits = uarb_mult_digit(acc+1, a_digits-1, num, n_digits,
             (png_uint_16)val) + 1;
+
+      /* Because n_digits and val are >0 the following must be true: */
+      assert(a_digits > 0);
    }
 
    return a_digits;
@@ -1824,7 +1823,7 @@ IDAT_init(struct IDAT * const idat, struct file * const file)
 }
 
 static png_uint_32
-rechunk_length(struct IDAT *idat)
+rechunk_length(struct IDAT *idat, int start)
    /* Return the length for the next IDAT chunk, taking into account
     * rechunking.
     */
@@ -1836,7 +1835,7 @@ rechunk_length(struct IDAT *idat)
       const struct IDAT_list *cur;
       unsigned int count;
 
-      if (idat->idat_index == 0) /* at the new chunk (first time) */
+      if (start)
          return idat->idat_length; /* use the cache */
 
       /* Otherwise rechunk_length is called at the end of a chunk for the length
@@ -1995,7 +1994,7 @@ process_IDAT(struct file *file)
       idat->idat_index = 0; /* Index into chunk data */
 
       /* Update the chunk length to the correct value for the IDAT chunk: */
-      file->chunk->chunk_length = rechunk_length(idat);
+      file->chunk->chunk_length = rechunk_length(idat, 1/*start*/);
 
       /* Change the state to writing IDAT chunks */
       file->state = STATE_IDAT;
@@ -2416,7 +2415,7 @@ zlib_advance(struct zlib *zlib, png_uint_32 nbytes)
                   endrc = ZLIB_TOO_FAR_BACK;
                   break;
                }
-               /* FALL THROUGH */
+               /* FALLTHROUGH */
 
             default:
                zlib_message(zlib, 0/*stream error*/);
@@ -2570,7 +2569,7 @@ zlib_run(struct zlib *zlib)
                   list->lengths[i] -= zlib->extra_bytes;
                   list->count = i+1;
                   zlib->idat->idat_list_tail = list;
-                  /* FALL THROUGH */
+                  /* FALLTHROUGH */
 
                default:
                   return rc;
@@ -2673,7 +2672,7 @@ zlib_check(struct file *file, png_uint_32 offset)
             /* Truncated stream; unrecoverable, gets converted to ZLIB_FATAL */
             zlib.z.msg = PNGZ_MSG_CAST("[truncated]");
             zlib_message(&zlib, 0/*expected*/);
-            /* FALL THROUGH */
+            /* FALLTHROUGH */
 
          default:
             /* Unrecoverable error; skip the chunk; a zlib_message has already
@@ -3341,7 +3340,7 @@ read_callback(png_structp png_ptr, png_bytep buffer, size_t count)
                if (file->state != STATE_IDAT && length > 0)
                   setpos(chunk);
             }
-            /* FALL THROUGH */
+            /* FALLTHROUGH */
 
          default:
             assert(chunk != NULL);
@@ -3473,7 +3472,8 @@ read_callback(png_structp png_ptr, png_bytep buffer, size_t count)
                      /* Write another IDAT chunk.  Call rechunk_length to
                       * calculate the length required.
                       */
-                     length = chunk->chunk_length = rechunk_length(file->idat);
+                     length = chunk->chunk_length =
+                         rechunk_length(file->idat, 0/*end*/);
                      assert(type == png_IDAT);
                      file->write_count = 0; /* for the new chunk */
                      --(file->write_count); /* fake out the increment below */

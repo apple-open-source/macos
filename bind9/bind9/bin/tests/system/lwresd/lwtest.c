@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2008, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2008, 2012, 2013, 2015, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -23,7 +23,9 @@
 #include <stdlib.h>
 
 #include <isc/net.h>
+#include <isc/print.h>
 #include <isc/string.h>
+#include <isc/util.h>
 
 #include <lwres/lwres.h>
 #include <lwres/netdb.h>
@@ -639,11 +641,17 @@ test_getrrsetbyname(const char *name, int rdclass, int rdtype,
 }
 
 int
-main(void) {
+main(int argc, char **argv) {
 	lwres_result_t ret;
+	int nosearch = 0;
+
+	UNUSED(argc);
 
 	lwres_udp_port = 9210;
 	lwres_resolv_conf = "resolv.conf";
+
+	if (argv[1] != NULL && strcmp(argv[1], "-nosearch") == 0)
+		nosearch = 1;
 
 	ret = lwres_context_create(&ctx, NULL, NULL, NULL, 0);
 	CHECK(ret, "lwres_context_create");
@@ -663,10 +671,16 @@ main(void) {
 		  LWRES_ADDRTYPE_V4);
 	test_gabn("a.example3", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
 	test_gabn("a.example3.", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
-	test_gabn("a", LWRES_R_SUCCESS, "10.0.1.1", LWRES_ADDRTYPE_V4);
+	if (nosearch)
+		test_gabn("a", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
+	else
+		test_gabn("a", LWRES_R_SUCCESS, "10.0.1.1", LWRES_ADDRTYPE_V4);
 	test_gabn("a.", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
 
-	test_gabn("a2", LWRES_R_SUCCESS, "10.0.1.1", LWRES_ADDRTYPE_V4);
+	if (nosearch)
+		test_gabn("a2", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
+	else
+		test_gabn("a2", LWRES_R_SUCCESS, "10.0.1.1", LWRES_ADDRTYPE_V4);
 	test_gabn("a3", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V4);
 
 	test_gabn("b.example1", LWRES_R_SUCCESS,
@@ -683,9 +697,12 @@ main(void) {
 		  LWRES_ADDRTYPE_V6);
 	test_gabn("b.example3", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V6);
 	test_gabn("b.example3.", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V6);
-	test_gabn("b", LWRES_R_SUCCESS,
-		  "eeee:eeee:eeee:eeee:ffff:ffff:ffff:ffff",
-		  LWRES_ADDRTYPE_V6);
+	if (nosearch)
+		test_gabn("b", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V6);
+	else
+		test_gabn("b", LWRES_R_SUCCESS,
+			  "eeee:eeee:eeee:eeee:ffff:ffff:ffff:ffff",
+			  LWRES_ADDRTYPE_V6);
 	test_gabn("b.", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V6);
 
 	test_gabn("d.example1", LWRES_R_NOTFOUND, NULL, LWRES_ADDRTYPE_V6);
@@ -760,12 +777,24 @@ main(void) {
 	test_getnameinfo("1122:3344:5566:7788:99aa:bbcc:ddee:ff00",
 			 AF_INET6, "dname.example1");
 
-	test_getrrsetbyname("a", 1, 1, 1, 0, 1);
+	if (nosearch)
+		test_getrrsetbyname("a", 1, 1, 0, 0, 0);
+	else
+		test_getrrsetbyname("a", 1, 1, 1, 0, 1);
 	test_getrrsetbyname("a.example1.", 1, 1, 1, 0, 1);
 	test_getrrsetbyname("e.example1.", 1, 1, 1, 1, 1);
 	test_getrrsetbyname("e.example1.", 1, 255, 1, 1, 0);
+	test_getrrsetbyname("e.example1.", 1, 2, 1, 1, 1);
 	test_getrrsetbyname("e.example1.", 1, 46, 2, 0, 1);
 	test_getrrsetbyname("", 1, 1, 0, 0, 0);
+
+	test_getrrsetbyname("123456789.123456789.123456789.123456789."
+			    "123456789.123456789.123456789.123456789."
+			    "123456789.123456789.123456789.123456789."
+			    "123456789.123456789.123456789.123456789."
+			    "123456789.123456789.123456789.123456789."
+			    "123456789.123456789.123456789.123456789."
+			    "123456789", 1, 1, 0, 0, 0);
 
 	if (fails == 0)
 		printf("I:ok\n");

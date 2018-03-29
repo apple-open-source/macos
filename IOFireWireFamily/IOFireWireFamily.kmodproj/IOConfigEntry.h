@@ -30,7 +30,7 @@ class IOConfigEntry : public OSObject
     OSDeclareDefaultStructors(IOConfigEntry);
 	
 protected:
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
     
 public:
     UInt32 fKey;

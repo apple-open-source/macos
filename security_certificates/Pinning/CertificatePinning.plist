@@ -2,13 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>17</integer>
+	<integer>26</integer>
 	<dict>
 		<key>domains</key>
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^p..-content$|^p..-ckdatabase$|^p..-ckshare$|^p..-ckdevice$|^p..-ckcoderouter$|^gateway$|^p..-keyvalueservice$|^keyvalueservice$</string>
+				<string>^p..-content$|^p..-ckdatabase$|^p..-ckshare$|^p..-ckdevice$|^p..-ckcoderouter$|^gateway|^p..-keyvalueservice$|^keyvalueservice$|^p..-pairingws$|^pairingws$</string>
 				<key>suffix</key>
 				<string>icloud.com</string>
 			</dict>
@@ -192,7 +192,7 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^humb$|^humb-int$</string>
+				<string>^humb$|^humb-int$|^humb-stg$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
@@ -220,7 +220,7 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^gdmf$|-pallas-</string>
+				<string>^gdmf$|-pallas-|^gdmf-staging-int$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
@@ -258,6 +258,12 @@
 				<key>suffix</key>
 				<string>stg.apple-studies.com</string>
 			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>.*</string>
+				<key>suffix</key>
+				<string>teams.apple-studies.com</string>
+			</dict>
 		</array>
 		<key>policyName</key>
 		<string>AppleStudies</string>
@@ -274,8 +280,6 @@
 				<string>1.2.840.113635.100.6.27.23</string>
 				<key>Revocation</key>
 				<string>AnyRevocationMethod</string>
-				<key>RevocationResponseRequired</key>
-				<true/>
 			</dict>
 		</array>
 	</dict>
@@ -518,13 +522,13 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^provider-api</string>
+				<string>^provider-</string>
 				<key>suffix</key>
 				<string>health.apple.com</string>
 			</dict>
 		</array>
 		<key>policyName</key>
-		<string>GalaxyProvider</string>
+		<string>HealthProvider</string>
 		<key>rules</key>
 		<array>
 			<dict>
@@ -564,6 +568,138 @@
 				<string>1.2.840.113635.100.6.2.12</string>
 				<key>CheckLeafMarkerOid</key>
 				<string>1.2.840.113635.100.6.27.26</string>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^aidc$|^aidc-uat$|^aidc-nwk$|^aidc-nc$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>AIDC</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkerOid</key>
+				<string>1.2.840.113635.100.6.27.25</string>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^idmsa$|^idmsa-.+-s$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>IdMS</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.24.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.24.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.24.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.24.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+			<dict>
+				<key>AnchorSHA256</key>
+				<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateCountry</key>
+				<string>US</string>
+				<key>CheckIntermediateOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.24.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.24.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.24.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.24.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^sylvan$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>Aerials</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkerOid</key>
+				<string>1.2.840.113635.100.6.27.27</string>
 				<key>Revocation</key>
 				<string>AnyRevocationMethod</string>
 			</dict>

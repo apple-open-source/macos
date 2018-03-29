@@ -137,13 +137,19 @@ int
 CCDigest(CCDigestAlgorithm alg, const uint8_t *data, size_t len, uint8_t *out)
 {
     const struct ccdigest_info *di;
-    
     CC_DEBUG_LOG("Entering Algorithm: %d\n", alg);
-    if((di = CCDigestGetDigestInfo(alg)) != NULL) {
-        ccdigest(di, len, data, out);
-        return 0;
+    if((di = CCDigestGetDigestInfo(alg)) == NULL) {
+        return kCCUnimplemented;
     }
-    return kCCUnimplemented;
+    else if (out == NULL) {
+        return kCCParamError;
+    }
+    else if ((data == NULL) && (len != 0)) {
+        /* this is only a problem if len != 0 */
+        return kCCParamError;
+    }
+    ccdigest(di, len, data, out);
+    return 0;
 }
 
 size_t
@@ -318,8 +324,8 @@ CC_##_name_##_Final(unsigned char *md, CC_##_name_##_CTX *CC_ctx) \
 unsigned char * \
 CC_##_name_ (const void *data, CC_LONG len, unsigned char *md) \
 { \
-	(void) CCDigest(_constant_, data, len, md); \
-	return md; \
+	if (0 == CCDigest(_constant_, data, len, md)) {return md;}    \
+    else {return NULL;} \
 }
 
 
@@ -327,8 +333,8 @@ CC_##_name_ (const void *data, CC_LONG len, unsigned char *md) \
 unsigned char * \
 CC_##_name_ (const void *data, CC_LONG len, unsigned char *md) \
 { \
-(void) CCDigest(_constant_, data, len, md); \
-return md; \
+    if (0 == CCDigest(_constant_, data, len, md)) {return md;}    \
+    else {return NULL;} \
 }
 
 

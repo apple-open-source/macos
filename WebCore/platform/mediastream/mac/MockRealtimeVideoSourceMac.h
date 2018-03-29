@@ -32,7 +32,6 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "FontCascade.h"
 #include "MockRealtimeVideoSource.h"
 #include "OrientationNotifier.h"
 
@@ -45,7 +44,7 @@ namespace WebCore {
 
 class MockRealtimeVideoSourceMac final : public MockRealtimeVideoSource, private OrientationNotifier::Observer {
 public:
-    virtual ~MockRealtimeVideoSourceMac() { }
+    virtual ~MockRealtimeVideoSourceMac() = default;
 
 private:
     friend class MockRealtimeVideoSource;

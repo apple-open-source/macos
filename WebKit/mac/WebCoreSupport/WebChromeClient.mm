@@ -44,7 +44,6 @@
 #import "WebHistoryInternal.h"
 #import "WebKitFullScreenListener.h"
 #import "WebKitPrefix.h"
-#import "WebKitSystemInterface.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebOpenPanelResultListener.h"
 #import "WebPlugin.h"
@@ -59,6 +58,7 @@
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
 #import <WebCore/Cursor.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FileIconLoader.h>
@@ -116,6 +116,8 @@ NSString *WebConsoleMessageCSSMessageSource = @"CSSMessageSource";
 NSString *WebConsoleMessageSecurityMessageSource = @"SecurityMessageSource";
 NSString *WebConsoleMessageContentBlockerMessageSource = @"ContentBlockerMessageSource";
 NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
+NSString *WebConsoleMessageMediaMessageSource = @"MediaMessageSource";
+NSString *WebConsoleMessageWebRTCMessageSource = @"WebRTCMessageSource";
 
 NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
 NSString *WebConsoleMessageLogMessageLevel = @"LogMessageLevel";
@@ -391,6 +393,10 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageContentBlockerMessageSource;
     case MessageSource::Other:
         return WebConsoleMessageOtherMessageSource;
+    case MessageSource::Media:
+        return WebConsoleMessageMediaMessageSource;
+    case MessageSource::WebRTC:
+        return WebConsoleMessageWebRTCMessageSource;
     }
     ASSERT_NOT_REACHED();
     return @"";
@@ -876,12 +882,6 @@ bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
     return true;
 }
 
-bool WebChromeClient::hasOpenedPopup() const
-{
-    notImplemented();
-    return false;
-}
-
 RefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMenuClient& client) const
 {
 #if !PLATFORM(IOS)
@@ -912,6 +912,10 @@ bool WebChromeClient::shouldPaintEntireContents() const
 
 void WebChromeClient::attachRootGraphicsLayer(Frame& frame, GraphicsLayer* graphicsLayer)
 {
+#if !PLATFORM(MAC)
+    UNUSED_PARAM(frame);
+    UNUSED_PARAM(graphicsLayer);
+#else
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     NSView *documentView = [[kit(&frame) frameView] documentView];
@@ -927,6 +931,7 @@ void WebChromeClient::attachRootGraphicsLayer(Frame& frame, GraphicsLayer* graph
     else
         [webHTMLView detachRootLayer];
     END_BLOCK_OBJC_EXCEPTIONS;
+#endif
 }
 
 void WebChromeClient::attachViewOverlayGraphicsLayer(Frame&, GraphicsLayer*)
@@ -953,14 +958,15 @@ void WebChromeClient::scheduleCompositingLayerFlush()
 bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode)
 {
 #if PLATFORM(IOS)
-    if (!Settings::avKitEnabled())
+    if (!DeprecatedGlobalSettings::avKitEnabled())
         return false;
 #endif
     return true;
 }
 
-void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode mode)
+void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode mode, bool standby)
 {
+    ASSERT_UNUSED(standby, !standby);
     ASSERT(mode != HTMLMediaElementEnums::VideoFullscreenModeNone);
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     [m_webView _enterVideoFullscreenForVideoElement:&videoElement mode:mode];
@@ -1049,7 +1055,7 @@ bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>&
     SEL selector = @selector(webCryptoMasterKeyForWebView:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
         NSData *keyData = CallUIDelegate(m_webView, selector);
-        masterKey.append((uint8_t*)[keyData bytes], [keyData length]);
+        masterKey.append(static_cast<uint8_t*>(const_cast<void*>([keyData bytes])), [keyData length]);
     } else if (!getDefaultWebCryptoMasterKey(masterKey))
         return false;
 
@@ -1062,7 +1068,7 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
     SEL selector = @selector(webCryptoMasterKeyForWebView:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
         NSData *keyData = CallUIDelegate(m_webView, selector);
-        masterKey.append((uint8_t*)[keyData bytes], [keyData length]);
+        masterKey.append(static_cast<uint8_t*>(const_cast<void*>([keyData bytes])), [keyData length]);
     } else if (!getDefaultWebCryptoMasterKey(masterKey))
         return false;
 

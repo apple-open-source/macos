@@ -358,6 +358,7 @@ krb5_is_thread_safe
 %ifdef HAVE_KCM
 krb5_kcm_call
 krb5_kcm_storage_request
+krb5_kcm_get_principal_list
 %endif
 krb5_kerberos_enctypes
 krb5_keyblock_get_enctype

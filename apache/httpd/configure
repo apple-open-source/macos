@@ -7846,48 +7846,27 @@ if test "${enable_maintainer_mode+set}" = set; then :
   enableval=$enable_maintainer_mode;
   if test "$enableval" = "yes"; then
 
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DAP_DEBUG\""
-    CPPFLAGS="-DAP_DEBUG"
+  if test "x$NOTEST_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CPPFLAGS to \"-DAP_DEBUG\""
+    NOTEST_CPPFLAGS="-DAP_DEBUG"
   else
     apr_addto_bugger="-DAP_DEBUG"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
+      for j in $NOTEST_CPPFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CPPFLAGS"
+        NOTEST_CPPFLAGS="$NOTEST_CPPFLAGS $i"
       fi
     done
   fi
 
     if test "$GCC" = "yes"; then
-
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith\""
-    CFLAGS="-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith"
-  else
-    apr_addto_bugger="-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
-      fi
-    done
-  fi
-
 
 
   if test "$GCC" = "yes"; then
@@ -7898,7 +7877,7 @@ if ${ac_cv_gcc__std_c89+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -std=c89"
+      CFLAGS="$CFLAGS -std=c89 -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -7923,22 +7902,22 @@ fi
 $as_echo "$ac_cv_gcc__std_c89" >&6; }
     if test "$ac_cv_gcc__std_c89" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-std=c89\""
-    CFLAGS="-std=c89"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-std=c89\""
+    NOTEST_CFLAGS="-std=c89"
   else
     apr_addto_bugger="-std=c89"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -7957,7 +7936,7 @@ if ${ac_cv_gcc__Werror+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Werror"
+      CFLAGS="$CFLAGS -Werror -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -7982,22 +7961,258 @@ fi
 $as_echo "$ac_cv_gcc__Werror" >&6; }
     if test "$ac_cv_gcc__Werror" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror\""
-    CFLAGS="-Werror"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Werror\""
+    NOTEST_CFLAGS="-Werror"
   else
     apr_addto_bugger="-Werror"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wall" >&5
+$as_echo_n "checking whether gcc accepts -Wall... " >&6; }
+if ${ac_cv_gcc__Wall+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wall -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wall=yes
+else
+  ac_cv_gcc__Wall=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wall" >&5
+$as_echo "$ac_cv_gcc__Wall" >&6; }
+    if test "$ac_cv_gcc__Wall" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wall\""
+    NOTEST_CFLAGS="-Wall"
+  else
+    apr_addto_bugger="-Wall"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wstrict-prototypes" >&5
+$as_echo_n "checking whether gcc accepts -Wstrict-prototypes... " >&6; }
+if ${ac_cv_gcc__Wstrict_prototypes+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wstrict-prototypes -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wstrict_prototypes=yes
+else
+  ac_cv_gcc__Wstrict_prototypes=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wstrict_prototypes" >&5
+$as_echo "$ac_cv_gcc__Wstrict_prototypes" >&6; }
+    if test "$ac_cv_gcc__Wstrict_prototypes" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wstrict-prototypes\""
+    NOTEST_CFLAGS="-Wstrict-prototypes"
+  else
+    apr_addto_bugger="-Wstrict-prototypes"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wmissing-prototypes" >&5
+$as_echo_n "checking whether gcc accepts -Wmissing-prototypes... " >&6; }
+if ${ac_cv_gcc__Wmissing_prototypes+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wmissing-prototypes -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wmissing_prototypes=yes
+else
+  ac_cv_gcc__Wmissing_prototypes=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wmissing_prototypes" >&5
+$as_echo "$ac_cv_gcc__Wmissing_prototypes" >&6; }
+    if test "$ac_cv_gcc__Wmissing_prototypes" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wmissing-prototypes\""
+    NOTEST_CFLAGS="-Wmissing-prototypes"
+  else
+    apr_addto_bugger="-Wmissing-prototypes"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wmissing-declarations" >&5
+$as_echo_n "checking whether gcc accepts -Wmissing-declarations... " >&6; }
+if ${ac_cv_gcc__Wmissing_declarations+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wmissing-declarations -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wmissing_declarations=yes
+else
+  ac_cv_gcc__Wmissing_declarations=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wmissing_declarations" >&5
+$as_echo "$ac_cv_gcc__Wmissing_declarations" >&6; }
+    if test "$ac_cv_gcc__Wmissing_declarations" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wmissing-declarations\""
+    NOTEST_CFLAGS="-Wmissing-declarations"
+  else
+    apr_addto_bugger="-Wmissing-declarations"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8016,7 +8231,7 @@ if ${ac_cv_gcc__Wdeclaration_after_statement+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wdeclaration-after-statement"
+      CFLAGS="$CFLAGS -Wdeclaration-after-statement -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8041,22 +8256,81 @@ fi
 $as_echo "$ac_cv_gcc__Wdeclaration_after_statement" >&6; }
     if test "$ac_cv_gcc__Wdeclaration_after_statement" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wdeclaration-after-statement\""
-    CFLAGS="-Wdeclaration-after-statement"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wdeclaration-after-statement\""
+    NOTEST_CFLAGS="-Wdeclaration-after-statement"
   else
     apr_addto_bugger="-Wdeclaration-after-statement"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wpointer-arith" >&5
+$as_echo_n "checking whether gcc accepts -Wpointer-arith... " >&6; }
+if ${ac_cv_gcc__Wpointer_arith+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wpointer-arith -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wpointer_arith=yes
+else
+  ac_cv_gcc__Wpointer_arith=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wpointer_arith" >&5
+$as_echo "$ac_cv_gcc__Wpointer_arith" >&6; }
+    if test "$ac_cv_gcc__Wpointer_arith" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wpointer-arith\""
+    NOTEST_CFLAGS="-Wpointer-arith"
+  else
+    apr_addto_bugger="-Wpointer-arith"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8075,7 +8349,7 @@ if ${ac_cv_gcc__Wformat+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wformat"
+      CFLAGS="$CFLAGS -Wformat -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8100,22 +8374,22 @@ fi
 $as_echo "$ac_cv_gcc__Wformat" >&6; }
     if test "$ac_cv_gcc__Wformat" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wformat\""
-    CFLAGS="-Wformat"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wformat\""
+    NOTEST_CFLAGS="-Wformat"
   else
     apr_addto_bugger="-Wformat"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8134,7 +8408,7 @@ if ${ac_cv_gcc__Wformat_security+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wformat-security"
+      CFLAGS="$CFLAGS -Wformat-security -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8159,22 +8433,22 @@ fi
 $as_echo "$ac_cv_gcc__Wformat_security" >&6; }
     if test "$ac_cv_gcc__Wformat_security" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wformat-security\""
-    CFLAGS="-Wformat-security"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wformat-security\""
+    NOTEST_CFLAGS="-Wformat-security"
   else
     apr_addto_bugger="-Wformat-security"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8193,7 +8467,7 @@ if ${ac_cv_gcc__Wunused+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wunused"
+      CFLAGS="$CFLAGS -Wunused -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8218,22 +8492,22 @@ fi
 $as_echo "$ac_cv_gcc__Wunused" >&6; }
     if test "$ac_cv_gcc__Wunused" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wunused\""
-    CFLAGS="-Wunused"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wunused\""
+    NOTEST_CFLAGS="-Wunused"
   else
     apr_addto_bugger="-Wunused"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8244,22 +8518,22 @@ $as_echo "$ac_cv_gcc__Wunused" >&6; }
 
     elif test "$AIX_XLC" = "yes"; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro\""
-    CFLAGS="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro\""
+    NOTEST_CFLAGS="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
   else
     apr_addto_bugger="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8284,47 +8558,321 @@ if test "${enable_debugger_mode+set}" = set; then :
   enableval=$enable_debugger_mode;
   if test "$enableval" = "yes"; then
 
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DAP_DEBUG\""
-    CPPFLAGS="-DAP_DEBUG"
+  if test "x$NOTEST_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CPPFLAGS to \"-DAP_DEBUG\""
+    NOTEST_CPPFLAGS="-DAP_DEBUG"
   else
     apr_addto_bugger="-DAP_DEBUG"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
+      for j in $NOTEST_CPPFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CPPFLAGS"
+        NOTEST_CPPFLAGS="$NOTEST_CPPFLAGS $i"
       fi
     done
   fi
 
     if test "$GCC" = "yes"; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith -O0\""
-    CFLAGS="-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith -O0"
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -O0" >&5
+$as_echo_n "checking whether gcc accepts -O0... " >&6; }
+if ${ac_cv_gcc__O0+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -O0 -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__O0=yes
+else
+  ac_cv_gcc__O0=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__O0" >&5
+$as_echo "$ac_cv_gcc__O0" >&6; }
+    if test "$ac_cv_gcc__O0" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-O0\""
+    NOTEST_CFLAGS="-O0"
   else
-    apr_addto_bugger="-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith -O0"
+    apr_addto_bugger="-O0"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wall" >&5
+$as_echo_n "checking whether gcc accepts -Wall... " >&6; }
+if ${ac_cv_gcc__Wall+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wall -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wall=yes
+else
+  ac_cv_gcc__Wall=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wall" >&5
+$as_echo "$ac_cv_gcc__Wall" >&6; }
+    if test "$ac_cv_gcc__Wall" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wall\""
+    NOTEST_CFLAGS="-Wall"
+  else
+    apr_addto_bugger="-Wall"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wstrict-prototypes" >&5
+$as_echo_n "checking whether gcc accepts -Wstrict-prototypes... " >&6; }
+if ${ac_cv_gcc__Wstrict_prototypes+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wstrict-prototypes -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wstrict_prototypes=yes
+else
+  ac_cv_gcc__Wstrict_prototypes=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wstrict_prototypes" >&5
+$as_echo "$ac_cv_gcc__Wstrict_prototypes" >&6; }
+    if test "$ac_cv_gcc__Wstrict_prototypes" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wstrict-prototypes\""
+    NOTEST_CFLAGS="-Wstrict-prototypes"
+  else
+    apr_addto_bugger="-Wstrict-prototypes"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wmissing-prototypes" >&5
+$as_echo_n "checking whether gcc accepts -Wmissing-prototypes... " >&6; }
+if ${ac_cv_gcc__Wmissing_prototypes+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wmissing-prototypes -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wmissing_prototypes=yes
+else
+  ac_cv_gcc__Wmissing_prototypes=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wmissing_prototypes" >&5
+$as_echo "$ac_cv_gcc__Wmissing_prototypes" >&6; }
+    if test "$ac_cv_gcc__Wmissing_prototypes" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wmissing-prototypes\""
+    NOTEST_CFLAGS="-Wmissing-prototypes"
+  else
+    apr_addto_bugger="-Wmissing-prototypes"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wmissing-declarations" >&5
+$as_echo_n "checking whether gcc accepts -Wmissing-declarations... " >&6; }
+if ${ac_cv_gcc__Wmissing_declarations+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wmissing-declarations -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wmissing_declarations=yes
+else
+  ac_cv_gcc__Wmissing_declarations=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wmissing_declarations" >&5
+$as_echo "$ac_cv_gcc__Wmissing_declarations" >&6; }
+    if test "$ac_cv_gcc__Wmissing_declarations" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wmissing-declarations\""
+    NOTEST_CFLAGS="-Wmissing-declarations"
+  else
+    apr_addto_bugger="-Wmissing-declarations"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
 
 
 
@@ -8336,7 +8884,7 @@ if ${ac_cv_gcc__Wdeclaration_after_statement+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wdeclaration-after-statement"
+      CFLAGS="$CFLAGS -Wdeclaration-after-statement -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8361,22 +8909,22 @@ fi
 $as_echo "$ac_cv_gcc__Wdeclaration_after_statement" >&6; }
     if test "$ac_cv_gcc__Wdeclaration_after_statement" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wdeclaration-after-statement\""
-    CFLAGS="-Wdeclaration-after-statement"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wdeclaration-after-statement\""
+    NOTEST_CFLAGS="-Wdeclaration-after-statement"
   else
     apr_addto_bugger="-Wdeclaration-after-statement"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8395,7 +8943,7 @@ if ${ac_cv_gcc__Werror_declaration_after_statement+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Werror=declaration-after-statement"
+      CFLAGS="$CFLAGS -Werror=declaration-after-statement -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8420,22 +8968,81 @@ fi
 $as_echo "$ac_cv_gcc__Werror_declaration_after_statement" >&6; }
     if test "$ac_cv_gcc__Werror_declaration_after_statement" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror=declaration-after-statement\""
-    CFLAGS="-Werror=declaration-after-statement"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Werror=declaration-after-statement\""
+    NOTEST_CFLAGS="-Werror=declaration-after-statement"
   else
     apr_addto_bugger="-Werror=declaration-after-statement"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wpointer-arith" >&5
+$as_echo_n "checking whether gcc accepts -Wpointer-arith... " >&6; }
+if ${ac_cv_gcc__Wpointer_arith+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wpointer-arith -Wno-strict-prototypes"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Wpointer_arith=yes
+else
+  ac_cv_gcc__Wpointer_arith=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wpointer_arith" >&5
+$as_echo "$ac_cv_gcc__Wpointer_arith" >&6; }
+    if test "$ac_cv_gcc__Wpointer_arith" = "yes" ; then
+
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wpointer-arith\""
+    NOTEST_CFLAGS="-Wpointer-arith"
+  else
+    apr_addto_bugger="-Wpointer-arith"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $NOTEST_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8454,7 +9061,7 @@ if ${ac_cv_gcc__Wformat+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wformat"
+      CFLAGS="$CFLAGS -Wformat -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8479,22 +9086,22 @@ fi
 $as_echo "$ac_cv_gcc__Wformat" >&6; }
     if test "$ac_cv_gcc__Wformat" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wformat\""
-    CFLAGS="-Wformat"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wformat\""
+    NOTEST_CFLAGS="-Wformat"
   else
     apr_addto_bugger="-Wformat"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8513,7 +9120,7 @@ if ${ac_cv_gcc__Wformat_security+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Wformat-security"
+      CFLAGS="$CFLAGS -Wformat-security -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8538,22 +9145,22 @@ fi
 $as_echo "$ac_cv_gcc__Wformat_security" >&6; }
     if test "$ac_cv_gcc__Wformat_security" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wformat-security\""
-    CFLAGS="-Wformat-security"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Wformat-security\""
+    NOTEST_CFLAGS="-Wformat-security"
   else
     apr_addto_bugger="-Wformat-security"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8572,7 +9179,7 @@ if ${ac_cv_gcc__Werror_format_security+:} false; then :
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Werror=format-security"
+      CFLAGS="$CFLAGS -Werror=format-security -Wno-strict-prototypes"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8597,22 +9204,22 @@ fi
 $as_echo "$ac_cv_gcc__Werror_format_security" >&6; }
     if test "$ac_cv_gcc__Werror_format_security" = "yes" ; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror=format-security\""
-    CFLAGS="-Werror=format-security"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-Werror=format-security\""
+    NOTEST_CFLAGS="-Werror=format-security"
   else
     apr_addto_bugger="-Werror=format-security"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -8623,22 +9230,22 @@ $as_echo "$ac_cv_gcc__Werror_format_security" >&6; }
 
     elif test "$AIX_XLC" = "yes"; then
 
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro\""
-    CFLAGS="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
+  if test "x$NOTEST_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro\""
+    NOTEST_CFLAGS="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
   else
     apr_addto_bugger="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
-      for j in $CFLAGS; do
+      for j in $NOTEST_CFLAGS; do
         if test "x$i" = "x$j"; then
           apr_addto_duplicate="1"
           break
         fi
       done
       if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to NOTEST_CFLAGS"
+        NOTEST_CFLAGS="$NOTEST_CFLAGS $i"
       fi
     done
   fi
@@ -29376,10 +29983,14 @@ $as_echo "$ap_nghttp2_base" >&6; }
       saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
 $as_echo_n "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
-      if test "x$ap_nghttp2_base" != "x" -a \
-              -f "${ap_nghttp2_base}/lib/pkgconfig/libnghttp2.pc"; then
-                        PKG_CONFIG_PATH="${ap_nghttp2_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
-        export PKG_CONFIG_PATH
+      if test "x$ap_nghttp2_base" != "x" ; then
+        if test -f "${ap_nghttp2_base}/lib/pkgconfig/libnghttp2.pc"; then
+                              PKG_CONFIG_PATH="${ap_nghttp2_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        elif test -f "${ap_nghttp2_base}/lib64/pkgconfig/libnghttp2.pc"; then
+                              PKG_CONFIG_PATH="${ap_nghttp2_base}/lib64/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        fi
       fi
       # Check whether --enable-nghttp2-staticlib-deps was given.
 if test "${enable_nghttp2_staticlib_deps+set}" = set; then :
@@ -30130,10 +30741,14 @@ $as_echo "$ap_nghttp2_base" >&6; }
       saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
 $as_echo_n "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
-      if test "x$ap_nghttp2_base" != "x" -a \
-              -f "${ap_nghttp2_base}/lib/pkgconfig/libnghttp2.pc"; then
-                        PKG_CONFIG_PATH="${ap_nghttp2_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
-        export PKG_CONFIG_PATH
+      if test "x$ap_nghttp2_base" != "x" ; then
+        if test -f "${ap_nghttp2_base}/lib/pkgconfig/libnghttp2.pc"; then
+                              PKG_CONFIG_PATH="${ap_nghttp2_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        elif test -f "${ap_nghttp2_base}/lib64/pkgconfig/libnghttp2.pc"; then
+                              PKG_CONFIG_PATH="${ap_nghttp2_base}/lib64/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        fi
       fi
       # Check whether --enable-nghttp2-staticlib-deps was given.
 if test "${enable_nghttp2_staticlib_deps+set}" = set; then :
@@ -36548,10 +37163,10 @@ $as_echo "$as_me: Restore user-defined environment settings..." >&6;}
 $as_echo "$as_me: " >&6;}
 
 APACHE_CONF_SEL_CC=${CC}
-APACHE_CONF_SEL_CFLAGS=${CFLAGS}
-APACHE_CONF_SEL_LDFLAGS=${LDFLAGS}
-APACHE_CONF_SEL_LIBS=${LIBS}
-APACHE_CONF_SEL_CPPFLAGS=${CPPFLAGS}
+APACHE_CONF_SEL_CFLAGS="${CFLAGS} ${EXTRA_CFLAGS} ${NOTEST_CFLAGS}"
+APACHE_CONF_SEL_CPPFLAGS="${CPPFLAGS} ${EXTRA_CPPFLAGS} ${NOTEST_CPPFLAGS}"
+APACHE_CONF_SEL_LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS} ${NOTEST_LDFLAGS}"
+APACHE_CONF_SEL_LIBS="${LIBS} ${EXTRA_LIBS} ${NOTEST_LIBS}"
 APACHE_CONF_SEL_CPP=${CPP}
 
 
@@ -38392,9 +39007,9 @@ fi
     Install prefix: ${prefix}
     C compiler:     ${APACHE_CONF_SEL_CC}
     CFLAGS:         ${APACHE_CONF_SEL_CFLAGS}
+    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
     LDFLAGS:        ${APACHE_CONF_SEL_LDFLAGS}
     LIBS:           ${APACHE_CONF_SEL_LIBS}
-    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
     C preprocessor: ${APACHE_CONF_SEL_CPP}
 " >&5
 $as_echo "$as_me: summary of build options:
@@ -38403,8 +39018,8 @@ $as_echo "$as_me: summary of build options:
     Install prefix: ${prefix}
     C compiler:     ${APACHE_CONF_SEL_CC}
     CFLAGS:         ${APACHE_CONF_SEL_CFLAGS}
+    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
     LDFLAGS:        ${APACHE_CONF_SEL_LDFLAGS}
     LIBS:           ${APACHE_CONF_SEL_LIBS}
-    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
     C preprocessor: ${APACHE_CONF_SEL_CPP}
 " >&6;}

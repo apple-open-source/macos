@@ -335,6 +335,7 @@
 
 - (void)testFindPiggyTLKs {
     [self putFakeKeyHierachiesInCloudKit];
+    [self putFakeDeviceStatusesInCloudKit];
     [self saveTLKsToKeychain];
 
     NSDictionary* piggyTLKs = [self SOSPiggyBackCopyFromKeychain];
@@ -526,6 +527,14 @@
     }];
 }
 
+- (void)putFakeDeviceStatusesInCloudKit {
+    [self putFakeDeviceStatusInCloudKit: self.engramZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.manateeZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.autoUnlockZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.healthZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
+}
+
 -(void)putFakeKeyHierachiesInCloudKit{
     [self putFakeKeyHierarchyInCloudKit: self.engramZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.manateeZoneID];
@@ -559,6 +568,7 @@
 -(void)testAcceptExistingAndUsePiggyKeyHierarchy {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierachiesInCloudKit];
+    [self putFakeDeviceStatusesInCloudKit];
     [self saveTLKsToKeychain];
     NSDictionary* piggyData = [self SOSPiggyBackCopyFromKeychain];
     [self deleteTLKMaterialsFromKeychain];

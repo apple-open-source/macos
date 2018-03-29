@@ -33,10 +33,10 @@
 #import "ResourceCachesToClear.h"
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
-#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/CertificateInfo.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/WebCoreThreadSystemInterface.h>
+#import <pal/spi/cf/CFNetworkSPI.h>
 
 #define ENABLE_MANUAL_NETWORK_SANDBOXING 0
 
@@ -78,9 +78,8 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
     ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
     if (resourceCachesToClear == InMemoryResourceCachesOnly)
         return;
-#if ENABLE(NETWORK_CACHE)
-    NetworkCache::singleton().clear();
-#endif
+    if (m_cache)
+        m_cache->clear();
 }
 
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)

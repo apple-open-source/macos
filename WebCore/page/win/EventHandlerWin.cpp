@@ -48,7 +48,7 @@
 namespace WebCore {
 
 #if ENABLE(DRAG_SUPPORT)
-const double EventHandler::TextDragDelay = 0.0;
+const Seconds EventHandler::TextDragDelay { 0_s };
 #endif
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
@@ -90,15 +90,6 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 {
     return event.didActivateWebView();
 }
-
-#if ENABLE(DRAG_SUPPORT)
-
-Ref<DataTransfer> EventHandler::createDraggingDataTransfer() const
-{
-    return DataTransfer::createForDrag();
-}
-
-#endif
 
 void EventHandler::focusDocumentView()
 {

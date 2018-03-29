@@ -188,6 +188,68 @@ static void decodeValueFromBuffer(Type& value, const uint8_t*& bufferPosition)
     bufferPosition += sizeof(Type);
 }
 
+template<typename Type>
+Decoder& Decoder::getOptional(std::optional<Type>& optional)
+{
+    Type result;
+    if (!alignBufferPosition(sizeof(result), sizeof(result)))
+        return *this;
+    
+    decodeValueFromBuffer(result, m_bufferPos);
+    optional = result;
+    return *this;
+}
+
+Decoder& Decoder::operator>>(std::optional<bool>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<uint8_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<uint16_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<uint32_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<uint64_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<int16_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<int32_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<int64_t>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<float>& optional)
+{
+    return getOptional(optional);
+}
+
+Decoder& Decoder::operator>>(std::optional<double>& optional)
+{
+    return getOptional(optional);
+}
+
 bool Decoder::decode(bool& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
@@ -229,6 +291,15 @@ bool Decoder::decode(uint64_t& result)
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
     
+    decodeValueFromBuffer(result, m_bufferPos);
+    return true;
+}
+
+bool Decoder::decode(int16_t& result)
+{
+    if (!alignBufferPosition(sizeof(result), sizeof(result)))
+        return false;
+
     decodeValueFromBuffer(result, m_bufferPos);
     return true;
 }

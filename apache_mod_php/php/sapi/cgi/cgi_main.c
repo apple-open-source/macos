@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -530,9 +530,47 @@ static size_t sapi_fcgi_read_post(char *buffer, size_t count_bytes)
 	return read_bytes;
 }
 
+#ifdef PHP_WIN32
+/* The result needs to be freed! See sapi_getenv(). */
+static char *cgi_getenv_win32(const char *name, size_t name_len)
+{
+	char *ret = NULL;
+	wchar_t *keyw, *valw;
+	size_t size;
+	int rc;
+
+	keyw = php_win32_cp_conv_any_to_w(name, name_len, PHP_WIN32_CP_IGNORE_LEN_P);
+	if (!keyw) {
+		return NULL;
+	}
+
+	rc = _wgetenv_s(&size, NULL, 0, keyw);
+	if (rc || 0 == size) {
+		free(keyw);
+		return NULL;
+	}
+
+	valw = emalloc((size + 1) * sizeof(wchar_t));
+
+	rc = _wgetenv_s(&size, valw, size, keyw);
+	if (!rc) {
+		ret = php_win32_cp_w_to_any(valw);
+	}
+
+	free(keyw);
+	efree(valw);
+
+	return ret;
+}
+#endif
+
 static char *sapi_cgi_getenv(char *name, size_t name_len)
 {
+#ifndef PHP_WIN32
 	return getenv(name);
+#else
+	return cgi_getenv_win32(name, name_len);
+#endif
 }
 
 static char *sapi_fcgi_getenv(char *name, size_t name_len)
@@ -544,10 +582,22 @@ static char *sapi_fcgi_getenv(char *name, size_t name_len)
 	fcgi_request *request = (fcgi_request*) SG(server_context);
 	char *ret = fcgi_getenv(request, name, (int)name_len);
 
+#ifndef PHP_WIN32
 	if (ret) return ret;
 	/*  if cgi, or fastcgi and not found in fcgi env
 		check the regular environment */
 	return getenv(name);
+#else
+	if (ret) {
+		/* The functions outside here don't know, where does it come
+			from. They'll need to free the returned memory as it's
+			not necessary from the fcgi env. */
+		return strdup(ret);
+	}
+	/*  if cgi, or fastcgi and not found in fcgi env
+		check the regular environment */
+	return cgi_getenv_win32(name, name_len);
+#endif
 }
 
 static char *_sapi_cgi_putenv(char *name, size_t name_len, char *value)
@@ -2378,9 +2428,9 @@ consult the installation file that came with this distribution, or visit \n\
 								SG(request_info).no_headers = 1;
 							}
 #if ZEND_DEBUG
-							php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2017 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+							php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2018 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #else
-							php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2017 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+							php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2018 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 							php_request_shutdown((void *) 0);
 							fcgi_shutdown();

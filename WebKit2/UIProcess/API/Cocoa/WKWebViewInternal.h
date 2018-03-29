@@ -29,6 +29,7 @@
 
 #import "SameDocumentNavigationType.h"
 #import "WKWebViewConfiguration.h"
+#import "_WKAttachmentInternal.h"
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 
@@ -36,6 +37,7 @@
 #import "UIKitSPI.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
+#import "WKFullScreenWindowControllerIOS.h"
 #import <WebCore/FloatRect.h>
 #import <WebCore/LengthBox.h>
 #endif
@@ -119,6 +121,8 @@ struct PrintInfo;
 - (void)_showPasswordViewWithDocumentName:(NSString *)documentName passwordHandler:(void (^)(NSString *))passwordHandler;
 - (void)_hidePasswordView;
 
+- (void)_didChangeEditorState;
+
 - (void)_addShortcut:(id)sender;
 - (void)_arrowKey:(id)sender;
 - (void)_define:(id)sender;
@@ -137,18 +141,32 @@ struct PrintInfo;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
 
 @property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
-@property (nonatomic, readonly) BOOL _allowsBlockSelection;
 
 @property (nonatomic, readonly) BOOL _allowsDoubleTapGestures;
 @property (nonatomic, readonly) UIEdgeInsets _computedContentInset;
 @property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
 #endif
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+- (void)_didRemoveAttachment:(NSString *)identifier;
+- (void)_didInsertAttachment:(NSString *)identifier;
+#endif
+
 - (WKPageRef)_pageForTesting;
+- (WebKit::WebPageProxy*)_page;
 
 @end
 
 WKWebView* fromWebPageProxy(WebKit::WebPageProxy&);
+
+#if ENABLE(FULLSCREEN_API) && PLATFORM(IOS)
+@interface WKWebView (FullScreenAPI)
+-(BOOL)hasFullScreenWindowController;
+-(WKFullScreenWindowController *)fullScreenWindowController;
+-(void)closeFullScreenWindowController;
+-(WebCoreFullScreenPlaceholderView *)fullScreenPlaceholderView;
+@end
+#endif // ENABLE(FULLSCREEN_API) && PLATFORM(IOS)
 
 #if PLATFORM(IOS)
 @interface WKWebView (_WKWebViewPrintFormatter)

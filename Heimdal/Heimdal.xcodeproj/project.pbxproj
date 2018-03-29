@@ -275,6 +275,7 @@
 				EB670F871C5EDBDE003D49CA /* Install bats files */,
 			);
 			dependencies = (
+				77F4C09F1FD5DF0500400F85 /* PBXTargetDependency */,
 				EB670F771C5ED1CA003D49CA /* PBXTargetDependency */,
 				EB1C8FBA17F24B2D002F9FF7 /* PBXTargetDependency */,
 				EBF6F7EC1710B34D004CB0DB /* PBXTargetDependency */,
@@ -432,6 +433,90 @@
 		72F65EDD1208DF990064E53C /* krb_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB49AB890F2589FC0076E27F /* krb_err.h */; };
 		74071AF811CC35910036D06D /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
 		74071AF911CC35910036D06D /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
+		772992951FD1F0A000665B56 /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
+		772992961FD1F0A000665B56 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2970F22B6CD006BD106 /* config.h */; };
+		772992971FD1F0A000665B56 /* getarg.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57260F21822D0009D37C /* getarg.h */; };
+		772992981FD1F0A000665B56 /* heim_asn1.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56A30F2181960009D37C /* heim_asn1.h */; };
+		772992991FD1F0A000665B56 /* heimbase_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = EB70DC0D16D6A75C00C2DD9D /* heimbase_impl.h */; };
+		7729929A1FD1F0A000665B56 /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
+		7729929B1FD1F0A000665B56 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
+		7729929C1FD1F0A000665B56 /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
+		7729929D1FD1F0A000665B56 /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
+		7729929E1FD1F0A000665B56 /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
+		7729929F1FD1F0A000665B56 /* com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56ED0F2181E90009D37C /* com_err.h */; };
+		772992A01FD1F0A000665B56 /* com_right.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56EE0F2181E90009D37C /* com_right.h */; };
+		772992A11FD1F0A000665B56 /* crypto-headers.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75781E106DB05B005F33AA /* crypto-headers.h */; };
+		772992A21FD1F0A000665B56 /* krb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */; };
+		772992A31FD1F0A000665B56 /* kuser_locl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBA242A20F254B7200C3DF74 /* kuser_locl.h */; };
+		772992A41FD1F0A000665B56 /* parse_time.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB575F0F21822D0009D37C /* parse_time.h */; };
+		772992A51FD1F0A000665B56 /* rtbl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57710F21822D0009D37C /* rtbl.h */; };
+		772992A61FD1F0A000665B56 /* version.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2990F22B6CD006BD106 /* version.h */; };
+		772992A71FD1F0A000665B56 /* base64.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57020F21822D0009D37C /* base64.h */; };
+		772992A81FD1F0A000665B56 /* der.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56930F2181960009D37C /* der.h */; };
+		772992A91FD1F0A000665B56 /* der-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56910F2181960009D37C /* der-protos.h */; };
+		772992AA1FD1F0A000665B56 /* hx509-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569A90F32D8FF00501CE8 /* hx509-protos.h */; };
+		772992AB1FD1F0A000665B56 /* hx509.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569AA0F32D8FF00501CE8 /* hx509.h */; };
+		772992AC1FD1F0A000665B56 /* wind.h in Headers */ = {isa = PBXBuildFile; fileRef = EBA240840F24305200C3DF74 /* wind.h */; };
+		772992AD1FD1F0A000665B56 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
+		772992AE1FD1F0A000665B56 /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
+		772992B21FD1F0A000665B56 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
+		772992B31FD1F0A000665B56 /* libroken-application.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBABC9310F2C292500166EA0 /* libroken-application.a */; };
+		772992B41FD1F0A000665B56 /* libvers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBFB58C60F2253FA0009D37C /* libvers.a */; };
+		772992BB1FD1F0E600665B56 /* test_get_principal_list.c in Sources */ = {isa = PBXBuildFile; fileRef = 772992BA1FD1F0D700665B56 /* test_get_principal_list.c */; };
+		77EC94FF2008033A00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95002008033D00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95012008034100DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		77EC95022008034200DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95032008034600DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95042008034700DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95052008034700DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95062008035500DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95072008035600DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95082008035700DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95092008035B00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950A2008035C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950B2008035D00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950C2008035F00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950D2008036000DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950E2008036100DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC950F2008036600DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95102008036700DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95112008036F00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95122008039900DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95132008039B00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95142008039C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9515200803A300DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9516200803A400DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9517200803A600DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9518200803A900DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9519200803AA00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951A200803AB00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951B200803AC00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951C200803AD00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951D200803B300DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951E200803B500DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC951F200803CD00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9520200803CE00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9521200803CF00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9522200803D000DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9523200803D100DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9524200803D100DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9525200803D300DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9526200803D400DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9527200803E300DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9528200803E400DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC9529200803F300DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952A200803F400DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952B200803F500DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952C200803F600DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952D2008040D00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952E2008040D00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC952F2008041A00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95302008041A00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95312008041B00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		77F2C5E920228A0600209463 /* krb5cf-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = 77F2C5E8202289E300209463 /* krb5cf-protos.h */; };
+		77FADD351FFC40870046BF01 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 77FADD341FFC407B0046BF01 /* CoreFoundation.framework */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
 		EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
 		EB00F0E2103CC6CA00399574 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
@@ -4044,6 +4129,34 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
+		7729928F1FD1F0A000665B56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB3CC83814DCCE6D008E9787;
+			remoteInfo = GeneratedFiles;
+		};
+		772992911FD1F0A000665B56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBABC9300F2C292500166EA0;
+			remoteInfo = "roken-application";
+		};
+		772992931FD1F0A000665B56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBFB58C50F2253FA0009D37C;
+			remoteInfo = vers;
+		};
+		77F4C09E1FD5DF0500400F85 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7729928D1FD1F0A000665B56;
+			remoteInfo = test_get_principal_list;
+		};
 		EB00F270103E162F00399574 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -7127,6 +7240,7 @@
 			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/${PUBLIC_HEADERS_FOLDER_PATH}";
 			dstSubfolderSpec = 0;
 			files = (
+				77F2C5E920228A0600209463 /* krb5cf-protos.h in Copy public generated files */,
 				EB45A43B18ABE2DB00E32D8B /* hdb_err.h in Copy public generated files */,
 				EB45A43818ABE23F00E32D8B /* hdb-protos.h in Copy public generated files */,
 				EB45A43918ABE23F00E32D8B /* hdb.h in Copy public generated files */,
@@ -7662,6 +7776,11 @@
 		727E26F5120B7580002CBF58 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		72C1AC20120C879A00ED5EBB /* Reachability-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Reachability-Info.plist"; path = "plugins/Reachability-Info.plist"; sourceTree = "<group>"; };
 		72C1AC40120C87C300ED5EBB /* Reachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = Reachability.m; path = plugins/Reachability.m; sourceTree = "<group>"; };
+		772992B91FD1F0A000665B56 /* test_get_principal_list */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_get_principal_list; sourceTree = BUILT_PRODUCTS_DIR; };
+		772992BA1FD1F0D700665B56 /* test_get_principal_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_get_principal_list.c; path = lib/krb5/test_get_principal_list.c; sourceTree = "<group>"; };
+		77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "krb5cf-protos.h"; path = "lib/krb5/krb5cf-protos.h"; sourceTree = "<group>"; };
+		77F2C5E8202289E300209463 /* krb5cf-protos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "krb5cf-protos.h"; path = "Heimdal/krb5cf-protos.h"; sourceTree = "<group>"; };
+		77FADD341FFC407B0046BF01 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		EB00F0E1103CC6CA00399574 /* ct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ct.c; path = lib/roken/ct.c; sourceTree = "<group>"; };
 		EB00F138103D6A0400399574 /* aes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = aes.c; path = lib/hcrypto/aes.c; sourceTree = "<group>"; };
 		EB00F139103D6A0500399574 /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = aes.h; path = lib/hcrypto/aes.h; sourceTree = "<group>"; };
@@ -9658,6 +9777,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		772992B11FD1F0A000665B56 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77FADD351FFC40870046BF01 /* CoreFoundation.framework in Frameworks */,
+				772992B21FD1F0A000665B56 /* Heimdal.framework in Frameworks */,
+				772992B31FD1F0A000665B56 /* libroken-application.a in Frameworks */,
+				772992B41FD1F0A000665B56 /* libvers.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB01C681120914A8005BD826 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -10787,6 +10917,7 @@
 				EB1C8FB717F24B01002F9FF7 /* test_fx */,
 				EB7AF0F419C9989B00056325 /* PACParser.bundle */,
 				EB670F751C5ED184003D49CA /* test_aks */,
+				772992B91FD1F0A000665B56 /* test_get_principal_list */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -11499,6 +11630,7 @@
 				EBBFAF1D100D26E200BF3DAE /* com_err.h */,
 				EBBFAF1E100D26E200BF3DAE /* com_right.h */,
 				EB3CCA1614DE3002008E9787 /* config_plugin.h */,
+				77F2C5E8202289E300209463 /* krb5cf-protos.h */,
 				EBCD590F1141DAD600B964AB /* digest_asn1.h */,
 				EBCD59101141DAD600B964AB /* gssapi_asn1.h */,
 				EB18A9C511779F68001985AB /* gssapi_krb5.h */,
@@ -12613,6 +12745,7 @@
 				EBC6F26A0F22CD3500D1AB35 /* krb5_verify_user.3 */,
 				EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */,
 				EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */,
+				77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */,
 				EBC6F26E0F22CD3500D1AB35 /* krb5-v4compat.h */,
 				EBC6F2700F22CD3500D1AB35 /* krb5.conf.5 */,
 				EBC6F2710F22CD3500D1AB35 /* krb5.h */,
@@ -12684,6 +12817,7 @@
 				EBC6F2A90F22CD3500D1AB35 /* test_alname.c */,
 				EB321F5F0F31D962003852AC /* test_ap-req.c */,
 				EBC6F2AA0F22CD3500D1AB35 /* test_cc.c */,
+				772992BA1FD1F0D700665B56 /* test_get_principal_list.c */,
 				EBC6F2AB0F22CD3500D1AB35 /* test_config.c */,
 				EBC6F2AC0F22CD3500D1AB35 /* test_crypto_wrapping.c */,
 				EBC6F2AD0F22CD3500D1AB35 /* test_crypto.c */,
@@ -12729,6 +12863,7 @@
 		EBD090AB1330353B001D0938 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				77FADD341FFC407B0046BF01 /* CoreFoundation.framework */,
 				EB670F821C5ED421003D49CA /* IOKit.framework */,
 				EB670F801C5ED342003D49CA /* Security.framework */,
 				EB670F791C5ED239003D49CA /* Foundation.framework */,
@@ -13326,6 +13461,40 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		772992941FD1F0A000665B56 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				772992951FD1F0A000665B56 /* config-apple.h in Headers */,
+				772992961FD1F0A000665B56 /* config.h in Headers */,
+				772992971FD1F0A000665B56 /* getarg.h in Headers */,
+				772992981FD1F0A000665B56 /* heim_asn1.h in Headers */,
+				772992991FD1F0A000665B56 /* heimbase_impl.h in Headers */,
+				7729929A1FD1F0A000665B56 /* krb5-protos.h in Headers */,
+				7729929B1FD1F0A000665B56 /* krb5-types.h in Headers */,
+				7729929C1FD1F0A000665B56 /* krb5.h in Headers */,
+				7729929D1FD1F0A000665B56 /* roken-common.h in Headers */,
+				7729929E1FD1F0A000665B56 /* roken.h in Headers */,
+				7729929F1FD1F0A000665B56 /* com_err.h in Headers */,
+				772992A01FD1F0A000665B56 /* com_right.h in Headers */,
+				772992A11FD1F0A000665B56 /* crypto-headers.h in Headers */,
+				772992A21FD1F0A000665B56 /* krb5-private.h in Headers */,
+				772992A31FD1F0A000665B56 /* kuser_locl.h in Headers */,
+				772992A41FD1F0A000665B56 /* parse_time.h in Headers */,
+				772992A51FD1F0A000665B56 /* rtbl.h in Headers */,
+				772992A61FD1F0A000665B56 /* version.h in Headers */,
+				772992A71FD1F0A000665B56 /* base64.h in Headers */,
+				772992A81FD1F0A000665B56 /* der.h in Headers */,
+				772992A91FD1F0A000665B56 /* der-protos.h in Headers */,
+				772992AA1FD1F0A000665B56 /* hx509-protos.h in Headers */,
+				772992AB1FD1F0A000665B56 /* hx509.h in Headers */,
+				772992AC1FD1F0A000665B56 /* wind.h in Headers */,
+				77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */,
+				772992AD1FD1F0A000665B56 /* heimbase.h in Headers */,
+				772992AE1FD1F0A000665B56 /* heim_threads.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB00F1A1103D6A2900399574 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -13408,6 +13577,7 @@
 				EB01C6CC1209170B005BD826 /* wind.h in Headers */,
 				EB01C6CD1209170B005BD826 /* wind_err.h in Headers */,
 				EB01C6DA12091741005BD826 /* getarg.h in Headers */,
+				77EC952C200803F600DD3C2F /* krb5cf-protos.h in Headers */,
 				EB01C6DB12091741005BD826 /* gssapi.h in Headers */,
 				EB01C6DC12091741005BD826 /* gssapi_ntlm.h in Headers */,
 				EB01C6DD12091741005BD826 /* rtbl.h in Headers */,
@@ -13439,6 +13609,7 @@
 				EB0E72E10F2AC00000EC6D5C /* roken-common.h in Headers */,
 				EB0E72E20F2AC00A00EC6D5C /* base64.h in Headers */,
 				EB0E72E40F2AC02B00EC6D5C /* krb5_locl.h in Headers */,
+				77EC9517200803A600DD3C2F /* krb5cf-protos.h in Headers */,
 				EB0E72E60F2AC03900EC6D5C /* parse_units.h in Headers */,
 				EB0E72E90F2AC07100EC6D5C /* hdb.h in Headers */,
 				EB0E72EA0F2AC07100EC6D5C /* hdb-protos.h in Headers */,
@@ -13487,6 +13658,7 @@
 				EB1BF8C2115040A200D6B8D2 /* gssapi_krb5.h in Headers */,
 				EB1BF8C3115040A200D6B8D2 /* gssapi_mech.h in Headers */,
 				EB1BF8C4115040A200D6B8D2 /* gssapi_netlogon.h in Headers */,
+				77EC9525200803D300DD3C2F /* krb5cf-protos.h in Headers */,
 				EB1BF8C5115040A200D6B8D2 /* gssapi_ntlm.h in Headers */,
 				EB70DC3816D6A7B500C2DD9D /* heimbase_impl.h in Headers */,
 				EB1BF8C6115040A200D6B8D2 /* gssapi_spnego.h in Headers */,
@@ -13535,6 +13707,7 @@
 				EB1C8F9F17F24B01002F9FF7 /* hx509.h in Headers */,
 				EB1C8FA017F24B01002F9FF7 /* krb5-types.h in Headers */,
 				EB1C8FA117F24B01002F9FF7 /* parse_time.h in Headers */,
+				77EC95312008041B00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB1C8FA217F24B01002F9FF7 /* roken-common.h in Headers */,
 				EB1C8FA317F24B01002F9FF7 /* roken.h in Headers */,
 				EB1C8FA417F24B01002F9FF7 /* wind.h in Headers */,
@@ -13575,6 +13748,7 @@
 				EB225014128A20510093D709 /* krb5-private.h in Headers */,
 				EB225015128A20510093D709 /* krb5-protos.h in Headers */,
 				EB225016128A20510093D709 /* krb5-types.h in Headers */,
+				77EC952D2008040D00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB225017128A20510093D709 /* krb5.h in Headers */,
 				EB225018128A20510093D709 /* parse_time.h in Headers */,
 				EB225019128A20510093D709 /* roken-common.h in Headers */,
@@ -13589,6 +13763,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				77EC950F2008036600DD3C2F /* krb5cf-protos.h in Headers */,
 				EB085EBF1429F11B00AD2AA2 /* heimbase.h in Headers */,
 				EB42F4AD116923DC00FCDD8F /* gssapi_krb5.h in Headers */,
 				EB42F4AE116923DC00FCDD8F /* gssapi_netlogon.h in Headers */,
@@ -13667,6 +13842,7 @@
 				EB085ECC1429F39200AD2AA2 /* gssapi_oid.h in Headers */,
 				EB168461146E092E0019138B /* gssapi_apple.h in Headers */,
 				EB168462146E092E0019138B /* gssapi_private.h in Headers */,
+				77EC95102008036700DD3C2F /* krb5cf-protos.h in Headers */,
 				EB168463146E092E0019138B /* gssapi_protos.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -13693,6 +13869,7 @@
 				EB24F4AB0F317B2400B2533C /* hdb-protos.h in Headers */,
 				EB24F4AC0F317B2400B2533C /* der.h in Headers */,
 				EB24F4AD0F317B2400B2533C /* der-protos.h in Headers */,
+				77EC9518200803A900DD3C2F /* krb5cf-protos.h in Headers */,
 				EB24F4AE0F317B2400B2533C /* config.h in Headers */,
 				EB24F4AF0F317B2400B2533C /* com_right.h in Headers */,
 				EB24F4B00F317B2400B2533C /* com_err.h in Headers */,
@@ -13751,6 +13928,7 @@
 				EB24F6550F31899300B2533C /* gssapi_spnego.h in Headers */,
 				EB24F65C0F318A7300B2533C /* gssapi.h in Headers */,
 				EB24F65D0F318A7C00B2533C /* gssapi_krb5.h in Headers */,
+				77EC9519200803AA00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB24F6C60F318BAF00B2533C /* gssapi_ntlm.h in Headers */,
 				EB400BED0F34832A00F55B31 /* hx509-protos.h in Headers */,
 				EB400BEE0F34832A00F55B31 /* hx509.h in Headers */,
@@ -13803,6 +13981,7 @@
 				EB24F73D0F31927200B2533C /* parse_bytes.h in Headers */,
 				EB24F78B0F31948500B2533C /* ktutil_locl.h in Headers */,
 				EB692758107928BD00ACB444 /* config-apple.h in Headers */,
+				77EC95112008036F00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB0F9C9D111E46C900744852 /* ktutil-commands.h in Headers */,
 				EB713DF511F550D000208594 /* gssapi.h in Headers */,
 				EB713DF611F550D000208594 /* gssapi_krb5.h in Headers */,
@@ -13867,6 +14046,7 @@
 				EB312D7410B4EA2400B0732B /* gssapi_krb5.h in Headers */,
 				EB312D7510B4EA2400B0732B /* gssapi_mech.h in Headers */,
 				EB312D7610B4EA2400B0732B /* gssapi_netlogon.h in Headers */,
+				77EC951F200803CD00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB312D7710B4EA2400B0732B /* gssapi_ntlm.h in Headers */,
 				EB70DC3316D6A7B200C2DD9D /* heimbase_impl.h in Headers */,
 				EB312D7810B4EA2400B0732B /* gssapi_spnego.h in Headers */,
@@ -13911,6 +14091,7 @@
 				EB321F710F31D9AE003852AC /* roken.h in Headers */,
 				EB9537090FFC5F5D0013822C /* getarg.h in Headers */,
 				EBE0A33F17BA1CB000D0D805 /* config.h in Headers */,
+				77EC951D200803B300DD3C2F /* krb5cf-protos.h in Headers */,
 				EB69275C107928C200ACB444 /* config-apple.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -13943,6 +14124,7 @@
 				EB33AA2810CCD55D004B043F /* hx509-protos.h in Headers */,
 				EB33AA2910CCD562004B043F /* hx509.h in Headers */,
 				EB33AA3410CCD59B004B043F /* wind.h in Headers */,
+				77EC9520200803CE00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB42F51A116C0F9B00FCDD8F /* heimbase.h in Headers */,
 				EB789818148066AA00627F36 /* heim_threads.h in Headers */,
 			);
@@ -13966,6 +14148,7 @@
 				EB341C4E11D0674E00877F5E /* HeimODAdmin.h in Headers */,
 				EB341C4F11D0674E00877F5E /* hx509-protos.h in Headers */,
 				EB341C5011D0674E00877F5E /* hx509.h in Headers */,
+				77EC951B200803AC00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB341C5111D0674E00877F5E /* hx509_err.h in Headers */,
 				EB341C5211D0674E00877F5E /* krb5-protos.h in Headers */,
 				EB341C5311D0674E00877F5E /* krb5-types.h in Headers */,
@@ -13992,6 +14175,7 @@
 				EB3CBAB51185A3C100F0B712 /* hx509-protos.h in Headers */,
 				EB3CBAB61185A3C100F0B712 /* hx509.h in Headers */,
 				EB3CBAB71185A3C100F0B712 /* krb5-private.h in Headers */,
+				77EC9529200803F300DD3C2F /* krb5cf-protos.h in Headers */,
 				EB3CBAB81185A3C100F0B712 /* krb5-protos.h in Headers */,
 				EB3CBAB91185A3C100F0B712 /* krb5-types.h in Headers */,
 				EB3CBABA1185A3C100F0B712 /* krb5.h in Headers */,
@@ -14034,6 +14218,7 @@
 				EB94999512F8C27800B1C9B1 /* gssapi_netlogon.h in Headers */,
 				EB94999612F8C27800B1C9B1 /* gssapi_ntlm.h in Headers */,
 				EB94999712F8C27800B1C9B1 /* gssapi_rewrite.h in Headers */,
+				77EC9526200803D400DD3C2F /* krb5cf-protos.h in Headers */,
 				EB94999812F8C27800B1C9B1 /* gssapi_spi.h in Headers */,
 				EB94999912F8C27800B1C9B1 /* gssapi_spnego.h in Headers */,
 				EB94999A12F8C27800B1C9B1 /* gsskrb5-private.h in Headers */,
@@ -14189,6 +14374,7 @@
 				EB168443146E09250019138B /* gssapi_apple.h in Headers */,
 				EB168444146E09250019138B /* gssapi_private.h in Headers */,
 				EB168445146E09250019138B /* gssapi_protos.h in Headers */,
+				77EC95012008034100DD3C2F /* krb5cf-protos.h in Headers */,
 				EBCD5AAA114336C900B964AB /* spnego_asn1.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -14224,6 +14410,7 @@
 				EBEB4241142B55E800FF4E7C /* krb5-private.h in Headers */,
 				EBEB423F142B55CD00FF4E7C /* hx509-protos.h in Headers */,
 				EBEB4240142B55CD00FF4E7C /* hx509.h in Headers */,
+				77EC950B2008035D00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBEB423E142B55AC00FF4E7C /* heimbase.h in Headers */,
 				EBEB423D142B54C900FF4E7C /* parse_units.h in Headers */,
 				EB513C83142B540D003062B7 /* rtbl.h in Headers */,
@@ -14286,6 +14473,7 @@
 				EB5F3C7311A38FEB0061142C /* config.h in Headers */,
 				EB789815148064B900627F36 /* heim_threads.h in Headers */,
 				EB5F3C7411A38FEB0061142C /* heimntlm-protos.h in Headers */,
+				77EC95022008034200DD3C2F /* krb5cf-protos.h in Headers */,
 				EB5F3C7511A38FEB0061142C /* heimntlm.h in Headers */,
 				EB5F3C7611A38FEB0061142C /* krb5-protos.h in Headers */,
 				EB5F3C7711A38FEB0061142C /* krb5-types.h in Headers */,
@@ -14328,6 +14516,7 @@
 				EB6181A0105F55C7004A7FF2 /* der-protos.h in Headers */,
 				EB6181A1105F55C7004A7FF2 /* der.h in Headers */,
 				EB6181A2105F55C7004A7FF2 /* gssapi.h in Headers */,
+				77EC95072008035600DD3C2F /* krb5cf-protos.h in Headers */,
 				EB6181A4105F55C7004A7FF2 /* gssapi_mech.h in Headers */,
 				EB6181A9105F55C7004A7FF2 /* heim_asn1.h in Headers */,
 				EB6181AE105F55C7004A7FF2 /* krb5-protos.h in Headers */,
@@ -14370,6 +14559,7 @@
 				EB663F6F17A01BB700801830 /* getarg.h in Headers */,
 				EB663F7017A01BB700801830 /* config-apple.h in Headers */,
 				EB663F7117A01BB700801830 /* heimbase.h in Headers */,
+				77EC952F2008041A00DD3C2F /* krb5cf-protos.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -14410,6 +14600,7 @@
 				EB6FCC4C10A75C1D00D80A61 /* krb5.h in Headers */,
 				EB6FCC4D10A75C1D00D80A61 /* kuser_locl.h in Headers */,
 				EB6FCC4E10A75C1D00D80A61 /* parse_time.h in Headers */,
+				77EC95132008039B00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB6FCC4F10A75C1D00D80A61 /* roken-common.h in Headers */,
 				EB6FCC5010A75C1D00D80A61 /* roken.h in Headers */,
 				EB6FCC5110A75C1D00D80A61 /* rtbl.h in Headers */,
@@ -14436,6 +14627,7 @@
 				EB5F00C31728835900022051 /* krb5_err.h in Headers */,
 				EB0F0D9A172882E500F6EE5A /* hdb-protos.h in Headers */,
 				EB0F0D9B172882E500F6EE5A /* hdb.h in Headers */,
+				77EC951C200803AD00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB0F0D9C172882E500F6EE5A /* hdb_asn1.h in Headers */,
 				EB71FC1912DF40FC000D0BA2 /* hex.h in Headers */,
 				EB71DF0E1162F1E100E470E6 /* hod-commands.h in Headers */,
@@ -14475,6 +14667,7 @@
 				EB79289E12260A73004407A7 /* asn1-common.h in Headers */,
 				EB79289F12260A73004407A7 /* base64.h in Headers */,
 				EB7928A012260A73004407A7 /* config-apple.h in Headers */,
+				77EC95082008035700DD3C2F /* krb5cf-protos.h in Headers */,
 				EB7928A112260A73004407A7 /* config.h in Headers */,
 				EB7928A212260A73004407A7 /* der-protos.h in Headers */,
 				EB7928A312260A73004407A7 /* der.h in Headers */,
@@ -14543,6 +14736,7 @@
 				EB792ADA12271923004407A7 /* roken-common.h in Headers */,
 				EB792ADB12271923004407A7 /* roken.h in Headers */,
 				EB792ADC12271923004407A7 /* rtbl.h in Headers */,
+				77EC9528200803E400DD3C2F /* krb5cf-protos.h in Headers */,
 				EB792ADD12271923004407A7 /* scram.h in Headers */,
 				EB792ADE12271923004407A7 /* sl.h in Headers */,
 				EB792ADF12271923004407A7 /* store-int.h in Headers */,
@@ -14578,6 +14772,7 @@
 				EB7A3FF80F283E0A00FA18F7 /* getarg.h in Headers */,
 				EB75783F106DB086005F33AA /* crypto-headers.h in Headers */,
 				EB692750107928B200ACB444 /* config-apple.h in Headers */,
+				77EC950C2008035F00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBAC29281094AE7200178472 /* rtbl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -14601,6 +14796,7 @@
 				EB7A40310F283E7900FA18F7 /* getarg.h in Headers */,
 				EB757840106DB087005F33AA /* crypto-headers.h in Headers */,
 				EB692751107928B300ACB444 /* config-apple.h in Headers */,
+				77EC950D2008036000DD3C2F /* krb5cf-protos.h in Headers */,
 				EBAC29291094AE7300178472 /* rtbl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -14624,6 +14820,7 @@
 				EB7A404F0F283EA600FA18F7 /* getarg.h in Headers */,
 				EB757841106DB088005F33AA /* crypto-headers.h in Headers */,
 				EB692752107928B400ACB444 /* config-apple.h in Headers */,
+				77EC950E2008036100DD3C2F /* krb5cf-protos.h in Headers */,
 				EBAC292A1094AE7400178472 /* rtbl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -14665,6 +14862,7 @@
 				EBAE7AD012B0462C002DA026 /* gssapi_rewrite.h in Headers */,
 				EBAE7B0B12B16A06002DA026 /* heimbase.h in Headers */,
 				EBFA152C13ABDDDB008069DF /* gssapi_plugin.h in Headers */,
+				77EC95062008035500DD3C2F /* krb5cf-protos.h in Headers */,
 				EB085EC71429F38F00AD2AA2 /* gssapi_oid.h in Headers */,
 				EB085EE5142A69BD00AD2AA2 /* krb5-private.h in Headers */,
 				EB085EF3142A75CE00AD2AA2 /* compat.h in Headers */,
@@ -14712,6 +14910,7 @@
 				EB6AE312101EE5E700A69D87 /* gssapi_spi.h in Headers */,
 				EB692747107928A900ACB444 /* config-apple.h in Headers */,
 				EB5675FE11097EEB00CE2FA9 /* heim-ipc.h in Headers */,
+				77EC95032008034600DD3C2F /* krb5cf-protos.h in Headers */,
 				EBA4ECD911233E6500062CDC /* kcm.h in Headers */,
 				EB42F527116C0FA800FCDD8F /* heimbase.h in Headers */,
 				EB2895441BBDD6A0003911B5 /* heimcred-const.h in Headers */,
@@ -14748,6 +14947,7 @@
 				EB91D1E60F284DFE00CCDEA3 /* der-protos.h in Headers */,
 				EB91D1E70F284DFE00CCDEA3 /* config.h in Headers */,
 				EB91D1EA0F284E1600CCDEA3 /* utils.h in Headers */,
+				77EC95042008034700DD3C2F /* krb5cf-protos.h in Headers */,
 				EB8FB5480F50C8A700CF29B4 /* asn1-common.h in Headers */,
 				EB692748107928AA00ACB444 /* config-apple.h in Headers */,
 				EBF7F99311F956AE004F340E /* gssapi_netlogon.h in Headers */,
@@ -14778,6 +14978,7 @@
 				EB7B40E1114F05F600D6EA17 /* base64.h in Headers */,
 				EB7B40EB114F060700D6EA17 /* wind.h in Headers */,
 				EB7B40F1114F061A00D6EA17 /* hx509-protos.h in Headers */,
+				77EC9523200803D100DD3C2F /* krb5cf-protos.h in Headers */,
 				EB7B40F2114F061A00D6EA17 /* hx509.h in Headers */,
 				EB7B4102114F063F00D6EA17 /* der.h in Headers */,
 				EB7B4104114F064900D6EA17 /* der-protos.h in Headers */,
@@ -14805,6 +15006,7 @@
 				EB7B412E114F079A00D6EA17 /* hx509.h in Headers */,
 				EB7B4131114F079A00D6EA17 /* krb5-types.h in Headers */,
 				EB7B4133114F079A00D6EA17 /* parse_time.h in Headers */,
+				77EC9524200803D100DD3C2F /* krb5cf-protos.h in Headers */,
 				EB7B4134114F079A00D6EA17 /* roken-common.h in Headers */,
 				EB7B4135114F079A00D6EA17 /* roken.h in Headers */,
 				EB7B4136114F079A00D6EA17 /* wind.h in Headers */,
@@ -14853,6 +15055,7 @@
 				EBAE7B4812B192A6002DA026 /* gssapi_rewrite.h in Headers */,
 				EB085ED41429F39E00AD2AA2 /* gssapi_oid.h in Headers */,
 				EB16847F146E093C0019138B /* gssapi_apple.h in Headers */,
+				77EC9522200803D000DD3C2F /* krb5cf-protos.h in Headers */,
 				EB168480146E093C0019138B /* gssapi_private.h in Headers */,
 				EB168481146E093C0019138B /* gssapi_protos.h in Headers */,
 			);
@@ -14908,6 +15111,7 @@
 				EB9107451201F3670072E044 /* roken.h in Headers */,
 				EB9107461201F3670072E044 /* rtbl.h in Headers */,
 				EB9107471201F3670072E044 /* version.h in Headers */,
+				77EC952B200803F500DD3C2F /* krb5cf-protos.h in Headers */,
 				EB9107481201F3670072E044 /* wind.h in Headers */,
 				EB78981B1480670300627F36 /* heim_threads.h in Headers */,
 			);
@@ -14952,6 +15156,7 @@
 				EB5C104410AF5EB1005EDEB4 /* com_right.h in Headers */,
 				EB95361C0FFC287F0013822C /* asn1-common.h in Headers */,
 				EB95361D0FFC287F0013822C /* roken-common.h in Headers */,
+				77EC9516200803A400DD3C2F /* krb5cf-protos.h in Headers */,
 				EB95361E0FFC287F0013822C /* config.h in Headers */,
 				EB5C98FC1953863D00BEF54B /* hex.h in Headers */,
 				EB95361F0FFC287F0013822C /* krb5-types.h in Headers */,
@@ -15055,6 +15260,7 @@
 				EB96635F0F285F2000E3B9E0 /* resolve.h in Headers */,
 				EB9663600F285F2000E3B9E0 /* krb5_ccapi.h in Headers */,
 				EB9663610F285F2000E3B9E0 /* krb5-v4compat.h in Headers */,
+				77EC94FF2008033A00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB9663620F285F2000E3B9E0 /* getarg.h in Headers */,
 				EB70DC1916D6A78F00C2DD9D /* heimbase_impl.h in Headers */,
 				EB9663630F285F2000E3B9E0 /* krb5_locl.h in Headers */,
@@ -15155,6 +15361,7 @@
 				EB085ED71429F3A100AD2AA2 /* gssapi_oid.h in Headers */,
 				EB168482146E093F0019138B /* gssapi_apple.h in Headers */,
 				EB168483146E093F0019138B /* gssapi_private.h in Headers */,
+				77EC952A200803F400DD3C2F /* krb5cf-protos.h in Headers */,
 				EB168484146E093F0019138B /* gssapi_protos.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -15175,6 +15382,7 @@
 				EBA0316B10D20DF400E6E2E5 /* gssapi_krb5.h in Headers */,
 				EBA0316C10D20DF400E6E2E5 /* gssapi_mech.h in Headers */,
 				EBA0316D10D20DF400E6E2E5 /* gssapi_netlogon.h in Headers */,
+				77EC9521200803CF00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBA0316E10D20DF400E6E2E5 /* gssapi_ntlm.h in Headers */,
 				EB70DC3516D6A7B300C2DD9D /* heimbase_impl.h in Headers */,
 				EBA0316F10D20DF400E6E2E5 /* gssapi_spnego.h in Headers */,
@@ -15240,6 +15448,7 @@
 				EBA242B90F254C3600C3DF74 /* roken-common.h in Headers */,
 				EBA242BB0F254C4900C3DF74 /* parse_time.h in Headers */,
 				EBC37A0B0F265B3100D7DD3F /* getarg.h in Headers */,
+				77EC950A2008035C00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB8FB5BC0F50CD5600CF29B4 /* krb5-private.h in Headers */,
 				EB75783D106DB084005F33AA /* crypto-headers.h in Headers */,
 				EB69274E107928B000ACB444 /* config-apple.h in Headers */,
@@ -15308,6 +15517,7 @@
 				EBCC771B1756F9F900BF9616 /* getarg.h in Headers */,
 				EBCC771A1756F98C00BF9616 /* krb5_asn1.h in Headers */,
 				EBCC77161756F97700BF9616 /* heim_err.h in Headers */,
+				77EC952E2008040D00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBCC77171756F97700BF9616 /* k524_err.h in Headers */,
 				EBCC77181756F97700BF9616 /* krb5_err.h in Headers */,
 				EBCC77191756F97700BF9616 /* asn1_err.h in Headers */,
@@ -15394,6 +15604,7 @@
 				EBAE7B6212B19358002DA026 /* gssapi_rewrite.h in Headers */,
 				EB085ED91429F3A400AD2AA2 /* gssapi_oid.h in Headers */,
 				EB168488146E09410019138B /* gssapi_apple.h in Headers */,
+				77EC9527200803E300DD3C2F /* krb5cf-protos.h in Headers */,
 				EB168489146E09410019138B /* gssapi_private.h in Headers */,
 				EB16848A146E09410019138B /* gssapi_protos.h in Headers */,
 			);
@@ -15436,6 +15647,7 @@
 				EBC057DC17D7ED670004EE78 /* sl.h in Headers */,
 				EBC057DD17D7ED670004EE78 /* heimbase_impl.h in Headers */,
 				EBC057DE17D7ED670004EE78 /* test_common.h in Headers */,
+				77EC95302008041A00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBC057DF17D7ED670004EE78 /* wind.h in Headers */,
 				EBC057E017D7ED670004EE78 /* config-apple.h in Headers */,
 				EBC057E117D7ED670004EE78 /* heimbase.h in Headers */,
@@ -15535,6 +15747,7 @@
 				EB8FB52C0F50C6A500CF29B4 /* asn1-common.h in Headers */,
 				EB75B85210007F4C0009B251 /* heim-ipc.h in Headers */,
 				EB757835106DB07D005F33AA /* crypto-headers.h in Headers */,
+				77EC95002008033D00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB692744107928A500ACB444 /* config-apple.h in Headers */,
 				EB42F529116C0FAB00FCDD8F /* heimbase.h in Headers */,
 				EB0DA2A012727CFF002ECA30 /* config_plugin.h in Headers */,
@@ -15617,6 +15830,7 @@
 				EB16845B146E092B0019138B /* gssapi_apple.h in Headers */,
 				EB16845C146E092B0019138B /* gssapi_private.h in Headers */,
 				EB16845D146E092B0019138B /* gssapi_protos.h in Headers */,
+				77EC95092008035B00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB78982414806AC400627F36 /* heim_threads.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -15631,6 +15845,7 @@
 				EBDB5A5C10A36B92003FD0F9 /* com_right.h in Headers */,
 				EBDB5A5D10A36B92003FD0F9 /* config-apple.h in Headers */,
 				EBDB5A5E10A36B92003FD0F9 /* config.h in Headers */,
+				77EC9515200803A300DD3C2F /* krb5cf-protos.h in Headers */,
 				EBDB5A5F10A36B92003FD0F9 /* der-protos.h in Headers */,
 				EBDB5A6010A36B92003FD0F9 /* der.h in Headers */,
 				EBDB5A6110A36B92003FD0F9 /* getarg.h in Headers */,
@@ -15700,6 +15915,7 @@
 				EBDB5A9610A36B94003FD0F9 /* rtbl.h in Headers */,
 				EBDB5A9710A36B94003FD0F9 /* sl.h in Headers */,
 				EBDB5A9810A36B94003FD0F9 /* wind.h in Headers */,
+				77EC951A200803AB00DD3C2F /* krb5cf-protos.h in Headers */,
 				EBDB5AB010A36D2A003FD0F9 /* kpasswd_locl.h in Headers */,
 				EB312E9710B512E500B0732B /* gssapi.h in Headers */,
 				EB42F51E116C0F9E00FCDD8F /* heimbase.h in Headers */,
@@ -15750,6 +15966,7 @@
 				EB168450146E09280019138B /* gssapi_private.h in Headers */,
 				EB168451146E09280019138B /* gssapi_protos.h in Headers */,
 				EB8BFEED17932FC80014BFDB /* heimbase.h in Headers */,
+				77EC95052008034700DD3C2F /* krb5cf-protos.h in Headers */,
 				EB78982814806AC600627F36 /* heim_threads.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -15776,6 +15993,7 @@
 				EB75B7CB1000784F0009B251 /* krb5.h in Headers */,
 				EB75B7CD1000785A0009B251 /* krb5-protos.h in Headers */,
 				EB75B7F0100078F50009B251 /* parse_bytes.h in Headers */,
+				77EC95122008039900DD3C2F /* krb5cf-protos.h in Headers */,
 				EB75B7F4100079010009B251 /* heim-ipc.h in Headers */,
 				EB75B801100079340009B251 /* asn1-common.h in Headers */,
 				EBBAE55B10158AFB00B80603 /* heimntlm-protos.h in Headers */,
@@ -15925,6 +16143,7 @@
 				EBF8B86B1016D2F0000BA085 /* gssapi.h in Headers */,
 				EBF8B8731016D31F000BA085 /* gsskrb5-private.h in Headers */,
 				EB17B61F1062F0BB0015DEB4 /* krb5-types.h in Headers */,
+				77EC951E200803B500DD3C2F /* krb5cf-protos.h in Headers */,
 				EB17B6241062F1110015DEB4 /* krb5_locl.h in Headers */,
 				EB17B6251062F11A0015DEB4 /* krb5-private.h in Headers */,
 				EB17B6301062F1500015DEB4 /* base64.h in Headers */,
@@ -15993,6 +16212,7 @@
 				EB513C4E142B380D003062B7 /* gssapi_oid.h in Headers */,
 				EB16846A146E09310019138B /* gssapi_apple.h in Headers */,
 				EB16846B146E09310019138B /* gssapi_private.h in Headers */,
+				77EC95142008039C00DD3C2F /* krb5cf-protos.h in Headers */,
 				EB16846C146E09310019138B /* gssapi_protos.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -16118,6 +16338,26 @@
 			productName = Reachability;
 			productReference = 727E2636120B6D75002CBF58 /* Reachability.bundle */;
 			productType = "com.apple.product-type.bundle";
+		};
+		7729928D1FD1F0A000665B56 /* test_get_principal_list */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 772992B51FD1F0A000665B56 /* Build configuration list for PBXNativeTarget "test_get_principal_list" */;
+			buildPhases = (
+				772992941FD1F0A000665B56 /* Headers */,
+				772992AF1FD1F0A000665B56 /* Sources */,
+				772992B11FD1F0A000665B56 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7729928E1FD1F0A000665B56 /* PBXTargetDependency */,
+				772992901FD1F0A000665B56 /* PBXTargetDependency */,
+				772992921FD1F0A000665B56 /* PBXTargetDependency */,
+			);
+			name = test_get_principal_list;
+			productName = "heimdal-test-cc";
+			productReference = 772992B91FD1F0A000665B56 /* test_get_principal_list */;
+			productType = "com.apple.product-type.tool";
 		};
 		EB00F1A4103D6A2900399574 /* hcrypto */ = {
 			isa = PBXNativeTarget;
@@ -18246,6 +18486,7 @@
 				EB663F4C17A0186100801830 /* test_srv */,
 				EBC057B517D7ED670004EE78 /* test_gss_fuzzer */,
 				EB1C8F8C17F24B01002F9FF7 /* test_fx */,
+				7729928D1FD1F0A000665B56 /* test_get_principal_list */,
 			);
 		};
 /* End PBXProject section */
@@ -18551,6 +18792,7 @@
 				"$(HEIMDAL_TMPDIR)/Heimdal/hdb-protos.h",
 				"$(HEIMDAL_TMPDIR)/Heimdal/heimcred.h",
 				"$(HEIMDAL_TMPDIR)/Heimdal/heimcred-const.h",
+				"$(HEIMDAL_TMPDIR)/Heimdal/krb5cf-protos.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -18669,6 +18911,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				72C1AC41120C87C300ED5EBB /* Reachability.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		772992AF1FD1F0A000665B56 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				772992BB1FD1F0E600665B56 /* test_get_principal_list.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -20100,6 +20350,26 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		7729928E1FD1F0A000665B56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB3CC83814DCCE6D008E9787 /* GeneratedFiles */;
+			targetProxy = 7729928F1FD1F0A000665B56 /* PBXContainerItemProxy */;
+		};
+		772992901FD1F0A000665B56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBABC9300F2C292500166EA0 /* roken-application */;
+			targetProxy = 772992911FD1F0A000665B56 /* PBXContainerItemProxy */;
+		};
+		772992921FD1F0A000665B56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBFB58C50F2253FA0009D37C /* vers */;
+			targetProxy = 772992931FD1F0A000665B56 /* PBXContainerItemProxy */;
+		};
+		77F4C09F1FD5DF0500400F85 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7729928D1FD1F0A000665B56 /* test_get_principal_list */;
+			targetProxy = 77F4C09E1FD5DF0500400F85 /* PBXContainerItemProxy */;
+		};
 		EB00F271103E162F00399574 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB00F1A4103D6A2900399574 /* hcrypto */;
@@ -22365,6 +22635,48 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
 				PRODUCT_NAME = Reachability;
 				WRAPPER_EXTENSION = bundle;
+			};
+			name = "Release-Embedded";
+		};
+		772992B61FD1F0A000665B56 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		772992B71FD1F0A000665B56 /* Release-asan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ZERO_LINK = NO;
+			};
+			name = "Release-asan";
+		};
+		772992B81FD1F0A000665B56 /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ZERO_LINK = NO;
 			};
 			name = "Release-Embedded";
 		};
@@ -28166,6 +28478,16 @@
 				727E2638120B6D79002CBF58 /* Release */,
 				EB4603491B9E61160013F3DC /* Release-asan */,
 				727E2639120B6D79002CBF58 /* Release-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		772992B51FD1F0A000665B56 /* Build configuration list for PBXNativeTarget "test_get_principal_list" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				772992B61FD1F0A000665B56 /* Release */,
+				772992B71FD1F0A000665B56 /* Release-asan */,
+				772992B81FD1F0A000665B56 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

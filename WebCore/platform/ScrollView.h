@@ -103,7 +103,7 @@ public:
     // Auto means show a scrollbar only when one is needed.
     // Note that for platforms with native widgets, these modes are considered advisory. In other words the underlying native
     // widget may choose not to honor the requested modes.
-    void setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode, bool horizontalLock = false, bool verticalLock = false);
+    WEBCORE_EXPORT void setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode, bool horizontalLock = false, bool verticalLock = false);
     void setHorizontalScrollbarMode(ScrollbarMode mode, bool lock = false) { setScrollbarModes(mode, verticalScrollbarMode(), lock, verticalScrollbarLock()); }
     void setVerticalScrollbarMode(ScrollbarMode mode, bool lock = false) { setScrollbarModes(horizontalScrollbarMode(), mode, horizontalScrollbarLock(), lock); };
     WEBCORE_EXPORT void scrollbarModes(ScrollbarMode& horizontalMode, ScrollbarMode& verticalMode) const;
@@ -128,11 +128,6 @@ public:
     // tiled backing store, this function can be set, so that the view paints the entire contents.
     bool paintsEntireContents() const { return m_paintsEntireContents; }
     WEBCORE_EXPORT void setPaintsEntireContents(bool);
-
-    // By default, paint events are clipped to the visible area.  If set to
-    // false, paint events are no longer clipped.  paintsEntireContents() implies !clipsRepaints().
-    bool clipsRepaints() const { return m_clipsRepaints; }
-    void setClipsRepaints(bool);
 
     // By default programmatic scrolling is handled by WebCore and not by the UI application.
     // In the case of using a tiled backing store, this mode can be set, so that the scroll requests
@@ -481,7 +476,6 @@ private:
     bool m_useFixedLayout { false };
 
     bool m_paintsEntireContents { false };
-    bool m_clipsRepaints { true };
     bool m_delegatesScrolling { false };
 
 

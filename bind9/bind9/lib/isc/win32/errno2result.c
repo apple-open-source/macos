@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008, 2013, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -32,7 +32,9 @@
  * not already there.
  */
 isc_result_t
-isc__errno2resultx(int posixerrno, const char *file, int line) {
+isc__errno2resultx(int posixerrno, isc_boolean_t dolog,
+		   const char *file, int line)
+{
 	char strbuf[ISC_STRERRORSIZE];
 
 	switch (posixerrno) {
@@ -57,6 +59,10 @@ isc__errno2resultx(int posixerrno, const char *file, int line) {
 		return (ISC_R_IOERROR);
 	case ENOMEM:
 		return (ISC_R_NOMEMORY);
+#ifdef EOVERFLOW
+	case EOVERFLOW:
+		return (ISC_R_RANGE);
+#endif
 	case ENFILE:
 	case EMFILE:
 	case WSAEMFILE:
@@ -99,9 +105,13 @@ isc__errno2resultx(int posixerrno, const char *file, int line) {
 	case WSAENOBUFS:
 		return (ISC_R_NORESOURCES);
 	default:
-		isc__strerror(posixerrno, strbuf, sizeof(strbuf));
-		UNEXPECTED_ERROR(file, line, "unable to convert errno "
-				 "to isc_result: %d: %s", posixerrno, strbuf);
+		if (dolog) {
+			isc__strerror(posixerrno, strbuf, sizeof(strbuf));
+			UNEXPECTED_ERROR(file, line,
+					 "unable to convert errno "
+					 "to isc_result: %d: %s",
+					 posixerrno, strbuf);
+		}
 		/*
 		 * XXXDCL would be nice if perhaps this function could
 		 * return the system's error string, so the caller

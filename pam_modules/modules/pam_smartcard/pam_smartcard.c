@@ -154,6 +154,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	CFErrorRef error = NULL;
 	Boolean interactive;
 	uid_t agent_uid = 0;
+    Boolean no_ignore = FALSE;
 // legacy support block start
 	SecKeychainRef keychain = NULL;
 	SecIdentityRef identity = NULL;
@@ -162,6 +163,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	SecKeyRef private_key = NULL;
 	Boolean keychain_unlocked = FALSE;
 // legacy support block end
+
+    if (NULL != openpam_get_option(pamh, "no_ignore")) {
+        no_ignore = TRUE;
+    }
 
 	retval = pam_get_user(pamh, &user, "Username: ");
 	if (retval != PAM_SUCCESS) {
@@ -243,7 +248,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	}
 
 	// do not return error for interactive session (sudo etc.) unless card login really failed
-	retval = interactive ? PAM_IGNORE : PAM_AUTH_ERR;
+	retval = (interactive && !no_ignore) ? PAM_IGNORE : PAM_AUTH_ERR;
 
 	if (context != NULL) {
 		// using modern smartcard support
@@ -311,7 +316,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (keychain == NULL)
 		{
 			openpam_log(PAM_LOG_DEBUG, "%s - No legacy smartcard found for this user.", PM_DISPLAY_NAME);
-			retval = PAM_IGNORE;
+            retval = !no_ignore ? PAM_IGNORE : PAM_AUTH_ERR;
 			goto cleanup;
 		}
 
@@ -332,7 +337,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	}
 // legacy support block end
 
-	retval = interactive ? PAM_IGNORE : PAM_AUTH_ERR;
+	retval = (interactive && !no_ignore) ? PAM_IGNORE : PAM_AUTH_ERR;
 	if (keychain_unlocked == FALSE) {
 		for(int i = 0; i < (interactive ? MAX_PIN_RETRY : 1); ++i) {
 			cf_pin = copy_pin(pamh, prompt, &pin); // gets pre-stored password for Authorization / asks user during interactive session
@@ -368,7 +373,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
 // legacy support block start
 	if (keychain != NULL && retval == PAM_SUCCESS) {
-		retval = PAM_IGNORE;
+        retval = !no_ignore ? PAM_IGNORE : PAM_AUTH_ERR;
 
 		// legacy smartcard unlock succeeded
 		status = SecIdentityCopyCertificate(identity, &certificate);

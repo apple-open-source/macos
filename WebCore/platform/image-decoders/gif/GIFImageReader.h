@@ -188,10 +188,6 @@ public:
         , m_isDataSizeDefined(false)
     {
     }
-    
-    ~GIFFrameContext()
-    {
-    }
 
     void addLzwBlock(size_t position, size_t size)
     {
@@ -241,10 +237,6 @@ public:
     {
     }
 
-    ~GIFImageReader()
-    {
-    }
-
     void setData(WebCore::SharedBuffer* data) { m_data = data; }
     // FIXME: haltAtFrame should be size_t.
     bool decode(WebCore::GIFImageDecoder::GIFQuery, unsigned haltAtFrame);
@@ -282,6 +274,11 @@ public:
     const GIFFrameContext* frameContext() const
     {
         return m_currentDecodingFrame < m_frames.size() ? m_frames[m_currentDecodingFrame].get() : 0;
+    }
+
+    const GIFFrameContext* frameContext(size_t frame) const
+    {
+        return frame < m_frames.size() ? m_frames[frame].get() : nullptr;
     }
 
 private:

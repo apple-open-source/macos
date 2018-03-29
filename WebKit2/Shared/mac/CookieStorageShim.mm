@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,15 +26,18 @@
 #include "config.h"
 #include "CookieStorageShim.h"
 
+#if !USE(NETWORK_SESSION)
+
 #include "CookieStorageShimLibrary.h"
 #include "NetworkConnectionToWebProcess.h"
 #include "NetworkProcessConnection.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
-#include <WebCore/CFNetworkSPI.h>
-#include <WebCore/SessionID.h>
+#include <WebCore/CookiesStrategy.h>
 #include <WebCore/URL.h>
 #include <dlfcn.h>
+#include <pal/SessionID.h>
+#include <pal/spi/cf/CFNetworkSPI.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
@@ -55,9 +58,12 @@ namespace WebKit {
 
 static CFDictionaryRef webKitCookieStorageCopyRequestHeaderFieldsForURL(CFHTTPCookieStorageRef inCookieStorage, CFURLRef inRequestURL)
 {
+    IncludeSecureCookies includeSecureCookies = URL(inRequestURL).protocolIs("https") ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+
     String cookies;
+    bool secureCookiesAccessed = false;
     URL firstPartyForCookiesURL;
-    if (!WebProcess::singleton().networkConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(SessionID::defaultSessionID(), firstPartyForCookiesURL, inRequestURL), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(cookies), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(PAL::SessionID::defaultSessionID(), firstPartyForCookiesURL, inRequestURL, std::nullopt, std::nullopt, includeSecureCookies), Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue::Reply(cookies, secureCookiesAccessed), 0))
         return 0;
 
     if (cookies.isNull())
@@ -129,3 +135,6 @@ using CompletionHandlerBlock = void(^)(CFDictionaryRef);
 }
 
 @end
+
+#endif
+

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -103,6 +103,7 @@ PHP_METHOD(sqlite3, open)
 	char *filename, *encryption_key, *fullpath;
 	size_t filename_len, encryption_key_len = 0;
 	zend_long flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+	int rc;
 
 	db_obj = Z_SQLITE3_DB_P(object);
 
@@ -133,11 +134,17 @@ PHP_METHOD(sqlite3, open)
 	}
 
 #if SQLITE_VERSION_NUMBER >= 3005000
-	if (sqlite3_open_v2(fullpath, &(db_obj->db), flags, NULL) != SQLITE_OK) {
+	rc = sqlite3_open_v2(fullpath, &(db_obj->db), flags, NULL);
 #else
-	if (sqlite3_open(fullpath, &(db_obj->db)) != SQLITE_OK) {
+	rc = sqlite3_open(fullpath, &(db_obj->db));
 #endif
-		zend_throw_exception_ex(zend_ce_exception, 0, "Unable to open database: %s", sqlite3_errmsg(db_obj->db));
+	if (rc != SQLITE_OK) {
+		zend_throw_exception_ex(zend_ce_exception, 0, "Unable to open database: %s",
+#ifdef HAVE_SQLITE3_ERRSTR
+				db_obj->db ? sqlite3_errmsg(db_obj->db) : sqlite3_errstr(rc));
+#else
+				db_obj->db ? sqlite3_errmsg(db_obj->db) : "");
+#endif
 		if (fullpath != filename) {
 			efree(fullpath);
 		}

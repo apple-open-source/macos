@@ -38,7 +38,7 @@
 #import "NotImplemented.h"
 #import "PixelBufferConformerCV.h"
 #import "PlatformLayer.h"
-#import "RealtimeMediaSourceCenter.h"
+#import "RealtimeMediaSourceCenterMac.h"
 #import "RealtimeMediaSourceSettings.h"
 #import "WebActionDisablingCALayerDelegate.h"
 #import <AVFoundation/AVCaptureDevice.h>
@@ -53,7 +53,7 @@
 #include "WebCoreThreadRun.h"
 #endif
 
-#import "CoreMediaSoftLink.h"
+#import <pal/cf/CoreMediaSoftLink.h>
 #import "CoreVideoSoftLink.h"
 
 typedef AVCaptureConnection AVCaptureConnectionType;
@@ -110,31 +110,12 @@ const OSType videoCaptureFormat = kCVPixelFormatType_420YpCbCr8Planar;
 const OSType videoCaptureFormat = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
 #endif
 
-class AVVideoCaptureSourceFactory : public RealtimeMediaSource::VideoCaptureFactory
-#if PLATFORM(IOS)
-    , public RealtimeMediaSource::SingleSourceFactory<AVVideoCaptureSource>
-#endif
+CaptureSourceOrError AVVideoCaptureSource::create(const AtomicString& id, const MediaConstraints* constraints)
 {
-public:
-    CaptureSourceOrError createVideoCaptureSource(const String& deviceID, const MediaConstraints* constraints) final {
-        AVCaptureDeviceTypedef *device = [getAVCaptureDeviceClass() deviceWithUniqueID:deviceID];
-        if (!device)
-            return { };
-        return AVVideoCaptureSource::create(device, deviceID, constraints);
-    }
+    AVCaptureDeviceTypedef *device = [getAVCaptureDeviceClass() deviceWithUniqueID:id];
+    if (!device)
+        return { };
 
-#if PLATFORM(IOS)
-private:
-    void setVideoCapturePageState(bool interrupted, bool pageMuted)
-    {
-        if (activeSource())
-            activeSource()->setInterrupted(interrupted, pageMuted);
-    }
-#endif
-};
-
-CaptureSourceOrError AVVideoCaptureSource::create(AVCaptureDeviceTypedef* device, const AtomicString& id, const MediaConstraints* constraints)
-{
     auto source = adoptRef(*new AVVideoCaptureSource(device, id));
     if (constraints) {
         auto result = source->applyConstraints(*constraints);
@@ -145,17 +126,6 @@ CaptureSourceOrError AVVideoCaptureSource::create(AVCaptureDeviceTypedef* device
     return CaptureSourceOrError(WTFMove(source));
 }
 
-static AVVideoCaptureSourceFactory& avVideoCaptureSourceFactory()
-{
-    static NeverDestroyed<AVVideoCaptureSourceFactory> factory;
-    return factory.get();
-}
-
-RealtimeMediaSource::VideoCaptureFactory& AVVideoCaptureSource::factory()
-{
-    return avVideoCaptureSourceFactory();
-}
-
 AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDeviceTypedef* device, const AtomicString& id)
     : AVMediaCaptureSource(device, id, Type::Video)
 {
@@ -164,7 +134,7 @@ AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDeviceTypedef* device, const
 AVVideoCaptureSource::~AVVideoCaptureSource()
 {
 #if PLATFORM(IOS)
-    avVideoCaptureSourceFactory().unsetActiveSource(*this);
+    RealtimeMediaSourceCenterMac::videoCaptureSourceFactory().unsetActiveSource(*this);
 #endif
 }
 
@@ -328,6 +298,7 @@ bool AVVideoCaptureSource::setPreset(NSString *preset)
 
 bool AVVideoCaptureSource::applyFrameRate(double rate)
 {
+    using namespace PAL;
     double epsilon = 0.00001;
     AVFrameRateRangeType *bestFrameRateRange = nil;
     for (AVFrameRateRangeType *frameRateRange in [[device() activeFormat] videoSupportedFrameRateRanges]) {
@@ -413,7 +384,7 @@ static inline int sensorOrientationFromVideoOutput(AVCaptureVideoDataOutputType*
 bool AVVideoCaptureSource::setupCaptureSession()
 {
 #if PLATFORM(IOS)
-    avVideoCaptureSourceFactory().setActiveSource(*this);
+    RealtimeMediaSourceCenterMac::videoCaptureSourceFactory().setActiveSource(*this);
 #endif
 
     NSError *error = nil;
@@ -512,12 +483,12 @@ void AVVideoCaptureSource::processNewFrame(RetainPtr<CMSampleBufferRef> sampleBu
     if (!isProducingData() || muted())
         return;
 
-    CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer.get());
+    CMFormatDescriptionRef formatDescription = PAL::CMSampleBufferGetFormatDescription(sampleBuffer.get());
     if (!formatDescription)
         return;
 
     m_buffer = sampleBuffer;
-    CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription);
+    CMVideoDimensions dimensions = PAL::CMVideoFormatDescriptionGetDimensions(formatDescription);
     if (m_sampleRotation == MediaSample::VideoRotation::Left || m_sampleRotation == MediaSample::VideoRotation::Right)
         std::swap(dimensions.width, dimensions.height);
 

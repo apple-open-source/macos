@@ -33,17 +33,16 @@
 #include "ButtonInputType.h"
 #include "CheckboxInputType.h"
 #include "ColorInputType.h"
+#include "DOMFormData.h"
 #include "DateComponents.h"
 #include "DateInputType.h"
 #include "DateTimeInputType.h"
 #include "DateTimeLocalInputType.h"
 #include "EmailInputType.h"
 #include "EventNames.h"
-#include "ExceptionCode.h"
 #include "FileInputType.h"
 #include "FileList.h"
 #include "FormController.h"
-#include "FormDataList.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
@@ -69,6 +68,7 @@
 #include "ShadowRoot.h"
 #include "SubmitInputType.h"
 #include "TelephoneInputType.h"
+#include "TextControlInnerElements.h"
 #include "TextInputType.h"
 #include "TimeInputType.h"
 #include "URLInputType.h"
@@ -94,7 +94,7 @@ static std::unique_ptr<InputType> createInputType(HTMLInputElement& element)
     return std::make_unique<T>(element);
 }
 
-static void populateInputTypeFactoryMap(InputTypeFactoryMap& map)
+static InputTypeFactoryMap createInputTypeFactoryMap()
 {
     static const struct InputTypes {
         InputTypeConditionalFunction conditionalFunction;
@@ -140,20 +140,19 @@ static void populateInputTypeFactoryMap(InputTypeFactoryMap& map)
         // No need to register "text" because it is the default type.
     };
 
+    InputTypeFactoryMap map;
     for (auto& inputType : inputTypes) {
         auto conditionalFunction = inputType.conditionalFunction;
         if (!conditionalFunction || (RuntimeEnabledFeatures::sharedFeatures().*conditionalFunction)())
             map.add(inputType.nameFunction(), inputType.factoryFunction);
     }
+    return map;
 }
 
 std::unique_ptr<InputType> InputType::create(HTMLInputElement& element, const AtomicString& typeName)
 {
-    static NeverDestroyed<InputTypeFactoryMap> factoryMap;
-    if (factoryMap.get().isEmpty())
-        populateInputTypeFactoryMap(factoryMap);
-
     if (!typeName.isEmpty()) {
+        static const auto factoryMap = makeNeverDestroyed(createInputTypeFactoryMap());
         if (auto factory = factoryMap.get().get(typeName))
             return factory(element);
     }
@@ -165,9 +164,7 @@ std::unique_ptr<InputType> InputType::createText(HTMLInputElement& element)
     return std::make_unique<TextInputType>(element);
 }
 
-InputType::~InputType()
-{
-}
+InputType::~InputType() = default;
 
 bool InputType::themeSupportsDataListUI(InputType* type)
 {
@@ -196,10 +193,10 @@ bool InputType::shouldSaveAndRestoreFormControlState() const
 
 FormControlState InputType::saveFormControlState() const
 {
-    String currentValue = element().value();
+    auto currentValue = element().value();
     if (currentValue == element().defaultValue())
-        return FormControlState();
-    return FormControlState(currentValue);
+        return { };
+    return { { currentValue } };
 }
 
 void InputType::restoreFormControlState(const FormControlState& state)
@@ -213,10 +210,10 @@ bool InputType::isFormDataAppendable() const
     return !element().name().isEmpty();
 }
 
-bool InputType::appendFormData(FormDataList& encoding, bool) const
+bool InputType::appendFormData(DOMFormData& formData, bool) const
 {
     // Always successful.
-    encoding.appendData(element().name(), element().value());
+    formData.append(element().name(), element().value());
     return true;
 }
 
@@ -227,7 +224,7 @@ double InputType::valueAsDate() const
 
 ExceptionOr<void> InputType::setValueAsDate(double) const
 {
-    return Exception { INVALID_STATE_ERR };
+    return Exception { InvalidStateError };
 }
 
 double InputType::valueAsDouble() const
@@ -242,7 +239,7 @@ ExceptionOr<void> InputType::setValueAsDouble(double doubleValue, TextFieldEvent
 
 ExceptionOr<void> InputType::setValueAsDecimal(const Decimal&, TextFieldEventBehavior) const
 {
-    return Exception { INVALID_STATE_ERR };
+    return Exception { InvalidStateError };
 }
 
 bool InputType::supportsValidation() const
@@ -497,7 +494,7 @@ void InputType::createShadowSubtree()
 
 void InputType::destroyShadowSubtree()
 {
-    ShadowRoot* root = element().userAgentShadowRoot();
+    RefPtr<ShadowRoot> root = element().userAgentShadowRoot();
     if (!root)
         return;
 
@@ -700,7 +697,7 @@ void InputType::willDispatchClick(InputElementClickState&)
 {
 }
 
-void InputType::didDispatchClick(Event*, const InputElementClickState&)
+void InputType::didDispatchClick(Event&, const InputElementClickState&)
 {
 }
 
@@ -985,18 +982,18 @@ ExceptionOr<void> InputType::applyStep(int count, AnyStepHandling anyStepHandlin
 {
     StepRange stepRange(createStepRange(anyStepHandling));
     if (!stepRange.hasStep())
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     const Decimal current = parseToNumberOrNaN(element().value());
     if (!current.isFinite())
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
     Decimal newValue = current + stepRange.step() * count;
     if (!newValue.isFinite())
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     const Decimal acceptableErrorValue = stepRange.acceptableError();
     if (newValue - stepRange.minimum() < -acceptableErrorValue)
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
     if (newValue < stepRange.minimum())
         newValue = stepRange.minimum();
 
@@ -1004,7 +1001,7 @@ ExceptionOr<void> InputType::applyStep(int count, AnyStepHandling anyStepHandlin
         newValue = stepRange.alignValueForStep(current, newValue);
 
     if (newValue - stepRange.maximum() > acceptableErrorValue)
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
     if (newValue > stepRange.maximum())
         newValue = stepRange.maximum();
 
@@ -1034,7 +1031,7 @@ StepRange InputType::createStepRange(AnyStepHandling) const
 ExceptionOr<void> InputType::stepUp(int n)
 {
     if (!isSteppable())
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
     return applyStep(n, RejectAny, DispatchNoEvent);
 }
 
@@ -1145,8 +1142,13 @@ Color InputType::valueAsColor() const
     return Color::transparent;
 }
 
-void InputType::selectColor(const Color&)
+void InputType::selectColor(StringView)
 {
+}
+
+RefPtr<TextControlInnerTextElement> InputType::innerTextElement() const
+{
+    return nullptr;
 }
 
 } // namespace WebCore

@@ -25,7 +25,9 @@
 
 #pragma once
 
+#include "StringAdaptors.h"
 #include <heap/HandleTypes.h>
+#include <heap/Strong.h>
 #include <wtf/Brigand.h>
 #include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
@@ -50,6 +52,7 @@ class IDBKey;
 class IDBKeyData;
 class IDBValue;
 class DOMPromise;
+class ScheduledAction;
 
 #if ENABLE(WEBGL)
 class WebGLExtension;
@@ -58,9 +61,13 @@ class WebGLExtension;
 template<typename T>
 struct IDLType {
     using ImplementationType = T;
+    using StorageType = T;
 
     using ParameterType = T;
     using NullableParameterType = std::optional<ImplementationType>;
+
+    using InnerParameterType = T;
+    using NullableInnerParameterType = std::optional<ImplementationType>;
 
     using NullableType = std::optional<ImplementationType>;
     static NullableType nullValue() { return std::nullopt; }
@@ -121,6 +128,8 @@ template<typename StringType> struct IDLString : IDLType<StringType> {
     using NullableType = StringType;
     static StringType nullValue() { return StringType(); }
     static bool isNullValue(const StringType& value) { return value.isNull(); }
+    static bool isNullValue(const UncachedString& value) { return value.string.isNull(); }
+    static bool isNullValue(const OwnedString& value) { return value.string.isNull(); }
     template <typename U> static U&& extractValueFromNullable(U&& value) { return std::forward<U>(value); }
 };
 struct IDLDOMString : IDLString<String> { };
@@ -142,7 +151,7 @@ template<typename T> struct IDLRequiresExistingAtomicStringAdaptor : IDLString<A
 struct IDLObject : IDLType<JSC::Strong<JSC::JSObject>> {
     using NullableType = JSC::Strong<JSC::JSObject>;
 
-    static inline std::nullptr_t nullValue() { return nullptr; }
+    static inline NullableType nullValue() { return { }; }
     template<typename U> static inline bool isNullValue(U&& value) { return !value; }
     template<typename U> static inline U&& extractValueFromNullable(U&& value) { return std::forward<U>(value); }
 };
@@ -150,8 +159,13 @@ struct IDLObject : IDLType<JSC::Strong<JSC::JSObject>> {
 template<typename T> struct IDLWrapper : IDLType<RefPtr<T>> {
     using RawType = T;
 
+    using StorageType = Ref<T>;
+
     using ParameterType = T&;
     using NullableParameterType = T*;
+
+    using InnerParameterType = Ref<T>;
+    using NullableInnerParameterType = RefPtr<T>;
 
     using NullableType = RefPtr<T>;
     static inline std::nullptr_t nullValue() { return nullptr; }
@@ -176,6 +190,9 @@ template<typename T> struct IDLNullable : IDLType<typename T::NullableType> {
     using ParameterType = typename T::NullableParameterType;
     using NullableParameterType = typename T::NullableParameterType;
 
+    using InnerParameterType = typename T::NullableInnerParameterType;
+    using NullableInnerParameterType = typename T::NullableInnerParameterType;
+
     using NullableType = typename T::NullableType;
     static inline auto nullValue() -> decltype(T::nullValue()) { return T::nullValue(); }
     template<typename U> static inline bool isNullValue(U&& value) { return T::isNullValue(std::forward<U>(value)); }
@@ -185,8 +202,8 @@ template<typename T> struct IDLNullable : IDLType<typename T::NullableType> {
 template<typename T> struct IDLSequence : IDLType<Vector<typename T::ImplementationType>> {
     using InnerType = T;
 
-    using ParameterType = const Vector<typename T::ImplementationType>&;
-    using NullableParameterType = const std::optional<Vector<typename T::ImplementationType>>&;
+    using ParameterType = const Vector<typename T::InnerParameterType>&;
+    using NullableParameterType = const std::optional<Vector<typename T::InnerParameterType>>&;
 };
 
 template<typename T> struct IDLFrozenArray : IDLType<Vector<typename T::ImplementationType>> {
@@ -204,7 +221,7 @@ template<typename K, typename V> struct IDLRecord : IDLType<Vector<WTF::KeyValue
     using NullableParameterType = const std::optional<Vector<WTF::KeyValuePair<typename K::ImplementationType, typename V::ImplementationType>>>&;
 };
 
-template<typename T> struct IDLPromise : IDLType<DOMPromise> {
+template<typename T> struct IDLPromise : IDLWrapper<DOMPromise> {
     using InnerType = T;
 };
 
@@ -252,6 +269,7 @@ struct IDLJSON : IDLType<String> {
     template <typename U> static U&& extractValueFromNullable(U&& value) { return std::forward<U>(value); }
 };
 
+struct IDLScheduledAction : IDLType<std::unique_ptr<ScheduledAction>> { };
 template<typename T> struct IDLSerializedScriptValue : IDLWrapper<T> { };
 template<typename T> struct IDLEventListener : IDLWrapper<T> { };
 template<typename T> struct IDLXPathNSResolver : IDLWrapper<T> { };

@@ -840,7 +840,7 @@ static const RBBITailoringTest tailoringTests[] = {
     { "en",            UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
     { "fi",            UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
     { "km",            UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
-    { "ko",            UBRK_LINE,      koTest, koTestOffs_koKeepFwd, koTestOffs_koKeepRev, UPRV_LENGTHOF(koTestOffs_koKeepFwd) },
+    { "ko",            UBRK_LINE,      koTest, koTestOffs_koNormFwd, koTestOffs_koNormRev, UPRV_LENGTHOF(koTestOffs_koNormFwd) },
     { "ko@lw=keepall", UBRK_LINE,      koTest, koTestOffs_koKeepFwd, koTestOffs_koKeepRev, UPRV_LENGTHOF(koTestOffs_koKeepFwd) },
     { "ko@lw=normal",  UBRK_LINE,      koTest, koTestOffs_koNormFwd, koTestOffs_koNormRev, UPRV_LENGTHOF(koTestOffs_koNormFwd) },
     { NULL, 0, NULL, NULL, NULL, 0 },
@@ -1182,6 +1182,8 @@ static void TestBreakIteratorSuppressions(void) {
 
 #if APPLE_ADDITIONS
 #include <stdio.h>
+#include <unistd.h>
+#include <mach/mach_time.h>
 #include "unicode/urbtok.h"
 #include "cstring.h"
 
@@ -1347,13 +1349,22 @@ static void TestRuleBasedTokenizer(void) {
     if (U_FAILURE(status)) {
         log_data_err("FAIL: u_strFromUTF8 fails: %s\n", u_errorName(status));
     } else {
+	    mach_timebase_info_data_t info;
+	    uint64_t start, duration;
         UParseError parseErr;
-        UBreakIterator *brkFromRules = urbtok_openRules(testRulesUTF16Buf, testRulesUTF16Size, &parseErr, &status);
+        UBreakIterator *brkFromRules;
+
+        mach_timebase_info(&info);
+
+        start = mach_absolute_time();
+        brkFromRules = urbtok_openRules(testRulesUTF16Buf, testRulesUTF16Size, &parseErr, &status);
+        duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
         if (U_FAILURE(status)) {
-            log_err("FAIL: urbtok_openRules status: %s\n", u_errorName(status));
+            log_err("FAIL: urbtok_openRules status: %s, line %d, col %d\n", u_errorName(status), parseErr.line, parseErr.offset);
         } else {
             uint8_t *rulesBinaryBuf;
             uint32_t rulesBinarySize;
+            log_info("urbtok_openRules nsec %llu\n", duration);
             rulesBinarySize = urbtok_getBinaryRules(brkFromRules, NULL, 0, &status);
             if (U_FAILURE(status)) {
                 log_err("FAIL: urbtok_getBinaryRules preflight status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
@@ -1362,11 +1373,17 @@ static void TestRuleBasedTokenizer(void) {
                 if (rulesBinaryBuf == NULL) {
                     log_data_err("FAIL: uprv_malloc fails for rulesBinaryBuf[%ld]\n", rulesBinarySize);
                 } else {
+                    start = mach_absolute_time();
                     rulesBinarySize = urbtok_getBinaryRules(brkFromRules, rulesBinaryBuf, rulesBinarySize, &status);
+                    duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
                     if (U_FAILURE(status)) {
                         log_err("FAIL: urbtok_getBinaryRules status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
                     } else {
-                        UBreakIterator *brkFromBinary = urbtok_openBinaryRules(rulesBinaryBuf, &status);
+                        UBreakIterator *brkFromBinary;
+                        log_info("urbtok_getBinaryRules nsec %llu\n", duration);
+                        start = mach_absolute_time();
+                        brkFromBinary = urbtok_openBinaryRules(rulesBinaryBuf, &status);
+                        duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
                         if (U_FAILURE(status)) {
                             log_err("FAIL: urbtok_openBinaryRules status: %s\n", u_errorName(status));
                         } else {
@@ -1374,12 +1391,16 @@ static void TestRuleBasedTokenizer(void) {
                             unsigned long       flags[kMaxTokens];
                             int32_t iToken, numTokens = 0;
 
+                            log_info("urbtok_openBinaryRules nsec %llu\n", duration);
+
                             status = U_ZERO_ERROR;
                             ubrk_setText(brkFromRules, textToTokenize, -1, &status);
                             if (U_FAILURE(status)) {
                                 log_err("FAIL: ubrk_setText brkFromRules status: %s\n", u_errorName(status));
                             } else {
+                                start = mach_absolute_time();
                                 numTokens = urbtok_tokenize(brkFromRules, kMaxTokens, tokens, flags);
+                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
                                 UBool fail = (numTokens != kNumTokensExpected);
                                 for (iToken = 0; !fail && iToken < numTokens; iToken++) {
                                     if (  tokens[iToken].location != expectedResults[iToken].token.location ||
@@ -1389,7 +1410,7 @@ static void TestRuleBasedTokenizer(void) {
                                     }
                                 }
                                 if (fail) {
-                                    log_err("FAIL: urbtok_tokenize brkFromRules expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
+                                    log_err("FAIL: urbtok_tokenize bulk brkFromRules expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
                                     printf("# expect          get\n");
                                     printf("# loc len flags   loc len flags\n");
                                     int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
@@ -1406,6 +1427,8 @@ static void TestRuleBasedTokenizer(void) {
                                             printf("\n");
                                         }
                                     }
+                                } else {
+                                    log_info("Latn urbtok_tokenize bulk brkFromRules nsec %llu\n", duration);
                                 }
                             }
 
@@ -1414,7 +1437,9 @@ static void TestRuleBasedTokenizer(void) {
                             if (U_FAILURE(status)) {
                                 log_err("FAIL: ubrk_setText brkFromBinary status: %s\n", u_errorName(status));
                             } else {
+                                start = mach_absolute_time();
                                 numTokens = urbtok_tokenize(brkFromBinary, kMaxTokens, tokens, flags);
+                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
                                 UBool fail = (numTokens != kNumTokensExpected);
                                 for (iToken = 0; !fail && iToken < numTokens; iToken++) {
                                     if (  tokens[iToken].location != expectedResults[iToken].token.location ||
@@ -1424,7 +1449,7 @@ static void TestRuleBasedTokenizer(void) {
                                     }
                                 }
                                 if (fail) {
-                                    log_err("FAIL: urbtok_tokenize brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
+                                    log_err("FAIL: urbtok_tokenize bulk brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
                                     printf("# expect          get\n");
                                     printf("# loc len flags   loc len flags\n");
                                     int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
@@ -1441,8 +1466,57 @@ static void TestRuleBasedTokenizer(void) {
                                             printf("\n");
                                         }
                                     }
-                                }
+                                } else {
+                                     log_info("Latn urbtok_tokenize bulk brkFromBinary nsec %llu\n", duration);
+                               }
                             }
+
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(brkFromBinary, textToTokenize, -1, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: ubrk_setText brkFromBinary status: %s\n", u_errorName(status));
+                            } else {
+                                RuleBasedTokenRange *tokenLimit = tokens + kMaxTokens;
+                                RuleBasedTokenRange *tokenP;
+                                unsigned long *flagsP;
+
+                                start = mach_absolute_time();
+						        for (tokenP = tokens, flagsP = flags; tokenP < tokenLimit && urbtok_tokenize(brkFromBinary, 1, tokenP, flagsP) == 1; tokenP++, flagsP++) {
+						            ;
+						        }
+                                numTokens = tokenP - tokens;
+                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
+                                UBool fail = (numTokens != kNumTokensExpected);
+                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
+                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
+                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
+                                          flags[iToken]           != expectedResults[iToken].flags ) {
+                                        fail = TRUE;
+                                    }
+                                }
+                                if (fail) {
+                                    log_err("FAIL: urbtok_tokenize loop brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
+                                    printf("# expect          get\n");
+                                    printf("# loc len flags   loc len flags\n");
+                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
+                                    for (iToken = 0; iToken < maxTokens; iToken++) {
+                                        if (iToken < kNumTokensExpected) {
+                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
+                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
+                                        } else {
+                                            printf("             ");
+                                        }
+                                        if (iToken < numTokens) {
+                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
+                                        } else {
+                                            printf("\n");
+                                        }
+                                    }
+                                } else {
+                                     log_info("Latn urbtok_tokenize loop brkFromBinary nsec %llu\n", duration);
+                               }
+                            }
+
                             ubrk_close(brkFromBinary);
                         }
                     }

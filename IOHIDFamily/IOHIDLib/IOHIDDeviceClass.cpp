@@ -32,7 +32,6 @@
 #include "IOHIDQueueClass.h"
 #include "IOHIDTransactionClass.h"
 #include "IOHIDPrivateKeys.h"
-#include "IOHIDParserPriv.h"
 #include "IOHIDDebug.h"
 
 __BEGIN_DECLS
@@ -42,6 +41,9 @@ __BEGIN_DECLS
 #include <IOKit/IODataQueueClient.h>
 #include <System/libkern/OSCrossEndian.h>
 __END_DECLS
+
+#include "IOHIDDescriptorParser.h"
+#include "IOHIDDescriptorParserPrivate.h"
 
 #define connectCheck() do {	    \
     if (!fConnection)		    \

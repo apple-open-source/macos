@@ -38,6 +38,7 @@ extern const void * kSecCMSSignedAttributes;
 extern const void * kSecCMSSignDate;
 extern const void * kSecCMSAllCerts;
 extern const void * kSecCMSHashAgility;
+extern const void * kSecCMSHashAgilityV2;
 
 extern const void * kSecCMSHashingAlgorithmSHA1;
 extern const void * kSecCMSHashingAlgorithmSHA256;

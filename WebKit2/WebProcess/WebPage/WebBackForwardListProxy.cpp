@@ -166,20 +166,20 @@ void WebBackForwardListProxy::goToItem(HistoryItem* item)
 
     SandboxExtension::Handle sandboxExtensionHandle;
     m_page->sendSync(Messages::WebPageProxy::BackForwardGoToItem(historyItemToIDMap().get(item).itemID), Messages::WebPageProxy::BackForwardGoToItem::Reply(sandboxExtensionHandle));
-    m_page->sandboxExtensionTracker().beginLoad(m_page->mainWebFrame(), sandboxExtensionHandle);
+    m_page->sandboxExtensionTracker().beginLoad(m_page->mainWebFrame(), WTFMove(sandboxExtensionHandle));
 }
 
 HistoryItem* WebBackForwardListProxy::itemAtIndex(int itemIndex)
 {
     if (!m_page)
-        return 0;
+        return nullptr;
 
     uint64_t itemID = 0;
     if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardItemAtIndex(itemIndex), Messages::WebPageProxy::BackForwardItemAtIndex::Reply(itemID), m_page->pageID()))
-        return 0;
+        return nullptr;
 
     if (!itemID)
-        return 0;
+        return nullptr;
 
     return idToHistoryItemMap().get(itemID);
 }

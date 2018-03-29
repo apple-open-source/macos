@@ -94,7 +94,8 @@ static void tests(void)
     CFReleaseNull(incompatibleDER);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
-    
+
+    CFReleaseNull(changes);
     alice_account = nil;
     bob_account = nil;
     carol_account = nil;

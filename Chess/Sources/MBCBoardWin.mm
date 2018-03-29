@@ -130,7 +130,7 @@
              NSString *     holding = [dict objectForKey:@"Holding"];
              NSString *     moves   = [dict objectForKey:@"Moves"];
      
-             if (fen || moves)
+             if (fen.length > 0 || moves.length > 0)
                  [engine setGame:[document variant] fen:fen holding:holding moves:moves];
          }]];
     [fObservers addObject:

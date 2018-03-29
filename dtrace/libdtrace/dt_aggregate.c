@@ -58,7 +58,7 @@ static int dt_keypos;
 static void
 dt_aggregate_count(int64_t *existing, int64_t *new, size_t size)
 {
-	int i;
+	uint_t i;
 
 	for (i = 0; i < size / sizeof (int64_t); i++)
 		existing[i] = existing[i] + new[i];
@@ -212,86 +212,87 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 static void
 dt_aggregate_llquantize(int64_t *existing, int64_t *new, size_t size)
 {
-    int i;
-    for (i = 1; i < size / sizeof(uint64_t); ++i)
-        existing[i] = existing[i] + new[i];
+	int i;
+
+	for (i = 1; i < size / sizeof (int64_t); i++)
+		existing[i] = existing[i] + new[i];
 }
 
 static long double
 dt_aggregate_llquantizedsum(int64_t *llquanta)
 {
-		int64_t arg = *llquanta++;
-		int16_t factor  = DTRACE_LLQUANTIZE_FACTOR(arg);
-		int16_t low     = DTRACE_LLQUANTIZE_LOW(arg);
-		int16_t high    = DTRACE_LLQUANTIZE_HIGH(arg);
-		int16_t nsteps  = DTRACE_LLQUANTIZE_NSTEP(arg);
-		int64_t value = 1, next, step;
-		int bin = 0, order;
-		long double total;
+	int64_t arg = *llquanta++;
+	uint16_t factor = DTRACE_LLQUANTIZE_FACTOR(arg);
+	uint16_t low = DTRACE_LLQUANTIZE_LOW(arg);
+	uint16_t high = DTRACE_LLQUANTIZE_HIGH(arg);
+	uint16_t nsteps = DTRACE_LLQUANTIZE_NSTEP(arg);
+	int bin = 0, order;
+	int64_t value = 1, next, step;
+	long double total;
 
-		assert(nsteps >= factor);
-		assert(nsteps % factor == 0);
+	assert(nsteps >= factor);
+	assert(nsteps % factor == 0);
 
-		/* Looks for the first value of the serie */
-		for (order = 0; order < low; order++)
-				value *= factor;
+	for (order = 0; order < low; order++)
+		value *= factor;
 
-		total = (long double)llquanta[bin++] * (long double)(value - 1);
+	total = (long double)llquanta[bin++] * (long double)(value - 1);
+
+	next = value * factor;
+	step = next > nsteps ? next / nsteps : 1;
+
+	while (order <= high) {
+		assert(value < next);
+		total += (long double)llquanta[bin++] * (long double)(value);
+
+		if ((value += step) != next)
+			continue;
+
 		next = value * factor;
 		step = next > nsteps ? next / nsteps : 1;
+		order++;
+	}
 
-		/* Go through all the bins of each order of magnitudes */
-		while (order <= high)
-		{
-				assert(value < next);
-				total += (long double)(llquanta[bin++]) * (long double)(value);
-
-				if ((value += step) != next)
-						continue;
-
-				next = value * factor;
-				step = next > nsteps ? next / nsteps : 1;
-				++order;
-		}
-
-		return (total + (long double)llquanta[bin] * (long double)value);
+	return (total + (long double)llquanta[bin] * (long double)value);
 }
 
 static int
 dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs)
 {
-		long double lsum = dt_aggregate_llquantizedsum(lhs);
-		long double rsum = dt_aggregate_llquantizedsum(rhs);
-		int64_t lzero, rzero;
+	long double lsum = dt_aggregate_llquantizedsum(lhs);
+	long double rsum = dt_aggregate_llquantizedsum(rhs);
+	int64_t lzero, rzero;
 
-		if (lsum < rsum)
-				return (DT_LESSTHAN);
-		if (lsum > rsum)
-				return (DT_GREATERTHAN);
+	if (lsum < rsum)
+		return (DT_LESSTHAN);
 
-		/*
-		 * If they're both equal, then we will compare based on the weights at
-		 * zero.  If the weights at zero are equal (or if zero is not within
-		 * the range of the linear quantization), then this will be judged a
-		 * tie and will be resolved based on the key comparison.
-		 */
-		lzero = lhs[1];
-		rzero = rhs[1];
+	if (lsum > rsum)
+		return (DT_GREATERTHAN);
 
-		if (lzero < rzero)
-				return (DT_LESSTHAN);
-		if (lzero > rzero)
-				return (DT_GREATERTHAN);
+	/*
+	 * If they're both equal, then we will compare based on the weights at
+	 * zero.  If the weights at zero are equal, then this will be judged a
+	 * tie and will be resolved based on the key comparison.
+	 */
+	lzero = lhs[1];
+	rzero = rhs[1];
 
-		return (0);
+	if (lzero < rzero)
+		return (DT_LESSTHAN);
+
+	if (lzero > rzero)
+		return (DT_GREATERTHAN);
+
+	return (0);
 }
 
 static int
 dt_aggregate_quantizedcmp(int64_t *lhs, int64_t *rhs)
 {
-	int nbuckets = DTRACE_QUANTIZE_NBUCKETS, i;
+	int nbuckets = DTRACE_QUANTIZE_NBUCKETS;
 	long double ltotal = 0, rtotal = 0;
 	int64_t lzero, rzero;
+	uint_t i;
 
 	for (i = 0; i < nbuckets; i++) {
 		int64_t bucketval = DTRACE_QUANTIZE_BUCKETVAL(i);
@@ -1031,8 +1032,8 @@ hashnext:
 			break;
 
 		case DTRACEAGG_LLQUANTIZE:
-		  h->dtahe_aggregate = dt_aggregate_llquantize;
-		  break;
+			h->dtahe_aggregate = dt_aggregate_llquantize;
+			break;
 
 		case DTRACEAGG_COUNT:
 		case DTRACEAGG_SUM:
@@ -1088,7 +1089,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		return (0);
 
 	for (i = 0; i < agp->dtat_ncpus; i++) {
-		if (rval = dt_aggregate_snap_cpu(dtp, agp->dtat_cpus[i]))
+		if ((rval = dt_aggregate_snap_cpu(dtp, agp->dtat_cpus[i])))
 			return (rval);
 	}
 
@@ -1217,16 +1218,16 @@ dt_aggregate_keycmp(const void *lhs, const void *rhs)
 				break;
 
 			default:
-			for (j = 0; j < lrec->dtrd_size; j++) {
-				lval = ((uint8_t *)ldata)[j];
-				rval = ((uint8_t *)rdata)[j];
+				for (j = 0; j < lrec->dtrd_size; j++) {
+					lval = ((uint8_t *)ldata)[j];
+					rval = ((uint8_t *)rdata)[j];
 
-				if (lval < rval)
-					return (DT_LESSTHAN);
+					if (lval < rval)
+						return (DT_LESSTHAN);
 
-				if (lval > rval)
-					return (DT_GREATERTHAN);
-			}
+					if (lval > rval)
+						return (DT_GREATERTHAN);
+				}
 			}
 
 			continue;

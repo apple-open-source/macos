@@ -44,7 +44,8 @@ SecSCEPCreateTemporaryIdentity(SecKeyRef publicKey, SecKeyRef privateKey);
     @abstract generate a scep certificate request blob, to be presented to
                 a scep server
     @param subject distinguished name to be put in the request
-    @param parameters additional information such as challenge and extensions
+    @param parameters additional information such as challenge and extensions (see SecCMS.h and
+         SecCertificateRequest.h for supported keys)
     @param publicKey public key to be certified
     @param privateKey accompanying private key signing the request (proof of possession)
     @param signer identity to sign scep request with, if NULL the keypair to be 
@@ -68,6 +69,21 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
 */
 CFDataRef
 SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef serialno, bool pend_request) CF_RETURNS_RETAINED;
+
+/*!
+ @function SecSCEPCertifyRequestWithAlgorithms
+ @abstract take a SCEP request and issue a cert
+ @param request the request; the ra/ca identity needed to decrypt it needs to be
+ in the keychain.
+ @param ca_identity to sign the csr
+ @param serialno encoded serial number for cert to be issued
+ @param pend_request don't issue cert now
+ @param hashingAlgorithm hashing algorithm to use, see SecCMS.h
+ @param encryptionAlgorithm encryption algorithm to use, see SecCMS.h
+ */
+CFDataRef
+SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identity, CFDataRef serialno, bool pend_request,
+                                   CFStringRef hashingAlgorithm, CFStringRef encryptionAlgorithm) CF_RETURNS_RETAINED;
 
 /*!
     @function SecSCEPVerifyReply

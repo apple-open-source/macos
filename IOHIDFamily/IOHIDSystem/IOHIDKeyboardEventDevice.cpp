@@ -29,6 +29,7 @@
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include "ev_keymap.h"
+#include "IOHIDUsageTables.h"
 
 typedef struct __attribute__((packed)) GenericKeyboardRpt {
     UInt8 modifiers;

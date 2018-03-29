@@ -9,12 +9,17 @@
 		<string>/usr/sbin/rpc.statd</string>
 		<string>-n</string>
 	</array>
-	<key>RunAtLoad</key>
+	<key>LaunchOnlyOnce</key>
 	<true/>
 	<key>KeepAlive</key>
 	<dict>
-		<key>SuccessfulExit</key>
-		<false/>
+		<key>PathState</key>
+		<dict>
+			<key>/var/db/statd.status</key>
+			<true/>
+		</dict>
+		<key>Crashed</key>
+		<true/>
 	</dict>
 </dict>
 </plist>

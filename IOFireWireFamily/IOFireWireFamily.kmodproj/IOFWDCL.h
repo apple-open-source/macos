@@ -172,7 +172,7 @@ class IOFWDCL : public OSObject
 
 		// OSObject
 		
-		virtual void		free () ;
+		virtual void		free (void) APPLE_KEXT_OVERRIDE;
 		
 	public:
 		
@@ -250,11 +250,11 @@ class IOFWReceiveDCL : public IOFWDCL
 														UInt8 *				data,
 														IOByteCount &		dataSize,
 														IOMemoryMap *		bufferMap,
-														const OSArray *		dcl ) ;
+														const OSArray *		dcl ) APPLE_KEXT_OVERRIDE;
 	
 	protected :
 	
-		virtual void		debug() ;
+		virtual void		debug(void) APPLE_KEXT_OVERRIDE;
 
 } ;
 
@@ -280,11 +280,11 @@ class IOFWSendDCL : public IOFWDCL
 	public:
 
 		// OSObject
-		virtual void		free() ;
+		virtual void		free(void) APPLE_KEXT_OVERRIDE;
 		
 		// IOFWDCL
-		virtual IOReturn	addRange ( IOVirtualRange& range ) ;
-		virtual IOReturn	setRanges ( UInt32 numRanges, IOVirtualRange ranges[] ) ;
+		virtual IOReturn	addRange ( IOVirtualRange& range ) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn	setRanges ( UInt32 numRanges, IOVirtualRange ranges[] ) APPLE_KEXT_OVERRIDE;
 
 		// me
 		virtual bool		initWithParams( OSSet * 				updateSet, 
@@ -314,10 +314,10 @@ class IOFWSendDCL : public IOFWDCL
 														UInt8 *				data,
 														IOByteCount &		dataSize,
 														IOMemoryMap *		bufferMap,
-														const OSArray *		dcl ) ;
+														const OSArray *		dcl ) APPLE_KEXT_OVERRIDE;
 	protected :
 	
-		virtual void		debug() ;
+		virtual void		debug(void) APPLE_KEXT_OVERRIDE;
 } ;
 
 #pragma mark -
@@ -331,13 +331,13 @@ class IOFWSkipCycleDCL : public IOFWDCL
 
 	public:
 	
-		virtual bool		init() ;
+		virtual bool		init(void) APPLE_KEXT_OVERRIDE;
 		
-		virtual IOReturn	addRange ( IOVirtualRange& range ) ;
-		virtual IOReturn	setRanges ( UInt32 numRanges, IOVirtualRange ranges[] ) ;
+		virtual IOReturn	addRange ( IOVirtualRange& range ) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn	setRanges ( UInt32 numRanges, IOVirtualRange ranges[] ) APPLE_KEXT_OVERRIDE;
 		virtual IOReturn	getSpan( IOVirtualRange& result ) ;
 
 	protected :
 	
-		virtual void		debug() ;
+		virtual void		debug(void) APPLE_KEXT_OVERRIDE;
 } ;

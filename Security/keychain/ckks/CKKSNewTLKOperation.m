@@ -231,6 +231,11 @@
         // Generate the TLK sharing records for all trusted peers
         NSMutableSet<CKKSTLKShare*>* tlkShares = [NSMutableSet set];
         for(id<CKKSPeer> trustedPeer in ckks.currentTrustedPeers) {
+            if(!trustedPeer.publicEncryptionKey) {
+                ckksnotice("ckkstlk", ckks, "No need to make TLK for %@; they don't have any encryption keys", trustedPeer);
+                continue;
+            }
+
             ckksnotice("ckkstlk", ckks, "Generating TLK(%@) share for %@", newTLK, trustedPeer);
             CKKSTLKShare* share = [CKKSTLKShare share:newTLK as:ckks.currentSelfPeers.currentSelf to:trustedPeer epoch:-1 poisoned:0 error:&error];
 
@@ -248,8 +253,7 @@
         modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
         modifyRecordsOp.atomic = YES;
         modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-        modifyRecordsOp.timeoutIntervalForRequest = 2;
-        modifyRecordsOp.qualityOfService = NSQualityOfServiceUtility;  // relatively important. Use Utility.
+        modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // This needs to happen before CKKS is available for PCS/CloudKit use.
         modifyRecordsOp.group = self.ckoperationGroup;
         ckksnotice("ckkstlk", ckks, "Operation group is %@", self.ckoperationGroup);
 

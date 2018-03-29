@@ -36,6 +36,8 @@
 	<string>com.apple.security.regressions</string>
 	<key>com.apple.private.uninstall.deletion</key>
 	<true/>
+	<key>com.apple.private.security.delete.all</key>
+	<true/>
 	<key>keychain-access-groups</key>
 	<array>
 		<string>com.apple.security.regressions</string>
@@ -45,18 +47,6 @@
 		<string>123456.test.group2</string>
 		<string>com.apple.ProtectedCloudStorage</string>
 		<string>com.apple.security.ckks</string>
-	</array>
-	<key>com.apple.private.ubiquity-kvstore-access</key>
-	<array>
-		<string>com.apple.securityd</string>
-	</array>
-	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
-	<string>com.apple.security.cloudkeychainproxy</string>
-	<key>com.apple.developer.ubiquity-container-identifiers</key>
-	<array>
-		<string>com.apple.security.cloudkeychainproxy</string>
-		<string>com.apple.security.cloudkeychain</string>
-		<string>CloudKeychainProxy.xpc</string>
 	</array>
 </dict>
 </plist>

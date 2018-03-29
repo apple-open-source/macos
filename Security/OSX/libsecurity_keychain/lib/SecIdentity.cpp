@@ -109,9 +109,6 @@ CFTypeID
 SecIdentityGetTypeID(void)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecIdentityGetTypeID", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
-    os_activity_scope(activity);
-    os_release(activity);
 
 	return gTypes().Identity.typeID;
 

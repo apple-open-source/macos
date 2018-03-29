@@ -366,6 +366,7 @@ typedef CF_ENUM(uint32_t, SeciAuthVersion) {
     kSeciAuthVersion1 = 1, /* unused */
     kSeciAuthVersion2 = 2,
     kSeciAuthVersion3 = 3,
+    kSeciAuthVersionSW = 4,
 } __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /* Return the iAuth version indicated by the certificate. This function does
@@ -388,6 +389,28 @@ CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate)
 CFArrayRef SecCertificateCopyiPhoneDeviceCAChain(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
 
+
+/*!
+ @function SecCertificateCopyExtensionValue
+ @abstract Return the value in an extension of a certificate.
+ @param certificate A reference to the certificate containing the desired extension
+ @param extensionOID A CFData containing the binary value of ObjectIdentifier of the
+ desired extension or a CFString containing the decimal value of the ObjectIdentifier.
+ @param isCritical On return, a boolean value representing whether the extension was critical.
+ @result If an extension exists in the certificate with the extensionOID, the returned CFData
+ is the (unparsed) Value of the extension.
+ @discussion If the certificate has multiple extensions with the same extension OID, the first
+ extension with the input OID is returned.
+ */
+CF_RETURNS_RETAINED
+CFDataRef SecCertificateCopyExtensionValue(SecCertificateRef certificate,
+                                           CFTypeRef extensionOID, bool *isCritical)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
+
+/* Return a (modern) SecKeyRef for the public key embedded in the cert. */
+#if TARGET_OS_OSX
+    SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate);
+#endif
 
 /*
  * Legacy functions (OS X only)

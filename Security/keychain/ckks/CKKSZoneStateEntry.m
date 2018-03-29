@@ -24,6 +24,7 @@
 #include <AssertMacros.h>
 
 #import <Foundation/Foundation.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 
 #import "CKKSKeychainView.h"
 
@@ -101,8 +102,7 @@
 
 - (CKServerChangeToken*) getChangeToken {
     if(self.encodedChangeToken) {
-        NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:self.encodedChangeToken];
-        unarchiver.requiresSecureCoding = YES;
+        NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:self.encodedChangeToken error:nil];
         return [unarchiver decodeObjectOfClass:[CKServerChangeToken class] forKey:NSKeyedArchiveRootObjectKey];
     } else {
         return nil;
@@ -110,14 +110,14 @@
 }
 
 - (void) setChangeToken: (CKServerChangeToken*) token {
-    self.encodedChangeToken = token ? [NSKeyedArchiver archivedDataWithRootObject:token] : nil;
+    self.encodedChangeToken = token ? [NSKeyedArchiver archivedDataWithRootObject:token requiringSecureCoding:YES error:nil] : nil;
 }
 
 - (NSData*)encodedRateLimiter {
     if(self.rateLimiter == nil) {
         return nil;
     }
-    return [NSKeyedArchiver archivedDataWithRootObject: self.rateLimiter];
+    return [NSKeyedArchiver archivedDataWithRootObject:self.rateLimiter requiringSecureCoding:YES error:nil];
 }
 
 - (void)setEncodedRateLimiter:(NSData *)encodedRateLimiter {
@@ -126,8 +126,7 @@
         return;
     }
 
-    NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:encodedRateLimiter];
-    unarchiver.requiresSecureCoding = YES;
+    NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:encodedRateLimiter error:nil];
     self.rateLimiter = [unarchiver decodeObjectOfClass: [CKKSRateLimiter class] forKey:NSKeyedArchiveRootObjectKey];
 }
 

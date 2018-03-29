@@ -14,6 +14,7 @@ gen/FreeBSD/raise3	freebsd	lib/libc/gen/raise.3	6b42c90c1ff5f7c35431eced41b62134
 gen/FreeBSD/readpassphrase.c	freebsd	lib/libc/gen/readpassphrase.c	1f19a8fc755a14865a5a5b67d5fa895c4b7cf622
 gen/FreeBSD/readpassphrase.3	freebsd	lib/libc/gen/readpassphrase.3	e0a2d4f15ed9e93fcb62544ed65f7a98e2339c3b
 gen/FreeBSD/times.3	freebsd	lib/libc/gen/times.3	5b882020081a138285227631c46a406c08e17bc8
+gen/FreeBSD/ttyname.3	freebsd	lib/libc/gen/ttyname.3	84be924362c6e5f469564d418c928c5b1b4a2457
 gen/FreeBSD/ttyslot.c	freebsd	lib/libc/gen/ttyslot.c	898928e8d0a0bab201c1ef232e01cafa27322dae
 gen/FreeBSD/unvis.c	freebsd	contrib/libc-vis/unvis.c	9e3e4b88576d01efe1f56469cac79e116bb62c67
 gen/FreeBSD/unvis.3	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67

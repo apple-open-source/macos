@@ -26,8 +26,6 @@
 #include "config.h"
 #include "NetworkCacheIOChannel.h"
 
-#if ENABLE(NETWORK_CACHE)
-
 #include "NetworkCacheFileSystem.h"
 #include <dispatch/dispatch.h>
 #include <mach/vm_param.h>
@@ -43,7 +41,7 @@ IOChannel::IOChannel(const String& filePath, Type type)
     : m_path(filePath)
     , m_type(type)
 {
-    auto path = WebCore::fileSystemRepresentation(filePath);
+    auto path = WebCore::FileSystem::fileSystemRepresentation(filePath);
     int oflag;
     mode_t mode;
     bool useLowIOPriority = false;
@@ -122,5 +120,3 @@ void IOChannel::write(size_t offset, const Data& data, WorkQueue* queue, Functio
 
 }
 }
-
-#endif

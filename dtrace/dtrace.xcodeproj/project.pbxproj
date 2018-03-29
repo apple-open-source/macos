@@ -21,6 +21,7 @@
 				184940231EC66D6E00736745 /* CopyFiles */,
 				184940241EC66D7000736745 /* CopyFiles */,
 				1849405B1EC66F5C00736745 /* CopyFiles */,
+				1870B4841F7F00D0001C8D61 /* CopyFiles */,
 				1849405C1EC66F6100736745 /* CopyFiles */,
 				1849405D1EC66F6C00736745 /* CopyFiles */,
 				1849405E1EC66F7300736745 /* CopyFiles */,
@@ -579,7 +580,6 @@
 		183E90D01EC688F900DFA84C /* tst.tickusec.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A9D1EC6620F00736745 /* tst.tickusec.d.out */; };
 		183E90D11EC6890600DFA84C /* tst.dtruss.ksh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A861EC661FA00736745 /* tst.dtruss.ksh */; };
 		183E90D51EC6893100DFA84C /* err.D_PROTO_LEN.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A7E1EC661E300736745 /* err.D_PROTO_LEN.bad.d */; };
-		183E90D61EC6893100DFA84C /* err.D_TRACE_DYN.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A7F1EC661E300736745 /* err.D_TRACE_DYN.bad.d */; };
 		183E90D71EC6893100DFA84C /* err.D_TRACE_VOID.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A801EC661E300736745 /* err.D_TRACE_VOID.bad.d */; };
 		183E90D81EC6893100DFA84C /* tst.misc.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A811EC661E300736745 /* tst.misc.d */; };
 		183E90D91EC6893100DFA84C /* tst.qstring.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493A821EC661E300736745 /* tst.qstring.d */; };
@@ -829,7 +829,6 @@
 		1849400F1EC66CCC00736745 /* err.D_SYNTAX.muladd.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E851EC667AF00736745 /* err.D_SYNTAX.muladd.d */; };
 		184940101EC66CCC00736745 /* err.D_SYNTAX.muldiv.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E861EC667AF00736745 /* err.D_SYNTAX.muldiv.d */; };
 		184940111EC66CCC00736745 /* tst.basics.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E871EC667AF00736745 /* tst.basics.d */; };
-		184940121EC66CCC00736745 /* tst.complex.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E881EC667AF00736745 /* tst.complex.d */; };
 		184940141EC66D4800736745 /* err.D_ARR_BADREF.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E711EC6679E00736745 /* err.D_ARR_BADREF.bad.d */; };
 		184940151EC66D4800736745 /* err.D_DECL_ARRBIG.toobig.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E721EC6679E00736745 /* err.D_DECL_ARRBIG.toobig.d */; };
 		184940161EC66D4800736745 /* err.D_DECL_ARRNULL.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493E731EC6679E00736745 /* err.D_DECL_ARRNULL.bad.d */; };
@@ -1375,7 +1374,6 @@
 		184942881EC6801B00736745 /* tst.preexpifelse.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C381EC664C200736745 /* tst.preexpifelse.d */; };
 		184942891EC6801B00736745 /* tst.preexpifelse.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C391EC664C200736745 /* tst.preexpifelse.d.out */; };
 		1849428A1EC6801B00736745 /* tst.withinprobe.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C3A1EC664C200736745 /* tst.withinprobe.d */; };
-		184942B01EC682AD00736745 /* err.D_PRINT_DYN.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C0A1EC664AB00736745 /* err.D_PRINT_DYN.bad.d */; };
 		184942B11EC682AD00736745 /* err.D_PRINT_VOID.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C0B1EC664AB00736745 /* err.D_PRINT_VOID.bad.d */; };
 		184942B21EC682AD00736745 /* err.D_PROTO_LEN.bad.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C0C1EC664AB00736745 /* err.D_PROTO_LEN.bad.d */; };
 		184942B31EC682AD00736745 /* tst.array.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C0D1EC664AB00736745 /* tst.array.d */; };
@@ -1470,9 +1468,35 @@
 		186A6DC51E4D4C1E008031ED /* libdarwintest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 186A6DC41E4D4C1E008031ED /* libdarwintest.a */; };
 		186E2A221E81C18800D92840 /* tst.nop.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D494D1C3D54A0002613B0 /* tst.nop.c */; };
 		186E2A231E81C18A00D92840 /* tst.nop.s in Sources */ = {isa = PBXBuildFile; fileRef = 189D494F1C3D54A0002613B0 /* tst.nop.s */; };
+		1870B46F1F7D8FF8001C8D61 /* err.D_LLQUANT_MAGTOOBIG.offbyone.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B46E1F7D8FDD001C8D61 /* err.D_LLQUANT_MAGTOOBIG.offbyone.d */; };
 		188000A21D75DD7200C6EEEC /* dt_sugar.c in Sources */ = {isa = PBXBuildFile; fileRef = 188000A01D75DD5C00C6EEEC /* dt_sugar.c */; };
 		1880D2970B49348A00A50B29 /* dt_ld.h in Headers */ = {isa = PBXBuildFile; fileRef = 1880D2950B49348A00A50B29 /* dt_ld.h */; };
 		1880D2980B49348A00A50B29 /* dt_ld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1880D2960B49348A00A50B29 /* dt_ld.cpp */; };
+		1870B4751F7EDB1A001C8D61 /* tst.TestTransStability1.ksh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4731F7EDB0D001C8D61 /* tst.TestTransStability1.ksh */; };
+		1870B4761F7EDB2B001C8D61 /* tst.TestTransStability2.ksh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4711F7EDB0C001C8D61 /* tst.TestTransStability2.ksh */; };
+		1870B4771F7EDB31001C8D61 /* tst.TestTransStability2.ksh.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4721F7EDB0C001C8D61 /* tst.TestTransStability2.ksh.out */; };
+		1870B4781F7EDB35001C8D61 /* tst.TestTransStability1.ksh.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4741F7EDB0E001C8D61 /* tst.TestTransStability1.ksh.out */; };
+		1870B47A1F7EDB66001C8D61 /* tst.dyn.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4791F7EDB5A001C8D61 /* tst.dyn.d */; };
+		1870B47E1F7EDC1E001C8D61 /* tst.dyn.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B47D1F7EDB95001C8D61 /* tst.dyn.d */; };
+		1870B47F1F7EDC22001C8D61 /* tst.xlate.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B47B1F7EDB95001C8D61 /* tst.xlate.d */; };
+		1870B4801F7EDC23001C8D61 /* tst.xlate.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B47C1F7EDB95001C8D61 /* tst.xlate.d.out */; };
+		1870B4851F7F00F4001C8D61 /* err.baddif.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4831F7F00C1001C8D61 /* err.baddif.d */; };
+		1870B4861F7F00F6001C8D61 /* err.D_NOREG.noreg.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4821F7F00C1001C8D61 /* err.D_NOREG.noreg.d */; };
+		1870B4891F7F11FD001C8D61 /* tst.stddev.normalize.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4871F7F11A0001C8D61 /* tst.stddev.normalize.d */; };
+		1870B48A1F7F1200001C8D61 /* tst.stddev.normalize.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1870B4881F7F11A0001C8D61 /* tst.stddev.normalize.d.out */; };
+		188698E71F6FC91D00E06B36 /* tst.basics.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E31F6FC8F300E06B36 /* tst.basics.d.out */; };
+		188698E91F6FC93500E06B36 /* tst.compcast.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E51F6FC8F300E06B36 /* tst.compcast.d */; };
+		188698EA1F6FC94300E06B36 /* tst.compcast.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E61F6FC8F300E06B36 /* tst.compcast.d.out */; };
+		188698EB1F6FC94600E06B36 /* tst.compnarrowassign.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E21F6FC8F300E06B36 /* tst.compnarrowassign.d */; };
+		188698EC1F6FC94800E06B36 /* tst.compnarrowassign.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E01F6FC8F300E06B36 /* tst.compnarrowassign.d.out */; };
+		188698ED1F6FC94C00E06B36 /* tst.execcast.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E11F6FC8F300E06B36 /* tst.execcast.d */; };
+		188698EE1F6FC94E00E06B36 /* tst.execcast.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698E41F6FC8F300E06B36 /* tst.execcast.d.out */; };
+		188698F11F6FC97900E06B36 /* tst.assigncast1.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698EF1F6FC97400E06B36 /* tst.assigncast1.d */; };
+		188698F21F6FC97B00E06B36 /* tst.assigncast2.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698F01F6FC97400E06B36 /* tst.assigncast2.d */; };
+		188698F51F6FC9C300E06B36 /* tst.signs.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698F41F6FC9BA00E06B36 /* tst.signs.d */; };
+		188698F61F6FC9C600E06B36 /* tst.signs.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698F31F6FC9BA00E06B36 /* tst.signs.d.out */; };
+		188698F81F6FCCCF00E06B36 /* tst.complex.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 188698F71F6FCCBE00E06B36 /* tst.complex.d */; };
+		188D0ECE1F39147500972E20 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 188D0ECC1F39147500972E20 /* IOKit.framework */; };
 		1897CFBA1ECA3E7F007DCEAF /* tst.userlandkey.ksh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 189D49CA1C3D6667002613B0 /* tst.userlandkey.ksh */; };
 		1897CFBC1ECA3E90007DCEAF /* tst.userlandkey.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = 189D49C91C3D6667002613B0 /* tst.userlandkey.d.out */; };
 		1897CFBD1ECA3EF7007DCEAF /* tst.basics.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18493C401EC664F100736745 /* tst.basics.d */; };
@@ -2731,8 +2755,8 @@
 			dstSubfolderSpec = 0;
 			files = (
 				183E90D51EC6893100DFA84C /* err.D_PROTO_LEN.bad.d in CopyFiles */,
-				183E90D61EC6893100DFA84C /* err.D_TRACE_DYN.bad.d in CopyFiles */,
 				183E90D71EC6893100DFA84C /* err.D_TRACE_VOID.bad.d in CopyFiles */,
+				1870B47A1F7EDB66001C8D61 /* tst.dyn.d in CopyFiles */,
 				183E90D81EC6893100DFA84C /* tst.misc.d in CopyFiles */,
 				183E90D91EC6893100DFA84C /* tst.qstring.d in CopyFiles */,
 				183E90DA1EC6893100DFA84C /* tst.qstring.d.out in CopyFiles */,
@@ -2767,6 +2791,8 @@
 			dstPath = "$(TEST_INSTALL_PATH)/common/translators";
 			dstSubfolderSpec = 0;
 			files = (
+				1870B4781F7EDB35001C8D61 /* tst.TestTransStability1.ksh.out in CopyFiles */,
+				1870B4771F7EDB31001C8D61 /* tst.TestTransStability2.ksh.out in CopyFiles */,
 				183E90EB1EC6896E00DFA84C /* err.D_DECL_TYPERED.BadTransDecl.d in CopyFiles */,
 				183E90EC1EC6896E00DFA84C /* err.D_OP_INCOMPLETE.NonExistentInput1.d in CopyFiles */,
 				183E90ED1EC6896E00DFA84C /* err.D_SYNTAX.BadTransDecl1.d in CopyFiles */,
@@ -2798,6 +2824,8 @@
 				183E91081EC6896E00DFA84C /* tst.TransPointer.d in CopyFiles */,
 				183E91091EC6896E00DFA84C /* tst.UnionInputTrans.d in CopyFiles */,
 				183E910A1EC6896E00DFA84C /* tst.UnionOutputTrans.d in CopyFiles */,
+				1870B4751F7EDB1A001C8D61 /* tst.TestTransStability1.ksh in CopyFiles */,
+				1870B4761F7EDB2B001C8D61 /* tst.TestTransStability2.ksh in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -3108,6 +3136,8 @@
 				18493FFC1EC66BF700736745 /* tst.signature.d in CopyFiles */,
 				18493FFD1EC66BF700736745 /* tst.stddev.d in CopyFiles */,
 				18493FFE1EC66BF700736745 /* tst.stddev.d.out in CopyFiles */,
+				1870B4891F7F11FD001C8D61 /* tst.stddev.normalize.d in CopyFiles */,
+				1870B48A1F7F1200001C8D61 /* tst.stddev.normalize.d.out in CopyFiles */,
 				18493FFF1EC66BF700736745 /* tst.subr.d in CopyFiles */,
 				184940001EC66BF700736745 /* tst.sum.d in CopyFiles */,
 				184940011EC66BF700736745 /* tst.sum.d.out in CopyFiles */,
@@ -3135,7 +3165,14 @@
 				1849400F1EC66CCC00736745 /* err.D_SYNTAX.muladd.d in CopyFiles */,
 				184940101EC66CCC00736745 /* err.D_SYNTAX.muldiv.d in CopyFiles */,
 				184940111EC66CCC00736745 /* tst.basics.d in CopyFiles */,
-				184940121EC66CCC00736745 /* tst.complex.d in CopyFiles */,
+				188698E71F6FC91D00E06B36 /* tst.basics.d.out in CopyFiles */,
+				188698E91F6FC93500E06B36 /* tst.compcast.d in CopyFiles */,
+				188698EA1F6FC94300E06B36 /* tst.compcast.d.out in CopyFiles */,
+				188698F81F6FCCCF00E06B36 /* tst.complex.d in CopyFiles */,
+				188698EB1F6FC94600E06B36 /* tst.compnarrowassign.d in CopyFiles */,
+				188698EC1F6FC94800E06B36 /* tst.compnarrowassign.d.out in CopyFiles */,
+				188698ED1F6FC94C00E06B36 /* tst.execcast.d in CopyFiles */,
+				188698EE1F6FC94E00E06B36 /* tst.execcast.d.out in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -3695,6 +3732,7 @@
 				184941AF1EC6766300736745 /* err.D_LLQUANT_LOWVAL.d in CopyFiles */,
 				184941B01EC6766300736745 /* err.D_LLQUANT_MAGRANGE.d in CopyFiles */,
 				184941B11EC6766300736745 /* err.D_LLQUANT_MAGTOOBIG.d in CopyFiles */,
+				1870B46F1F7D8FF8001C8D61 /* err.D_LLQUANT_MAGTOOBIG.offbyone.d in CopyFiles */,
 				184941B21EC6766300736745 /* err.D_LLQUANT_NSTEPMATCH.d in CopyFiles */,
 				184941B31EC6766300736745 /* err.D_LLQUANT_NSTEPTYPE.d in CopyFiles */,
 				184941B41EC6766300736745 /* err.D_LLQUANT_NSTEPVAL.d in CopyFiles */,
@@ -3864,6 +3902,8 @@
 				184942411EC67F8A00736745 /* tst.ArrayPointer1.d in CopyFiles */,
 				184942421EC67F8A00736745 /* tst.ArrayPointer2.d in CopyFiles */,
 				184942431EC67F8A00736745 /* tst.ArrayPointer3.d in CopyFiles */,
+				188698F11F6FC97900E06B36 /* tst.assigncast1.d in CopyFiles */,
+				188698F21F6FC97B00E06B36 /* tst.assigncast2.d in CopyFiles */,
 				184942441EC67F8A00736745 /* tst.basic1.d in CopyFiles */,
 				184942451EC67F8A00736745 /* tst.basic2.d in CopyFiles */,
 				184942461EC67F8A00736745 /* tst.GlobalVar.d in CopyFiles */,
@@ -3962,17 +4002,19 @@
 			dstPath = "$(TEST_INSTALL_PATH)/common/print";
 			dstSubfolderSpec = 0;
 			files = (
-				184942B01EC682AD00736745 /* err.D_PRINT_DYN.bad.d in CopyFiles */,
 				184942B11EC682AD00736745 /* err.D_PRINT_VOID.bad.d in CopyFiles */,
 				184942B21EC682AD00736745 /* err.D_PROTO_LEN.bad.d in CopyFiles */,
 				184942B31EC682AD00736745 /* tst.array.d in CopyFiles */,
 				184942B41EC682AD00736745 /* tst.array.d.out in CopyFiles */,
 				184942B51EC682AD00736745 /* tst.bitfield.d in CopyFiles */,
 				184942B61EC682AD00736745 /* tst.bitfield.d.out in CopyFiles */,
+				1870B47E1F7EDC1E001C8D61 /* tst.dyn.d in CopyFiles */,
 				184942B71EC682AD00736745 /* tst.primitive.d in CopyFiles */,
 				184942B81EC682AD00736745 /* tst.primitive.d.out in CopyFiles */,
 				184942B91EC682AD00736745 /* tst.struct.d in CopyFiles */,
 				184942BA1EC682AD00736745 /* tst.struct.d.out in CopyFiles */,
+				1870B47F1F7EDC22001C8D61 /* tst.xlate.d in CopyFiles */,
+				1870B4801F7EDC23001C8D61 /* tst.xlate.d.out in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -4055,6 +4097,8 @@
 				184942FE1EC6830300736745 /* tst.rawfmt.d in CopyFiles */,
 				184942FF1EC6830300736745 /* tst.rawfmt.d.out in CopyFiles */,
 				184943001EC6830300736745 /* tst.same-encoding.d in CopyFiles */,
+				188698F51F6FC9C300E06B36 /* tst.signs.d in CopyFiles */,
+				188698F61F6FC9C600E06B36 /* tst.signs.d.out in CopyFiles */,
 				184943011EC6830300736745 /* tst.str.d in CopyFiles */,
 				184943021EC6830300736745 /* tst.str.d.out in CopyFiles */,
 				184943031EC6830300736745 /* tst.sym.d.out in CopyFiles */,
@@ -4213,6 +4257,17 @@
 				183C23D11EC684ED006F98D1 /* tst.trace.d.out in CopyFiles */,
 				183C23D21EC684ED006F98D1 /* tst.twoprof.d in CopyFiles */,
 				183C23D31EC684ED006F98D1 /* tst.twoprof.d.out in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1870B4841F7F00D0001C8D61 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(TEST_INSTALL_PATH)/common/cg";
+			dstSubfolderSpec = 0;
+			files = (
+				1870B4851F7F00F4001C8D61 /* err.baddif.d in CopyFiles */,
+				1870B4861F7F00F6001C8D61 /* err.D_NOREG.noreg.d in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -4628,7 +4683,6 @@
 		18493A5A1EC661B200736745 /* err.D_XLATE_SOU.BadTransDecl8.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_XLATE_SOU.BadTransDecl8.d; path = test/tst/common/translators/err.D_XLATE_SOU.BadTransDecl8.d; sourceTree = "<group>"; };
 		18493A5B1EC661B200736745 /* err.D_XLATE_SOU.BadTransInt.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_XLATE_SOU.BadTransInt.d; path = test/tst/common/translators/err.D_XLATE_SOU.BadTransInt.d; sourceTree = "<group>"; };
 		18493A5C1EC661B200736745 /* err.D_XLATE_SOU.NonExistentOutput1.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_XLATE_SOU.NonExistentOutput1.d; path = test/tst/common/translators/err.D_XLATE_SOU.NonExistentOutput1.d; sourceTree = "<group>"; };
-		18493A5D1EC661B200736745 /* man.TestTransStability.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = man.TestTransStability.d; path = test/tst/common/translators/man.TestTransStability.d; sourceTree = "<group>"; };
 		18493A5E1EC661B200736745 /* tst.CircularTransDecl.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.CircularTransDecl.d; path = test/tst/common/translators/tst.CircularTransDecl.d; sourceTree = "<group>"; };
 		18493A5F1EC661B200736745 /* tst.EmptyTransDecl.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.EmptyTransDecl.d; path = test/tst/common/translators/tst.EmptyTransDecl.d; sourceTree = "<group>"; };
 		18493A601EC661B200736745 /* tst.ForwardTag.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.ForwardTag.d; path = test/tst/common/translators/tst.ForwardTag.d; sourceTree = "<group>"; };
@@ -4660,7 +4714,6 @@
 		18493A7B1EC661C800736745 /* tst.smallsize.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.smallsize.d; path = test/tst/common/tracemem/tst.smallsize.d; sourceTree = "<group>"; };
 		18493A7C1EC661C800736745 /* tst.smallsize.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.smallsize.d.out; path = test/tst/common/tracemem/tst.smallsize.d.out; sourceTree = "<group>"; };
 		18493A7E1EC661E300736745 /* err.D_PROTO_LEN.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.bad.d; path = test/tst/common/trace/err.D_PROTO_LEN.bad.d; sourceTree = "<group>"; };
-		18493A7F1EC661E300736745 /* err.D_TRACE_DYN.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_TRACE_DYN.bad.d; path = test/tst/common/trace/err.D_TRACE_DYN.bad.d; sourceTree = "<group>"; };
 		18493A801EC661E300736745 /* err.D_TRACE_VOID.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_TRACE_VOID.bad.d; path = test/tst/common/trace/err.D_TRACE_VOID.bad.d; sourceTree = "<group>"; };
 		18493A811EC661E300736745 /* tst.misc.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.misc.d; path = test/tst/common/trace/tst.misc.d; sourceTree = "<group>"; };
 		18493A821EC661E300736745 /* tst.qstring.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.qstring.d; path = test/tst/common/trace/tst.qstring.d; sourceTree = "<group>"; };
@@ -5030,7 +5083,6 @@
 		18493C061EC6649A00736745 /* tst.tuple.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.tuple.d.out; path = test/tst/common/printa/tst.tuple.d.out; sourceTree = "<group>"; };
 		18493C071EC6649A00736745 /* tst.walltimestamp.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.walltimestamp.d; path = test/tst/common/printa/tst.walltimestamp.d; sourceTree = "<group>"; };
 		18493C081EC6649A00736745 /* tst.walltimestamp.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.walltimestamp.d.out; path = test/tst/common/printa/tst.walltimestamp.d.out; sourceTree = "<group>"; };
-		18493C0A1EC664AB00736745 /* err.D_PRINT_DYN.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PRINT_DYN.bad.d; path = test/tst/common/print/err.D_PRINT_DYN.bad.d; sourceTree = "<group>"; };
 		18493C0B1EC664AB00736745 /* err.D_PRINT_VOID.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PRINT_VOID.bad.d; path = test/tst/common/print/err.D_PRINT_VOID.bad.d; sourceTree = "<group>"; };
 		18493C0C1EC664AB00736745 /* err.D_PROTO_LEN.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.bad.d; path = test/tst/common/print/err.D_PROTO_LEN.bad.d; sourceTree = "<group>"; };
 		18493C0D1EC664AB00736745 /* tst.array.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.array.d; path = test/tst/common/print/tst.array.d; sourceTree = "<group>"; };
@@ -5632,7 +5684,6 @@
 		18493E851EC667AF00736745 /* err.D_SYNTAX.muladd.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_SYNTAX.muladd.d; path = test/tst/common/arithmetic/err.D_SYNTAX.muladd.d; sourceTree = "<group>"; };
 		18493E861EC667AF00736745 /* err.D_SYNTAX.muldiv.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_SYNTAX.muldiv.d; path = test/tst/common/arithmetic/err.D_SYNTAX.muldiv.d; sourceTree = "<group>"; };
 		18493E871EC667AF00736745 /* tst.basics.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.basics.d; path = test/tst/common/arithmetic/tst.basics.d; sourceTree = "<group>"; };
-		18493E881EC667AF00736745 /* tst.complex.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.complex.d; path = test/tst/common/arithmetic/tst.complex.d; sourceTree = "<group>"; };
 		18493E8A1EC667BC00736745 /* err.D_AGG_FUNC.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_AGG_FUNC.bad.d; path = test/tst/common/aggs/err.D_AGG_FUNC.bad.d; sourceTree = "<group>"; };
 		18493E8B1EC667BC00736745 /* err.D_AGG_MDIM.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_AGG_MDIM.bad.d; path = test/tst/common/aggs/err.D_AGG_MDIM.bad.d; sourceTree = "<group>"; };
 		18493E8C1EC667BC00736745 /* err.D_AGG_NULL.bad.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_AGG_NULL.bad.d; path = test/tst/common/aggs/err.D_AGG_NULL.bad.d; sourceTree = "<group>"; };
@@ -5832,10 +5883,36 @@
 		186A6DC41E4D4C1E008031ED /* libdarwintest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libdarwintest.a; path = usr/local/lib/libdarwintest.a; sourceTree = SDKROOT; };
 		186DF6201D6F24F100476464 /* tst.basic.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tst.basic.exe; sourceTree = BUILT_PRODUCTS_DIR; };
 		186E2A1E1E81C10F00D92840 /* tst.nop.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tst.nop.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		1870B46E1F7D8FDD001C8D61 /* err.D_LLQUANT_MAGTOOBIG.offbyone.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_LLQUANT_MAGTOOBIG.offbyone.d; path = test/tst/common/llquantize/err.D_LLQUANT_MAGTOOBIG.offbyone.d; sourceTree = "<group>"; };
 		188000A01D75DD5C00C6EEEC /* dt_sugar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dt_sugar.c; path = libdtrace/dt_sugar.c; sourceTree = "<group>"; };
 		1880D2950B49348A00A50B29 /* dt_ld.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dt_ld.h; path = libdtrace/dt_ld.h; sourceTree = "<group>"; };
 		1880D2960B49348A00A50B29 /* dt_ld.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dt_ld.cpp; path = libdtrace/dt_ld.cpp; sourceTree = "<group>"; };
+		1870B4711F7EDB0C001C8D61 /* tst.TestTransStability2.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.TestTransStability2.ksh; path = test/tst/common/translators/tst.TestTransStability2.ksh; sourceTree = "<group>"; };
+		1870B4721F7EDB0C001C8D61 /* tst.TestTransStability2.ksh.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.TestTransStability2.ksh.out; path = test/tst/common/translators/tst.TestTransStability2.ksh.out; sourceTree = "<group>"; };
+		1870B4731F7EDB0D001C8D61 /* tst.TestTransStability1.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.TestTransStability1.ksh; path = test/tst/common/translators/tst.TestTransStability1.ksh; sourceTree = "<group>"; };
+		1870B4741F7EDB0E001C8D61 /* tst.TestTransStability1.ksh.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.TestTransStability1.ksh.out; path = test/tst/common/translators/tst.TestTransStability1.ksh.out; sourceTree = "<group>"; };
+		1870B4791F7EDB5A001C8D61 /* tst.dyn.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.dyn.d; path = test/tst/common/trace/tst.dyn.d; sourceTree = "<group>"; };
+		1870B47B1F7EDB95001C8D61 /* tst.xlate.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.xlate.d; path = test/tst/common/print/tst.xlate.d; sourceTree = "<group>"; };
+		1870B47C1F7EDB95001C8D61 /* tst.xlate.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.xlate.d.out; path = test/tst/common/print/tst.xlate.d.out; sourceTree = "<group>"; };
+		1870B47D1F7EDB95001C8D61 /* tst.dyn.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.dyn.d; path = test/tst/common/print/tst.dyn.d; sourceTree = "<group>"; };
+		1870B4821F7F00C1001C8D61 /* err.D_NOREG.noreg.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_NOREG.noreg.d; path = test/tst/common/cg/err.D_NOREG.noreg.d; sourceTree = "<group>"; };
+		1870B4831F7F00C1001C8D61 /* err.baddif.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.baddif.d; path = test/tst/common/cg/err.baddif.d; sourceTree = "<group>"; };
+		1870B4871F7F11A0001C8D61 /* tst.stddev.normalize.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.stddev.normalize.d; path = test/tst/common/aggs/tst.stddev.normalize.d; sourceTree = "<group>"; };
+		1870B4881F7F11A0001C8D61 /* tst.stddev.normalize.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.stddev.normalize.d.out; path = test/tst/common/aggs/tst.stddev.normalize.d.out; sourceTree = "<group>"; };
+		188698E01F6FC8F300E06B36 /* tst.compnarrowassign.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.compnarrowassign.d.out; path = test/tst/common/arithmetic/tst.compnarrowassign.d.out; sourceTree = "<group>"; };
+		188698E11F6FC8F300E06B36 /* tst.execcast.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.execcast.d; path = test/tst/common/arithmetic/tst.execcast.d; sourceTree = "<group>"; };
+		188698E21F6FC8F300E06B36 /* tst.compnarrowassign.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.compnarrowassign.d; path = test/tst/common/arithmetic/tst.compnarrowassign.d; sourceTree = "<group>"; };
+		188698E31F6FC8F300E06B36 /* tst.basics.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.basics.d.out; path = test/tst/common/arithmetic/tst.basics.d.out; sourceTree = "<group>"; };
+		188698E41F6FC8F300E06B36 /* tst.execcast.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.execcast.d.out; path = test/tst/common/arithmetic/tst.execcast.d.out; sourceTree = "<group>"; };
+		188698E51F6FC8F300E06B36 /* tst.compcast.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.compcast.d; path = test/tst/common/arithmetic/tst.compcast.d; sourceTree = "<group>"; };
+		188698E61F6FC8F300E06B36 /* tst.compcast.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.compcast.d.out; path = test/tst/common/arithmetic/tst.compcast.d.out; sourceTree = "<group>"; };
+		188698EF1F6FC97400E06B36 /* tst.assigncast1.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.assigncast1.d; path = test/tst/common/pointers/tst.assigncast1.d; sourceTree = "<group>"; };
+		188698F01F6FC97400E06B36 /* tst.assigncast2.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.assigncast2.d; path = test/tst/common/pointers/tst.assigncast2.d; sourceTree = "<group>"; };
+		188698F31F6FC9BA00E06B36 /* tst.signs.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.signs.d.out; path = test/tst/common/printf/tst.signs.d.out; sourceTree = "<group>"; };
+		188698F41F6FC9BA00E06B36 /* tst.signs.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.signs.d; path = test/tst/common/printf/tst.signs.d; sourceTree = "<group>"; };
+		188698F71F6FCCBE00E06B36 /* tst.complex.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.complex.d; path = test/tst/common/arithmetic/tst.complex.d; sourceTree = "<group>"; };
 		188A29690ADC36980039E7F8 /* procfs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = procfs.h; path = libproc/procfs.h; sourceTree = "<group>"; };
+		188D0ECC1F39147500972E20 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		189226951E6E58A400C89A90 /* swift_arm.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = swift_arm.d; path = scripts/swift_arm.d; sourceTree = "<group>"; };
 		189226971E6E58A400C89A90 /* swift_x86_64.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = swift_x86_64.d; path = scripts/swift_x86_64.d; sourceTree = "<group>"; };
 		1897CFC31ECA3FA6007DCEAF /* tst.includefirst.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.includefirst.ksh; path = test/tst/common/include/tst.includefirst.ksh; sourceTree = "<group>"; };
@@ -5939,7 +6016,6 @@
 		45A48B3518194C410034E526 /* common.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = common.xcconfig; path = config/common.xcconfig; sourceTree = "<group>"; };
 		45A48B3618194C410034E526 /* ctftools.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = ctftools.xcconfig; path = config/ctftools.xcconfig; sourceTree = "<group>"; };
 		45A48B3718194C410034E526 /* dtrace.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = dtrace.xcconfig; path = config/dtrace.xcconfig; sourceTree = "<group>"; };
-		45A48B3818194C410034E526 /* frameworks.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = frameworks.xcconfig; path = config/frameworks.xcconfig; sourceTree = "<group>"; };
 		45A48B3918194C410034E526 /* plockstat.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = plockstat.xcconfig; path = config/plockstat.xcconfig; sourceTree = "<group>"; };
 		45BB66CA1883D79900D579C9 /* lockstat.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = lockstat.1; sourceTree = "<group>"; };
 		6EBC972B099BFA3A0001019C /* dtrace_1.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dtrace_1.c; path = cmd/dtrace_1.c; sourceTree = "<group>"; };
@@ -6613,6 +6689,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				188D0ECE1F39147500972E20 /* IOKit.framework in Frameworks */,
 				18F2858C151EB512009134A0 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6765,7 +6842,6 @@
 				18493A5A1EC661B200736745 /* err.D_XLATE_SOU.BadTransDecl8.d */,
 				18493A5B1EC661B200736745 /* err.D_XLATE_SOU.BadTransInt.d */,
 				18493A5C1EC661B200736745 /* err.D_XLATE_SOU.NonExistentOutput1.d */,
-				18493A5D1EC661B200736745 /* man.TestTransStability.d */,
 				18493A5E1EC661B200736745 /* tst.CircularTransDecl.d */,
 				18493A5F1EC661B200736745 /* tst.EmptyTransDecl.d */,
 				18493A601EC661B200736745 /* tst.ForwardTag.d */,
@@ -6784,6 +6860,10 @@
 				18493A6D1EC661B200736745 /* tst.TransPointer.d */,
 				18493A6E1EC661B200736745 /* tst.UnionInputTrans.d */,
 				18493A6F1EC661B200736745 /* tst.UnionOutputTrans.d */,
+				1870B4741F7EDB0E001C8D61 /* tst.TestTransStability1.ksh.out */,
+				1870B4731F7EDB0D001C8D61 /* tst.TestTransStability1.ksh */,
+				1870B4711F7EDB0C001C8D61 /* tst.TestTransStability2.ksh */,
+				1870B4721F7EDB0C001C8D61 /* tst.TestTransStability2.ksh.out */,
 			);
 			name = translators;
 			sourceTree = "<group>";
@@ -6811,8 +6891,8 @@
 			isa = PBXGroup;
 			children = (
 				18493A7E1EC661E300736745 /* err.D_PROTO_LEN.bad.d */,
-				18493A7F1EC661E300736745 /* err.D_TRACE_DYN.bad.d */,
 				18493A801EC661E300736745 /* err.D_TRACE_VOID.bad.d */,
+				1870B4791F7EDB5A001C8D61 /* tst.dyn.d */,
 				18493A811EC661E300736745 /* tst.misc.d */,
 				18493A821EC661E300736745 /* tst.qstring.d */,
 				18493A831EC661E300736745 /* tst.qstring.d.out */,
@@ -7287,6 +7367,8 @@
 				18493BE31EC6648800736745 /* tst.rawfmt.d */,
 				18493BE41EC6648800736745 /* tst.rawfmt.d.out */,
 				18493BE51EC6648800736745 /* tst.same-encoding.d */,
+				188698F41F6FC9BA00E06B36 /* tst.signs.d */,
+				188698F31F6FC9BA00E06B36 /* tst.signs.d.out */,
 				18493BE61EC6648800736745 /* tst.str.d */,
 				18493BE71EC6648800736745 /* tst.str.d.out */,
 				18493BE81EC6648800736745 /* tst.sym.d.out */,
@@ -7335,17 +7417,19 @@
 		18493C091EC6649E00736745 /* print */ = {
 			isa = PBXGroup;
 			children = (
-				18493C0A1EC664AB00736745 /* err.D_PRINT_DYN.bad.d */,
 				18493C0B1EC664AB00736745 /* err.D_PRINT_VOID.bad.d */,
 				18493C0C1EC664AB00736745 /* err.D_PROTO_LEN.bad.d */,
 				18493C0D1EC664AB00736745 /* tst.array.d */,
 				18493C0E1EC664AB00736745 /* tst.array.d.out */,
 				18493C0F1EC664AB00736745 /* tst.bitfield.d */,
 				18493C101EC664AB00736745 /* tst.bitfield.d.out */,
+				1870B47D1F7EDB95001C8D61 /* tst.dyn.d */,
 				18493C111EC664AB00736745 /* tst.primitive.d */,
 				18493C121EC664AB00736745 /* tst.primitive.d.out */,
 				18493C131EC664AB00736745 /* tst.struct.d */,
 				18493C141EC664AB00736745 /* tst.struct.d.out */,
+				1870B47B1F7EDB95001C8D61 /* tst.xlate.d */,
+				1870B47C1F7EDB95001C8D61 /* tst.xlate.d.out */,
 			);
 			name = print;
 			sourceTree = "<group>";
@@ -7449,6 +7533,8 @@
 				18493C611EC6651E00736745 /* tst.ArrayPointer1.d */,
 				18493C621EC6651E00736745 /* tst.ArrayPointer2.d */,
 				18493C631EC6651E00736745 /* tst.ArrayPointer3.d */,
+				188698EF1F6FC97400E06B36 /* tst.assigncast1.d */,
+				188698F01F6FC97400E06B36 /* tst.assigncast2.d */,
 				18493C641EC6651E00736745 /* tst.basic1.d */,
 				18493C651EC6651E00736745 /* tst.basic2.d */,
 				18493C661EC6651E00736745 /* tst.GlobalVar.d */,
@@ -7574,6 +7660,7 @@
 				18493CB51EC665AD00736745 /* err.D_LLQUANT_LOWVAL.d */,
 				18493CB61EC665AD00736745 /* err.D_LLQUANT_MAGRANGE.d */,
 				18493CB71EC665AD00736745 /* err.D_LLQUANT_MAGTOOBIG.d */,
+				1870B46E1F7D8FDD001C8D61 /* err.D_LLQUANT_MAGTOOBIG.offbyone.d */,
 				18493CB81EC665AD00736745 /* err.D_LLQUANT_NSTEPMATCH.d */,
 				18493CB91EC665AD00736745 /* err.D_LLQUANT_NSTEPTYPE.d */,
 				18493CBA1EC665AD00736745 /* err.D_LLQUANT_NSTEPVAL.d */,
@@ -8156,6 +8243,15 @@
 		18493E7E1EC667A100736745 /* arithmetic */ = {
 			isa = PBXGroup;
 			children = (
+				18493E871EC667AF00736745 /* tst.basics.d */,
+				188698E31F6FC8F300E06B36 /* tst.basics.d.out */,
+				188698E51F6FC8F300E06B36 /* tst.compcast.d */,
+				188698E61F6FC8F300E06B36 /* tst.compcast.d.out */,
+				188698F71F6FCCBE00E06B36 /* tst.complex.d */,
+				188698E21F6FC8F300E06B36 /* tst.compnarrowassign.d */,
+				188698E01F6FC8F300E06B36 /* tst.compnarrowassign.d.out */,
+				188698E11F6FC8F300E06B36 /* tst.execcast.d */,
+				188698E41F6FC8F300E06B36 /* tst.execcast.d.out */,
 				18493E7F1EC667AF00736745 /* err.D_DIV_ZERO.divby0_1.d */,
 				18493E801EC667AF00736745 /* err.D_DIV_ZERO.divby0_2.d */,
 				18493E811EC667AF00736745 /* err.D_DIV_ZERO.divby0.d */,
@@ -8164,8 +8260,6 @@
 				18493E841EC667AF00736745 /* err.D_SYNTAX.divmin.d */,
 				18493E851EC667AF00736745 /* err.D_SYNTAX.muladd.d */,
 				18493E861EC667AF00736745 /* err.D_SYNTAX.muldiv.d */,
-				18493E871EC667AF00736745 /* tst.basics.d */,
-				18493E881EC667AF00736745 /* tst.complex.d */,
 			);
 			name = arithmetic;
 			sourceTree = "<group>";
@@ -8351,6 +8445,8 @@
 				18493F391EC667BC00736745 /* tst.signature.d */,
 				18493F3A1EC667BC00736745 /* tst.stddev.d */,
 				18493F3B1EC667BC00736745 /* tst.stddev.d.out */,
+				1870B4871F7F11A0001C8D61 /* tst.stddev.normalize.d */,
+				1870B4881F7F11A0001C8D61 /* tst.stddev.normalize.d.out */,
 				18493F3C1EC667BC00736745 /* tst.subr.d */,
 				18493F3D1EC667BC00736745 /* tst.sum.d */,
 				18493F3E1EC667BC00736745 /* tst.sum.d.out */,
@@ -8407,6 +8503,7 @@
 		186A6DC11E4D4BA4008031ED /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				188D0ECC1F39147500972E20 /* IOKit.framework */,
 				186A6DC41E4D4C1E008031ED /* libdarwintest.a */,
 			);
 			name = Frameworks;
@@ -8424,6 +8521,15 @@
 				181024D01D6F3AD90063C5AC /* tst.star.c */,
 			);
 			name = usdt_apple;
+			sourceTree = "<group>";
+		};
+		1870B4811F7F00AE001C8D61 /* cg */ = {
+			isa = PBXGroup;
+			children = (
+				1870B4831F7F00C1001C8D61 /* err.baddif.d */,
+				1870B4821F7F00C1001C8D61 /* err.D_NOREG.noreg.d */,
+			);
+			name = cg;
 			sourceTree = "<group>";
 		};
 		1897CFBF1ECA3F43007DCEAF /* include */ = {
@@ -8456,6 +8562,7 @@
 				18493E4D1EC6675700736745 /* bitfields */,
 				18493E351EC6674900736745 /* buffering */,
 				18493E121EC6673700736745 /* builtinvar */,
+				1870B4811F7F00AE001C8D61 /* cg */,
 				18493E071EC666E700736745 /* clauses */,
 				18493DF81EC666D800736745 /* decls */,
 				18493DE71EC666C500736745 /* docsExamples */,
@@ -8819,7 +8926,6 @@
 				45A48B3518194C410034E526 /* common.xcconfig */,
 				45A48B3618194C410034E526 /* ctftools.xcconfig */,
 				45A48B3718194C410034E526 /* dtrace.xcconfig */,
-				45A48B3818194C410034E526 /* frameworks.xcconfig */,
 				45A48B3918194C410034E526 /* plockstat.xcconfig */,
 			);
 			name = Config;
@@ -12467,7 +12573,6 @@
 		};
 		18FC90041EB3D6620021B66C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
@@ -12504,7 +12609,6 @@
 		};
 		18FC90051EB3D6620021B66C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -12872,7 +12976,6 @@
 		};
 		6EBC9778099BFB530001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -12896,7 +12999,6 @@
 		};
 		6EBC9779099BFB530001019C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -12919,7 +13021,6 @@
 		};
 		6EBC97E8099BFB850001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -12941,7 +13042,6 @@
 		};
 		6EBC97E9099BFB850001019C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -12963,7 +13063,6 @@
 		};
 		6EBC986A099BFBC00001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
@@ -13000,7 +13099,6 @@
 		};
 		6EBC986B099BFBC00001019C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -13238,7 +13336,6 @@
 		};
 		D2DF085F0A68400000384A72 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -13256,7 +13353,6 @@
 		};
 		D2DF08600A68400000384A72 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;

@@ -1147,13 +1147,12 @@ Bangkok)•</data>
 ####################################################################################
 #
 #  Apple tests for @lw=keepall per <rdar://problem/11679343&16501490>
-#  Default changes per <rdar://problem/23224717>
 #
 ####################################################################################
 
 <locale ko>
 <line>
-<data>•\uBAA8\uB4E0 •\uC778\uB958 •\uAD6C\uC131\uC6D0\uC758 •\uCC9C\uBD80\uC758 •\uC874\uC5C4\uC131\uACFC •\uB3D9\uB4F1\uD558\uACE0 •\uC591\uB3C4\uD560•</data>
+<data>•\uBAA8•\uB4E0 •\uC778•\uB958 •\uAD6C•\uC131•\uC6D0•\uC758 •\uCC9C•\uBD80•\uC758 •\uC874•\uC5C4•\uC131•\uACFC •\uB3D9•\uB4F1•\uD558•\uACE0 •\uC591•\uB3C4•\uD560•</data>
 
 <locale ko@lw=keepall>
 <line>

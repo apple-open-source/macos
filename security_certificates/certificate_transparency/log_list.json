@@ -91,7 +91,7 @@
       "description": "Symantec log",
       "state": 0,
       "operated_by": [
-        2
+        1
       ]
     },
     {
@@ -102,7 +102,7 @@
       "description": "Symantec 'Vega' log",
       "state": 0,
       "operated_by": [
-        2
+        1
       ]
     },
     {
@@ -113,32 +113,32 @@
       "description": "Symantec 'Sirius' log",
       "state": 0,
       "operated_by": [
-        2
+        1
       ]
     },
     {
       "maximum_merge_delay": 86400,
       "operated_by": [
-        3
+        2
       ],
       "url": "log.certly.io/",
       "dns_api_endpoint": "certly.ct.googleapis.com",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==",
       "description": "Certly.IO log",
       "state": 3,
-      "disqualified_at": 1460678400
+      "disqualified_at": 1460678400000
     },
     {
       "maximum_merge_delay": 86400,
       "operated_by": [
-        4
+        3
       ],
       "url": "ct.izenpe.com/",
       "dns_api_endpoint": "izenpe1.ct.googleapis.com",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJ2Q5DC3cUBj4IQCiDu0s6j51up+TZAkAEcQRF6tczw90rLWXkJMAW7jr9yc92bIKgV8vDXU4lDeZHvYHduDuvg==",
       "description": "Izenpe log",
       "state": 3,
-      "disqualified_at": 1464566400
+      "disqualified_at": 1464566400000
     },
     {
       "maximum_merge_delay": 86400,
@@ -146,22 +146,23 @@
       "dns_api_endpoint": "wosign1.ct.googleapis.com",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzBGIey1my66PTTBmJxklIpMhRrQvAdPG+SvVyLpzmwai8IoCnNBrRhgwhbrpJIsO0VtwKAx+8TpFf1rzgkJgMQ==",
       "description": "WoSign log",
-      "state": 0,
+      "state": 3,
       "operated_by": [
-        5
-      ]
+        4
+      ],
+      "disqualified_at" : 1518479999000
     },
     {
       "maximum_merge_delay": 86400,
       "operated_by": [
-        6
+        5
       ],
       "url": "ctlog.api.venafi.com/",
       "dns_api_endpoint": "venafi.ct.googleapis.com",
       "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAolpIHxdSlTXLo1s6H1OCdpSj/4DyHDc8wLG9wVmLqy1lk9fz4ATVmm+/1iN2Nk8jmctUKK2MFUtlWXZBSpym97M7frGlSaQXUWyA3CqQUEuIJOmlEjKTBEiQAvpfDjCHjlV2Be4qTM6jamkJbiWtgnYPhJL6ONaGTiSPm7Byy57iaz/hbckldSOIoRhYBiMzeNoA0DiRZ9KmfSeXZ1rB8y8X5urSW+iBzf2SaOfzBvDpcoTuAaWx2DPazoOl28fP1hZ+kHUYvxbcMjttjauCFx+JII0dmuZNIwjfeG/GBb9frpSX219k1O4Wi6OEbHEr8at/XQ0y7gTikOxBn/s5wQIDAQAB",
       "description": "Venafi log",
       "state": 3,
-      "disqualified_at": 1488307346
+      "disqualified_at": 1488307346000
     },
     {
       "maximum_merge_delay": 86400,
@@ -171,7 +172,7 @@
       "description": "Venafi Gen2 CT log",
       "state": 0,
       "operated_by": [
-        6
+        5
       ]
     },
     {
@@ -182,7 +183,7 @@
       "description": "CNNIC CT log",
       "state": 0,
       "operated_by": [
-        7
+        6
       ]
     },
     {
@@ -191,10 +192,11 @@
       "dns_api_endpoint": "startcom1.ct.googleapis.com",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESPNZ8/YFGNPbsu1Gfs/IEbVXsajWTOaft0oaFIZDqUiwy1o/PErK38SCFFWa+PeOQFXc9NKv6nV0+05/YIYuUQ==",
       "description": "StartCom log",
-      "state": 0,
+      "state": 3,
       "operated_by": [
-        8
-      ]
+        7
+      ],
+      "disqualified_at" : 1518479999000
     },
     {
       "maximum_merge_delay": 86400,
@@ -204,7 +206,7 @@
       "description": "Comodo 'Sabre' CT log",
       "state": 0,
       "operated_by": [
-        9
+        8
       ]
     },
     {
@@ -215,7 +217,7 @@
       "description": "Comodo 'Mammoth' CT log",
       "state": 0,
       "operated_by": [
-        9
+        8
       ]
     },
     {
@@ -279,9 +281,9 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE15ypB40iQe6ToFJB2vSA8CW86/rzPNJ+kdg/LNpRvcjuKnLj/xhW5DoiDyI8xtUws5toLqtWwkFf1mRXFLFarw==",
       "description": "Cloudflare 'Nimbus 2017' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
-        10
+        9
       ]
     },
     {
@@ -290,9 +292,9 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAsVpWvrH3Ke0VRaMg9ZQoQjb5g/xh1z3DDa6IuxY5DyPsk6brlvrUNXZzoIg0DcvFiAn2kd6xmu4Obk5XA/nRg==",
       "description": "Cloudflare 'Nimbus 2018' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
-        10
+        9
       ]
     },
     {
@@ -301,9 +303,9 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZHz1v5r8a9LmXSMegYZAg4UW+Ug56GtNfJTDNFZuubEJYgWf4FcC5D+ZkYwttXTDSo4OkanG9b3AI4swIQ28g==",
       "description": "Cloudflare 'Nimbus 2019' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
-        10
+        9
       ]
     },
     {
@@ -312,9 +314,9 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE01EAhx4o0zPQrXTcYjgCt4MVFsT0Pwjzb1RwrM0lhWDlxAYPP6/gyMCXNkOn/7KFsjL7rwk78tHMpY8rXn8AYg==",
       "description": "Cloudflare 'Nimbus 2020' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
-        10
+        9
       ]
     },
     {
@@ -323,9 +325,119 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExpon7ipsqehIeU1bmpog9TFo4Pk8+9oN8OYHl1Q2JGVXnkVFnuuvPgSo2Ep+6vLffNLcmEbxOucz03sFiematg==",
       "description": "Cloudflare 'Nimbus 2021' log",
+      "state": 0,
+      "operated_by": [
+        9
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "yeti2018.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESYlKFDLLFmA9JScaiaNnqlU8oWDytxIYMfswHy9Esg0aiX+WnP/yj4O0ViEHtLwbmOQeSWBGkIu9YK9CLeer+g==",
+      "description": "DigiCert 'Yeti 2018' log",
       "state": 2,
       "operated_by": [
-        10
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "yeti2019.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZd/ow8X+FSVWAVSf8xzkFohcPph/x6pS1JHh7g1wnCZ5y/8Hk6jzJxs6t3YMAWz2CPd4VkCdxwKexGhcFxD9A==",
+      "description": "DigiCert 'Yeti 2019' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "yeti2020.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEURAG+Zo0ac3n37ifZKUhBFEV6jfcCzGIRz3tsq8Ca9BP/5XUHy6ZiqsPaAEbVM0uI3Tm9U24RVBHR9JxDElPmg==",
+      "description": "DigiCert 'Yeti 2020' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "yeti2021.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6J4EbcpIAl1+AkSRsbhoY5oRTj3VoFfaf1DlQkfi7Rbe/HcjfVtrwN8jaC+tQDGjF+dqvKhWJAQ6Q6ev6q9Mew==",
+      "description": "DigiCert 'Yeti 2021' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "yeti2022.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn/jYHd77W1G1+131td5mEbCdX/1v/KiYW5hPLcOROvv+xA8Nw2BDjB7y+RGyutD2vKXStp/5XIeiffzUfdYTJg==",
+      "description": "DigiCert 'Yeti 2022' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "nessie2018.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVqpLa2W+Rz1XDZPBIyKJO+KKFOYZTj9MpJWnZeFUqzc5aivOiWEVhs8Gy2AlH3irWPFjIZPZMs3Dv7M+0LbPyQ==",
+      "description": "DigiCert 'Nessie 2018' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "nessie2019.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEX+0nudCKImd7QCtelhMrDW0OXni5RE10tiiClZesmrwUk2iHLCoTHHVV+yg5D4n/rxCRVyRhikPpVDOLMLxJaA==",
+      "description": "DigiCert 'Nessie 2019' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "nessie2020.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4hHIyMVIrR9oShgbQMYEk8WX1lmkfFKB448Gn93KbsZnnwljDHY6MQqEnWfKGgMOq0gh3QK48c5ZB3UKSIFZ4g==",
+      "description": "DigiCert 'Nessie 2020' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "nessie2021.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9o7AiwrbGBIX6Lnc47I6OfLMdZnRzKoP5u072nBi6vpIOEooktTi1gNwlRPzGC2ySGfuc1xLDeaA/wSFGgpYFg==",
+      "description": "DigiCert 'Nessie 2021' log",
+      "state": 2,
+      "operated_by": [
+        1
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "nessie2022.ct.digicert.com/log/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJyTdaAMoy/5jvg4RR019F2ihEV1McclBKMe2okuX7MCv/C87v+nxsfz1Af+p+0lADGMkmNd5LqZVqxbGvlHYcQ==",
+      "description": "DigiCert 'Nessie 2022' log",
+      "state": 2,
+      "operated_by": [
+        1
       ]
     }
   ],
@@ -340,38 +452,34 @@
     },
     {
       "id": 2,
-      "name": "Symantec"
-    },
-    {
-      "id": 3,
       "name": "Certly"
     },
     {
-      "id": 4,
+      "id": 3,
       "name": "Izenpe"
     },
     {
-      "id": 5,
+      "id": 4,
       "name": "WoSign"
     },
     {
-      "id": 6,
+      "id": 5,
       "name": "Venafi"
     },
     {
-      "id": 7,
+      "id": 6,
       "name": "CNNIC"
     },
     {
-      "id": 8,
+      "id": 7,
       "name": "StartCom"
     },
     {
-      "id": 9,
+      "id": 8,
       "name": "Comodo"
     },
     {
-      "id": 10,
+      "id": 9,
       "name": "Cloudflare"
     }
   ],

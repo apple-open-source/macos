@@ -35,19 +35,6 @@
 
 #import "WebAccessibilityObjectWrapperIOS.h"
 
-@interface WAKView (iOSAccessibility)
-- (BOOL)accessibilityIsIgnored;
-@end
-
-@implementation WAKView (iOSAccessibility)
-
-- (BOOL)accessibilityIsIgnored
-{
-    return YES;
-}
-
-@end
-
 namespace WebCore {
     
 void AccessibilityObject::detachFromParent()
@@ -79,7 +66,7 @@ bool AccessibilityObject::accessibilityIgnoreAttachment() const
     
 AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
 {
-    return DefaultBehavior;
+    return AccessibilityObjectInclusion::DefaultBehavior;
 }
 
 bool AccessibilityObject::hasTouchEventListener() const
@@ -94,7 +81,7 @@ bool AccessibilityObject::hasTouchEventListener() const
 bool AccessibilityObject::isInputTypePopupButton() const
 {
     if (is<HTMLInputElement>(node()))
-        return roleValue() == PopUpButtonRole;
+        return roleValue() == AccessibilityRole::PopUpButton;
     return false;
 }
 

@@ -55,6 +55,7 @@
 		EB1EC7AA151D6199007B8618 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB1EC7A9151D6199007B8618 /* CoreServices.framework */; };
 		EBE88F55151C2CDD0050180C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
 		EBE88F59151C373B0050180C /* AuthorityTableView.m in Sources */ = {isa = PBXBuildFile; fileRef = EBE88F58151C373B0050180C /* AuthorityTableView.m */; };
+		EBFA38351F7B746B003CB598 /* security-checksystem.8 in Install Manpage */ = {isa = PBXBuildFile; fileRef = EB7E5B251EBCDE7300565CA3 /* security-checksystem.8 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +93,7 @@
 			dstSubfolderSpec = 0;
 			files = (
 				C273D1BB0A2FA8C300823A76 /* systemkeychain.8 in Install Manpage */,
+				EBFA38351F7B746B003CB598 /* security-checksystem.8 in Install Manpage */,
 			);
 			name = "Install Manpage";
 			runOnlyForDeploymentPostprocessing = 1;

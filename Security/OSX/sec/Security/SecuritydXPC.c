@@ -42,6 +42,7 @@ const char *kSecXPCKeyUserLabel = "userlabel";
 const char *kSecXPCKeyBackup = "backup";
 const char *kSecXPCKeyKeybag = "keybag";
 const char *kSecXPCKeyUserPassword = "password";
+const char *kSecXPCKeyEMCSBackup = "emcsbackup";
 const char *kSecXPCKeyDSID = "dsid";
 const char *kSecXPCKeyQuery = "query";
 const char *kSecXPCKeyAttributesToUpdate = "attributesToUpdate";
@@ -236,8 +237,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("keychain_restore_syncable");
         case sec_keychain_sync_update_message_id: 
             return CFSTR("keychain_sync_update_message");
-        case sec_ota_pki_asset_version_id: 
-            return CFSTR("ota_pki_asset_version");
+        case sec_ota_pki_trust_store_version_id:
+            return CFSTR("ota_pki_trust_store_version");
         case sec_otr_session_create_remote_id: 
             return CFSTR("otr_session_create_remote");
         case sec_otr_session_process_packet_remote_id: 
@@ -258,6 +259,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("trust_store_copy_all");
         case sec_trust_store_copy_usage_constraints_id:
             return CFSTR("trust_store_copy_usage_constraints");
+        case sec_ocsp_cache_flush_id:
+            return CFSTR("ocsp_cache_flush");
         case soscc_EnsurePeerRegistration_id:
             return CFSTR("EnsurePeerRegistration");
         case kSecXPCOpSetEscrowRecord:
@@ -298,16 +301,14 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("copy_parent_certificates");
         case sec_item_certificate_exists_id:
             return CFSTR("certificate_exists");
-        case kSecXPCOpCKKSEndpoint:
-            return CFSTR("CKKSEndpoint");
-        case kSecXPCOpSOSEndpoint:
-            return CFSTR("SOSEndpoint");
-        case kSecXPCOpSecuritydXPCServerEndpoint:
-            return CFSTR("XPCServerEndpoint");
         case kSecXPCOpBackupKeybagAdd:
             return CFSTR("KeybagAdd");
         case kSecXPCOpBackupKeybagDelete:
             return CFSTR("KeybagDelete");
+        case kSecXPCOpKeychainControlEndpoint:
+            return CFSTR("KeychainControlEndpoint");
+        case kSecXPCOpTLSAnaltyicsReport:
+            return CFSTR("TLSAnalyticsReport");
         default:
             return CFSTR("Unknown xpc operation");
     }

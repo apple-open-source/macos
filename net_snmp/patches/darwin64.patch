@@ -10,19 +10,33 @@ diff -Naur net-snmp-5.6.orig/agent/mibgroup/hardware/memory.h net-snmp-5.6.worki
  config_require(hardware/memory/memory_darwin)
  
  #elif (defined(freebsd2) || defined(freebsd3) || defined(freebsd4)  || defined(freebsd5)|| defined(freebsd6))
-diff -Naur net-snmp-5.4.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c net-snmp-5.4.1.working/agent/mibgroup/hardware/memory/memory_darwin.c
---- net-snmp-5.4.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c  2008-04-04 16:43:29.000000000 -0700
-+++ net-snmp-5.4.1.working/agent/mibgroup/hardware/memory/memory_darwin.c	2008-04-09 19:01:36.000000000 -0700
-@@ -75,7 +75,12 @@
+
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c net-snmp-5.6.2.1.working/agent/mibgroup/hardware/memory/memory_darwin.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c	2015-10-06 16:42:15.000000000 -0700
++++ net-snmp-5.6.2.1.working/agent/mibgroup/hardware/memory/memory_darwin.c	2017-10-02 17:04:22.000000000 -0700
+@@ -6,6 +6,12 @@
+ #include <dirent.h>
+ #include <unistd.h>
+ #include <mach/mach_host.h>
++#include <mach/host_priv.h>
++#include <mach/mach_error.h>
++#include <mach/processor_set.h>
++#include <mach/mach_port.h>
++#include <mach/vm_region.h>
++#include <mach/vm_map.h>
+ #include <sys/stat.h>
+ #include <sys/sysctl.h>
+ 
+@@ -75,7 +81,12 @@
              for (address = 0;; address += size) {
                  /* Get memory region. */
                  count = VM_REGION_EXTENDED_INFO_COUNT; 
 -                if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
 +                
 +#if defined(__ppc64__) || defined(__x86_64__)
-+                if (vm_region_64(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
++                if (vm_region_64(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
 +#else			
-+				if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
++		if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
 +#endif                    
                      /* No more memory regions. */
                      break;

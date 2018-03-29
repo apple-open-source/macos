@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2010-2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2010-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -24,11 +24,17 @@
 
 #include <isccfg/cfg.h>
 
+#ifdef HAVE_GEOIP
+#include <dns/geoip.h>
+#endif
 #include <dns/types.h>
 
 typedef struct cfg_aclconfctx {
 	ISC_LIST(dns_acl_t) named_acl_cache;
 	isc_mem_t *mctx;
+#ifdef HAVE_GEOIP
+	dns_geoip_databases_t *geoip;
+#endif
 	isc_refcount_t references;
 } cfg_aclconfctx_t;
 

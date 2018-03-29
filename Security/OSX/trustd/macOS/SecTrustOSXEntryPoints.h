@@ -39,6 +39,7 @@ void SecTrustLegacySourcesListenForKeychainEvents(void);
 OSStatus SecTrustLegacyCRLStatus(SecCertificateRef cert, CFArrayRef chain, CFURLRef currCRLDP);
 
 typedef struct async_ocspd_s {
+    uint64_t start_time;
     void (*completed)(struct async_ocspd_s *ocspd);
     void *info;
     OSStatus response;

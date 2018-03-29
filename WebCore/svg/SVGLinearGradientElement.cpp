@@ -68,13 +68,9 @@ Ref<SVGLinearGradientElement> SVGLinearGradientElement::create(const QualifiedNa
 
 bool SVGLinearGradientElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
-    if (supportedAttributes.get().isEmpty()) {
-        supportedAttributes.get().add(SVGNames::x1Attr);
-        supportedAttributes.get().add(SVGNames::x2Attr);
-        supportedAttributes.get().add(SVGNames::y1Attr);
-        supportedAttributes.get().add(SVGNames::y2Attr);
-    }
+    static const auto supportedAttributes = makeNeverDestroyed(HashSet<QualifiedName> {
+        SVGNames::x1Attr, SVGNames::x2Attr, SVGNames::y1Attr, SVGNames::y2Attr
+    });
     return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
@@ -166,9 +162,9 @@ bool SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttribute
 
     while (true) {
         // Respect xlink:href, take attributes from referenced element
-        Node* refNode = SVGURIReference::targetElementFromIRIString(current->href(), document());
+        auto refNode = makeRefPtr(SVGURIReference::targetElementFromIRIString(current->href(), document()));
         if (is<SVGGradientElement>(refNode)) {
-            current = downcast<SVGGradientElement>(refNode);
+            current = downcast<SVGGradientElement>(refNode.get());
 
             // Cycle detection
             if (processedGradients.contains(current))

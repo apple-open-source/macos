@@ -64,7 +64,7 @@ private:
     void invalidateAndCancel() override;
     NetworkDataTask::State state() const override { return m_state; }
 
-    void setPendingDownloadLocation(const String&, const SandboxExtension::Handle&, bool /*allowOverwrite*/) override;
+    void setPendingDownloadLocation(const String&, SandboxExtension::Handle&&, bool /*allowOverwrite*/) override;
     String suggestedFilename() const override;
 
     // FileStreamClient methods.
@@ -113,7 +113,7 @@ private:
     unsigned m_sizeItemCount { 0 };
     unsigned m_readItemCount { 0 };
     bool m_fileOpened { false };
-    WebCore::PlatformFileHandle m_downloadFile { WebCore::invalidPlatformFileHandle };
+    WebCore::FileSystem::PlatformFileHandle m_downloadFile { WebCore::FileSystem::invalidPlatformFileHandle };
 
     Vector<RefPtr<WebCore::BlobDataFileReference>> m_fileReferences;
     RefPtr<SandboxExtension> m_sandboxExtension;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ResourceLoadObserver.h"
 
+#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -123,7 +124,7 @@ bool ResourceLoadObserver::shouldLog(Page* page) const
     if (!page)
         return false;
 
-    return Settings::resourceLoadStatisticsEnabled() && !page->usesEphemeralSession() && m_notificationCallback;
+    return DeprecatedGlobalSettings::resourceLoadStatisticsEnabled() && !page->usesEphemeralSession() && m_notificationCallback;
 }
 
 static WallTime reduceToHourlyTimeResolution(WallTime time)
@@ -274,10 +275,10 @@ void ResourceLoadObserver::logWebSocketLoading(const Frame* frame, const URL& ta
 
 void ResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const Document& document)
 {
-    ASSERT(document.page());
-
     if (!shouldLog(document.page()))
         return;
+
+    ASSERT(document.page());
 
     auto& url = document.url();
     if (url.isBlankURL() || url.isEmpty())
@@ -361,7 +362,7 @@ URL ResourceLoadObserver::nonNullOwnerURL(const Document& document) const
     auto* frame = document.frame();
     auto host = document.url().host();
 
-    while ((host.isNull() || host.isEmpty()) && !frame->isMainFrame()) {
+    while ((host.isNull() || host.isEmpty()) && frame && !frame->isMainFrame()) {
         auto* ownerElement = frame->ownerElement();
 
         ASSERT(ownerElement != nullptr);

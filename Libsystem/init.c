@@ -34,6 +34,7 @@
 #include <pthread.h>
 #include <pthread/private.h>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <_libkernel_init.h> // Must be after voucher_private.h
 
@@ -105,6 +106,10 @@ void libSystem_atfork_prepare(void);
 void libSystem_atfork_parent(void);
 void libSystem_atfork_child(void);
 
+#if CURRENT_VARIANT_asan
+const char *__asan_default_options(void);
+#endif
+
 // libsyscall_initializer() initializes all of libSystem.dylib
 // <rdar://problem/4892197>
 __attribute__((constructor))
@@ -161,10 +166,17 @@ libSystem_initializer(int argc,
 	__keymgr_initializer();
 #endif
 
+	// No ASan interceptors are invoked before this point. ASan is normally initialized via the malloc interceptor:
+	// _dyld_initializer() -> tlv_load_notification -> wrap_malloc -> ASanInitInternal
+
 	_dyld_initializer();
 
 	libdispatch_init();
 	_libxpc_initializer();
+
+#if CURRENT_VARIANT_asan
+	setenv("DT_BYPASS_LEAKS_CHECK", "1", 1);
+#endif
 
 	// must be initialized after dispatch
 	_libtrace_init();
@@ -261,6 +273,29 @@ libSystem_atfork_child(void)
 	// second call client parent handlers registered with pthread_atfork()
 	_pthread_atfork_child_handlers();
 }
+
+#if CURRENT_VARIANT_asan
+char dynamic_asan_opts[1024] = {0};
+const char *__asan_default_options(void) {
+	int fd = open("/System/Library/Preferences/com.apple.asan.options", O_RDONLY);
+	if (fd != -1) {
+		ssize_t remaining_size = sizeof(dynamic_asan_opts) - 1;
+		char *p = dynamic_asan_opts;
+		ssize_t read_bytes = 0;
+		do {
+			read_bytes = read(fd, p, remaining_size);
+			remaining_size -= read_bytes;
+		} while (read_bytes > 0);
+		close(fd);
+
+		if (dynamic_asan_opts[0]) {
+			return dynamic_asan_opts;
+		}
+	}
+
+	return "color=never:handle_segv=0:handle_sigbus=0:handle_sigill=0:handle_sigfpe=0";
+}
+#endif
 
 /*  
  *  Old crt1.o glue used to call through mach_init_routine which was used to initialize libSystem.

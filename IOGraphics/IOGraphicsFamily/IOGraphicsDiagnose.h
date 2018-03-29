@@ -9,10 +9,10 @@
 #ifndef IOGraphicsDiagnose_h
 #define IOGraphicsDiagnose_h
 
-#include "GTrace.hpp"
+#include "GTraceTypes.h"
 
 
-#define IOGRAPHICS_DIAGNOSE_VERSION             3
+#define IOGRAPHICS_DIAGNOSE_VERSION             5
 
 #define IOGRAPHICS_MAXIMUM_REPORTS              16
 #define IOGRAPHICS_TOKENBUFFERSIZE              (kGTraceMaximumLineCount * (sizeof(sGTrace) / sizeof(uint64_t))) // ensure >= kGTraceMaximumLineCount
@@ -20,10 +20,10 @@
 
 // Client Interfaces
 #define kIOGSharedInterface_IOGDiagnose         0
-#define kIOGSharedInterface_ResevedB            1
-#define kIOGSharedInterface_ResevedC            2
-#define kIOGSharedInterface_ResevedD            3
-#define kIOGSharedInterface_ResevedE            4
+#define kIOGSharedInterface_ReservedB           1
+#define kIOGSharedInterface_ReservedC           2
+#define kIOGSharedInterface_ReservedD           3
+#define kIOGSharedInterface_ReservedE           4
 
 
 // stateBits
@@ -47,6 +47,7 @@
 #define kIOGReportState_ControllerInvalid       (1 << 17)
 #define kIOGReportState_GraphicsWorkloopInvalid (1 << 18)
 #define kIOGReportState_SystemWorkloopInvalid   (1 << 19)
+#define kIOGReportState_SystemPowerAckTo        (1 << 20)
 
 
 // External API states
@@ -132,6 +133,7 @@ typedef struct _iogdiagnose {
 
     uint32_t        _reservedB[8];
 
+    uint64_t        systemBootEpochTime;
     uint32_t        tokenLine;
     uint32_t        tokenLineCount;
     uint32_t        tokenSize;

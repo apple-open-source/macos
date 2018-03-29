@@ -28,7 +28,7 @@
 #include <Security/SecKey.h>
 
 CFDataRef SOSUserKeyCreateGenerateParameters(CFErrorRef *error);
-SecKeyRef SOSUserKeygen(CFDataRef password, CFDataRef parameters, CFErrorRef *error);
+CF_RETURNS_RETAINED SecKeyRef SOSUserKeygen(CFDataRef password, CFDataRef parameters, CFErrorRef *error);
 
 void debugDumpUserParameters(CFStringRef message, CFDataRef parameters);
 CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters);

@@ -502,7 +502,11 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 {
     IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
                DBG_FUNC_NONE,
-               0, powerStateOrdinal,
+               kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                   | kGMETRICS_DOMAIN_POWER
+                   | (powerStateOrdinal < getPowerState() ? kGMETRICS_DOMAIN_SLEEP
+                                                          : kGMETRICS_DOMAIN_WAKE),
+               powerStateOrdinal,
                0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                0, 0,
                0, 0);
@@ -522,7 +526,10 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 
         IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
                    DBG_FUNC_NONE,
-                   0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                   kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                       | kGMETRICS_DOMAIN_POWER
+                       | kGMETRICS_DOMAIN_SLEEP,
+                   DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                    0, 0,
                    0, 0,
                    0, 0);
@@ -630,7 +637,10 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
             } else {
                 IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
                            DBG_FUNC_NONE,
-                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                           kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                               | kGMETRICS_DOMAIN_POWER
+                               | kGMETRICS_DOMAIN_WAKE,
+                           DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                            0, 2,
                            0, 0,
                            0, 0);
@@ -708,7 +718,8 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
 
     IOG_KTRACE(DBG_IOG_WAKE_FROM_DOZE,
                DBG_FUNC_NONE,
-               0, x,
+               kGMETRICS_DOMAIN_DISPLAYWRANGLER | kGMETRICS_DOMAIN_DOZE,
+               x,
                0, y,
                0, 0,
                0, 0);
@@ -800,7 +811,9 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 			{
                 IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
                            DBG_FUNC_NONE,
-                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                           kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                               | kGMETRICS_DOMAIN_POWER,
+                           DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                            0, 3,
                            0, 0,
                            0, 0);
@@ -821,7 +834,10 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
         {
             IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
                        DBG_FUNC_NONE,
-                       0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                       kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                           | kGMETRICS_DOMAIN_POWER
+                           | kGMETRICS_DOMAIN_DOZE,
+                       DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                        0, 1,
                        0, 0,
                        0, 0);

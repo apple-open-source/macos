@@ -28,6 +28,7 @@
 #if ENABLE(ENCRYPTED_MEDIA)
 
 #include "CDM.h"
+#include "CDMFactory.h"
 #include "CDMInstance.h"
 #include "CDMPrivate.h"
 #include "MediaKeysRequirement.h"
@@ -77,7 +78,7 @@ public:
 
 private:
     MockCDMFactory();
-    std::unique_ptr<CDMPrivate> createCDM(CDM&) final;
+    std::unique_ptr<CDMPrivate> createCDM(const String&) final;
     bool supportsKeySystem(const String&) final;
 
     MediaKeysRequirement m_distinctiveIdentifiersRequirement { MediaKeysRequirement::Optional };
@@ -127,16 +128,20 @@ public:
     MockCDMInstance(WeakPtr<MockCDM>);
 
 private:
+    ImplementationType implementationType() const final { return ImplementationType::Mock; }
     SuccessValue initializeWithConfiguration(const MediaKeySystemConfiguration&) final;
     SuccessValue setDistinctiveIdentifiersAllowed(bool) final;
     SuccessValue setPersistentStateAllowed(bool) final;
     SuccessValue setServerCertificate(Ref<SharedBuffer>&&) final;
+    SuccessValue setStorageDirectory(const String&) final;
     void requestLicense(LicenseType, const AtomicString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback) final;
     void updateLicense(const String&, LicenseType, const SharedBuffer&, LicenseUpdateCallback) final;
     void loadSession(LicenseType, const String&, const String&, LoadSessionCallback) final;
     void closeSession(const String&, CloseSessionCallback) final;
     void removeSessionData(const String&, LicenseType, RemoveSessionDataCallback) final;
     void storeRecordOfKeyUsage(const String&) final;
+
+    const String& keySystem() const final;
 
     WeakPtr<MockCDM> m_cdm;
     bool m_distinctiveIdentifiersAllowed { true };

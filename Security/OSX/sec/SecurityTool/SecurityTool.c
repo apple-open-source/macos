@@ -27,6 +27,7 @@
 #include "SecInternalReleasePriv.h"
 
 #include <SecurityTool/readline.h>
+#include "SecurityTool/security_tool_commands.h"
 
 #include "leaks.h"
 
@@ -228,7 +229,7 @@ usage(void)
 		"    -v    Be more verbose about what's going on.\n"
 		"%s commands are:\n", getprogname(), getprogname());
 	help(0, NULL);
-	return 2;
+	return SHOW_USAGE_MESSAGE;
 }
 
 /* Execute a single command. */

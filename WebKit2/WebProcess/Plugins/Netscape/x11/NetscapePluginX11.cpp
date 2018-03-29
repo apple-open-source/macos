@@ -27,7 +27,7 @@
 #include "config.h"
 #include "NetscapePluginX11.h"
 
-#if PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)
+#if PLATFORM(X11) && ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "NetscapePlugin.h"
 #include "PluginController.h"
@@ -321,9 +321,9 @@ static inline void initializeXEvent(XEvent& event)
     event.xany.window = 0;
 }
 
-static inline uint64_t xTimeStamp(double timestampInSeconds)
+static inline uint64_t xTimeStamp(WallTime timestamp)
 {
-    return timestampInSeconds * 1000;
+    return timestamp.secondsSinceEpoch().milliseconds();
 }
 
 static inline unsigned xKeyModifiers(const WebEvent& event)
@@ -540,4 +540,4 @@ bool NetscapePluginX11::handleKeyboardEvent(const WebKeyboardEvent& event)
 
 } // namespace WebKit
 
-#endif // PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)
+#endif // PLATFORM(X11) && ENABLE(NETSCAPE_PLUGIN_API)

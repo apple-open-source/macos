@@ -1,4 +1,4 @@
-# Copyright (C) 2004, 2005, 2007, 2009, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2005, 2007, 2009, 2011-2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001-2003  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -19,7 +19,7 @@ srcdir =	@srcdir@
 VPATH =		@srcdir@
 top_srcdir =	@top_srcdir@
 
-@BIND9_VERSION@
+VERSION=@BIND9_VERSION@
 
 @LIBISCCFG_API@
 
@@ -31,7 +31,6 @@ CDEFINES =
 CWARNINGS =
 
 ISCLIBS =	../../lib/isc/libisc.@A@
-ISCCCLIBS =	../../lib/isccc/libisccc.@A@
 DNSLIBS =	../../lib/dns/libdns.@A@
 ISCCFGLIBS =	../../lib/cfg/libisccfg.@A@
 
@@ -43,10 +42,12 @@ LIBS =		@LIBS@
 SUBDIRS =	include
 
 # Alphabetically
-OBJS =		aclconf.@O@ log.@O@ namedconf.@O@ parser.@O@ version.@O@
+OBJS =		aclconf.@O@ dnsconf.@O@ log.@O@ namedconf.@O@ \
+		parser.@O@ version.@O@
 
 # Alphabetically
-SRCS =		aclconf.c log.c namedconf.c parser.c version.c
+SRCS =		aclconf.c dnsconf.c log.c namedconf.c \
+		parser.c version.c
 
 TARGETS = 	timestamp
 
@@ -68,7 +69,7 @@ libisccfg.la: ${OBJS}
 	 ${LIBTOOL_MODE_LINK} \
 		${CC} ${ALL_CFLAGS} ${LDFLAGS} -o libisccfg.la -rpath ${libdir} \
 		-version-info ${LIBINTERFACE}:${LIBREVISION}:${LIBAGE} \
-		${OBJS} ${DNSLIBS} ${ISCCCLIBS} ${ISCLIBS} @DNS_CRYPTO_LIBS@ \
+		${OBJS} ${DNSLIBS} ${ISCLIBS} @DNS_CRYPTO_LIBS@ \
 		${LIBS}
 
 timestamp: libisccfg.@A@
@@ -79,6 +80,9 @@ installdirs:
 
 install:: timestamp installdirs
 	${LIBTOOL_MODE_INSTALL} ${INSTALL_LIBRARY} libisccfg.@A@ ${DESTDIR}${libdir}
+
+uninstall::
+	${LIBTOOL_MODE_UNINSTALL} rm -f ${DESTDIR}${libdir}/libisccfg.@A@
 
 clean distclean::
 	rm -f libisccfg.@A@ timestamp

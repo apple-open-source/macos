@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,7 +62,7 @@ public:
 
         size_t index() const { return m_index; }
         size_t argumentCountIncludingThis() const { return m_argumentCountIncludingThis; }
-        bool callerIsVMEntryFrame() const { return m_callerIsVMEntryFrame; }
+        bool callerIsEntryFrame() const { return m_callerIsEntryFrame; }
         CallFrame* callerFrame() const { return m_callerFrame; }
         CalleeBits callee() const { return m_callee; }
         CodeBlock* codeBlock() const { return m_codeBlock; }
@@ -77,7 +77,7 @@ public:
 
         bool isNativeFrame() const { return !codeBlock() && !isWasmFrame(); }
         bool isInlinedFrame() const { return !!inlineCallFrame(); }
-        bool isWasmFrame() const;
+        bool isWasmFrame() const { return m_isWasmFrame; }
         Wasm::IndexOrName const wasmFunctionIndexOrName()
         {
             ASSERT(isWasmFrame());
@@ -88,7 +88,7 @@ public:
         JS_EXPORT_PRIVATE String sourceURL() const;
         JS_EXPORT_PRIVATE String toString() const;
 
-        intptr_t sourceID();
+        JS_EXPORT_PRIVATE intptr_t sourceID();
 
         CodeType codeType() const;
         bool hasLineAndColumnInfo() const;
@@ -97,7 +97,6 @@ public:
         RegisterAtOffsetList* calleeSaveRegisters();
 
         ClonedArguments* createArguments();
-        VMEntryFrame* vmEntryFrame() const { return m_VMEntryFrame; }
         CallFrame* callFrame() const { return m_callFrame; }
         
         void dump(PrintStream&, Indenter = Indenter()) const;
@@ -114,17 +113,17 @@ public:
         InlineCallFrame* m_inlineCallFrame;
 #endif
         CallFrame* m_callFrame;
-        VMEntryFrame* m_VMEntryFrame;
-        VMEntryFrame* m_CallerVMEntryFrame;
+        EntryFrame* m_entryFrame;
+        EntryFrame* m_callerEntryFrame;
         CallFrame* m_callerFrame;
         CalleeBits m_callee;
         CodeBlock* m_codeBlock;
         size_t m_index;
         size_t m_argumentCountIncludingThis;
         unsigned m_bytecodeOffset;
-        Wasm::IndexOrName m_wasmFunctionIndexOrName;
-        bool m_callerIsVMEntryFrame : 1;
+        bool m_callerIsEntryFrame : 1;
         bool m_isWasmFrame : 1;
+        Wasm::IndexOrName m_wasmFunctionIndexOrName;
 
         friend class StackVisitor;
     };

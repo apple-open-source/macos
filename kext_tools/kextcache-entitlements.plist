@@ -10,5 +10,7 @@
 	<true/>
 	<key>com.apple.rootless.kext-management</key>
 	<true/>
+	<key>com.apple.private.efilogin-helper</key>
+	<true/>
 </dict>
 </plist>

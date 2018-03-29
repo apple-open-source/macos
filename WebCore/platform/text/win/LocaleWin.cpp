@@ -33,19 +33,19 @@
 
 #include "DateComponents.h"
 #include "DateTimeFormat.h"
-#include "Language.h"
 #include "LocalizedStrings.h"
 #include <limits>
 #include <windows.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/DateMath.h>
 #include <wtf/HashMap.h>
+#include <wtf/Language.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
-
-using namespace std;
+#include <wtf/text/win/WCharStringExtras.h>
 
 namespace WebCore {
+using namespace std;
 
 typedef HashMap<String, LCID, ASCIICaseInsensitiveHash> NameToLCIDMap;
 
@@ -61,7 +61,7 @@ static LCID LCIDFromLocaleInternal(LCID userDefaultLCID, const String& userDefau
 {
     if (equalIgnoringASCIICase(extractLanguageCode(locale), userDefaultLanguageCode))
         return userDefaultLCID;
-    return LocaleNameToLCID(locale.charactersWithNullTermination().data(), 0);
+    return LocaleNameToLCID(stringToNullTerminatedWChar(locale).data(), 0);
 }
 
 static LCID LCIDFromLocale(const AtomicString& locale)
@@ -70,7 +70,7 @@ static LCID LCIDFromLocale(const AtomicString& locale)
     const size_t languageCodeBufferSize = 9;
     WCHAR lowercaseLanguageCode[languageCodeBufferSize];
     ::GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SISO639LANGNAME, lowercaseLanguageCode, languageCodeBufferSize);
-    String userDefaultLanguageCode = String(lowercaseLanguageCode);
+    String userDefaultLanguageCode = nullTerminatedWCharToString(lowercaseLanguageCode);
 
     LCID lcid = LCIDFromLocaleInternal(LOCALE_USER_DEFAULT, userDefaultLanguageCode, String(locale));
     if (!lcid)
@@ -89,16 +89,14 @@ inline LocaleWin::LocaleWin(LCID lcid)
 {
 }
 
-LocaleWin::~LocaleWin()
-{
-}
+LocaleWin::~LocaleWin() = default;
 
 String LocaleWin::getLocaleInfoString(LCTYPE type)
 {
     int bufferSizeWithNUL = ::GetLocaleInfo(m_lcid, type, 0, 0);
     if (bufferSizeWithNUL <= 0)
         return String();
-    Vector<UChar> buffer(bufferSizeWithNUL);
+    StringVector<UChar> buffer(bufferSizeWithNUL);
     ::GetLocaleInfo(m_lcid, type, buffer.data(), bufferSizeWithNUL);
     buffer.shrink(bufferSizeWithNUL - 1);
     return String::adopt(WTFMove(buffer));

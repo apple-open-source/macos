@@ -76,20 +76,21 @@ static bool pluginRequiresGtk2(const String& pluginPath)
 }
 #endif
 
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLUGIN_ARCHITECTURE(UNIX)
 bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData& result)
 {
-#if PLATFORM(GTK)
     String pluginProcessPath = executablePathOfPluginProcess();
 
 #if PLATFORM(GTK)
     bool requiresGtk2 = pluginRequiresGtk2(pluginPath);
     if (requiresGtk2) {
-        if (PlatformDisplay::sharedDisplay().type() != PlatformDisplay::Type::X11)
+#if PLATFORM(WAYLAND)
+        if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland)
             return false;
+#endif
 #if ENABLE(PLUGIN_PROCESS_GTK2)
         pluginProcessPath.append('2');
-        if (!fileExists(pluginProcessPath))
+        if (!FileSystem::fileExists(pluginProcessPath))
             return false;
 #else
         return false;
@@ -97,8 +98,8 @@ bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData&
     }
 #endif
 
-    CString binaryPath = fileSystemRepresentation(pluginProcessPath);
-    CString pluginPathCString = fileSystemRepresentation(pluginPath);
+    CString binaryPath = FileSystem::fileSystemRepresentation(pluginProcessPath);
+    CString pluginPathCString = FileSystem::fileSystemRepresentation(pluginPath);
     char* argv[4];
     argv[0] = const_cast<char*>(binaryPath.data());
     argv[1] = const_cast<char*>("-scanPlugin");
@@ -152,11 +153,8 @@ bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData&
     result.requiresGtk2 = requiresGtk2;
 #endif
     return !result.mimeDescription.isEmpty();
-#else // PLATFORM(GTK)
-    return false;
-#endif // PLATFORM(GTK)
 }
-#endif // PLUGIN_ARCHITECTURE(X11)
+#endif // PLUGIN_ARCHITECTURE(UNIX)
 
 } // namespace WebKit
 

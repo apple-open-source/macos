@@ -65,7 +65,7 @@ static bool SOSAccountPeerSignatureUpdate(SOSAccount* account, SecKeyRef privKey
 
 void SOSAccountPurgePrivateCredential(SOSAccount* account)
 {
-    secnotice("keygen", "Purging private account credential");
+    secnotice("circleOps", "Purging private account credential");
 
     if(account.accountPrivateKey)
     {
@@ -110,13 +110,13 @@ static void SOSAccountSetTrustedUserPublicKey(SOSAccount* account, bool public_w
 
     CFReleaseNull(publicKey);
 
-	secnotice("keygen", "trusting new public key: %@", account.accountKey);
+	secnotice("circleOps", "trusting new public key: %@", account.accountKey);
     notify_post(kPublicKeyAvailable);
 }
 
 void SOSAccountSetUnTrustedUserPublicKey(SOSAccount* account, SecKeyRef publicKey) {
     if(account.accountKeyIsTrusted && account.accountKey) {
-        secnotice("keygen", "Moving : %@ to previousAccountKey", account.accountKey);
+        secnotice("circleOps", "Moving : %@ to previousAccountKey", account.accountKey);
         account.previousAccountKey = account.accountKey;
     }
 
@@ -127,7 +127,7 @@ void SOSAccountSetUnTrustedUserPublicKey(SOSAccount* account, SecKeyRef publicKe
         account.previousAccountKey = account.accountKey;
     }
     
-    secnotice("keygen", "not trusting new public key: %@", account.accountKey);
+    secnotice("circleOps", "not trusting new public key: %@", account.accountKey);
 }
 
 
@@ -135,7 +135,7 @@ static void SOSAccountSetPrivateCredential(SOSAccount* account, SecKeyRef privat
     if (!private)
         return SOSAccountPurgePrivateCredential(account);
     
-    secnotice("keygen", "setting new private credential");
+    secnotice("circleOps", "setting new private credential");
 
     account.accountPrivateKey = private;
 
@@ -197,7 +197,7 @@ SecKeyRef SOSAccountGetPrivateCredential(SOSAccount* account, CFErrorRef* error)
 CFDataRef SOSAccountGetCachedPassword(SOSAccount* account, CFErrorRef* error)
 {
     if (account._password_tmp == NULL) {
-        secnotice("keygen", "Password cache expired");
+        secnotice("circleOps", "Password cache expired");
     }
     return (__bridge CFDataRef)(account._password_tmp);
 }
@@ -254,14 +254,14 @@ void SOSAccountStashAccountKey(SOSAccount* account)
         });
 
         if (status) {
-            secnotice("keygen", "Failed to update user private key to keychain: %d", (int)status);
+            secnotice("circleOps", "Failed to update user private key to keychain: %d", (int)status);
         }
     } else if (status != 0) {
-        secnotice("keygen", "Failed to add user private key to keychain: %d", (int)status);
+        secnotice("circleOps", "Failed to add user private key to keychain: %d", (int)status);
     }
     
     if(status == 0) {
-        secnotice("keygen", "Stored user private key stashed local keychain");
+        secnotice("circleOps", "Stored user private key stashed local keychain");
     }
     
     return;
@@ -302,7 +302,7 @@ SecKeyRef SOSAccountCopyStashedUserPrivateKey(SOSAccount* account, CFErrorRef *e
 SecKeyRef SOSAccountGetTrustedPublicCredential(SOSAccount* account, CFErrorRef* error)
 {
     if (account.accountKey == NULL || account.accountKeyIsTrusted == false) {
-        SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Public Key not available - failed to register before call"), NULL, error);
+        SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Public Key isn't available. The iCloud Password must be provided to the syncing subsystem to repair this."), NULL, error);
         return NULL;
     }
     return account.accountKey;
@@ -376,7 +376,7 @@ bool SOSAccountAssertStashedAccountCredential(SOSAccount* account, CFErrorRef *e
 
 
     accountPrivateKey = SOSAccountCopyStashedUserPrivateKey(account, error);
-    require_action_quiet(accountPrivateKey, fail, secnotice("keygen", "Looked for a stashed private key, didn't find one"));
+    require_action_quiet(accountPrivateKey, fail, secnotice("circleOps", "Looked for a stashed private key, didn't find one"));
 
     require(SOSAccountValidateAccountCredential(account, accountPrivateKey, error), fail);
 
@@ -426,6 +426,7 @@ recordCred:
 errOut:
     CFReleaseNull(parameters);
     CFReleaseNull(user_private);
+    secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountAssertUserCredentials");
     account.key_interests_need_updating = true;
     return account.accountKeyIsTrusted;
 }
@@ -436,6 +437,7 @@ bool SOSAccountTryUserCredentials(SOSAccount* account, CFStringRef user_account 
     if(success) {
         SOSAccountStashAccountKey(account);
     }
+    secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountTryUserCredentials");
     account.key_interests_need_updating = true;
     return success;
 }
@@ -443,13 +445,14 @@ bool SOSAccountTryUserCredentials(SOSAccount* account, CFStringRef user_account 
 bool SOSAccountTryUserPrivateKey(SOSAccount* account, SecKeyRef user_private, CFErrorRef *error) {
     bool retval = SOSAccountValidateAccountCredential(account, user_private, error);
     if(!retval) {
-        secnotice("keygen", "Failed to accept provided user_private as credential");
+        secnotice("circleOps", "Failed to accept provided user_private as credential");
         return retval;
     }
     sosAccountSetTrustedCredentials(account, NULL, user_private, account.accountKeyIsTrusted);
     SOSAccountStashAccountKey(account);
+    secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountTryUserPrivateKey");
     account.key_interests_need_updating = true;
-    secnotice("keygen", "Accepted provided user_private as credential");
+    secnotice("circleOps", "Accepted provided user_private as credential");
     return retval;
 }
 

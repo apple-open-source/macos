@@ -143,7 +143,7 @@ nl{
         IL{"Israël"}
         IM{"Isle of Man"}
         IN{"India"}
-        IO{"Britse Gebieden in de Indische Oceaan"}
+        IO{"Brits Indische Oceaanterritorium"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"IJsland"}

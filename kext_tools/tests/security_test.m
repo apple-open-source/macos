@@ -21,7 +21,26 @@ typedef BOOL (^BundleURLHandler)(NSURL *, NSURL *);
 extern void forEachInsecureBundleHelper(NSArray *bundles, BundleURLHandler callbackHandler, NSURL *sourceBaseURL, NSURL *targetBaseURL);
 extern NSURL *createStagingURL(NSURL *originalURL);
 extern BOOL bundleNeedsStaging(NSURL *sourceURL, NSURL *destinationURL);
+extern NSURL *createURLWithoutPrefix(NSURL *url, NSString *prefix);
+extern Boolean pruneStagingDirectoryHelper(NSString *stagingRoot);
+extern Boolean clearStagingDirectoryHelper(NSString *stagingRoot);
 
+/* It's unfortunate that this is required, but --remove-signature is flaky and its error output
+ * isn't reflective of the failures, so the simplest thing to do is call it a few times.
+ * For more information, see <rdar://problem/36603724>.
+ */
+static void
+remove_signature(const char *path)
+{
+    const static int CALL_COUNT = 5;
+    NSString *command = [NSString stringWithFormat:@"codesign --remove-signature %s", path];
+    int calls = 0;
+
+    while (calls < CALL_COUNT) {
+        system(command.UTF8String);
+        calls += 1;
+    }
+}
 
 #pragma mark Test Functions
 static void
@@ -145,6 +164,7 @@ test_system_doesnt_need_staging()
 static void
 test_insecure_identifier()
 {
+    NSURL *testRootURL = [NSURL fileURLWithPath:@"/private/tmp/kexttest"];
     NSURL *sourceURL = nil;
     NSData *cdhash = nil;
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -152,28 +172,30 @@ test_insecure_identifier()
     TEST_START("insecure identifier generation");
 
     // Cleanup in case a previous test has failed to cleanup.
-    system("rm -rf /tmp/test.kext");
+    [fileManager removeItemAtURL:testRootURL error:nil];
+    [fileManager createDirectoryAtPath:testRootURL.path
+           withIntermediateDirectories:YES
+                            attributes:nil
+                                 error:nil];
 
-    sourceURL = [NSURL fileURLWithPath:@"/System/Library/Extensions/AppleHV.kext"];
+    sourceURL = [NSURL fileURLWithPath:@"/Library/Extensions/SoftRAID.kext"];
     cdhash = copyIdentifierFromBundle(sourceURL);
     TEST_CASE("valid signature looks like cdhash", cdhash && cdhash.length == 20);
 
     // Make an unsigned bundle by copying and removing the signature from a signed bundle.
+    NSURL *testKextURL = [testRootURL URLByAppendingPathComponent:@"test.kext"];
     [fileManager copyItemAtURL:sourceURL
-                         toURL:[NSURL fileURLWithPath:@"/tmp/test.kext"]
+                         toURL:testKextURL
                          error:nil];
-    int sig_err = system("codesign --remove-signature /tmp/test.kext");
-    sourceURL = [NSURL fileURLWithPath:@"/tmp/test.kext"];
-    cdhash = copyIdentifierFromBundle(sourceURL);
-    TEST_CASE("SETUP: signature removed properly", sig_err == 0);
+    remove_signature(testKextURL.path.UTF8String);
+    cdhash = copyIdentifierFromBundle(testKextURL);
     TEST_CASE("unsigned bundle returns adhoc cdhash as string", cdhash.length == 40);
-    [fileManager removeItemAtURL:sourceURL error:nil];
 
     sourceURL = [NSURL fileURLWithPath:@"/System/Library/LaunchDaemons/com.apple.kextd.plist"];
     cdhash = copyIdentifierFromBundle(sourceURL);
     TEST_CASE("flat file returns adhoc cdhash as string", cdhash.length == 40);
 
-    system("rm -rf /tmp/test.kext");
+    [fileManager removeItemAtURL:testRootURL error:nil];
 }
 
 static void
@@ -326,6 +348,58 @@ test_kext_staging_helpers()
     sourceURL = [NSURL fileURLWithPath:@"/Library/Extensions/ArcMSR.kext"];
     kext = OSKextCreate(NULL, (__bridge CFURLRef)sourceURL);
     TEST_CASE("non-SIP protected kext needs staging", kextRequiresStaging(kext) == true);
+
+    // createURLWithoutPrefix helper function tests.
+    sourceURL = [NSURL fileURLWithPath:@"/Library/Extensions/ArcMSR.kext"];
+    destinationURL = createURLWithoutPrefix(sourceURL, @"/Library/StagedExtensions");
+    TEST_CASE("createURLWithoutPrefix returns original url if not prefixed", destinationURL == sourceURL);
+
+    destinationURL = createURLWithoutPrefix(sourceURL, @"/Library");
+    TEST_CASE("createURLWithoutPrefix can remove 1 component prefix", [destinationURL.path isEqualToString:@"/Extensions/ArcMSR.kext"]);
+
+    destinationURL = createURLWithoutPrefix(sourceURL, @"/Library/Extensions");
+    TEST_CASE("createURLWithoutPrefix can remove 2 component prefix", [destinationURL.path isEqualToString:@"/ArcMSR.kext"]);
+}
+
+static void
+test_staging_management_helpers(void)
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSURL *testRootURL = [NSURL fileURLWithPath:@"/private/tmp/stagingtest"];
+    NSArray *dirContents = nil;
+    NSError *error = nil;
+
+    TEST_START("staging management functions");
+
+    // First, ensure clear can delete multiple items in the top level directory.
+    [fm removeItemAtURL:testRootURL error:nil];
+    [fm createDirectoryAtURL:testRootURL withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"One"] withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Two"] withIntermediateDirectories:YES attributes:nil error:nil];
+
+    clearStagingDirectoryHelper(testRootURL.path);
+    dirContents = [fm contentsOfDirectoryAtURL:testRootURL includingPropertiesForKeys:nil options:0 error:&error];
+    TEST_CASE("staging directory exists after clear", error == nil);
+    TEST_CASE("staging directory is empty after clear", dirContents.count == 0);
+
+    // Second, create a basic pruning scenario:
+    //   1. a kext that exists outside staging, which should persist
+    //   2. a kext in the same directory as 1 that doesn't exist, to test cleanup and ensure the parent isn't removed
+    //   3. a kext in a completely different directory that requires parent traversal for full path cleanup
+    [fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/ArcMSR.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/Pineapple.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Applications/Company/Mango.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+
+    pruneStagingDirectoryHelper(testRootURL.path);
+    dirContents = [fm contentsOfDirectoryAtPath:testRootURL.path error:&error];
+    TEST_CASE("staging directory exists after pruning", [fm fileExistsAtPath:testRootURL.path]);
+    TEST_CASE("staging directory has only one directory after pruning", error == nil && dirContents.count == 1);
+    TEST_CASE("existing kext directory still exists in staging area", [fm fileExistsAtPath:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/ArcMSR.kext"].path]);
+    TEST_CASE("non-existent kexts were deleted",
+              ![fm fileExistsAtPath:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/Pineapple.kext"].path] &&
+              ![fm fileExistsAtPath:[testRootURL URLByAppendingPathComponent:@"Applications/Company/Mango.kext"].path]);
+
+    [fm removeItemAtURL:testRootURL error:nil];
 }
 
 int main(int argc, char *argv[])
@@ -338,5 +412,6 @@ int main(int argc, char *argv[])
     test_for_each_insecure_bundle();
     test_custom_authentication();
     test_kext_staging_helpers();
+    test_staging_management_helpers();
     exit(0);
 }

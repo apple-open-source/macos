@@ -2,7 +2,12 @@
 //  blessUtilities.c
 //
 
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
 #include <libgen.h>
+#include <unistd.h>
+#include <errno.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -18,6 +23,9 @@ enum {
 	kIsInvisible                  = 0x4000, /* Files and folders */
 };
 
+
+static int DeleteHierarchy(char *path, int pathMax);
+static int DeleteFileWithPrejudice(const char *path, struct stat *sb);
 
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
@@ -100,7 +108,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
         strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
     } else {
         // The preboot volume isn't mounted right now.  We'll have to mount it.
-        ret = MountPrebootVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, false);
+        ret = BLMountContainerVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, false);
         if (ret) goto exit;
         mustUnmount = true;
     }
@@ -177,10 +185,10 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
                 }
             }
             if (oldEFIdata) CFRelease(oldEFIdata);
-            ret = CopyManifests(context, prebootFolderPath, bootEFISourceLocation);
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelError, "Couldn't copy img4 manifests for file %s\n", bootEFISourceLocation);
-            }
+			ret = CopyManifests(context, prebootFolderPath, bootEFISourceLocation);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Couldn't copy img4 manifests for file %s\n", bootEFISourceLocation);
+			}
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
         }
@@ -238,7 +246,7 @@ exit:
     if (rootUUID) CFRelease(rootUUID);
     if (booterDict) CFRelease(booterDict);
     if (mustUnmount) {
-        UnmountPrebootVolume(context, prebootMountPoint);
+        BLUnmountContainerVolume(context, prebootMountPoint);
     }
     return ret;
 }
@@ -273,3 +281,78 @@ int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, 
 }
 
 
+
+
+int DeleteFileOrDirectory(const char *path)
+{
+	int			ret = 0;
+	struct stat sb;
+	char		modPath[MAXPATHLEN];
+	
+	if (stat(path, &sb) < 0) {
+		ret = errno;
+		goto exit;
+	}
+	if (S_ISDIR(sb.st_mode)) {
+		strlcpy(modPath, path, sizeof modPath);
+		ret = DeleteHierarchy(modPath, sizeof modPath);
+	} else {
+		ret = DeleteFileWithPrejudice(path, &sb);
+	}
+	
+exit:
+	return ret;
+}
+
+
+
+static int DeleteHierarchy(char *path, int pathMax)
+{
+	int				ret;
+	DIR				*dp = NULL;
+	struct dirent	*dirent;
+	struct stat		sb;
+	int				endIdx;
+	
+	dp = opendir(path);
+	if (!dp) {
+		ret = errno;
+		goto exit;
+	}
+	readdir(dp);
+	readdir(dp);
+	if (path[strlen(path)-1] != '/') strlcat(path, "/", pathMax);
+	endIdx = strlen(path);
+	ret = 0;
+	while ((dirent = readdir(dp)) != NULL) {
+		if (endIdx + dirent->d_namlen >= pathMax) continue;
+		strlcpy(path + endIdx, dirent->d_name, pathMax - endIdx);
+		if (stat(path, &sb) < 0) {
+			ret = errno;
+			break;
+		}
+		if (S_ISDIR(sb.st_mode)) {
+			ret = DeleteHierarchy(path, pathMax);
+		} else {
+			ret = DeleteFileWithPrejudice(path, &sb);
+		}
+		if (ret) break;
+	}
+	if (ret) goto exit;
+	path[endIdx] = '\0';
+	rmdir(path);
+	
+exit:
+	if (dp) closedir(dp);
+	return ret;
+}
+
+
+
+static int DeleteFileWithPrejudice(const char *path, struct stat *sb)
+{
+	if ((sb->st_flags & UF_IMMUTABLE) != 0) {
+		chflags(path, sb->st_flags & ~UF_IMMUTABLE);
+	}
+	return (unlink(path) < 0) ? errno : 0;
+}

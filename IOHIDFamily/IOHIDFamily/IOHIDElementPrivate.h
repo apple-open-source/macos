@@ -28,7 +28,7 @@
 #include <libkern/c++/OSArray.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include "IOHIDElement.h"
-#include "IOHIDParserPriv.h"
+#include "IOHIDDescriptorParserPrivate.h"
 #include "IOHIDLibUserClient.h"
 #include "IOHIDDevice.h"
 

@@ -29,14 +29,13 @@
 #include "config.h"
 #include "FetchLoader.h"
 
-#if ENABLE(FETCH_API)
-
 #include "BlobURL.h"
 #include "CachedResourceRequestInitiators.h"
 #include "ContentSecurityPolicy.h"
 #include "FetchBody.h"
 #include "FetchLoaderClient.h"
 #include "FetchRequest.h"
+#include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
@@ -46,17 +45,28 @@
 
 namespace WebCore {
 
+FetchLoader::~FetchLoader()
+{
+    if (!m_urlForReading.isEmpty())
+        ThreadableBlobRegistry::unregisterBlobURL(m_urlForReading);
+}
+
 void FetchLoader::start(ScriptExecutionContext& context, const Blob& blob)
 {
-    auto urlForReading = BlobURL::createPublicURL(context.securityOrigin());
-    if (urlForReading.isEmpty()) {
-        m_client.didFail();
+    return startLoadingBlobURL(context, blob.url());
+}
+
+void FetchLoader::startLoadingBlobURL(ScriptExecutionContext& context, const URL& blobURL)
+{
+    m_urlForReading = BlobURL::createPublicURL(context.securityOrigin());
+    if (m_urlForReading.isEmpty()) {
+        m_client.didFail({ errorDomainWebKitInternal, 0, URL(), ASCIILiteral("Could not create URL for Blob") });
         return;
     }
 
-    ThreadableBlobRegistry::registerBlobURL(context.securityOrigin(), urlForReading, blob.url());
+    ThreadableBlobRegistry::registerBlobURL(context.securityOrigin(), m_urlForReading, blobURL);
 
-    ResourceRequest request(urlForReading);
+    ResourceRequest request(m_urlForReading);
     request.setInitiatorIdentifier(context.resourceRequestIdentifier());
     request.setHTTPMethod("GET");
 
@@ -77,12 +87,12 @@ void FetchLoader::start(ScriptExecutionContext& context, const FetchRequest& req
     ThreadableLoaderOptions options(request.fetchOptions(), ConsiderPreflight,
         context.shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective,
         String(cachedResourceRequestInitiators().fetch),
-        ResponseFilteringPolicy::Enable);
+        ResponseFilteringPolicy::Disable);
     options.sendLoadCallbacks = SendCallbacks;
     options.dataBufferingPolicy = DoNotBufferData;
     options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
 
-    ResourceRequest fetchRequest = request.internalRequest();
+    ResourceRequest fetchRequest = request.resourceRequest();
 
     ASSERT(context.contentSecurityPolicy());
     auto& contentSecurityPolicy = *context.contentSecurityPolicy();
@@ -90,13 +100,13 @@ void FetchLoader::start(ScriptExecutionContext& context, const FetchRequest& req
     contentSecurityPolicy.upgradeInsecureRequestIfNeeded(fetchRequest, ContentSecurityPolicy::InsecureRequestType::Load);
 
     if (!context.shouldBypassMainWorldContentSecurityPolicy() && !contentSecurityPolicy.allowConnectToSource(fetchRequest.url())) {
-        m_client.didFail();
+        m_client.didFail({ errorDomainWebKitInternal, 0, fetchRequest.url(), ASCIILiteral("Not allowed by ContentSecurityPolicy"), ResourceError::Type::AccessControl });
         return;
     }
 
     String referrer = request.internalRequestReferrer();
     if (referrer == "no-referrer") {
-        options.referrerPolicy = FetchOptions::ReferrerPolicy::NoReferrer;
+        options.referrerPolicy = ReferrerPolicy::NoReferrer;
         referrer = String();
     } else
         referrer = (referrer == "client") ? context.url().strippedForUseAsReferrer() : URL(context.url(), referrer).strippedForUseAsReferrer();
@@ -146,11 +156,9 @@ void FetchLoader::didFinishLoading(unsigned long)
     m_client.didSucceed();
 }
 
-void FetchLoader::didFail(const ResourceError&)
+void FetchLoader::didFail(const ResourceError& error)
 {
-    m_client.didFail();
+    m_client.didFail(error);
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(FETCH_API)

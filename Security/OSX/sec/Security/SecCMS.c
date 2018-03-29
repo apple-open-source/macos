@@ -77,6 +77,7 @@ CFTypeRef kSecCMSSignedAttributes = CFSTR("kSecCMSSignedAttributes");
 CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
 CFTypeRef kSecCMSAllCerts = CFSTR("kSecCMSAllCerts");
 CFTypeRef kSecCMSHashAgility = CFSTR("kSecCMSHashAgility");
+CFTypeRef kSecCMSHashAgilityV2 = CFSTR("kSecCMSHashAgilityV2");
 
 CFTypeRef kSecCMSBulkEncryptionAlgorithm = CFSTR("kSecCMSBulkEncryptionAlgorithm");
 CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDESCBC");
@@ -361,8 +362,7 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
         } else if (CFEqual(kSecCMSHashingAlgorithmSHA512, algorithm_name)) {
             algorithm = SEC_OID_SHA512;
         } else {
-            // signing with MD5 is no longer allowed
-            algorithm = SEC_OID_UNKNOWN;
+            return errSecParam;
         }
     }
     
@@ -510,6 +510,13 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
         if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgility(sigd->signerInfos[0], &hash_agility_value)) {
             if (hash_agility_value) {
                 CFDictionarySetValue(attrs, kSecCMSHashAgility, hash_agility_value);
+            }
+        }
+
+        CFDictionaryRef hash_agility_values = NULL;
+        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(sigd->signerInfos[0], &hash_agility_values)) {
+            if (hash_agility_values) {
+                CFDictionarySetValue(attrs, kSecCMSHashAgilityV2, hash_agility_values);
             }
         }
 

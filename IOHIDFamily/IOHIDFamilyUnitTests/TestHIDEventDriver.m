@@ -773,6 +773,46 @@
 
 }
 
+- (void)EMBEDDED_OS_ONLY_TEST_CASE(testCarpaySelectButton) {
+    
+    IOReturn status;
+    
+    static uint8_t descriptor [] = {HIDCarplaySelectButton};
+    
+    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
+    [self setupTestSystem :  descriptorData];
+    
+    HIDCarplaySelectButtonInputReport report;
+    memset (&report, 0 , sizeof(report));
+    
+    report.BTN_ConsumerControlButton1 = 1;
+    
+    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
+    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
+    
+    report.BTN_ConsumerControlButton1 = 0;
+
+    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
+    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
+    
+    // Allow event to be dispatched
+    usleep(kDefaultReportDispatchCompletionTime);
+    
+    NSArray *events = nil;
+    @synchronized (self.eventController.events) {
+        events = [self.eventController.events copy];
+    }
+    
+    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
+    
+    HIDTestEventLatency(stats);
+    
+    XCTAssert(stats.totalCount == 2,
+              "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 2, events);
+    
+    XCTAssert (stats.counts[kIOHIDEventTypePointer] == 2, "Events:%@", events);
+}
+
 @end
 
 

@@ -27,7 +27,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface CloudKitKeychainSyncingTests (APITests)
+@interface CloudKitKeychainSyncingTestsBase (APITests)
 
 - (BOOL (^)(CKRecord*))checkPCSFieldsBlock:(CKRecordZoneID*)zoneID
                       PCSServiceIdentifier:(NSNumber*)servIdentifier

@@ -125,7 +125,7 @@
                                                       state: row[@"state"]];
 }
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSDictionary<NSString*,NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
@@ -139,6 +139,22 @@
                                    }
                                         error: error];
     return results;
+}
+
++ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
+    __block NSInteger result = -1;
+
+    [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
+                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": state }
+                                      columns: @[@"count(*)"]
+                                      groupBy: nil
+                                      orderBy: nil
+                                        limit: -1
+                                   processRow: ^(NSDictionary* row) {
+                                       result = [row[@"count(*)"] integerValue];
+                                   }
+                                        error: error];
+    return result;
 }
 
 @end

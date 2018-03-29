@@ -28,6 +28,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+
+typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
+    CKKSKnownStatePossiblyGood = 0,  // State might be good: give your operation a shot!
+    CKKSKnownStateTLKsMissing = 1,   // CKKS doesn't have the TLKs: your operation will likely not succeed
+    CKKSKnownStateWaitForUnlock = 2, // CKKS has some important things to do, but the device is locked. Your operation will likely not succeed
+};
+
 @interface CKKSControl : NSObject
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -42,13 +49,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)rpcPerformanceCounters:             (void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
-- (void)rpcGetAnalyticsSysdiagnoseWithReply:(void (^)(NSString* sysdiagnose, NSError* error))reply;
-- (void)rpcGetAnalyticsJSONWithReply:       (void (^)(NSData* json, NSError* error))reply;
-- (void)rpcForceUploadAnalyticsWithReply:   (void (^)(BOOL success, NSError* error))reply;
+- (void)rpcPerformanceCounters:(void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
+- (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString* ckdeviceID))reply;
 
 // convenience wrapper for rpcStatus:reply:
 - (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
+- (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply;
 
 + (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
 

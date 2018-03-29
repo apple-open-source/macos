@@ -31,12 +31,10 @@
 #include "NetworkProcessSupplement.h"
 #include "OptionalCallbackID.h"
 #include "WebProcessSupplement.h"
-#include <WebCore/SessionID.h>
-#include <chrono>
+#include <pal/SessionID.h>
 #include <stdint.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/Vector.h>
 
 #if USE(SOUP)
 #include "SoupCookiePersistentStorageType.h"
@@ -54,7 +52,7 @@ class ChildProcess;
 class WebCookieManager : public WebProcessSupplement, public NetworkProcessSupplement, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebCookieManager);
 public:
-    WebCookieManager(ChildProcess*);
+    WebCookieManager(ChildProcess&);
 
     static const char* supplementName();
 
@@ -64,32 +62,32 @@ public:
     void setCookiePersistentStorage(const String& storagePath, uint32_t storageType);
 #endif
 
-    void notifyCookiesDidChange(WebCore::SessionID);
+    void notifyCookiesDidChange(PAL::SessionID);
 
 private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    void getHostnamesWithCookies(WebCore::SessionID, CallbackID);
+    void getHostnamesWithCookies(PAL::SessionID, CallbackID);
 
-    void deleteCookie(WebCore::SessionID, const WebCore::Cookie&, CallbackID);
-    void deleteCookiesForHostname(WebCore::SessionID, const String&);
-    void deleteAllCookies(WebCore::SessionID);
-    void deleteAllCookiesModifiedSince(WebCore::SessionID, std::chrono::system_clock::time_point, CallbackID);
+    void deleteCookie(PAL::SessionID, const WebCore::Cookie&, CallbackID);
+    void deleteCookiesForHostname(PAL::SessionID, const String&);
+    void deleteAllCookies(PAL::SessionID);
+    void deleteAllCookiesModifiedSince(PAL::SessionID, WallTime, CallbackID);
 
-    void setCookie(WebCore::SessionID, const WebCore::Cookie&, CallbackID);
-    void setCookies(WebCore::SessionID, const Vector<WebCore::Cookie>&, const WebCore::URL&, const WebCore::URL& mainDocumentURL, CallbackID);
-    void getAllCookies(WebCore::SessionID, CallbackID);
-    void getCookies(WebCore::SessionID, const WebCore::URL&, CallbackID);
+    void setCookie(PAL::SessionID, const WebCore::Cookie&, CallbackID);
+    void setCookies(PAL::SessionID, const Vector<WebCore::Cookie>&, const WebCore::URL&, const WebCore::URL& mainDocumentURL, CallbackID);
+    void getAllCookies(PAL::SessionID, CallbackID);
+    void getCookies(PAL::SessionID, const WebCore::URL&, CallbackID);
 
     void platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
     void getHTTPCookieAcceptPolicy(CallbackID);
     HTTPCookieAcceptPolicy platformGetHTTPCookieAcceptPolicy();
 
-    void startObservingCookieChanges(WebCore::SessionID);
-    void stopObservingCookieChanges(WebCore::SessionID);
+    void startObservingCookieChanges(PAL::SessionID);
+    void stopObservingCookieChanges(PAL::SessionID);
 
-    ChildProcess* m_process;
+    ChildProcess& m_process;
 };
 
 } // namespace WebKit

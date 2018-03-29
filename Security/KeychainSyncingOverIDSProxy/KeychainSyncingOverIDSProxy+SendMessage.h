@@ -25,8 +25,8 @@
 #import "IDSProxy.h"
 
 @interface KeychainSyncingOverIDSProxy (SendMessage)
--(BOOL) sendFragmentedIDSMessages:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) ourPeerID error:(NSError**) error;
--(BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) peerID;
+-(BOOL) sendFragmentedIDSMessages:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) ourPeerID senderDeviceID:(NSString*)senderDeviceID error:(NSError**) error;
+-(BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) peerID senderDeviceID:(NSString*)senderDeviceID;
 -(void) ackTimerFired:(NSString*)identifier deviceID:(NSString*)deviceID;
 -(void) setMessageTimer:(NSString*)identifier deviceID:(NSString*)deviceID message:(NSDictionary*)message;
 - (void)pingTimerFired:(NSString*)deviceID peerID:(NSString*)peerID identifier:(NSString*)identifier;

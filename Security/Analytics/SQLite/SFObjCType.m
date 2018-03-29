@@ -21,8 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "SFObjCType.h"
+#if __OBJC2__
 
+#import "SFObjCType.h"
 
 static NSArray<SFObjCType *> *_SFObjCTypesByCode = nil;
 
@@ -167,3 +168,5 @@ static NSArray<SFObjCType *> *_SFObjCTypesByCode = nil;
 }
 
 @end
+
+#endif

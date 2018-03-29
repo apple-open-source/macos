@@ -132,7 +132,9 @@ static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorRawChannel1      
 static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorRawChannel2                     =  (kIOHIDEventFieldAmbientLightSensorBase | 3);
 static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorRawChannel3                     =  (kIOHIDEventFieldAmbientLightSensorBase | 4);
 static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorLevel                           =  (kIOHIDEventFieldAmbientLightSensorBase | 0);
+static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorIlluminance                     =  (kIOHIDEventFieldAmbientLightSensorBase | 11);
 static const IOHIDEventField kIOHIDEventFieldAmbientLightDisplayBrightnessChanged              =  (kIOHIDEventFieldAmbientLightSensorBase | 5);
+static const IOHIDEventField kIOHIDEventFieldAmbientLightSensorColorTemperature                =  (kIOHIDEventFieldAmbientLightSensorBase | 10);
 
 #define kIOHIDEventFieldTemperatureBase IOHIDEventFieldBase(kIOHIDEventTypeTemperature)
 static const IOHIDEventField kIOHIDEventFieldTemperatureLevel                                  =  (kIOHIDEventFieldTemperatureBase | 0);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,15 +31,11 @@
 #include <Security/SecTask.h>
 #ifndef MINIMIZE_INCLUDES
 # include <Security/SecTrustStore.h>
-# include <Security/SecCertificatePath.h>
 #else
 typedef struct __SecTrustStore *SecTrustStoreRef;
 # ifndef _SECURITY_SECCERTIFICATE_H_
 typedef struct __SecCertificate *SecCertificateRef;
 # endif // _SECURITY_SECCERTIFICATE_H_
-# ifndef _SECURITY_SECCERTIFICATEPATH_H_
-typedef struct SecCertificatePath *SecCertificatePathRef;
-# endif // _SECURITY_SECCERTIFICATEPATH_H_
 #endif // MINIMIZE_INCLUDES
 
 #if TARGET_HAS_KEYSTORE
@@ -70,6 +66,9 @@ typedef struct SecCertificatePath *SecCertificatePathRef;
 #define kTrustdXPCServiceName "com.apple.trustd"
 #endif // *** END TARGET_OS_OSX ***
 
+#define kSecuritydGeneralServiceName "com.apple.securityd.general"
+#define kSecuritydSOSServiceName "com.apple.securityd.sos"
+
 //
 // MARK: XPC Information.
 //
@@ -85,6 +84,7 @@ extern const char *kSecXPCKeyUserLabel;
 extern const char *kSecXPCKeyBackup;
 extern const char *kSecXPCKeyKeybag;
 extern const char *kSecXPCKeyUserPassword;
+extern const char *kSecXPCKeyEMCSBackup;
 extern const char *kSecXPCKeyDSID;
 extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
@@ -180,11 +180,11 @@ enum SecXPCOperation {
     sec_item_backup_set_confirmed_manifest_id,
     sec_item_backup_restore_id,
     sec_keychain_sync_update_message_id,
-    sec_ota_pki_asset_version_id,
+    sec_ota_pki_trust_store_version_id,
     sec_otr_session_create_remote_id,
     sec_otr_session_process_packet_remote_id,
-	kSecXPCOpOTAPKIGetNewAsset,
-	kSecXPCOpOTAGetEscrowCertificates,
+    kSecXPCOpOTAPKIGetNewAsset,
+    kSecXPCOpOTAGetEscrowCertificates,
     kSecXPCOpProcessUnlockNotification,
     kSecXPCOpProcessSyncWithAllPeers,
     kSecXPCOpRollKeys,
@@ -243,7 +243,7 @@ enum SecXPCOperation {
     kSecXPCOpCopyViewUnawarePeerInfo,
     kSecXPCOpCopyEngineState,
     kSecXPCOpCopyMyPeerInfo,
-	kSecXPCOpAccountSetToNew,
+    kSecXPCOpAccountSetToNew,
     kSecXPCOpSetNewPublicBackupKey,
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
@@ -276,6 +276,7 @@ enum SecXPCOperation {
     kSecXPCOpDeleteUserView,
     sec_trust_store_copy_all_id,
     sec_trust_store_copy_usage_constraints_id,
+    sec_ocsp_cache_flush_id,
     sec_delete_items_with_access_groups_id,
     kSecXPCOpIsThisDeviceLastBackup,
     sec_keychain_backup_keybag_uuid_id,
@@ -285,11 +286,10 @@ enum SecXPCOperation {
     kSecXPCOpSendToPeerIsPending,
     sec_item_copy_parent_certificates_id,
     sec_item_certificate_exists_id,
-    kSecXPCOpCKKSEndpoint,
-    kSecXPCOpSOSEndpoint,
-    kSecXPCOpSecuritydXPCServerEndpoint,
     kSecXPCOpBackupKeybagAdd,
     kSecXPCOpBackupKeybagDelete,
+    kSecXPCOpKeychainControlEndpoint,
+    kSecXPCOpTLSAnaltyicsReport,
 };
 
 
@@ -327,7 +327,7 @@ struct securityd {
     bool (*sec_item_delete_all)(CFErrorRef* error);
     CFArrayRef (*sec_item_copy_parent_certificates)(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
     bool (*sec_item_certificate_exists)(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
-    CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
+    CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef* error);
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore_syncable)(CFDictionaryRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
@@ -337,7 +337,7 @@ struct securityd {
     bool (*sec_item_backup_restore)(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFDataRef backup, CFErrorRef *error);
     CFDataRef (*sec_otr_session_create_remote)(CFDataRef publicPeerId, CFErrorRef* error);
     bool (*sec_otr_session_process_packet_remote)(CFDataRef sessionData, CFDataRef inputPacket, CFDataRef* outputSessionData, CFDataRef* outputPacket, bool *readyForMessages, CFErrorRef* error);
-    bool (*soscc_TryUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
+    bool (*soscc_TryUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
     bool (*soscc_SetUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
     bool (*soscc_SetUserCredentialsAndDSID)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
     bool (*soscc_CanAuthenticate)(CFErrorRef *error);
@@ -437,12 +437,14 @@ struct trustd {
     bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
     bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
-    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
-    int (*sec_ota_pki_asset_version)(CFErrorRef* error);
+    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+    uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
     CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
-    int (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
+    uint64_t (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
     bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
     bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+    bool (*sec_ocsp_cache_flush)(CFErrorRef *error);
+    bool (*sec_tls_analytics_report)(CFStringRef event_name, xpc_object_t tls_analytics_attributes, CFErrorRef *error);
 };
 
 extern struct trustd *gTrustd;
@@ -470,11 +472,11 @@ XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyEndpoint(enum SecXPCOperati
 #import <Foundation/NSXPCConnection.h>
 typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 
-@protocol SecuritydXPCCallbackProtocol
+@protocol SecuritydXPCCallbackProtocol <NSObject>
 - (void)callCallback: (bool) result error:(NSError*) error;
 @end
 
-@protocol SecuritydXPCProtocol
+@protocol SecuritydXPCProtocol <NSObject>
 - (void) SecItemAddAndNotifyOnSync:(NSDictionary*) attributes
                       syncCallback:(id<SecuritydXPCCallbackProtocol>) callback
                           complete:(void (^) (NSDictionary* opDictResult, NSArray* opArrayResult, NSError* operror)) complete;

@@ -24,6 +24,11 @@
  * Use is subject to license terms.
  */
 
+ /*
+  * Copyright (c) 2011, Joyent, Inc. All rights reserved.
+  * Copyright (c) 2012 by Delphix. All rights reserved.
+  */
+
 #ifndef	_DT_ERRTAGS_H
 #define	_DT_ERRTAGS_H
 
@@ -187,8 +192,10 @@ typedef enum {
 	D_PRINTA_AGGPROTO,		/* printa() aggregation mismatch */
 	D_TRACE_VOID,			/* trace() argument has void type */
 	D_TRACE_DYN,			/* trace() argument has dynamic type */
+	D_TRACE_AGG,			/* trace() argument is an aggregation */
 	D_PRINT_VOID,			/* print() argument has void type */
 	D_PRINT_DYN,			/* print() argument has dynamic type */
+	D_PRINT_AGG,			/* print() argument is an aggregation */
 	D_TRACEMEM_ADDR,		/* tracemem() address bad type */
 	D_TRACEMEM_SIZE,		/* tracemem() size bad type */
 	D_TRACEMEM_ARGS,		/* tracemem() illegal number of args */
@@ -236,29 +243,30 @@ typedef enum {
 	D_PROV_PRDUP,			/* duplicate probe declaration */
 	D_PROV_PRARGLEN,		/* probe argument list too long */
 	D_PROV_PRXLATOR,		/* probe argument translator missing */
-	D_FREOPEN_INVALID,      /* frename() filename is invalid */
-	D_LQUANT_MATCHBASE,     /* lquantize() mismatch on base */
-	D_LQUANT_MATCHLIM,      /* lquantize() mismatch on limit */
-	D_LQUANT_MATCHSTEP,     /* lquantize() mismatch on step */
-	D_LLQUANT_FACTORTYPE,   /* llquantize() bad magnitude type */
-	D_LLQUANT_FACTORVAL,    /* llquantize() bad magnitude value */
-	D_LLQUANT_FACTORMATCH,  /* llquantize() mismatch on magnitude */
-	D_LLQUANT_LOWTYPE,      /* llquantize() bad low mag type */
-	D_LLQUANT_LOWVAL,       /* llquantize() bad low mag value */
-	D_LLQUANT_LOWMATCH,     /* llquantize() mismatch on low mag */
-	D_LLQUANT_HIGHTYPE,     /* llquantize() bad high mag type */
-	D_LLQUANT_HIGHVAL,      /* llquantize() bad high mag value */
-	D_LLQUANT_HIGHMATCH,    /* llquantize() mismatch on high mag */
-	D_LLQUANT_NSTEPTYPE,    /* llquantize() bad # steps type */
+	D_FREOPEN_INVALID,		/* frename() filename is invalid */
+	D_LQUANT_MATCHBASE,		/* lquantize() mismatch on base */
+	D_LQUANT_MATCHLIM,		/* lquantize() mismatch on limit */
+	D_LQUANT_MATCHSTEP,		/* lquantize() mismatch on step */
+	D_LLQUANT_FACTORTYPE,		/* llquantize() bad magnitude type */
+	D_LLQUANT_FACTORVAL,		/* llquantize() bad magnitude value */
+	D_LLQUANT_FACTORMATCH,		/* llquantize() mismatch on magnitude */
+	D_LLQUANT_LOWTYPE,		/* llquantize() bad low mag type */
+	D_LLQUANT_LOWVAL,		/* llquantize() bad low mag value */
+	D_LLQUANT_LOWMATCH,		/* llquantize() mismatch on low mag */
+	D_LLQUANT_HIGHTYPE,		/* llquantize() bad high mag type */
+	D_LLQUANT_HIGHVAL,		/* llquantize() bad high mag value */
+	D_LLQUANT_HIGHMATCH,		/* llquantize() mismatch on high mag */
+	D_LLQUANT_NSTEPTYPE,		/* llquantize() bad # steps type */
 	D_LLQUANT_NSTEPVAL,		/* llquantize() bad # steps value */
-	D_LLQUANT_NSTEPMATCH,	/* llquantize() mismatch on # steps */
+	D_LLQUANT_NSTEPMATCH,		/* llquantize() mismatch on # steps */
 	D_LLQUANT_MAGRANGE,		/* llquantize() bad magnitude range */
-	D_LLQUANT_FACTORNSTEPS,	/* llquantize() # steps < factor */
-	D_LLQUANT_FACTOREVEN,	/* llquantize() bad # steps/factor */
-	D_LLQUANT_FACTORSMALL,	/* llquantize() magnitude too small */
-	D_LLQUANT_MAGTOOBIG,	/* llquantize() high mag too large */
-	D_APPLE_BADPARAM,        /* apple_*() bad parameter code */
-	D_PROC_NOT_FOUND	/* proc not found in $pid_processName macro */
+	D_LLQUANT_FACTORNSTEPS,		/* llquantize() # steps < factor */
+	D_LLQUANT_FACTOREVEN,		/* llquantize() bad # steps/factor */
+	D_LLQUANT_FACTORSMALL,		/* llquantize() magnitude too small */
+	D_LLQUANT_MAGTOOBIG,		/* llquantize() high mag too large */
+	D_NOREG,			/* no available internal registers */
+	D_APPLE_BADPARAM,		/* apple_*() bad parameter code */
+	D_PROC_NOT_FOUND		/* proc not found in $pid_processName macro */
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

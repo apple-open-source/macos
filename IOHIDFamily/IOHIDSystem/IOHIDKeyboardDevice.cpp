@@ -26,6 +26,7 @@
 
 #include "IOHIDKeyboardDevice.h" 
 #include "IOHIDPrivateKeys.h"
+#include "IOHIDUsageTables.h"
 
 typedef struct __attribute__((packed)) GenericKeyboardRpt {
     UInt8 modifiers;

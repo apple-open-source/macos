@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004,2006-2010,2013-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,9 @@ __BEGIN_DECLS
 // Opaque type that holds the data for a specific version of the OTA PKI assets
 typedef struct _OpaqueSecOTAPKI *SecOTAPKIRef;
 
+// Returns a boolean for whether the current instance is the system trustd
+bool SecOTAPKIIsSystemTrustd(void);
+
 // Get a reference to the current OTA PKI asset data
 // Caller is responsible for releasing the returned SecOTAPKIRef
 CF_EXPORT
@@ -65,10 +68,10 @@ CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRe
 CF_EXPORT
 CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve a copy of the current pinning list.
-// Caller is responsible for releasing the returned CFArrayRef
+// Accessor to retrieve the path of the current pinning list.
+// Caller is responsible for releasing the returned CFURLRef
 CF_EXPORT
-CFArrayRef SecOTAPKICopyPinningList(SecOTAPKIRef otapkiRef);
+CFURLRef SecOTAPKICopyPinningList(SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve the array of Escrow certificates.
 // Caller is responsible for releasing the returned CFArrayRef
@@ -116,27 +119,46 @@ CFIndex SecOTAPKIGetValidSnapshotVersion(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 CFIndex SecOTAPKIGetValidSnapshotFormat(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the current OTA PKI asset version number
+// Accessor to retrieve the OTAPKI trust store version
+// Note: Trust store is not mutable by assets
 CF_EXPORT
-int SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef);
+uint64_t SecOTAPKIGetTrustStoreVersion(SecOTAPKIRef otapkiRef);
 
-// Signal that a new OTA PKI asset version is available. This call
-// will update the current SecOTAPKIRef to now reference the latest
-// asset data
+// Accessor to retrieve the OTAPKI asset version
 CF_EXPORT
-void SecOTAPKIRefreshData(void);
+uint64_t SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef);
+
+#if __OBJC__
+// SPI to return the current sampling rate for the event name
+// This rate is actually n where we sample 1 out of every n
+NSNumber *SecOTAPKIGetSamplingRateForEvent(SecOTAPKIRef otapkiRef, NSString *eventName);
+#endif // __OBJC__
+
+CFArrayRef SecOTAPKICopyAppleCertificateAuthorities(SecOTAPKIRef otapkiRef);
 
 // SPI to return the array of currently trusted Escrow certificates
 CF_EXPORT
 CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error);
 
+// SPI to return the current OTA PKI trust store version
+// Note: Trust store is not mutable by assets
+CF_EXPORT
+uint64_t SecOTAPKIGetCurrentTrustStoreVersion(CFErrorRef* CF_RETURNS_RETAINED  error);
+
 // SPI to return the current OTA PKI asset version
 CF_EXPORT
-int SecOTAPKIGetCurrentAssetVersion(CFErrorRef* error);
+uint64_t SecOTAPKIGetCurrentAssetVersion(CFErrorRef* error);
 
-// SPI to signal securityd to get a new set of trust data
+// SPI to reset the current OTA PKI asset version to the version shipped
+// with the system
 CF_EXPORT
-int SecOTAPKISignalNewAsset(CFErrorRef* error);
+uint64_t SecOTAPKIResetCurrentAssetVersion(CFErrorRef* CF_RETURNS_RETAINED  error);
+
+// SPI to signal trustd to get a new set of trust data
+// Always returns the current asset version. Returns an error with
+// a reason if the update was not successful.
+CF_EXPORT
+uint64_t SecOTAPKISignalNewAsset(CFErrorRef* CF_RETURNS_RETAINED error);
 
 __END_DECLS
 

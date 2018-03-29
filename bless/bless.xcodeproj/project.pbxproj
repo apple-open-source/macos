@@ -190,6 +190,8 @@
 		FC4376001DFD3E4C0018A727 /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4375FF1DFD3E020018A727 /* APFS.framework */; };
 		FC48D0091F01B66500462641 /* blessUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = FC48D0081F01B66500462641 /* blessUtilities.c */; };
 		FC4A2ABA1B0A6DE0005044BB /* BLGetOSVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA42D71B0A4AB60044E800 /* BLGetOSVersion.c */; };
+		FC4A58401F86A12F00F15E95 /* personalize.m in Sources */ = {isa = PBXBuildFile; fileRef = FC4A583E1F86A12F00F15E95 /* personalize.m */; };
+		FC4A58421F86D9CB00F15E95 /* Bom.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4A58411F86D9CB00F15E95 /* Bom.framework */; };
 		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; };
 /* End PBXBuildFile section */
 
@@ -436,6 +438,8 @@
 		FC4375F81DFD29E60018A727 /* BLAPFSUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLAPFSUtilities.c; sourceTree = "<group>"; };
 		FC4375FF1DFD3E020018A727 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = /System/Library/PrivateFrameworks/APFS.framework; sourceTree = "<absolute>"; };
 		FC48D0081F01B66500462641 /* blessUtilities.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = blessUtilities.c; sourceTree = "<group>"; };
+		FC4A583E1F86A12F00F15E95 /* personalize.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; path = personalize.m; sourceTree = "<group>"; };
+		FC4A58411F86D9CB00F15E95 /* Bom.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Bom.framework; path = System/Library/PrivateFrameworks/Bom.framework; sourceTree = SDKROOT; };
 		FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSPersonalization.framework; path = ../../../System/Library/PrivateFrameworks/OSPersonalization.framework; sourceTree = "<group>"; };
 		FCA377641D9210F5009EF117 /* BLIsMountAPFS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsMountAPFS.c; sourceTree = "<group>"; };
 		FCA377661D92FD58009EF117 /* BLHandleAPFSBlessData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLHandleAPFSBlessData.c; sourceTree = "<group>"; };
@@ -457,6 +461,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC4A58421F86D9CB00F15E95 /* Bom.framework in Frameworks */,
 				FC4376001DFD3E4C0018A727 /* APFS.framework in Frameworks */,
 				C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */,
 				C617597E057E749600252FAB /* IOKit.framework in Frameworks */,
@@ -536,6 +541,7 @@
 				BA92249A03A7F164000BA4D4 /* setOFLabel.c */,
 				BAA914300429422700B0AD74 /* extractBootBlocks.c */,
 				FC424F961E8387170088DAEE /* manifests.m */,
+				FC4A583E1F86A12F00F15E95 /* personalize.m */,
 				FC48D0081F01B66500462641 /* blessUtilities.c */,
 				BA3A398B04C8AB2200E2414C /* test */,
 				BA10D77D04FADE430070B3E0 /* minibless.c */,
@@ -710,6 +716,7 @@
 		F61E91F701A4B30C01F50364 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FC4A58411F86D9CB00F15E95 /* Bom.framework */,
 				FC4375FF1DFD3E020018A727 /* APFS.framework */,
 				C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */,
 				F61E91F801A4B30C01F50364 /* CoreFoundation.framework */,
@@ -1043,6 +1050,7 @@
 			files = (
 				C6175976057E749600252FAB /* bless.c in Sources */,
 				C6175977057E749600252FAB /* usage.c in Sources */,
+				FC4A58401F86A12F00F15E95 /* personalize.m in Sources */,
 				C6175978057E749600252FAB /* handleDevice.c in Sources */,
 				C6175979057E749600252FAB /* handleFolder.c in Sources */,
 				FC424F971E8387170088DAEE /* manifests.m in Sources */,
@@ -1251,7 +1259,7 @@
 		BA3D815C086C4E9C00484376 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1264,7 +1272,7 @@
 		BA3D815D086C4E9C00484376 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1302,11 +1310,12 @@
 		BA4E13E70C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
@@ -1320,7 +1329,7 @@
 		BA4E13E80C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1343,7 +1352,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1361,7 +1370,7 @@
 		BA4E13EA0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
 				INSTALL_PATH = /usr/local/bin;
@@ -1374,7 +1383,7 @@
 		BA4E13EC0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1392,7 +1401,7 @@
 		BA4E13ED0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1407,7 +1416,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1428,11 +1437,12 @@
 		BA7EB3D1086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1456,7 +1466,7 @@
 		BA7EB3D6086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1477,7 +1487,7 @@
 		BA7EB3DB086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1503,7 +1513,7 @@
 		BA7EB3E5086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1540,7 +1550,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1561,11 +1571,12 @@
 		BA7EB485086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1590,7 +1601,7 @@
 		BA7EB486086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1611,7 +1622,7 @@
 		BA7EB487086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1637,7 +1648,7 @@
 		BA7EB489086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1695,7 +1706,7 @@
 		C68F27350CC13BCF00E3CD6A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1711,7 +1722,7 @@
 		C68F27360CC13BCF00E3CD6A /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
@@ -1724,7 +1735,7 @@
 		C68F27370CC13BCF00E3CD6A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 157;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (

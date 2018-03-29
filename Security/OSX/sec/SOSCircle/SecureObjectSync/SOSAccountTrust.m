@@ -6,6 +6,8 @@
 #import "Security/SecureObjectSync/SOSAccountTrust.h"
 
 @implementation SOSAccountTrust
+@synthesize cachedOctagonEncryptionKey = _cachedOctagonEncryptionKey;
+@synthesize cachedOctagonSigningKey = _cachedOctagonSigningKey;
 
 +(instancetype)trust
 {
@@ -40,6 +42,15 @@
         self.expansion = e;
     }
     return self;
+}
+- (void)dealloc {
+    if(self) {
+        CFReleaseNull(self->fullPeerInfo);
+        CFReleaseNull(self->peerInfo);
+        CFReleaseNull(self->trustedCircle);
+        CFReleaseNull(self->_cachedOctagonSigningKey);
+        CFReleaseNull(self->_cachedOctagonEncryptionKey);
+    }
 }
 
 - (SOSPeerInfoRef) peerInfo {

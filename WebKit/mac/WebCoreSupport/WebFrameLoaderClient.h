@@ -38,6 +38,10 @@
 @class WebHistoryItem;
 @class WebResource;
 
+namespace PAL {
+class SessionID;
+}
+
 namespace WebCore {
 class AuthenticationChallenge;
 class CachedFrame;
@@ -45,7 +49,6 @@ class HistoryItem;
 class ProtectionSpace;
 class ResourceLoader;
 class ResourceRequest;
-class SessionID;
 }
 
 class WebFrameLoaderClient : public WebCore::FrameLoaderClient {
@@ -59,6 +62,10 @@ private:
     void frameLoaderDestroyed() final;
     bool hasWebView() const final; // mainly for assertions
 
+    std::optional<uint64_t> pageID() const final;
+    std::optional<uint64_t> frameID() const final;
+    PAL::SessionID sessionID() const final;
+
     void makeRepresentation(WebCore::DocumentLoader*) final;
     bool hasHTMLView() const final;
 #if PLATFORM(IOS)
@@ -71,7 +78,7 @@ private:
     void detachedFromParent2() final;
     void detachedFromParent3() final;
 
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, WebCore::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
 
     void assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&) final;
 
@@ -126,7 +133,7 @@ private:
     void dispatchUnableToImplementPolicy(const WebCore::ResourceError&) final;
 
     void dispatchWillSendSubmitEvent(Ref<WebCore::FormState>&&) final;
-    void dispatchWillSubmitForm(WebCore::FormState&, WebCore::FramePolicyFunction&&) final;
+    void dispatchWillSubmitForm(WebCore::FormState&, WTF::Function<void(void)>&&) final;
 
     void revertToProvisionalState(WebCore::DocumentLoader*) final;
     void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&) final;
@@ -208,8 +215,8 @@ private:
     void redirectDataToPlugin(WebCore::Widget&) final;
 
 #if ENABLE(WEBGL)
-    WebCore::WebGLLoadPolicy webGLPolicyForURL(const String&) const final;
-    WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(const String&) const final;
+    WebCore::WebGLLoadPolicy webGLPolicyForURL(const WebCore::URL&) const final;
+    WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(const WebCore::URL&) const final;
 #endif
 
     RefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement&, const WebCore::URL& baseURL,
@@ -234,10 +241,6 @@ private:
 
     Ref<WebCore::FrameNetworkingContext> createNetworkingContext() final;
 
-#if ENABLE(REQUEST_AUTOCOMPLETE)
-    void didRequestAutocomplete(Ref<WebCore::FormState>&&) final { }
-#endif
-
     bool shouldPaintBrokenImage(const WebCore::URL&) const final;
 
 #if USE(QUICK_LOOK)
@@ -250,7 +253,6 @@ private:
 
     void prefetchDNS(const String&) final;
 
-    bool useIconLoadingClient() final { return true; }
     void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) final;
     void finishedLoadingIcon(uint64_t, WebCore::SharedBuffer*) final;
 

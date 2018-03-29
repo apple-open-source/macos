@@ -52,6 +52,7 @@
 #include <keychain/ckks/CKKSKey.h>
 #include "keychain/ckks/CKKSGroupOperation.h"
 #include "keychain/ckks/CKKSLockStateTracker.h"
+#include "keychain/ckks/CKKSReachabilityTracker.h"
 
 #import "MockCloudKit.h"
 
@@ -73,6 +74,7 @@
 + (void)setUp {
     // Turn on testing
     SecCKKSTestsEnable();
+    SecCKKSSetReduceRateLimiting(true);
     [super setUp];
 
 #if NO_SERVER
@@ -92,6 +94,7 @@
     SecCKKSTestSetDisableSOS(true);
 
     self.silentFetchesAllowed = true;
+    self.silentZoneDeletesAllowed = false; // Set to true if you want to do any deletes
 
     __weak __typeof(self) weakSelf = self;
     self.operationQueue = [[NSOperationQueue alloc] init];
@@ -119,6 +122,7 @@
 
     self.accountStatus = CKAccountStatusAvailable;
     self.supportsDeviceToDeviceEncryption = YES;
+    self.iCloudHasValidCredentials = YES;
 
     // Inject a fake operation dependency so we won't respond with the CloudKit account status immediately
     // The CKKSCKAccountStateTracker won't send any login/logout calls without that information, so this blocks all CKKS setup
@@ -153,6 +157,7 @@
                 CKAccountInfo* account = [[CKAccountInfo alloc] init];
                 account.accountStatus = blockStrongSelf.accountStatus;
                 account.supportsDeviceToDeviceEncryption = blockStrongSelf.supportsDeviceToDeviceEncryption;
+                account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
                 account.accountPartition = CKAccountPartitionTypeProduction;
                 passedBlock((CKAccountInfo*)account, nil);
             }];
@@ -190,8 +195,13 @@
     self.mockLockStateTracker = OCMClassMock([CKKSLockStateTracker class]);
     OCMStub([self.mockLockStateTracker queryAKSLocked]).andCall(self, @selector(aksLockState));
 
+    self.reachabilityFlags = kSCNetworkReachabilityFlagsReachable; // Lie and say network is available
+    self.mockReachabilityTracker = OCMClassMock([CKKSReachabilityTracker class]);
+    OCMStub([self.mockReachabilityTracker getReachabilityFlags:[OCMArg anyPointer]]).andCall(self, @selector(reachabilityFlags));
+
     self.mockFakeCKModifyRecordZonesOperation = OCMClassMock([FakeCKModifyRecordZonesOperation class]);
     OCMStub([self.mockFakeCKModifyRecordZonesOperation ckdb]).andReturn(self.zones);
+    OCMStub([self.mockFakeCKModifyRecordZonesOperation ensureZoneDeletionAllowed:[OCMArg any]]).andCall(self, @selector(ensureZoneDeletionAllowed:));
 
     self.mockFakeCKModifySubscriptionsOperation = OCMClassMock([FakeCKModifySubscriptionsOperation class]);
     OCMStub([self.mockFakeCKModifySubscriptionsOperation ckdb]).andReturn(self.zones);
@@ -293,12 +303,21 @@
     }
 }
 
+
+- (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone {
+    XCTAssertTrue(self.silentZoneDeletesAllowed, "Should be allowing zone deletes");
+}
+
 -(CKKSCKAccountStateTracker*)accountStateTracker {
     return self.injectedManager.accountTracker;
 }
 
 -(CKKSLockStateTracker*)lockStateTracker {
     return self.injectedManager.lockStateTracker;
+}
+
+-(CKKSReachabilityTracker*)reachabilityTracker {
+    return self.injectedManager.reachabilityTracker;
 }
 
 -(NSSet*)managedViewList {
@@ -471,7 +490,21 @@
 - (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
                  tlkShareRecords:(NSUInteger)expectedTLKShareRecords
-                          zoneID:(CKRecordZoneID*)zoneID {
+                          zoneID:(CKRecordZoneID*)zoneID
+{
+    return [self expectCKModifyKeyRecords:expectedNumberOfRecords
+                 currentKeyPointerRecords:expectedCurrentKeyRecords
+                          tlkShareRecords:expectedTLKShareRecords
+                                   zoneID:zoneID
+                      checkModifiedRecord:nil];
+}
+
+- (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
+        currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                 tlkShareRecords:(NSUInteger)expectedTLKShareRecords
+                          zoneID:(CKRecordZoneID*)zoneID
+             checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkModifiedRecord
+{
     NSNumber* nkeys = [NSNumber numberWithUnsignedInteger: expectedNumberOfRecords];
     NSNumber* ncurrentkeys = [NSNumber numberWithUnsignedInteger: expectedCurrentKeyRecords];
     NSNumber* ntlkshares = [NSNumber numberWithUnsignedInteger: expectedTLKShareRecords];
@@ -482,7 +515,7 @@
                                   }
         deletedRecordTypeCounts:nil
                          zoneID:zoneID
-            checkModifiedRecord:nil
+            checkModifiedRecord:checkModifiedRecord
            runAfterModification:nil];
 }
 
@@ -737,14 +770,18 @@
         if ([obj isKindOfClass:[CKModifyRecordsOperation class]]) {
             CKModifyRecordsOperation *op = (CKModifyRecordsOperation *)obj;
 
+            secnotice("fakecloudkit", "checking for expectCKAtomicModifyItemRecordsUpdateFailure");
+
             if(!op.atomic) {
                 // We only care about atomic operations
+                secnotice("fakecloudkit", "expectCKAtomicModifyItemRecordsUpdateFailure: update not atomic");
                 return NO;
             }
 
             // We want to only match zone updates pertaining to this zone
             for(CKRecord* record in op.recordsToSave) {
                 if(![record.recordID.zoneID isEqual: zoneID]) {
+                    secnotice("fakecloudkit", "expectCKAtomicModifyItemRecordsUpdateFailure: %@ is not %@", record.recordID.zoneID, zoneID);
                     return NO;
                 }
             }
@@ -767,6 +804,8 @@
 
             if(rejected) {
                 [strongSelf rejectWrite: op failedRecords:failedRecords];
+            } else {
+                secnotice("fakecloudkit", "expectCKAtomicModifyItemRecordsUpdateFailure: doesn't seem like an error to us");
             }
         }
         return rejected ? YES : NO;
@@ -811,7 +850,7 @@
 
     // We're updating the device state type on every update, so add it in here
     NSMutableDictionary* expectedRecords = [@{
-                                              SecCKRecordDeviceStateType: [NSNumber numberWithUnsignedInt: 1],
+                                              SecCKRecordDeviceStateType: [NSNumber numberWithUnsignedInteger:expectedNumberOfRecords],
                                               } mutableCopy];
     if(SecCKKSSyncManifests()) {
         // TODO: this really shouldn't be 2.
@@ -840,6 +879,8 @@
     if(SecCKKSIsEnabled()) {
         self.accountStatus = CKAccountStatusCouldNotDetermine;
 
+        // If the test never initialized the account state, don't call status later
+        bool callStatus = [self.ckaccountHoldOperation isFinished];
         [self.ckaccountHoldOperation cancel];
         self.ckaccountHoldOperation = nil;
 
@@ -849,6 +890,16 @@
 
         XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:2*NSEC_PER_SEC],
             "Timeout did not occur waiting for SecCKKSInitialize");
+
+        // Ensure that we can fetch zone status for all zones
+        if(callStatus) {
+            XCTestExpectation *statusReturned = [self expectationWithDescription:@"status returned"];
+            [self.injectedManager rpcStatus:nil reply:^(NSArray<NSDictionary *> *result, NSError *error) {
+                XCTAssertNil(error, "Should be no error fetching status");
+                [statusReturned fulfill];
+            }];
+            [self waitForExpectations: @[statusReturned] timeout:5];
+        }
 
         // Make sure this happens before teardown.
         XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:1*NSEC_PER_SEC], "Account state tracker initialized itself");
@@ -870,6 +921,9 @@
 
     [self.mockLockStateTracker stopMocking];
     self.mockLockStateTracker = nil;
+
+    [self.mockReachabilityTracker stopMocking];
+    self.mockReachabilityTracker = nil;
 
     [self.mockFakeCKModifyRecordZonesOperation stopMocking];
     self.mockFakeCKModifyRecordZonesOperation = nil;

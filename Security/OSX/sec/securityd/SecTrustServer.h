@@ -32,13 +32,15 @@
 
 #include <Security/SecTrust.h>
 #include <Security/SecBasePriv.h> /* For errSecWaitForCallback. */
-#include <Security/SecCertificatePath.h>
 #include <securityd/SecCertificateServer.h>
 #include <securityd/SecCertificateSource.h>
 #include <mach/port.h>
 
-
 __BEGIN_DECLS
+
+/* CRLs only implemented for macOS for legacy compatibility purposes using
+ * ocspd's (legacy) interfaces */
+#define ENABLE_CRLS TARGET_OS_OSX
 
 typedef struct SecPathBuilder *SecPathBuilderRef;
 
@@ -60,7 +62,7 @@ struct OpaqueSecPVC {
 
 /* Completion callback. */
 typedef void(*SecPathBuilderCompleted)(const void *userData,
-    SecCertificatePathRef chain, CFArrayRef details, CFDictionaryRef info,
+    CFArrayRef chain, CFArrayRef details, CFDictionaryRef info,
     SecTrustResultType result);
 
 /* Returns a new trust path builder and policy evaluation engine instance. */
@@ -83,6 +85,7 @@ CFArrayRef SecPathBuilderCopySignedCertificateTimestamps(SecPathBuilderRef build
 CFArrayRef SecPathBuilderCopyOCSPResponses(SecPathBuilderRef builder);
 CFArrayRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder);
 
+CFSetRef SecPathBuilderGetAllPaths(SecPathBuilderRef builder);
 SecCertificatePathVCRef SecPathBuilderGetPath(SecPathBuilderRef builder);
 SecCertificatePathVCRef SecPathBuilderGetBestPath(SecPathBuilderRef builder);
 CFAbsoluteTime SecPathBuilderGetVerifyTime(SecPathBuilderRef builder);
@@ -97,14 +100,16 @@ bool SecPathBuilderHasTemporalParentChecks(SecPathBuilderRef builder);
  * as trust in an anchor is contextual to the policy being validated. */
 bool SecPathBuilderIsAnchored(SecPathBuilderRef builder);
 bool SecPathBuilderIsAnchorSource(SecPathBuilderRef builder, SecCertificateSourceRef source);
-
+SecCertificateSourceRef SecPathBuilderGetAppAnchorSource(SecPathBuilderRef builder);
 
 CFIndex SecPathBuilderGetPVCCount(SecPathBuilderRef builder);
 SecPVCRef SecPathBuilderGetPVCAtIndex(SecPathBuilderRef builder, CFIndex ix);
 
+/* Returns the first PVC that passed */
+SecPVCRef SecPathBuilderGetResultPVC(SecPathBuilderRef builder);
+
 void SecPathBuilderSetResultInPVCs(SecPathBuilderRef builder, CFStringRef key,
-                                   CFIndex ix, CFTypeRef result, bool force,
-                                   SecTrustResultType resultType);
+                                   CFIndex ix, CFTypeRef result, bool force);
 
 /* This is a pre-decrement operation */
 unsigned int SecPathBuilderDecrementAsyncJobCount(SecPathBuilderRef builder);
@@ -134,12 +139,65 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 
 /* Evaluate trust and call evaluated when done. */
-void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
+void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
 
-void InitializeAnchorTable(void);
+/* TrustAnalytics builder types */
+typedef CF_OPTIONS(uint8_t, TA_SCTSource) {
+    TA_SCTEmbedded  = 1 << 0,
+    TA_SCT_OCSP     = 1 << 1,
+    TA_SCT_TLS      = 1 << 2,
+};
+
+typedef CF_OPTIONS(uint8_t, TAValidStatus) {
+    TAValidDefinitelyOK          = 1 << 0,
+    TAValidProbablyOK            = 1 << 1,
+    TAValidProbablyRevoked       = 1 << 2,
+    TAValidDefinitelyRevoked     = 1 << 3,
+    TAValidDateConstrainedOK     = 1 << 4,
+    TAValidDateContrainedRevoked = 1 << 5,
+};
+
+typedef struct {
+    uint64_t start_time;
+    // Certificate Transparency
+    TA_SCTSource sct_sources;
+    uint32_t number_scts;
+    uint32_t number_trusted_scts;
+    size_t total_sct_size;
+    // CAIssuer
+    bool ca_issuer_cache_hit;
+    bool ca_issuer_network;
+    uint32_t ca_issuer_fetches;
+    uint64_t ca_issuer_fetch_time;
+    uint32_t ca_issuer_fetch_failed;
+    bool ca_issuer_unsupported_data;
+    bool ca_issuer_multiple_certs;
+    // OCSP
+    bool ocsp_no_check;
+    bool ocsp_cache_hit;
+    bool ocsp_network;
+    uint32_t ocsp_fetches;
+    uint64_t ocsp_fetch_time;
+    uint32_t ocsp_fetch_failed;
+    bool ocsp_validation_failed;
+#if ENABLE_CRLS
+    // CRLs
+    bool crl_client;
+    bool crl_cert;
+    uint32_t crl_fetches;
+    uint64_t crl_fetch_time;
+    uint32_t crl_fetch_failed;
+#endif
+    // Valid
+    TAValidStatus valid_status;
+    bool valid_trigger_ocsp;
+    bool valid_require_ct;
+} TrustAnalyticsBuilder;
+
+TrustAnalyticsBuilder *SecPathBuilderGetAnalyticsData(SecPathBuilderRef builder);
 
 __END_DECLS
 

@@ -1134,6 +1134,10 @@ static bool globalContextNameTest()
     return result;
 }
 
+#if COMPILER(GCC)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
 static void checkConstnessInJSObjectNames()
 {
     JSStaticFunction fun;
@@ -1141,6 +1145,9 @@ static void checkConstnessInJSObjectNames()
     JSStaticValue val;
     val.name = "something";
 }
+#if COMPILER(GCC)
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -2033,6 +2040,22 @@ int main(int argc, char* argv[])
         JSGlobalContextRelease(context);
     }
 
+    // Check JSObjectGetGlobalContext
+    {
+        JSGlobalContextRef context = JSGlobalContextCreateInGroup(NULL, NULL);
+        {
+            JSObjectRef globalObject = JSContextGetGlobalObject(context);
+            assertTrue(JSObjectGetGlobalContext(globalObject) == context, "global object context is correct");
+            JSObjectRef object = JSObjectMake(context, NULL, NULL);
+            assertTrue(JSObjectGetGlobalContext(object) == context, "regular object context is correct");
+            JSStringRef returnFunctionSource = JSStringCreateWithUTF8CString("return this;");
+            JSObjectRef theFunction = JSObjectMakeFunction(context, NULL, 0, NULL, returnFunctionSource, NULL, 1, NULL);
+            assertTrue(JSObjectGetGlobalContext(theFunction) == context, "function object context is correct");
+            assertTrue(JSObjectGetGlobalContext(NULL) == NULL, "NULL object context is NULL");
+            JSStringRelease(returnFunctionSource);
+        }
+        JSGlobalContextRelease(context);
+    }
     failed = testTypedArrayCAPI() || failed;
     failed = testExecutionTimeLimit() || failed;
     failed = testFunctionOverrides() || failed;

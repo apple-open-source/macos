@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,42 +43,63 @@ class Text;
 class RenderTreeUpdater {
 public:
     RenderTreeUpdater(Document&);
+    ~RenderTreeUpdater();
 
     void commit(std::unique_ptr<const Style::Update>);
 
-    enum class TeardownType { Normal, KeepHoverAndActive };
-    static void tearDownRenderers(Element&, TeardownType = TeardownType::Normal);
+    static void tearDownRenderers(Element&);
     static void tearDownRenderer(Text&);
 
+    class FirstLetter;
+    class ListItem;
+
 private:
+    class GeneratedContent;
+    class MultiColumn;
+
     void updateRenderTree(ContainerNode& root);
-    void updateTextRenderer(Text&);
+    void updateTextRenderer(Text&, const Style::TextUpdate*);
     void updateElementRenderer(Element&, const Style::ElementUpdate&);
     void createRenderer(Element&, RenderStyle&&);
-    void invalidateWhitespaceOnlyTextSiblingsAfterAttachIfNeeded(Node&);
-    void updateBeforeOrAfterPseudoElement(Element&, PseudoId);
+    void updateBeforeDescendants(Element&, const Style::ElementUpdates*);
+    void updateAfterDescendants(Element&, const Style::ElementUpdates*);
+    bool textRendererIsNeeded(const Text& textNode);
+    void storePreviousRenderer(Node&);
 
     struct Parent {
         Element* element { nullptr };
-        Style::Change styleChange { Style::NoChange };
+        const Style::ElementUpdates* updates { nullptr };
         std::optional<RenderTreePosition> renderTreePosition;
 
+        bool didCreateOrDestroyChildRenderer { false };
+        RenderObject* previousChildRenderer { nullptr };
+
         Parent(ContainerNode& root);
-        Parent(Element&, Style::Change);
+        Parent(Element&, const Style::ElementUpdates*);
     };
     Parent& parent() { return m_parentStack.last(); }
+    Parent& renderingParent();
     RenderTreePosition& renderTreePosition();
 
-    void pushParent(Element&, Style::Change);
+    GeneratedContent& generatedContent() { return *m_generatedContent; }
+
+    void pushParent(Element&, const Style::ElementUpdates*);
     void popParent();
     void popParentsToDepth(unsigned depth);
+
+    enum class TeardownType { Full, RendererUpdate, RendererUpdateCancelingAnimations };
+    static void tearDownRenderers(Element&, TeardownType);
+    static void tearDownTextRenderer(Text&);
+    static void tearDownLeftoverShadowHostChildren(Element&);
+
+    RenderView& renderView();
 
     Document& m_document;
     std::unique_ptr<const Style::Update> m_styleUpdate;
 
     Vector<Parent> m_parentStack;
 
-    HashSet<Text*> m_invalidatedWhitespaceOnlyTextSiblings;
+    std::unique_ptr<GeneratedContent> m_generatedContent;
 };
 
 } // namespace WebCore

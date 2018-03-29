@@ -52,19 +52,20 @@ enum {
     kHID_ES_EventCallback               = 0x2010,       //0x5238040
     kHID_ES_FiltersClientsDone          = 0x2011,       //0x5238044
     kHID_ES_SystemFilterDone            = 0x2012,       //0x5238048
-    kHID_ES_ClientsDone                 = 0x2013,       //0x523804c
+    kHID_ES_ClientsEnqueue              = 0x2013,       //0x523804c
     kHID_ES_Client_QueueCallback        = 0x2020,       //0x5238080
     kHID_ES_Conn_DispatchEvent          = 0x2030,       //0x52380c0
     kHID_ES_Service_Callback            = 0x2040,       //0x5238100
     kHID_ES_Service_Create              = 0x2041,       //0x5238104
     kHID_ES_Service_Open                = 0x2042,       //0x5238108
-    kHID_ES_Service_FiltersDone         = 0x2043,       //0x523810c
+    kHID_ES_Service_Filters             = 0x2043,       //0x523810c
     kHID_ES_Service_Notification        = 0x2044,       //0x5238110
     kHID_ES_Service_Close               = 0x2045,       //0x5238114
     kHID_ES_Service_Async               = 0x2046,       //0x5238118
+    kHID_ES_Service_CopyEvent           = 0x2047,       //0x523811c
     kHID_ES_Session_Callback            = 0x2050,       //0x5238140
     kHID_ES_Session_Dispatch            = 0x2051,       //0x5238144
-    kHID_ES_Session_FiltersDone         = 0x2052
+    kHID_ES_Session_Filters             = 0x2052        //0x5238148
 };
 
 #define IOHID_DEBUG_CODE(code)          IOKDBG_CODE(DBG_IOHID, code)

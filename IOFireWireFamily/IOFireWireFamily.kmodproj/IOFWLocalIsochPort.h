@@ -79,7 +79,7 @@ class IOFWLocalIsochPort : public IOFWIsochPort
 
 	protected :
 	
-		virtual void 			free ( void ) ;
+		virtual void 			free ( void ) APPLE_KEXT_OVERRIDE;
 
 	public:
 	
@@ -91,15 +91,15 @@ class IOFWLocalIsochPort : public IOFWIsochPort
 		// (bit n set = chan n supported)
 		virtual IOReturn 		getSupported (
 										IOFWSpeed &				maxSpeed, 
-										UInt64 &				chanSupported ) ;
+										UInt64 &				chanSupported ) APPLE_KEXT_OVERRIDE;
 	
 		// Allocate hardware resources for port
 		virtual IOReturn 		allocatePort (
 										IOFWSpeed 				speed, 
-										UInt32 					chan ) ;
-		virtual IOReturn 		releasePort ( void ) ;	// Free hardware resources
-		virtual IOReturn 		start ( void ) ;		// Start port processing packets
-		virtual IOReturn 		stop ( void ) ;		// Stop processing packets
+										UInt32 					chan ) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn 		releasePort ( void ) APPLE_KEXT_OVERRIDE;	// Free hardware resources
+		virtual IOReturn 		start ( void ) APPLE_KEXT_OVERRIDE;		// Start port processing packets
+		virtual IOReturn 		stop ( void ) APPLE_KEXT_OVERRIDE;		// Stop processing packets
 	
 		/*! @function notify
 			@abstract Informs hardware of a change to the DCL program.

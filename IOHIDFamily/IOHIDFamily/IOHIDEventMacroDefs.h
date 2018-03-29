@@ -2117,6 +2117,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             ((IOHIDAmbientLightSensorEventData*)event)->colorComponent2 = (typeof(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2)) CAST_INTEGER_TO_DOUBLE(value); \
             break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature)) CAST_INTEGER_TO_DOUBLE(value); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->illuminance = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->illuminance)) CAST_INTEGER_TO_DOUBLE(value); \
+            break; \
         _IOHIDAmbientLightSensorSetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -2156,6 +2162,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
             break; \
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             value = (typeof(value))CAST_DOUBLE_TO_INTEGER(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            value = (typeof(value))CAST_DOUBLE_TO_INTEGER(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            value = (typeof(value))CAST_DOUBLE_TO_INTEGER(((__IOHIDAmbientLightSensorEventData*)event)->illuminance); \
             break; \
         _IOHIDAmbientLightSensorGetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
@@ -2197,6 +2209,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             ((IOHIDAmbientLightSensorEventData*)event)->colorComponent2 = (typeof(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2)) CAST_DOUBLE_TO_DOUBLE(value); \
             break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature)) CAST_DOUBLE_TO_DOUBLE(value); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->illuminance = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->illuminance)) CAST_DOUBLE_TO_DOUBLE(value); \
+            break; \
         _IOHIDAmbientLightSensorSetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -2236,6 +2254,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
             break; \
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             value = (typeof(value))CAST_DOUBLE_TO_DOUBLE(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            value = (typeof(value))CAST_DOUBLE_TO_DOUBLE(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            value = (typeof(value))CAST_DOUBLE_TO_DOUBLE(((__IOHIDAmbientLightSensorEventData*)event)->illuminance); \
             break; \
         _IOHIDAmbientLightSensorGetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
@@ -2277,6 +2301,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             ((IOHIDAmbientLightSensorEventData*)event)->colorComponent2 = (typeof(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2)) CAST_FIXED_TO_DOUBLE(value); \
             break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature)) CAST_FIXED_TO_DOUBLE(value); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            ((__IOHIDAmbientLightSensorEventData*)event)->illuminance = (typeof(((__IOHIDAmbientLightSensorEventData*)event)->illuminance)) CAST_FIXED_TO_DOUBLE(value); \
+            break; \
         _IOHIDAmbientLightSensorSetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\
@@ -2316,6 +2346,12 @@ case kIOHIDEventTypeAmbientLightSensor:\
             break; \
         case kIOHIDEventFieldAmbientLightColorComponent2: \
             value = (typeof(value))CAST_DOUBLE_TO_FIXED(((IOHIDAmbientLightSensorEventData*)event)->colorComponent2); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorColorTemperature: \
+            value = (typeof(value))CAST_DOUBLE_TO_FIXED(((__IOHIDAmbientLightSensorEventData*)event)->colorTemperature); \
+            break; \
+        case kIOHIDEventFieldAmbientLightSensorIlluminance: \
+            value = (typeof(value))CAST_DOUBLE_TO_FIXED(((__IOHIDAmbientLightSensorEventData*)event)->illuminance); \
             break; \
         _IOHIDAmbientLightSensorGetSynthesizedFieldsAsFixedMacro(event,field) \
     }\

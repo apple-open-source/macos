@@ -958,11 +958,11 @@ keychain_add_certificates(int argc, char * const *argv)
         case 'k':
             keychainName = optarg;
 			if (*keychainName == '\0')
-				return 2;
+				return SHOW_USAGE_MESSAGE;
             break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -970,7 +970,7 @@ keychain_add_certificates(int argc, char * const *argv)
 	argv += optind;
 
 	if (argc == 0)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 
 	result = do_add_certificates(keychainName, argc, argv);
 

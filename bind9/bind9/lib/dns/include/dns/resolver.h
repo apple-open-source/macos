@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -14,8 +14,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id: resolver.h,v 1.72 2011/12/05 17:10:51 each Exp $ */
 
 #ifndef DNS_RESOLVER_H
 #define DNS_RESOLVER_H 1
@@ -54,6 +52,7 @@
 
 #include <isc/lang.h>
 #include <isc/socket.h>
+#include <isc/stats.h>
 
 #include <dns/types.h>
 #include <dns/fixedname.h>
@@ -84,18 +83,28 @@ typedef struct dns_fetchevent {
 	isc_result_t			vresult;
 } dns_fetchevent_t;
 
+/*%
+ * The two quota types (fetches-per-zone and fetches-per-server)
+ */
+typedef enum {
+	dns_quotatype_zone = 0,
+	dns_quotatype_server
+} dns_quotatype_t;
+
 /*
  * Options that modify how a 'fetch' is done.
  */
-#define DNS_FETCHOPT_TCP		0x01	     /*%< Use TCP. */
-#define DNS_FETCHOPT_UNSHARED		0x02	     /*%< See below. */
-#define DNS_FETCHOPT_RECURSIVE		0x04	     /*%< Set RD? */
-#define DNS_FETCHOPT_NOEDNS0		0x08	     /*%< Do not use EDNS. */
-#define DNS_FETCHOPT_FORWARDONLY	0x10	     /*%< Only use forwarders. */
-#define DNS_FETCHOPT_NOVALIDATE		0x20	     /*%< Disable validation. */
-#define DNS_FETCHOPT_EDNS512		0x40	     /*%< Advertise a 512 byte
+#define DNS_FETCHOPT_TCP		0x001	     /*%< Use TCP. */
+#define DNS_FETCHOPT_UNSHARED		0x002	     /*%< See below. */
+#define DNS_FETCHOPT_RECURSIVE		0x004	     /*%< Set RD? */
+#define DNS_FETCHOPT_NOEDNS0		0x008	     /*%< Do not use EDNS. */
+#define DNS_FETCHOPT_FORWARDONLY	0x010	     /*%< Only use forwarders. */
+#define DNS_FETCHOPT_NOVALIDATE		0x020	     /*%< Disable validation. */
+#define DNS_FETCHOPT_EDNS512		0x040	     /*%< Advertise a 512 byte
 							  UDP buffer. */
-#define DNS_FETCHOPT_WANTNSID           0x80         /*%< Request NSID */
+#define DNS_FETCHOPT_WANTNSID		0x080	     /*%< Request NSID */
+#define DNS_FETCHOPT_PREFETCH		0x100	     /*%< Do prefetch */
+#define DNS_FETCHOPT_NOCDFLAG		0x200	     /*%< Don't set CD flag. */
 
 /* Reserved in use by adb.c		0x00400000 */
 #define	DNS_FETCHOPT_EDNSVERSIONSET	0x00800000
@@ -469,12 +478,31 @@ dns_resolver_reset_algorithms(dns_resolver_t *resolver);
  * Clear the disabled DNSSEC algorithms.
  */
 
+void
+dns_resolver_reset_ds_digests(dns_resolver_t *resolver);
+/*%<
+ * Clear the disabled DS/DLV digest types.
+ */
+
 isc_result_t
 dns_resolver_disable_algorithm(dns_resolver_t *resolver, dns_name_t *name,
 			       unsigned int alg);
 /*%<
- * Mark the give DNSSEC algorithm as disabled and below 'name'.
+ * Mark the given DNSSEC algorithm as disabled and below 'name'.
  * Valid algorithms are less than 256.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ *\li	#ISC_R_RANGE
+ *\li	#ISC_R_NOMEMORY
+ */
+
+isc_result_t
+dns_resolver_disable_ds_digest(dns_resolver_t *resolver, dns_name_t *name,
+			       unsigned int digest_type);
+/*%<
+ * Mark the given DS/DLV digest type as disabled and below 'name'.
+ * Valid types are less than 256.
  *
  * Returns:
  *\li	#ISC_R_SUCCESS
@@ -487,15 +515,19 @@ dns_resolver_algorithm_supported(dns_resolver_t *resolver, dns_name_t *name,
 				 unsigned int alg);
 /*%<
  * Check if the given algorithm is supported by this resolver.
- * This checks if the algorithm has been disabled via
- * dns_resolver_disable_algorithm() then the underlying
- * crypto libraries if not specifically disabled.
+ * This checks whether the algorithm has been disabled via
+ * dns_resolver_disable_algorithm(), then checks the underlying
+ * crypto libraries if it was not specifically disabled.
  */
 
 isc_boolean_t
-dns_resolver_digest_supported(dns_resolver_t *resolver, unsigned int digest_type);
+dns_resolver_ds_digest_supported(dns_resolver_t *resolver, dns_name_t *name,
+				 unsigned int digest_type);
 /*%<
- * Is this digest type supported.
+ * Check if the given digest type is supported by this resolver.
+ * This checks whether the digest type has been disabled via
+ * dns_resolver_disable_ds_digest(), then checks the underlying
+ * crypto libraries if it was not specifically disabled.
  */
 
 void
@@ -532,6 +564,8 @@ dns_resolver_gettimeout(dns_resolver_t *resolver);
 void
 dns_resolver_setclientsperquery(dns_resolver_t *resolver,
 				isc_uint32_t min, isc_uint32_t max);
+void
+dns_resolver_setfetchesperzone(dns_resolver_t *resolver, isc_uint32_t clients);
 
 void
 dns_resolver_getclientsperquery(dns_resolver_t *resolver, isc_uint32_t *cur,
@@ -580,9 +614,36 @@ dns_resolver_flushbadcache(dns_resolver_t *resolver, dns_name_t *name);
  */
 
 void
+dns_resolver_flushbadnames(dns_resolver_t *resolver, dns_name_t *name);
+/*%<
+ * Flush the bad cache of all entries at or below 'name'.
+ *
+ * Requires:
+ * \li	resolver to be valid.
+ * \li  name != NULL
+ */
+
+void
 dns_resolver_printbadcache(dns_resolver_t *resolver, FILE *fp);
 /*%
  * Print out the contents of the bad cache to 'fp'.
+ *
+ * Requires:
+ * \li	resolver to be valid.
+ */
+
+void
+dns_resolver_setquerydscp4(dns_resolver_t *resolver, isc_dscp_t dscp);
+isc_dscp_t
+dns_resolver_getquerydscp4(dns_resolver_t *resolver);
+
+void
+dns_resolver_setquerydscp6(dns_resolver_t *resolver, isc_dscp_t dscp);
+isc_dscp_t
+dns_resolver_getquerydscp6(dns_resolver_t *resolver);
+/*%
+ * Get and set the DSCP values for the resolver's IPv4 and IPV6 query
+ * sources.
  *
  * Requires:
  * \li	resolver to be valid.
@@ -611,6 +672,31 @@ dns_resolver_getmaxqueries(dns_resolver_t *resolver);
  * Requires:
  * \li	resolver to be valid.
  */
+
+void
+dns_resolver_setquotaresponse(dns_resolver_t *resolver,
+			     dns_quotatype_t which, isc_result_t resp);
+isc_result_t
+dns_resolver_getquotaresponse(dns_resolver_t *resolver, dns_quotatype_t which);
+/*%
+ * Get and set the result code that will be used when quotas
+ * are exceeded. If 'which' is set to quotatype "zone", then the
+ * result specified in 'resp' will be used when the fetches-per-zone
+ * quota is exceeded by a fetch.  If 'which' is set to quotatype "server",
+ * then the reuslt specified in 'resp' will be used when the
+ * fetches-per-server quota has been exceeded for all the
+ * authoritative servers for a zone.  Valid choices are
+ * DNS_R_DROP or DNS_R_SERVFAIL.
+ *
+ * Requires:
+ * \li	'resolver' to be valid.
+ * \li	'which' to be dns_quotatype_zone or dns_quotatype_server
+ * \li	'resp' to be DNS_R_DROP or DNS_R_SERVFAIL.
+ */
+
+void
+dns_resolver_dumpfetches(dns_resolver_t *resolver,
+			 isc_statsformat_t format, FILE *fp);
 
 ISC_LANG_ENDDECLS
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,16 +86,16 @@ RTADVSocketDisableReceive(RTADVSocketRef sock);
 int
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok);
 
-bool
-RTADVSocketRouterLifetimeIsZero(RTADVSocketRef sock);
+uint16_t
+RTADVSocketGetRouterLifetime(RTADVSocketRef sock);
+
+uint32_t
+RTADVSocketGetPrefixPreferredLifetime(RTADVSocketRef sock);
+
+uint32_t
+RTADVSocketGetPrefixValidLifetime(RTADVSocketRef sock);
 
 bool
-RTADVSocketRouterLifetimeIsMaximum(RTADVSocketRef sock);
-
-bool
-RTADVSocketPrefixLifetimeIsInfinite(RTADVSocketRef sock);
-
-bool
-RTADVSocketRouterSourceAddressCollision(RTADVSocketRef sock);
+RTADVSocketGetRouterSourceAddressCollision(RTADVSocketRef sock);
 
 #endif /* _S_RTADVSOCKET_H */

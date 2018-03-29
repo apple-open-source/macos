@@ -38,7 +38,11 @@ namespace Security {
 //
 // Do we have 64-bit atomic operations?
 //
-#define _HAVE_64BIT_ATOMIC (defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
+#if (defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
+#define _HAVE_64BIT_ATOMIC 1
+#else
+#define _HAVE_64BIT_ATOMIC 0
+#endif
 
 
 //

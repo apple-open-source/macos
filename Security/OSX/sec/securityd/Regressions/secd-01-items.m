@@ -77,6 +77,7 @@ int secd_01_items(int argc, char *const *argv)
         kSecAttrPort,
         kSecAttrProtocol,
         kSecAttrAuthenticationType,
+        kSecReturnData,
         kSecValueData
     };
     const void *values[] = {
@@ -86,6 +87,7 @@ int secd_01_items(int argc, char *const *argv)
         eighty,
         CFSTR("http"),
         CFSTR("dflt"),
+        kCFBooleanTrue,
         pwdata
     };
     

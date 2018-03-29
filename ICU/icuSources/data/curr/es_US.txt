@@ -3,6 +3,18 @@
 es_US{
     %%Parent{"es_419"}
     Currencies{
+        CAD{
+            "CA$",
+            "dólar canadiense",
+        }
+        EUR{
+            "€",
+            "euro",
+        }
+        GBP{
+            "£",
+            "libra británica",
+        }
         JPY{
             "¥",
             "yen",

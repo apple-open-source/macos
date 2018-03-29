@@ -1,0 +1,11 @@
+framework module EAP8021X {
+  header "EAP.h"
+  header "EAPClientProperties.h"
+  header "EAPClientTypes.h"
+  header "EAPOL.h"
+  header "EAPOLClientConfiguration.h"
+  header "EAPOLControl.h"
+  header "EAPOLControlTypes.h"
+  header "SupplicantTypes.h"
+	export *
+}

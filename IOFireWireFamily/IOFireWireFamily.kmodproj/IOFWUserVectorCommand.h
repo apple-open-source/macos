@@ -55,7 +55,7 @@ class IOFWUserVectorCommand : public OSObject
 		
 		// ctor/dtor
 		virtual bool	initWithUserClient( IOFireWireUserClient * inUserClient );
-		virtual void	free( void );	
+		virtual void	free( void ) APPLE_KEXT_OVERRIDE;
 
 		IOReturn		setBuffers(	mach_vm_address_t submit_buffer_address, mach_vm_size_t submit_buffer_size,
 									mach_vm_address_t result_buffer_address, mach_vm_size_t result_buffer_size );

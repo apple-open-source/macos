@@ -51,7 +51,7 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
     CKKSAccountStatusNoAccount = 3,
 };
 
-@protocol CKKSAccountStateListener
+@protocol CKKSAccountStateListener <NSObject>
 - (void)ckAccountStatusChange:(CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus;
 @end
 
@@ -61,6 +61,10 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
 // If you use these, please be aware they could change out from under you at any time
 @property (nullable) CKAccountInfo* currentCKAccountInfo;
 @property SOSCCStatus currentCircleStatus;
+
+@property (readonly,atomic) CKKSAccountStatus currentComputedAccountStatus;
+@property (nullable,readonly,atomic) NSError* currentAccountError;
+@property CKKSCondition* currentComputedAccountStatusValid;
 
 // Fetched and memoized from CloudKit; we can't afford deadlocks with their callbacks
 @property (nullable, copy) NSString* ckdeviceID;

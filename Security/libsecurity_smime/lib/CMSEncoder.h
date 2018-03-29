@@ -248,7 +248,8 @@ typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
     /*
      * Include the Apple Codesigning Hash Agility.
      */
-    kCMSAttrAppleCodesigningHashAgility = 0x0010
+    kCMSAttrAppleCodesigningHashAgility = 0x0010,
+    kCMSAttrAppleCodesigningHashAgilityV2 = 0x0020,
 };
 
 /*
@@ -414,6 +415,18 @@ OSStatus CMSEncoderSetSigningTime(
 OSStatus CMSEncoderSetAppleCodesigningHashAgility(
     CMSEncoderRef   cmsEncoder,
     CFDataRef       hashAgilityAttrValue);
+
+/*
+ * Set the hash agility attribute for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleCodesigningHashAgilityV2 attribute
+ * is included. V2 encodes the hash agility values using DER.
+ * The dictionary should have CFNumberRef keys, corresponding to SECOidTags
+ * (from SecCmsBase.h) for digest algorithms, and CFDataRef values,
+ * corresponding to the digest value for that digest algorithm.
+ */
+OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
+    CMSEncoderRef       cmsEncoder,
+    CFDictionaryRef     hashAgilityV2AttrValues);
 
 
 CF_ASSUME_NONNULL_END

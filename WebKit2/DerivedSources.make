@@ -22,10 +22,8 @@
 
 VPATH = \
     $(WebKit2) \
-    $(WebKit2)/DatabaseProcess \
-    $(WebKit2)/DatabaseProcess/IndexedDB \
-    $(WebKit2)/DatabaseProcess/mac \
     $(WebKit2)/NetworkProcess \
+    $(WebKit2)/NetworkProcess/cache \
     $(WebKit2)/NetworkProcess/CustomProtocols \
     $(WebKit2)/NetworkProcess/mac \
     $(WebKit2)/NetworkProcess/webrtc \
@@ -36,9 +34,14 @@ VPATH = \
     $(WebKit2)/Shared/API/Cocoa \
     $(WebKit2)/Shared/Authentication \
     $(WebKit2)/Shared/mac \
+    $(WebKit2)/StorageProcess \
+    $(WebKit2)/StorageProcess/IndexedDB \
+    $(WebKit2)/StorageProcess/ServiceWorker \
+    $(WebKit2)/StorageProcess/mac \
     $(WebKit2)/WebProcess/ApplePay \
     $(WebKit2)/WebProcess/ApplicationCache \
     $(WebKit2)/WebProcess/Automation \
+    $(WebKit2)/WebProcess/Cache \
     $(WebKit2)/WebProcess/Cookies \
     $(WebKit2)/WebProcess/Databases/IndexedDB \
     $(WebKit2)/WebProcess/FullScreen \
@@ -52,11 +55,12 @@ VPATH = \
     $(WebKit2)/WebProcess/OriginData \
     $(WebKit2)/WebProcess/Plugins \
     $(WebKit2)/WebProcess/ResourceCache \
-    $(WebKit2)/WebProcess/Scrolling \
     $(WebKit2)/WebProcess/Storage \
     $(WebKit2)/WebProcess/UserContent \
     $(WebKit2)/WebProcess/WebCoreSupport \
     $(WebKit2)/WebProcess/WebPage \
+    $(WebKit2)/WebProcess/WebPage/RemoteLayerTree \
+    $(WebKit2)/WebProcess/WebStorage \
     $(WebKit2)/WebProcess/cocoa \
     $(WebKit2)/WebProcess/ios \
     $(WebKit2)/WebProcess \
@@ -71,8 +75,10 @@ VPATH = \
     $(WebKit2)/UIProcess/Network/CustomProtocols \
     $(WebKit2)/UIProcess/Notifications \
     $(WebKit2)/UIProcess/Plugins \
+    $(WebKit2)/UIProcess/RemoteLayerTree \
     $(WebKit2)/UIProcess/Storage \
     $(WebKit2)/UIProcess/UserContent \
+    $(WebKit2)/UIProcess/WebStorage \
     $(WebKit2)/UIProcess/mac \
     $(WebKit2)/UIProcess/ios \
     $(WEBKITADDITIONS_HEADER_SEARCH_PATHS) \
@@ -89,10 +95,8 @@ endif
 
 MESSAGE_RECEIVERS = \
     AuthenticationManager \
+    CacheStorageEngineConnection \
     ChildProcess \
-    DatabaseProcess \
-    DatabaseProcessProxy \
-    DatabaseToWebProcessConnection \
     DownloadProxy \
     DrawingArea \
     DrawingAreaProxy \
@@ -121,9 +125,13 @@ MESSAGE_RECEIVERS = \
     RemoteWebInspectorProxy \
     RemoteWebInspectorUI \
     SecItemShimProxy \
+    ServiceWorkerClientFetch \
     SmartMagnificationController \
     StorageAreaMap \
     StorageManager \
+    StorageProcess \
+    StorageProcessProxy \
+    StorageToWebProcessConnection \
     UserMediaCaptureManager \
     UserMediaCaptureManagerProxy \
     ViewGestureController \
@@ -133,6 +141,7 @@ MESSAGE_RECEIVERS = \
     VisitedLinkTableController \
     WebAutomationSession \
     WebAutomationSessionProxy \
+    WebCacheStorageConnection \
     WebConnection \
     WebCookieManager \
     WebCookieManagerProxy \
@@ -142,8 +151,6 @@ MESSAGE_RECEIVERS = \
     WebGeolocationManagerProxy \
     WebIDBConnectionToClient \
     WebIDBConnectionToServer \
-    WebIconDatabase \
-    WebIconDatabaseProxy \
     WebInspector \
     WebInspectorInterruptDispatcher \
     WebInspectorProxy \
@@ -154,8 +161,12 @@ MESSAGE_RECEIVERS = \
     WebPasteboardProxy \
     WebPaymentCoordinator \
     WebPaymentCoordinatorProxy \
-    WebPlaybackSessionManager \
-    WebPlaybackSessionManagerProxy \
+    WebSWClientConnection \
+    WebSWContextManagerConnection \
+    WebSWServerConnection \
+    WebSWServerToContextConnection \
+    PlaybackSessionManager \
+    PlaybackSessionManagerProxy \
     WebProcess \
     WebProcessConnection \
     WebProcessPool \
@@ -168,8 +179,8 @@ MESSAGE_RECEIVERS = \
     WebSocketStream \
     WebUserContentController \
     WebUserContentControllerProxy \
-    WebVideoFullscreenManager \
-    WebVideoFullscreenManagerProxy \
+    VideoFullscreenManager \
+    VideoFullscreenManagerProxy \
 #
 
 SCRIPTS = \
@@ -217,7 +228,7 @@ endif
 
 SANDBOX_PROFILES = \
 	com.apple.WebProcess.sb \
-	com.apple.WebKit.Databases.sb \
+	com.apple.WebKit.Storage.sb \
 	com.apple.WebKit.plugin-common.sb \
 	com.apple.WebKit.NetworkProcess.sb
 
@@ -232,6 +243,8 @@ AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS = \
 	$(JavaScriptCore_SCRIPTS_DIR)/cpp_generator.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_backend_dispatcher_header.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_backend_dispatcher_implementation.py \
+	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_frontend_dispatcher_header.py \
+	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_frontend_dispatcher_implementation.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_protocol_types_header.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_protocol_types_implementation.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generator_templates.py \
@@ -247,6 +260,8 @@ AUTOMATION_PROTOCOL_INPUT_FILES = \
 AUTOMATION_PROTOCOL_OUTPUT_FILES = \
     AutomationBackendDispatchers.h \
     AutomationBackendDispatchers.cpp \
+    AutomationFrontendDispatchers.h \
+    AutomationFrontendDispatchers.cpp \
 #
 
 ifeq ($(OS),MACOS)
@@ -257,7 +272,7 @@ else
 endif
 endif # MACOS
 
-# JSON-RPC Backend Dispatchers, Type Builders
+# JSON-RPC Frontend Dispatchers, Backend Dispatchers, Type Builders
 $(firstword $(AUTOMATION_PROTOCOL_OUTPUT_FILES)) : $(AUTOMATION_PROTOCOL_INPUT_FILES) $(AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS)
 	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/generate-inspector-protocol-bindings.py --framework WebKit $(AUTOMATION_BACKEND_PLATFORM_ARGUMENTS) --backend --outputDir . $(AUTOMATION_PROTOCOL_INPUT_FILES)
 
@@ -270,3 +285,21 @@ all : $(firstword $(AUTOMATION_PROTOCOL_OUTPUT_FILES))
 	$(DELETE) $(basename $(notdir $<)).min.js
 
 all : WebAutomationSessionProxyScriptSource.h
+
+# WebPreferences generation
+
+WEB_PREFERENCES_TEMPLATES = \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPageUpdatePreferences.cpp.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesExperimentalFeatures.cpp.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesKeys.h.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesKeys.cpp.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesStoreDefaultsMap.cpp.erb \
+
+#
+
+all : WebPageUpdatePreferences.cpp WebPreferencesDefinitions.h WebPreferencesExperimentalFeatures.cpp WebPreferencesKeys.h WebPreferencesKeys.cpp WebPreferencesStoreDefaultsMap.cpp
+
+WebPageUpdatePreferences%cpp WebPreferencesDefinitions%h WebPreferencesExperimentalFeatures%cpp WebPreferencesKeys%h WebPreferencesKeys%cpp WebPreferencesStoreDefaultsMap%cpp : $(WebKit2)/Scripts/GeneratePreferences.rb $(WEB_PREFERENCES_TEMPLATES) $(WebKit2)/Shared/WebPreferences.yaml
+	$(RUBY) $< --input $(WebKit2)/Shared/WebPreferences.yaml
+

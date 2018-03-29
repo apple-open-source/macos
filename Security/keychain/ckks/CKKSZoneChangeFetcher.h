@@ -29,7 +29,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /* Fetch Reasons */
-@protocol SecCKKSFetchBecause
+@protocol SecCKKSFetchBecause <NSObject>
 @end
 typedef NSString<SecCKKSFetchBecause> CKKSFetchBecause;
 extern CKKSFetchBecause* const CKKSFetchBecauseAPNS;
@@ -40,8 +40,9 @@ extern CKKSFetchBecause* const CKKSFetchBecauseSecuritydRestart;
 extern CKKSFetchBecause* const CKKSFetchBecausePreviousFetchFailed;
 extern CKKSFetchBecause* const CKKSFetchBecauseKeyHierarchy;
 extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
+extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 
-@protocol CKKSChangeFetcherErrorOracle
+@protocol CKKSChangeFetcherErrorOracle <NSObject>
 - (bool)isFatalCKFetchError:(NSError*)error;
 @end
 
@@ -56,6 +57,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
 @interface CKKSZoneChangeFetcher : NSObject
 
 @property (nullable, weak) CKKSKeychainView* ckks;
+@property (readonly) NSError* lastCKFetchError;
 @property CKRecordZoneID* zoneID;
 
 - (instancetype)init NS_UNAVAILABLE;

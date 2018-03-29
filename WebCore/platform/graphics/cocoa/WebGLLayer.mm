@@ -33,7 +33,7 @@
 #import "GraphicsLayer.h"
 #import "GraphicsLayerCA.h"
 #import "PlatformCALayer.h"
-#import "QuartzCoreSPI.h"
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/RetainPtr.h>
 
@@ -54,10 +54,11 @@ using namespace WebCore;
     self = [super init];
     _devicePixelRatio = context->getContextAttributes().devicePixelRatio;
 #if PLATFORM(MAC)
-    if (!context->getContextAttributes().alpha)
-        self.opaque = YES;
+    self.contentsOpaque = !context->getContextAttributes().alpha;
     self.transform = CATransform3DIdentity;
     self.contentsScale = _devicePixelRatio;
+#else
+    self.opaque = !context->getContextAttributes().alpha;
 #endif
     return self;
 }
@@ -154,9 +155,15 @@ static void freeData(void *, const void *data, size_t /* size */)
     _contentsBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
     _drawingBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
     _spareBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
+
     ASSERT(_contentsBuffer);
     ASSERT(_drawingBuffer);
     ASSERT(_spareBuffer);
+
+    auto sRGBDetails = adoptCF(CGColorSpaceCopyPropertyList(sRGBColorSpaceRef()));
+    IOSurfaceSetValue(_contentsBuffer->surface(), kIOSurfaceColorSpace, sRGBDetails.get());
+    IOSurfaceSetValue(_drawingBuffer->surface(), kIOSurfaceColorSpace, sRGBDetails.get());
+    IOSurfaceSetValue(_spareBuffer->surface(), kIOSurfaceColorSpace, sRGBDetails.get());
 }
 
 - (void)bindFramebufferToNextAvailableSurface

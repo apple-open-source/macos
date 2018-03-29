@@ -54,7 +54,7 @@
                                     <key>property</key>\
                                     <string>accessGroup</string>\
                                     <key>capacity</key>\
-                                    <integer>20</integer>\
+                                    <integer>50</integer>\
                                     <key>rate</key>\
                                     <integer>900</integer>\
                                     <key>badness</key>\

@@ -35,6 +35,10 @@
 #include <CloudKit/CloudKit.h>
 #include <CloudKit/CloudKit_Private.h>
 
+@interface CKKSKey ()
+@property CKKSAESSIVKey* aessivkey;
+@end
+
 @implementation CKKSKey
 
 - (instancetype)init {
@@ -235,8 +239,26 @@
     }
 
     // Attempt to load this key from the keychain
-    if([self loadKeyMaterialFromKeychain:error]) {
+    NSError* keychainError = nil;
+    if([self loadKeyMaterialFromKeychain:&keychainError]) {
         return self.aessivkey;
+    }
+
+    // Uhh, okay, if that didn't work, try to unwrap via the key hierarchy
+    NSError* keyHierarchyError = nil;
+    if([self unwrapViaKeyHierarchy:&keyHierarchyError]) {
+        // Attempt to save this new key, but don't error if it fails
+        NSError* resaveError = nil;
+        if(![self saveKeyMaterialToKeychain:&resaveError] || resaveError) {
+            secerror("ckkskey: Resaving missing key failed, continuing: %@", resaveError);
+        }
+
+        return self.aessivkey;
+    }
+
+    // Pick an error to report
+    if(error) {
+        *error = keyHierarchyError ? keyHierarchyError : keychainError;
     }
 
     return nil;
@@ -493,7 +515,7 @@
     NSError* originalError = localError;
 
     // If we found the item or errored in some interesting way, return.
-    if(localError == nil) {
+    if(result) {
         return result;
     }
     if(localError && localError.code != errSecItemNotFound) {
@@ -592,13 +614,11 @@
     }
 
     // We didn't early-return. Use whatever error the original fetch produced.
-    if(error && originalError) {
+    if(error) {
         *error = [NSError errorWithDomain:@"securityd"
-                                     code:originalError.code
-                                 userInfo:@{NSLocalizedDescriptionKey:
-                                                [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)originalError.code],
-                                            NSUnderlyingErrorKey: originalError,
-                                            }];
+                                     code:originalError ? originalError.code : errSecParam
+                              description:[NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)originalError.code]
+                               underlying:originalError];
     }
 
     return result;
@@ -614,11 +634,17 @@
     NSData* b64keymaterial = result[(id)kSecValueData];
     NSData* keymaterial = [[NSData alloc] initWithBase64EncodedData:b64keymaterial options:0];
     if(!keymaterial) {
+        secnotice("ckkskey", "Unable to unbase64 key: %@", self);
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSKeyUnknownFormat
+                                  description:[NSString stringWithFormat:@"unable to unbase64 key: %@", self]];
+        }
         return false;
     }
 
     CKKSAESSIVKey* key = [[CKKSAESSIVKey alloc] initWithBytes: (uint8_t*) keymaterial.bytes len:keymaterial.length];
-    _aessivkey = key;
+    self.aessivkey = key;
 
     if(resave) {
         secnotice("ckkskey", "Resaving %@ as per request", self);

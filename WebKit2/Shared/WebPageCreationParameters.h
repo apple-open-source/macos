@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,13 +41,17 @@
 #include <WebCore/MediaProducer.h>
 #include <WebCore/Pagination.h>
 #include <WebCore/ScrollTypes.h>
-#include <WebCore/SessionID.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
+#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
 #include "ColorSpaceData.h"
+#endif
+
+#if ENABLE(APPLICATION_MANIFEST)
+#include <WebCore/ApplicationManifest.h>
 #endif
 
 namespace IPC {
@@ -59,7 +63,7 @@ namespace WebKit {
 
 struct WebPageCreationParameters {
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, WebPageCreationParameters&);
+    static std::optional<WebPageCreationParameters> decode(IPC::Decoder&);
 
     WebCore::IntSize viewSize;
 
@@ -77,6 +81,9 @@ struct WebPageCreationParameters {
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
 
+    bool alwaysShowsHorizontalScroller;
+    bool alwaysShowsVerticalScroller;
+
     bool suppressScrollbarAnimations;
 
     WebCore::Pagination::Mode paginationMode;
@@ -88,7 +95,7 @@ struct WebPageCreationParameters {
     String userAgent;
 
     Vector<BackForwardListItemState> itemStates;
-    WebCore::SessionID sessionID;
+    PAL::SessionID sessionID;
     uint64_t highestUsedBackForwardItemID;
 
     uint64_t userContentControllerID;
@@ -137,7 +144,8 @@ struct WebPageCreationParameters {
     WebCore::FloatSize availableScreenSize;
     float textAutosizingWidth;
     bool ignoresViewportScaleLimits;
-    bool allowsBlockSelection;
+    WebCore::FloatSize viewportConfigurationMinimumLayoutSize;
+    WebCore::FloatSize maximumUnobscuredSize;
 #endif
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
@@ -152,6 +160,14 @@ struct WebPageCreationParameters {
     std::optional<double> cpuLimit;
 
     HashMap<String, uint64_t> urlSchemeHandlers;
+
+#if ENABLE(APPLICATION_MANIFEST)
+    std::optional<WebCore::ApplicationManifest> applicationManifest;
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    bool hasRegisteredServiceWorkers { true };
+#endif
 
     // WebRTC members.
     bool iceCandidateFilteringEnabled { true };

@@ -182,6 +182,12 @@ for a in test_export ; do
     done
 done
 
+# kcm
+if sudo -n true ; then
+	for a in test_get_principal_list; do
+		run_test $a sudo /usr/local/libexec/heimdal/bin/$a
+	done
+fi
 
 if sudo -n true ; then
     sudo defaults delete /Library/Preferences/org.h5l.hx509 AllowHX509Validation

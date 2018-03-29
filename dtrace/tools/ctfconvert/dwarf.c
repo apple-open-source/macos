@@ -1983,8 +1983,7 @@ dw_read(tdata_t *td, Elf *elf, const char *filename)
 
 	if ((rc = dwarf_elf_init(elf, DW_DLC_READ, NULL, NULL, &dw.dw_dw,
 	    &dw.dw_err)) == DW_DLV_NO_ENTRY) {
-		errno = ENOENT;
-		return (-1);
+		return (0);
 	} else if (rc != DW_DLV_OK) {
 		if (dwarf_errno(dw.dw_err) == DW_DLE_DEBUG_INFO_NULL) {
 			/*
@@ -2002,8 +2001,7 @@ dw_read(tdata_t *td, Elf *elf, const char *filename)
 	    &addrsz, &nxthdr, &dw.dw_err)) != DW_DLV_OK ||
 	    (cu = die_sibling(&dw, NULL)) == NULL ||
 	    (child = die_child(&dw, cu)) == NULL)
-		terminate("file does not contain dwarf type data "
-		    "(try compiling with -g)\n");
+		return (0);
 
 	dw.dw_maxoff = nxthdr - 1;
 

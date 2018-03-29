@@ -5,7 +5,12 @@
 #include <stdbool.h>
 #include <errno.h>
 
+#include <pthread/pthread_spis.h>
+
+#include <sys/sysctl.h>
+
 #include "darwintest_defaults.h"
+#include <darwintest_multiprocess.h>
 
 struct context {
 	pthread_mutex_t mutex;
@@ -79,4 +84,56 @@ T_DECL(mutex, "pthread_mutex",
 		res = pthread_join(p[i], NULL);
 		T_ASSERT_POSIX_ZERO(res, "pthread_join()");
 	}
+}
+
+static void
+check_process_default_mutex_policy(int expected_policy)
+{
+	pthread_mutexattr_t mattr;
+	T_EXPECT_POSIX_ZERO(pthread_mutexattr_init(&mattr), "pthread_mutexattr_init()");
+
+	int policy;
+	T_EXPECT_POSIX_ZERO(pthread_mutexattr_getpolicy_np(&mattr, &policy),
+			"pthread_mutexattr_getpolicy_np()");
+	T_LOG("policy was %d", policy);
+	T_EXPECT_EQ(policy, expected_policy, "Saw the expected default policy");
+
+	T_EXPECT_POSIX_ZERO(pthread_mutexattr_destroy(&mattr), "pthread_mutexattr_destroy()");
+}
+
+T_DECL(mutex_default_policy,
+		"Tests that the default mutex policy is fairshare")
+{
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FAIRSHARE);
+}
+
+T_DECL(mutex_default_policy_sysctl,
+		"Tests that setting the policy sysctl changes the default policy")
+{
+	int firstfit_default = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
+	T_EXPECT_POSIX_ZERO(
+			sysctlbyname("kern.pthread_mutex_default_policy", NULL, NULL, &firstfit_default, sizeof(firstfit_default)),
+			"Changed the default policy sysctl to firstfit");
+
+	dt_helper_t helper = dt_child_helper("mutex_default_policy_sysctl_helper");
+	dt_run_helpers(&helper, 1, 5);
+}
+
+T_HELPER_DECL(mutex_default_policy_sysctl_helper, "sysctl helper")
+{
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
+
+	int default_default = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
+	T_EXPECT_POSIX_ZERO(
+			sysctlbyname("kern.pthread_mutex_default_policy", NULL, NULL, &default_default, sizeof(default_default)),
+			"Restored the default policy to fairshare");
+
+	T_END;
+}
+
+T_DECL(mutex_default_policy_envvar,
+		"Tests that setting the policy environment variable changes the default policy",
+		T_META_ENVVAR("PTHREAD_MUTEX_DEFAULT_POLICY=2"))
+{
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
 }

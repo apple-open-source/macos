@@ -19,22 +19,20 @@
 // 
 // @APPLE_LICENSE_HEADER_END@
 
-#include "IOHIDFamily-Version.xcconfig"
-
-ARCHS = i386 x86_64
-VALID_ARCHS = i386 x86_64
-RUN_CLANG_STATIC_ANALYZER = YES
-GCC_ENABLE_FIX_AND_CONTINUE = NO
-ZERO_LINK = NO
+//ARCHS[sdk=macosx*] = i386 x86_64
+//VALID_ARCHS[sdk=macosx*] = i386 x86_64
+RUN_CLANG_STATIC_ANALYZER[sdk=macosx*] = YES
+//GCC_ENABLE_FIX_AND_CONTINUE[sdk=macosx*] = NO
+//ZERO_LINK[sdk=macosx*] = NO
 GCC_WARN_SHADOW = YES
-//GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES
+////GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES
 GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES
 GCC_WARN_ABOUT_MISSING_NEWLINE = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 OTHER_CFLAGS = -Wall -Wextra
 GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES
-//GCC_WARN_64_TO_32_BIT_CONVERSION = YES
-//GCC_WARN_PROTOTYPE_CONVERSION = YES
+////GCC_WARN_64_TO_32_BIT_CONVERSION = YES
+////GCC_WARN_PROTOTYPE_CONVERSION = YES
 GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES
 GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_UNUSED_FUNCTION = YES
@@ -43,4 +41,36 @@ GCC_WARN_UNUSED_PARAMETER = YES
 GCC_WARN_UNUSED_VALUE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-#include "IOHIDFamily-CodeCoverage.xcconfig"
+
+OTHER_CFLAGS = -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+
+//
+//RTKIT
+//
+OTHER_CFLAGS[sdk=rtkit*]  = $(inherited) -DRTKIT
+ARCHS[sdk=rtkit*] = armv7 armv7em
+VALID_ARCHS[sdk=rtkit*] = armv7 armv7em
+GCC_OPTIMIZATION_LEVEL[sdk=rtkit*] = z
+
+
+//
+//CodeCoverege
+//
+_OTHER_LDFLAGS_kext   =
+_OTHER_LDFLAGS_       = -fprofile-instr-generate
+_OTHER_LDFLAGS_plugin = -fprofile-instr-generate
+_OTHER_LDFLAGS_xctest = -fprofile-instr-generate
+
+OTHER_CFLAGS[config=Development*CodeCoverage]  = $(inherited) -fprofile-instr-generate -fcoverage-mapping
+OTHER_LDFLAGS[config=Development*CodeCoverage] = $(inherited) $(_OTHER_LDFLAGS_$(WRAPPER_EXTENSION))
+HID_CODE_COVERAGE[config=Development*CodeCoverage] = YES
+
+
+//
+//Version
+//
+IOHIDFAMILY_COPYRIGHT = "Copyright © 2000-2017 Apple Inc. All rights reserved. [$(RC_ProjectNameAndSourceVersion)]"
+IOHIDFAMILY_VERSION = 2.0.0
+MODULE_VERSION = $(IOHIDFAMILY_VERSION)
+
+

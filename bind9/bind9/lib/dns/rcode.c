@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -31,7 +31,11 @@
 #include <isc/types.h>
 #include <isc/util.h>
 
+#include <pk11/site.h>
+
 #include <dns/cert.h>
+#include <dns/ds.h>
+#include <dns/dsdigest.h>
 #include <dns/keyflags.h>
 #include <dns/keyvalues.h>
 #include <dns/rcode.h>
@@ -49,6 +53,8 @@
 
 #define NUMBERSIZE sizeof("037777777777") /* 2^32-1 octal + NUL */
 
+#define TOTEXTONLY 0x01
+
 #define RCODENAMES \
 	/* standard rcodes */ \
 	{ dns_rcode_noerror, "NOERROR", 0}, \
@@ -61,11 +67,17 @@
 	{ dns_rcode_yxrrset, "YXRRSET", 0}, \
 	{ dns_rcode_nxrrset, "NXRRSET", 0}, \
 	{ dns_rcode_notauth, "NOTAUTH", 0}, \
-	{ dns_rcode_notzone, "NOTZONE", 0},
+	{ dns_rcode_notzone, "NOTZONE", 0}, \
+	{ 11, "RESERVED11", TOTEXTONLY}, \
+	{ 12, "RESERVED12", TOTEXTONLY}, \
+	{ 13, "RESERVED13", TOTEXTONLY}, \
+	{ 14, "RESERVED14", TOTEXTONLY}, \
+	{ 15, "RESERVED15", TOTEXTONLY},
 
 #define ERCODENAMES \
 	/* extended rcodes */ \
 	{ dns_rcode_badvers, "BADVERS", 0}, \
+	{ dns_rcode_badcookie, "BADCOOKIE", 0}, \
 	{ 0, NULL, 0 }
 
 #define TSIGRCODENAMES \
@@ -96,12 +108,31 @@
 
 /* RFC2535 section 7, RFC3110 */
 
-#define SECALGNAMES \
+#ifndef PK11_MD5_DISABLE
+#define MD5_SECALGNAMES \
 	{ DNS_KEYALG_RSAMD5, "RSAMD5", 0 }, \
-	{ DNS_KEYALG_RSAMD5, "RSA", 0 }, \
-	{ DNS_KEYALG_DH, "DH", 0 }, \
+	{ DNS_KEYALG_RSAMD5, "RSA", 0 },
+#else
+#define MD5_SECALGNAMES
+#endif
+#ifndef PK11_DH_DISABLE
+#define DH_SECALGNAMES \
+	{ DNS_KEYALG_DH, "DH", 0 },
+#else
+#define DH_SECALGNAMES
+#endif
+#ifndef PK11_DSA_DISABLE
+#define DSA_SECALGNAMES \
 	{ DNS_KEYALG_DSA, "DSA", 0 }, \
-	{ DNS_KEYALG_NSEC3DSA, "NSEC3DSA", 0 }, \
+	{ DNS_KEYALG_NSEC3DSA, "NSEC3DSA", 0 },
+#else
+#define DSA_SECALGNAMES
+#endif
+
+#define SECALGNAMES \
+	MD5_SECALGNAMES \
+	DH_SECALGNAMES \
+	DSA_SECALGNAMES \
 	{ DNS_KEYALG_ECC, "ECC", 0 }, \
 	{ DNS_KEYALG_RSASHA1, "RSASHA1", 0 }, \
 	{ DNS_KEYALG_NSEC3RSASHA1, "NSEC3RSASHA1", 0 }, \
@@ -130,6 +161,15 @@
 	{ 1, "SHA-1", 0 }, \
 	{ 0, NULL, 0 }
 
+/* RFC3658, RFC4509, RFC5933, RFC6605 */
+
+#define DSDIGESTNAMES \
+	{ DNS_DSDIGEST_SHA1, "SHA-1", 0 }, \
+	{ DNS_DSDIGEST_SHA256, "SHA-256", 0 }, \
+	{ DNS_DSDIGEST_GOST, "GOST", 0 }, \
+	{ DNS_DSDIGEST_SHA384, "SHA-384", 0 }, \
+	{ 0, NULL, 0}
+
 struct tbl {
 	unsigned int    value;
 	const char      *name;
@@ -142,6 +182,7 @@ static struct tbl certs[] = { CERTNAMES };
 static struct tbl secalgs[] = { SECALGNAMES };
 static struct tbl secprotos[] = { SECPROTONAMES };
 static struct tbl hashalgs[] = { HASHALGNAMES };
+static struct tbl dsdigests[] = { DSDIGESTNAMES };
 
 static struct keyflag {
 	const char *name;
@@ -247,6 +288,7 @@ dns_mnemonic_fromtext(unsigned int *valuep, isc_textregion_t *source,
 		unsigned int n;
 		n = strlen(table[i].name);
 		if (n == source->length &&
+		    (table[i].flags & TOTEXTONLY) == 0 &&
 		    strncasecmp(source->base, table[i].name, n) == 0) {
 			*valuep = table[i].value;
 			return (ISC_R_SUCCESS);
@@ -404,6 +446,34 @@ dns_keyflags_fromtext(dns_keyflags_t *flagsp, isc_textregion_t *source)
 	}
 	*flagsp = value;
 	return (ISC_R_SUCCESS);
+}
+
+isc_result_t
+dns_dsdigest_fromtext(dns_dsdigest_t *dsdigestp, isc_textregion_t *source) {
+	unsigned int value;
+	RETERR(dns_mnemonic_fromtext(&value, source, dsdigests, 0xff));
+	*dsdigestp = value;
+	return (ISC_R_SUCCESS);
+}
+
+isc_result_t
+dns_dsdigest_totext(dns_dsdigest_t dsdigest, isc_buffer_t *target) {
+	return (dns_mnemonic_totext(dsdigest, target, dsdigests));
+}
+
+void
+dns_dsdigest_format(dns_dsdigest_t typ, char *cp, unsigned int size) {
+	isc_buffer_t b;
+	isc_region_t r;
+	isc_result_t result;
+
+	REQUIRE(cp != NULL && size > 0);
+	isc_buffer_init(&b, cp, size - 1);
+	result = dns_dsdigest_totext(typ, &b);
+	isc_buffer_usedregion(&b, &r);
+	r.base[r.length] = 0;
+	if (result != ISC_R_SUCCESS)
+		r.base[0] = 0;
 }
 
 /*

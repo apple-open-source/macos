@@ -88,7 +88,7 @@ parse_guid(const char *name, CSSM_GUID *guid)
 	else
 	{
 		sec_error("Invalid guid: %s", name);
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	return 0;
@@ -167,7 +167,7 @@ db_create(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 

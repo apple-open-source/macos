@@ -30,14 +30,13 @@
 #include <AssertMacros.h>
 
 #include <libDER/libDER.h>
-#include <libDER/oidsPriv.h>
+#include <libDER/oids.h>
 
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecInternal.h>
-#include <Security/oids.h>
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecCFError.h>
@@ -239,27 +238,27 @@ exit:
  ************* SecCertificatePathVC object ***************
  ********************************************************/
 struct SecCertificatePathVC {
-    CFRuntimeBase		_base;
-    CFIndex				count;
+    CFRuntimeBase       _base;
+    CFIndex             count;
 
     /* Index of next parent source to search for parents. */
-    CFIndex				nextParentSource;
+    CFIndex             nextParentSource;
 
-    /* Index of last certificate in chain who's signature has been verified.
+    /* Index of last certificate in chain whose signature has been verified.
      0 means nothing has been checked.  1 means the leaf has been verified
-     against it's issuer, etc. */
-    CFIndex				lastVerifiedSigner;
+     against its issuer, etc. */
+    CFIndex             lastVerifiedSigner;
 
     /* Index of first self issued certificate in the chain.  -1 mean there is
      none.  0 means the leaf is self signed.  */
-    CFIndex				selfIssued;
+    CFIndex             selfIssued;
 
     /* True iff cert at index selfIssued does in fact self verify. */
-    bool				isSelfSigned;
+    bool                isSelfSigned;
 
     /* True if the root of this path is an anchor. Trustedness of the
      * anchor is determined by the PVC. */
-    bool				isAnchored;
+    bool                isAnchored;
 
     policy_tree_t       policy_tree;
     uint8_t             policy_tree_verification_result;
@@ -277,7 +276,12 @@ struct SecCertificatePathVC {
 
     bool                pathValidated;
 
-    SecCertificateVCRef	certificates[];
+    /* Enumerated value to determine whether CT is required for the leaf
+     * certificate (because a CA in the path has a require-ct constraint).
+     * If non-zero, CT is required; value indicates overridable status. */
+    SecPathCTPolicy     requiresCT;
+
+    SecCertificateVCRef certificates[];
 };
 CFGiblisWithHashFor(SecCertificatePathVC)
 
@@ -505,12 +509,22 @@ exit:
     return outCerts;
 }
 
-SecCertificatePathRef SecCertificatePathVCCopyCertificatePath(SecCertificatePathVCRef path) {
-    CFArrayRef certs = SecCertificatePathVCCopyCertificates(path);
-    SecCertificatePathRef newPath = SecCertificatePathCreateWithCertificates(certs, NULL);
-    CFReleaseNull(certs);
-    return newPath;
+CFArrayRef SecCertificatePathVCCreateSerialized(SecCertificatePathVCRef path) {
+    CFMutableArrayRef serializedCerts = NULL;
+    require_quiet(path, exit);
+    size_t count = path->count;
+    require_quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
+    SecCertificatePathVCForEachCertificate(path, ^(SecCertificateRef cert, bool * __unused stop) {
+        CFDataRef certData = SecCertificateCopyData(cert);
+        if (certData) {
+            CFArrayAppendValue(serializedCerts, certData);
+            CFRelease(certData);
+        }
+    });
+exit:
+    return serializedCerts;
 }
+
 
 /* Record the fact that we found our own root cert as our parent
  certificate. */
@@ -593,8 +607,11 @@ CFIndex SecCertificatePathVCGetCount(
 
 SecCertificateRef SecCertificatePathVCGetCertificateAtIndex(
                                                           SecCertificatePathVCRef certificatePath, CFIndex ix) {
-    check(certificatePath && ix >= 0 && ix < certificatePath->count);
-    return (certificatePath->certificates[ix])->certificate;
+    if (!certificatePath || ix < 0 || ix >= certificatePath->count) {
+        return NULL;
+    }
+    SecCertificateVCRef cvc = certificatePath->certificates[ix];
+    return cvc ? cvc->certificate : NULL;
 }
 
 void SecCertificatePathVCForEachCertificate(SecCertificatePathVCRef path, void(^operation)(SecCertificateRef certificate, bool *stop)) {
@@ -875,6 +892,10 @@ CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef
                     continue;
                 }
             }
+            /* Make sure to always skip roots for whom we can't check revocation */
+            if (certIX == certCount - 1) {
+                continue;
+            }
             secdebug("rvc", "revocation checking soft failure for cert: %ld",
                      certIX);
             enu = thisCertNextUpdate;
@@ -933,6 +954,18 @@ bool SecCertificatePathVCIsCT(SecCertificatePathVCRef certificatePath) {
 
 void SecCertificatePathVCSetIsCT(SecCertificatePathVCRef certificatePath, bool isCT) {
     certificatePath->isCT = isCT;
+}
+
+SecPathCTPolicy SecCertificatePathVCRequiresCT(SecCertificatePathVCRef certificatePath) {
+    if (!certificatePath) { return kSecPathCTNotRequired; }
+    return certificatePath->requiresCT;
+}
+
+void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, SecPathCTPolicy requiresCT) {
+    if (certificatePath->requiresCT > requiresCT) {
+        return; /* once set, CT policy may be only be changed to a more strict value */
+    }
+    certificatePath->requiresCT = requiresCT;
 }
 
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath) {

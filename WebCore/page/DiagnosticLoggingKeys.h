@@ -34,6 +34,9 @@ public:
     WEBCORE_EXPORT static String activeInForegroundTabKey();
     WEBCORE_EXPORT static String activeInBackgroundTabOnlyKey();
     static String applicationCacheKey();
+#if ENABLE(APPLICATION_MANIFEST)
+    static String applicationManifestKey();
+#endif
     static String audioKey();
     WEBCORE_EXPORT static String backNavigationDeltaKey();
     WEBCORE_EXPORT static String cacheControlNoStoreKey();
@@ -46,7 +49,6 @@ public:
     static String deniedByClientKey();
     static String deviceMotionKey();
     static String deviceOrientationKey();
-    static String deviceProximityKey();
     static String diskCacheKey();
     static String diskCacheAfterValidationKey();
     static String documentLoaderStoppingKey();
@@ -137,6 +139,7 @@ public:
     WEBCORE_EXPORT static String revalidatingKey();
     static String sameLoadKey();
     static String scriptKey();
+    static String serviceWorkerKey();
     WEBCORE_EXPORT static String streamingMedia();
     static String styleSheetKey();
     WEBCORE_EXPORT static String successfulSpeculativeWarmupWithRevalidationKey();

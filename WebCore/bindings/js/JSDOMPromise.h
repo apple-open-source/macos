@@ -44,6 +44,12 @@ public:
         return guarded();
     }
 
+    void whenSettled(std::function<void()>&&);
+    JSC::JSValue result() const;
+
+    enum class Status { Pending, Fulfilled, Rejected };
+    Status status() const;
+
 private:
     DOMPromise(JSDOMGlobalObject& globalObject, JSC::JSPromise& promise)
         : DOMGuarded<JSC::JSPromise>(globalObject, promise)

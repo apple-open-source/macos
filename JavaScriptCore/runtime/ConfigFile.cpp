@@ -33,7 +33,6 @@
 #include <string.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/DataLog.h>
-#include <wtf/StringExtras.h>
 #include <wtf/text/StringBuilder.h>
 
 #if HAVE(REGEX_H)
@@ -467,6 +466,7 @@ void ConfigFile::parse()
 
         if (!jscOptionsBuilder.isEmpty()) {
             const char* optionsStr = jscOptionsBuilder.toString().utf8().data();
+            Options::enableRestrictedOptions(true);
             Options::setOptions(optionsStr);
         }
     } else

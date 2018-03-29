@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 # Copyright (C) 2010 Andras Becsi (abecsi@inf.u-szeged.hu), University of Szeged
 # All rights reserved.
 #
@@ -27,6 +27,7 @@
 # and generates forwarding headers for these headers.
 
 use strict;
+use warnings;
 use Cwd qw(abs_path realpath);
 use File::Find;
 use File::Basename;
@@ -35,9 +36,9 @@ use File::Spec::Functions;
 use Getopt::Long;
 
 my $srcRoot = realpath(File::Spec->catfile(dirname(abs_path($0)), "../.."));
-my @platformPrefixes = ("ca", "cf", "cocoa", "Cocoa", "CoordinatedGraphics", "curl", "gtk", "ios", "mac", "soup", "win", "wpe");
+my @platformPrefixes = ("ca", "cf", "cocoa", "Cocoa", "curl", "gtk", "ios", "mac", "soup", "win", "wpe");
 my @frameworks = ("JavaScriptCore", "WebCore", "WebKit");
-my @skippedPrefixes;
+my @skippedPrefixes = ("PAL");
 my @frameworkHeaders;
 my $framework;
 my %neededHeaders;

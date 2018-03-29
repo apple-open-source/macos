@@ -232,6 +232,14 @@ public:
         store32(dataTempRegister, address.m_ptr);
     }
 
+    void getEffectiveAddress(BaseIndex address, RegisterID dest)
+    {
+        m_assembler.lsl(addressTempRegister, address.index, static_cast<int>(address.scale));
+        m_assembler.add(dest, address.base, addressTempRegister);
+        if (address.offset)
+            add32(TrustedImm32(address.offset), dest);
+    }
+
     void addPtrNoFlags(TrustedImm32 imm, RegisterID srcDest)
     {
         add32(imm, srcDest);
@@ -338,6 +346,11 @@ public:
     void neg32(RegisterID srcDest)
     {
         m_assembler.neg(srcDest, srcDest);
+    }
+
+    void neg32(RegisterID src, RegisterID dest)
+    {
+        m_assembler.neg(dest, src);
     }
 
     void or32(RegisterID src, RegisterID dest)
@@ -2106,23 +2119,6 @@ protected:
     {
         return static_cast<ARMv7Assembler::Condition>(cond);
     }
-    
-#if ENABLE(MASM_PROBE)
-    inline TrustedImm32 trustedImm32FromPtr(void* ptr)
-    {
-        return TrustedImm32(TrustedImmPtr(ptr));
-    }
-
-    inline TrustedImm32 trustedImm32FromPtr(ProbeFunction function)
-    {
-        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
-    }
-
-    inline TrustedImm32 trustedImm32FromPtr(void (*function)())
-    {
-        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
-    }
-#endif
 
 private:
     friend class LinkBuffer;

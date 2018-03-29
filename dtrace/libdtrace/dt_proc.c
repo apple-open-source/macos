@@ -386,13 +386,13 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 			dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
 			(void) pthread_cond_broadcast(&dpr->dpr_cv);
 		}
-	    
+
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		(void) pthread_mutex_unlock(&dpr->dpr_lock);
 	}
-    
+
 	/*
 	 * Before we free the process structure, remove this dt_proc_t from the
 	 * lookup hash, and then walk the dt_proc_hash_t's notification list
@@ -440,10 +440,10 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	(void) pthread_attr_init(&a);
 	(void) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
-    
+
 	(void) sigfillset(&nset);
 	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
-    
+
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
 

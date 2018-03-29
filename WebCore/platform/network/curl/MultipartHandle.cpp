@@ -33,6 +33,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
+#include "SharedBuffer.h"
 #include <wtf/StringExtras.h>
 
 namespace WebCore {
@@ -40,7 +41,7 @@ namespace WebCore {
 bool MultipartHandle::extractBoundary(const String& contentType, String& boundary)
 {
     static const size_t length = strlen("boundary=");
-    size_t boundaryStart = contentType.findIgnoringCase("boundary=");
+    size_t boundaryStart = contentType.findIgnoringASCIICase("boundary=");
 
     // No boundary found.
     if (boundaryStart == notFound)
@@ -321,7 +322,7 @@ void MultipartHandle::didReceiveData(size_t length)
 {
     ResourceHandleInternal* d = m_resourceHandle->getInternal();
 
-    if (d->m_cancelled) {
+    if (!d->m_delegate->hasHandle()) {
         // Request has been canceled, so we'll go to the end state.
         m_state = End;
         return;
@@ -329,7 +330,7 @@ void MultipartHandle::didReceiveData(size_t length)
 
     if (d->client()) {
         const char* data = m_buffer.data();
-        d->client()->didReceiveData(m_resourceHandle, data, length, length);
+        d->client()->didReceiveBuffer(m_resourceHandle, SharedBuffer::create(data, length), length);
     }
 }
 
@@ -349,7 +350,7 @@ void MultipartHandle::didReceiveResponse()
         response.setMimeType(mimeType.convertToASCIILowercase());
         response.setTextEncodingName(extractCharsetFromMediaType(contentType));
 
-        d->client()->didReceiveResponse(m_resourceHandle, WTFMove(response));
+        m_resourceHandle->didReceiveResponse(WTFMove(response));
     }
 }
 

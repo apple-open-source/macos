@@ -1209,6 +1209,7 @@ xsltParseStylesheetOutput(xsltStylesheetPtr style, xmlNodePtr cur)
 		xsltTransformError(NULL, style, cur,
                                  "invalid value for method: %s\n", prop);
                 if (style != NULL) style->warnings++;
+                xmlFree(prop);
             }
 	} else {
 	    style->method = prop;

@@ -89,7 +89,7 @@ keychain_lock(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 	argc -= optind;
@@ -105,7 +105,7 @@ keychain_lock(int argc, char * const *argv)
 		}
 	}
 	else if (argc != 0)
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 
 	if (lockAll)
 		result = do_lock_all();

@@ -24,7 +24,6 @@
 #include "DOMObjectCache.h"
 #include <WebCore/Document.h>
 #include <WebCore/ExceptionCode.h>
-#include <WebCore/ExceptionCodeDescription.h>
 #include <WebCore/JSMainThreadExecState.h>
 #include "WebKitDOMEventPrivate.h"
 #include "WebKitDOMEventTargetPrivate.h"
@@ -362,7 +361,7 @@ guint32 webkit_dom_event_get_time_stamp(WebKitDOMEvent* self)
     WebCore::JSMainThreadNullState state;
     g_return_val_if_fail(WEBKIT_DOM_IS_EVENT(self), 0);
     WebCore::Event* item = WebKit::core(self);
-    guint32 result = item->timeStamp();
+    guint32 result = item->timeStamp().approximateWallTime().secondsSinceEpoch().milliseconds();
     return result;
 }
 
@@ -371,7 +370,7 @@ WebKitDOMEventTarget* webkit_dom_event_get_src_element(WebKitDOMEvent* self)
     WebCore::JSMainThreadNullState state;
     g_return_val_if_fail(WEBKIT_DOM_IS_EVENT(self), 0);
     WebCore::Event* item = WebKit::core(self);
-    RefPtr<WebCore::EventTarget> gobjectResult = WTF::getPtr(item->srcElement());
+    RefPtr<WebCore::EventTarget> gobjectResult = WTF::getPtr(item->target());
     return WebKit::kit(gobjectResult.get());
 }
 

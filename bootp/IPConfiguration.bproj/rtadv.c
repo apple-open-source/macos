@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -246,16 +246,30 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
     }
     inet6_addrlist_free(&addrs);
 
-    /* set cellular-specific properties */
-    if (type == kInterfaceTypeCellular) {
-	if (apn_name != NULL) {
-	    IPv6AWDReportSetAPNName(report, apn_name);
-	}
-	if (autoconf_active) {
-	    if (!RTADVSocketRouterLifetimeIsMaximum(rtadv->sock)) {
+    if (apn_name != NULL) {
+	IPv6AWDReportSetAPNName(report, apn_name);
+    }
+    if (autoconf_active) {
+	uint32_t	prefix_preferred_lifetime;
+	uint32_t	prefix_valid_lifetime;
+	uint32_t	router_lifetime;
+
+	router_lifetime = RTADVSocketGetRouterLifetime(rtadv->sock);
+	prefix_preferred_lifetime
+	    = RTADVSocketGetPrefixPreferredLifetime(rtadv->sock);
+	prefix_valid_lifetime = RTADVSocketGetPrefixValidLifetime(rtadv->sock);
+	IPv6AWDReportSetRouterLifetime(report, router_lifetime);
+	IPv6AWDReportSetPrefixPreferredLifetime(report,
+						prefix_preferred_lifetime);
+	IPv6AWDReportSetPrefixValidLifetime(report, prefix_valid_lifetime);
+
+	/* set cellular-specific properties */
+	if (type == kInterfaceTypeCellular) {
+#define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
+	    if (router_lifetime != ROUTER_LIFETIME_MAXIMUM) {
 		IPv6AWDReportSetRouterLifetimeNotMaximum(report);
 	    }
-	    if (!RTADVSocketPrefixLifetimeIsInfinite(rtadv->sock)) {
+	    if (prefix_valid_lifetime != ND6_INFINITE_LIFETIME) {
 		IPv6AWDReportSetPrefixLifetimeNotInfinite(report);
 	    }
 	}
@@ -307,7 +321,7 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
     }
     else {
 	/* failure report */
-	if (RTADVSocketRouterLifetimeIsZero(rtadv->sock)) {
+	if (RTADVSocketGetRouterLifetime(rtadv->sock) == 0) {
 	    IPv6AWDReportSetRouterLifetimeZero(report);
 	}
 #if 0
@@ -317,7 +331,7 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 	rtadv->success_report_submitted = FALSE;
     }
 
-    if (RTADVSocketRouterSourceAddressCollision(rtadv->sock)) {
+    if (RTADVSocketGetRouterSourceAddressCollision(rtadv->sock)) {
 	IPv6AWDReportSetRouterSourceAddressCollision(report);
     }
 

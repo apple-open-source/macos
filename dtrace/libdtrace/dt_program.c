@@ -49,10 +49,12 @@ dt_program_create(dtrace_hdl_t *dtp)
 {
 	dtrace_prog_t *pgp = dt_zalloc(dtp, sizeof (dtrace_prog_t));
 
-	if (pgp != NULL)
+	if (pgp != NULL) {
 		dt_list_append(&dtp->dt_programs, pgp);
-	else
+	} else {
 		(void) dt_set_errno(dtp, EDT_NOMEM);
+		return (NULL);
+	}
 
 	/*
 	 * By default, programs start with DOF version 1 so that output files
@@ -60,7 +62,7 @@ dt_program_create(dtrace_hdl_t *dtp)
 	 * DOF features, the version is increased as needed.
 	 */
 	/*
-	 * APPLE NOTE: The earliest DOF version Leopard will support is v3.
+	 * APPLE NOTE: The earliest DOF version Darwin supports is v3.
 	 * This includes relative offsets for probes, and is-enabled probes.
 	 */
 	pgp->dp_dofversion = DOF_VERSION_3;

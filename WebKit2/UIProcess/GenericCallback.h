@@ -94,13 +94,13 @@ public:
 
     virtual ~GenericCallback()
     {
-        ASSERT(currentThread() == m_originThreadID);
+        ASSERT(m_originThread.ptr() == &Thread::current());
         ASSERT(!m_callback);
     }
 
     void performCallbackWithReturnValue(T... returnValue)
     {
-        ASSERT(currentThread() == m_originThreadID);
+        ASSERT(m_originThread.ptr() == &Thread::current());
 
         if (!m_callback)
             return;
@@ -117,7 +117,7 @@ public:
 
     void invalidate(Error error = Error::Unknown) final
     {
-        ASSERT(currentThread() == m_originThreadID);
+        ASSERT(m_originThread.ptr() == &Thread::current());
 
         if (!m_callback)
             return;
@@ -144,7 +144,7 @@ private:
     std::optional<CallbackFunction> m_callback;
 
 #ifndef NDEBUG
-    ThreadIdentifier m_originThreadID { currentThread() };
+    Ref<Thread> m_originThread { Thread::current() };
 #endif
 };
 
@@ -163,9 +163,7 @@ typedef GenericCallback<const ShareableBitmap::Handle&> ImageCallback;
 template<typename T>
 void invalidateCallbackMap(HashMap<uint64_t, T>& callbackMap, CallbackBase::Error error)
 {
-    Vector<T> callbacks;
-    copyValuesToVector(callbackMap, callbacks);
-    for (auto& callback : callbacks)
+    for (auto& callback : copyToVector(callbackMap.values()))
         callback->invalidate(error);
 
     callbackMap.clear();

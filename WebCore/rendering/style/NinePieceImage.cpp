@@ -27,9 +27,9 @@
 #include "GraphicsContext.h"
 #include "LengthFunctions.h"
 #include "RenderStyle.h"
-#include "TextStream.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/PointerComparison.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -100,9 +100,9 @@ bool NinePieceImage::isEmptyPieceRect(ImagePiece piece, const LayoutBoxExtent& s
     if (piece == MiddlePiece)
         return false;
 
-    PhysicalBoxSide horizontalSide = imagePieceHorizontalSide(piece);
-    PhysicalBoxSide verticalSide = imagePieceVerticalSide(piece);
-    return !((horizontalSide == NilSide || slices.at(horizontalSide)) && (verticalSide == NilSide || slices.at(verticalSide)));
+    auto horizontalSide = imagePieceHorizontalSide(piece);
+    auto verticalSide = imagePieceVerticalSide(piece);
+    return !((!horizontalSide || slices.at(*horizontalSide)) && (!verticalSide || slices.at(*verticalSide)));
 }
 
 bool NinePieceImage::isEmptyPieceRect(ImagePiece piece, const Vector<FloatRect>& destinationRects, const Vector<FloatRect>& sourceRects)

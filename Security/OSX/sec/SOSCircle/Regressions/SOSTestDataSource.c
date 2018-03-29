@@ -484,6 +484,12 @@ SOSObjectRef SOSDataSourceCreateGenericItemWithData(SOSDataSourceRef ds, CFStrin
     CFNumberRef one = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &value);
     CFAbsoluteTime timestamp = 3700000 + (is_tomb ? 1 : 0);
     CFDateRef now = CFDateCreate(kCFAllocatorDefault, timestamp);
+
+    CFDataRef defaultData = NULL;
+    if (!is_tomb && !data) {
+        defaultData = CFDataCreate(NULL, (UInt8*)"some data", 9);
+        data = defaultData;
+    }
     CFDictionaryRef dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                         kSecClass,                  kSecClassGenericPassword,
                                                         kSecAttrSynchronizable,     one,
@@ -499,6 +505,7 @@ SOSObjectRef SOSDataSourceCreateGenericItemWithData(SOSDataSourceRef ds, CFStrin
     CFRelease(one);
     CFRelease(zero);
     CFReleaseSafe(now);
+    CFReleaseNull(defaultData);
     CFErrorRef localError = NULL;
     SOSObjectRef object = ds->objectCreateWithPropertyList(dict, &localError);
     if (!object) {

@@ -65,12 +65,21 @@ OTHER_TEST_TARGETS = \
 #	parallel-medium \
 #	parallel-big
 
-ASAN_DYLIB_PATH := /usr/local/lib/sanitizers/
+SANITIZER_DYLIB_PATH := /usr/local/lib/sanitizers/
 asan: OTHER_CFLAGS += -fsanitize=address
-asan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(ASAN_DYLIB_PATH)
+asan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
+
+ifeq ($(Embedded),NO)
+tsan: CFLAGS := $(filter-out $(ARCH_FLAGS),$(CFLAGS)) -arch x86_64 -fsanitize=thread
+tsan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
+else
+EXCLUDED_SOURCES += tsan.c
+endif
 
 madvise: OTHER_CFLAGS += -I../src
 stack_logging_test: OTHER_CFLAGS += -I../private
 radix_tree_test: OTHER_CFLAGS += -I../src -framework Foundation
+
+.DEFAULT_GOAL := all
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets

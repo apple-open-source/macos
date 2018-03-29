@@ -152,8 +152,8 @@ private:
     Deque<ApplyConstraintsCallback> m_pendingApplyConstraintsCallbacks;
 };
 
-UserMediaCaptureManager::UserMediaCaptureManager(WebProcess* process)
-    : m_process(*process)
+UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
+    : m_process(process)
 {
     m_process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
 }
@@ -175,20 +175,19 @@ void UserMediaCaptureManager::initialize(const WebProcessCreationParameters& par
         RealtimeMediaSourceCenter::singleton().setAudioFactory(*this);
 }
 
-WebCore::CaptureSourceOrError UserMediaCaptureManager::createCaptureSource(const String& deviceID, WebCore::RealtimeMediaSource::Type sourceType, const WebCore::MediaConstraints* constraints)
+WebCore::CaptureSourceOrError UserMediaCaptureManager::createCaptureSource(const CaptureDevice& device, WebCore::RealtimeMediaSource::Type sourceType, const WebCore::MediaConstraints* constraints)
 {
     if (!constraints)
         return { };
 
     uint64_t id = nextSessionID();
-    bool succeeded;
-
     RealtimeMediaSourceSettings settings;
     String errorMessage;
-    if (!m_process.sendSync(Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints(id, deviceID, sourceType, *constraints), Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints::Reply(succeeded, errorMessage, settings), 0))
+    bool succeeded;
+    if (!m_process.sendSync(Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints(id, device, sourceType, *constraints), Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints::Reply(succeeded, errorMessage, settings), 0))
         return WTFMove(errorMessage);
 
-    auto source = adoptRef(*new Source(String::number(id), sourceType, emptyString(), id, *this));
+    auto source = adoptRef(*new Source(String::number(id), sourceType, settings.label(), id, *this));
     source->setSettings(WTFMove(settings));
     m_sources.set(id, source.copyRef());
     return WebCore::CaptureSourceOrError(WTFMove(source));

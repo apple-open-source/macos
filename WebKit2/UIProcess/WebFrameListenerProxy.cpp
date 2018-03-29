@@ -27,6 +27,8 @@
 #include "WebFrameListenerProxy.h"
 
 #include "WebFrameProxy.h"
+#include "WebsiteDataStore.h"
+#include "WebsitePoliciesData.h"
 
 namespace WebKit {
 
@@ -45,13 +47,29 @@ void WebFrameListenerProxy::invalidate()
     m_frame = nullptr;
 }
 
-void WebFrameListenerProxy::receivedPolicyDecision(WebCore::PolicyAction action, const WebsitePolicies& websitePolicies)
+void WebFrameListenerProxy::receivedPolicyDecision(WebCore::PolicyAction action, std::optional<WebsitePoliciesData>&& data)
 {
     if (!m_frame)
         return;
 
-    m_frame->receivedPolicyDecision(action, m_listenerID, m_navigation.get(), websitePolicies);
+    m_frame->receivedPolicyDecision(action, m_listenerID, m_navigation.get(), WTFMove(data));
     m_frame = nullptr;
+}
+
+void WebFrameListenerProxy::changeWebsiteDataStore(WebsiteDataStore& websiteDataStore)
+{
+    if (!m_frame)
+        return;
+
+    m_frame->changeWebsiteDataStore(websiteDataStore);
+}
+
+bool WebFrameListenerProxy::isMainFrame() const
+{
+    if (!m_frame)
+        return false;
+
+    return m_frame->isMainFrame();
 }
 
 } // namespace WebKit

@@ -43,7 +43,7 @@
 #endif
 
 #if FWASSERTS
-#define FWKLOGASSERT(a) { if(!(a)) { IOLog( "File "__FILE__", line %d: assertion '%s' failed.\n", __LINE__, #a); } }
+#define FWKLOGASSERT(a) { if(!(a)) { IOLog( "File %s, line %d: assertion '%s' failed.\n", __FILE__, __LINE__, #a); } }
 #else
 #define FWKLOGASSERT(a) do {} while (0)
 #endif

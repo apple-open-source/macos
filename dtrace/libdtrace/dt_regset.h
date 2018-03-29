@@ -46,6 +46,7 @@ extern void dt_regset_destroy(dt_regset_t *);
 extern void dt_regset_reset(dt_regset_t *);
 extern int dt_regset_alloc(dt_regset_t *);
 extern void dt_regset_free(dt_regset_t *, int);
+extern void dt_regset_assert_free(dt_regset_t *);
 
 #ifdef	__cplusplus
 }

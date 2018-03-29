@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Copyright (C) 2013-2015  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2013-2017  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,8 +14,6 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id$
-
 # Configure
 #
 # This script builds nmake and visual studio build files
@@ -24,12 +22,14 @@
 require 5.000;
 use strict;
 use File::Spec;
+use Cwd;
 
 # files to configure
 
-my $configfilein = "..\\config.h.win32";
-my $configfileout = ">..\\config.h";
+my $configfile = "..\\config.h";
 my $platformfile = "..\\lib\\isc\\win32\\include\\isc\\platform.h";
+my $confshfile = "..\\bin\\tests\\system\\conf.sh";
+my $icshfile = "..\\isc-config.sh";
 
 my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\bin\\check\\win32\\checkconf.dsp",
@@ -41,6 +41,8 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\bin\\confgen\\win32\\ddnsconfgen.mak",
                 "..\\bin\\confgen\\win32\\rndcconfgen.dsp",
                 "..\\bin\\confgen\\win32\\rndcconfgen.mak",
+                "..\\bin\\delv\\win32\\delv.dsp",
+                "..\\bin\\delv\\win32\\delv.mak",
                 "..\\bin\\dig\\win32\\dig.dsp",
                 "..\\bin\\dig\\win32\\dig.mak",
                 "..\\bin\\dig\\win32\\dighost.dsp",
@@ -75,11 +77,24 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\bin\\pkcs11\\win32\\pk11keygen.mak",
                 "..\\bin\\pkcs11\\win32\\pk11list.dsp",
                 "..\\bin\\pkcs11\\win32\\pk11list.mak",
+                "..\\bin\\pkcs11\\win32\\pk11tokens.dsp",
+                "..\\bin\\pkcs11\\win32\\pk11tokens.mak",
                 "..\\bin\\python\\dnssec-checkds.py",
                 "..\\bin\\python\\dnssec-coverage.py",
+                "..\\bin\\python\\isc\\__init__.py",
+                "..\\bin\\python\\isc\\checkds.py",
+                "..\\bin\\python\\isc\\coverage.py",
+                "..\\bin\\python\\isc\\dnskey.py",
+                "..\\bin\\python\\isc\\eventlist.py",
+                "..\\bin\\python\\isc\\keydict.py",
+                "..\\bin\\python\\isc\\keyevent.py",
+                "..\\bin\\python\\isc\\keyzone.py",
+                "..\\bin\\python\\isc\\tests\\dnskey_test.py",
+                "..\\bin\\python\\isc\\utils.py",
                 "..\\bin\\rndc\\win32\\rndc.dsp",
                 "..\\bin\\rndc\\win32\\rndc.mak",
                 "..\\bin\\rndc\\win32\\rndcutil.dsp",
+                "..\\bin\\tests\\system\\dlz\\prereq.sh",
                 "..\\bin\\tools\\win32\\arpaname.dsp",
                 "..\\bin\\tools\\win32\\arpaname.mak",
                 "..\\bin\\tools\\win32\\genrandom.dsp",
@@ -90,6 +105,8 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\bin\\tools\\win32\\journalprint.mak",
                 "..\\bin\\tools\\win32\\nsec3hash.dsp",
                 "..\\bin\\tools\\win32\\nsec3hash.mak",
+                "..\\bin\\tools\\win32\\rrchecker.dsp",
+                "..\\bin\\tools\\win32\\rrchecker.mak",
                 "..\\bin\\tests\\atomic\\win32\\t_atomic.dsp",
                 "..\\bin\\tests\\atomic\\win32\\t_atomic.mak",
                 "..\\bin\\tests\\db\\win32\\t_db.dsp",
@@ -114,10 +131,22 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\bin\\tests\\tasks\\win32\\t_tasks.mak",
                 "..\\bin\\tests\\timers\\win32\\t_timers.dsp",
                 "..\\bin\\tests\\timers\\win32\\t_timers.mak",
+                "..\\bin\\tests\\system\\win32\\bigkey.dsp",
+                "..\\bin\\tests\\system\\win32\\bigkey.mak",
+                "..\\bin\\tests\\system\\win32\\feature-test.dsp",
+                "..\\bin\\tests\\system\\win32\\feature-test.mak",
+                "..\\bin\\tests\\system\\win32\\keycreate.dsp",
+                "..\\bin\\tests\\system\\win32\\keycreate.mak",
+                "..\\bin\\tests\\system\\win32\\keydelete.dsp",
+                "..\\bin\\tests\\system\\win32\\keydelete.mak",
+                "..\\bin\\tests\\system\\win32\\lwtest.dsp",
+                "..\\bin\\tests\\system\\win32\\lwtest.mak",
                 "..\\bin\\tests\\win32\\backtrace_test.dsp",
                 "..\\bin\\tests\\win32\\backtrace_test.mak",
                 "..\\bin\\tests\\win32\\inter_test.dsp",
                 "..\\bin\\tests\\win32\\inter_test.mak",
+                "..\\bin\\tests\\win32\\makejournal.dsp",
+                "..\\bin\\tests\\win32\\makejournal.mak",
                 "..\\bin\\tests\\win32\\rwlock_test.dsp",
                 "..\\bin\\tests\\win32\\rwlock_test.mak",
                 "..\\bin\\tests\\win32\\shutdown_test.dsp",
@@ -149,6 +178,8 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\lib\\dns\\win32\\libdns.def",
                 "..\\lib\\dns\\win32\\libdns.dsp",
                 "..\\lib\\dns\\win32\\libdns.mak",
+                "..\\lib\\irs\\win32\\libirs.dsp",
+                "..\\lib\\irs\\win32\\libirs.mak",
                 "..\\lib\\isc\\win32\\libisc.def",
                 "..\\lib\\isc\\win32\\libisc.dsp",
                 "..\\lib\\isc\\win32\\libisc.mak",
@@ -158,6 +189,18 @@ my @filelist = ("..\\bin\\check\\win32\\checktool.dsp",
                 "..\\lib\\isccfg\\win32\\libisccfg.mak",
                 "..\\lib\\lwres\\win32\\liblwres.dsp",
                 "..\\lib\\lwres\\win32\\liblwres.mak",
+                "..\\lib\\samples\\win32\\async.dsp",
+                "..\\lib\\samples\\win32\\async.mak",
+                "..\\lib\\samples\\win32\\gai.dsp",
+                "..\\lib\\samples\\win32\\gai.mak",
+                "..\\lib\\samples\\win32\\nsprobe.dsp",
+                "..\\lib\\samples\\win32\\nsprobe.mak",
+                "..\\lib\\samples\\win32\\request.dsp",
+                "..\\lib\\samples\\win32\\request.mak",
+                "..\\lib\\samples\\win32\\resolve.dsp",
+                "..\\lib\\samples\\win32\\resolve.mak",
+                "..\\lib\\samples\\win32\\update.dsp",
+                "..\\lib\\samples\\win32\\update.mak",
                 "..\\lib\\tests\\win32\\libtests.dsp",
                 "..\\lib\\tests\\win32\\libtests.mak",
                 "..\\lib\\win32\\bindevt\\bindevt.dsp",
@@ -179,6 +222,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\bin\\confgen\\win32\\ddnsconfgen.vcxproj.filters",
                    "..\\bin\\confgen\\win32\\rndcconfgen.vcxproj",
                    "..\\bin\\confgen\\win32\\rndcconfgen.vcxproj.filters",
+                   "..\\bin\\delv\\win32\\delv.vcxproj",
+                   "..\\bin\\delv\\win32\\delv.vcxproj.filters",
                    "..\\bin\\dig\\win32\\dig.vcxproj",
                    "..\\bin\\dig\\win32\\dig.vcxproj.filters",
                    "..\\bin\\dig\\win32\\dighost.vcxproj",
@@ -215,6 +260,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\bin\\pkcs11\\win32\\pk11keygen.vcxproj.filters",
                    "..\\bin\\pkcs11\\win32\\pk11list.vcxproj",
                    "..\\bin\\pkcs11\\win32\\pk11list.vcxproj.filters",
+                   "..\\bin\\pkcs11\\win32\\pk11tokens.vcxproj",
+                   "..\\bin\\pkcs11\\win32\\pk11tokens.vcxproj.filters",
                    "..\\bin\\rndc\\win32\\rndc.vcxproj",
                    "..\\bin\\rndc\\win32\\rndc.vcxproj.filters",
                    "..\\bin\\rndc\\win32\\rndcutil.vcxproj",
@@ -229,6 +276,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\bin\\tools\\win32\\journalprint.vcxproj.filters",
                    "..\\bin\\tools\\win32\\nsec3hash.vcxproj",
                    "..\\bin\\tools\\win32\\nsec3hash.vcxproj.filters",
+                   "..\\bin\\tools\\win32\\rrchecker.vcxproj",
+                   "..\\bin\\tools\\win32\\rrchecker.vcxproj.filters",
                    "..\\bin\\tests\\atomic\\win32\\t_atomic.vcxproj",
                    "..\\bin\\tests\\atomic\\win32\\t_atomic.vcxproj.filters",
                    "..\\bin\\tests\\db\\win32\\t_db.vcxproj",
@@ -249,6 +298,16 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\bin\\tests\\resolver\\win32\\t_resolver.vcxproj.filters",
                    "..\\bin\\tests\\sockaddr\\win32\\t_sockaddr.vcxproj",
                    "..\\bin\\tests\\sockaddr\\win32\\t_sockaddr.vcxproj.filters",
+                   "..\\bin\\tests\\system\\win32\\bigkey.vcxproj",
+                   "..\\bin\\tests\\system\\win32\\bigkey.vcxproj.filters",
+                   "..\\bin\\tests\\system\\win32\\feature-test.vcxproj",
+                   "..\\bin\\tests\\system\\win32\\feature-test.vcxproj.filters",
+                   "..\\bin\\tests\\system\\win32\\keycreate.vcxproj",
+                   "..\\bin\\tests\\system\\win32\\keycreate.vcxproj.filters",
+                   "..\\bin\\tests\\system\\win32\\keydelete.vcxproj",
+                   "..\\bin\\tests\\system\\win32\\keydelete.vcxproj.filters",
+                   "..\\bin\\tests\\system\\win32\\lwtest.vcxproj",
+                   "..\\bin\\tests\\system\\win32\\lwtest.vcxproj.filters",
                    "..\\bin\\tests\\tasks\\win32\\t_tasks.vcxproj",
                    "..\\bin\\tests\\tasks\\win32\\t_tasks.vcxproj.filters",
                    "..\\bin\\tests\\timers\\win32\\t_timers.vcxproj",
@@ -257,6 +316,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\bin\\tests\\win32\\backtrace_test.vcxproj.filters",
                    "..\\bin\\tests\\win32\\inter_test.vcxproj",
                    "..\\bin\\tests\\win32\\inter_test.vcxproj.filters",
+                   "..\\bin\\tests\\win32\\makejournal.vcxproj",
+                   "..\\bin\\tests\\win32\\makejournal.vcxproj.filters",
                    "..\\bin\\tests\\win32\\rwlock_test.vcxproj",
                    "..\\bin\\tests\\win32\\rwlock_test.vcxproj.filters",
                    "..\\bin\\tests\\win32\\shutdown_test.vcxproj",
@@ -287,6 +348,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\lib\\dns\\win32\\gen.vcxproj.filters",
                    "..\\lib\\dns\\win32\\libdns.vcxproj",
                    "..\\lib\\dns\\win32\\libdns.vcxproj.filters",
+                   "..\\lib\\irs\\win32\\libirs.vcxproj",
+                   "..\\lib\\irs\\win32\\libirs.vcxproj.filters",
                    "..\\lib\\isc\\win32\\libisc.vcxproj",
                    "..\\lib\\isc\\win32\\libisc.vcxproj.filters",
                    "..\\lib\\isccc\\win32\\libisccc.vcxproj",
@@ -295,6 +358,18 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
                    "..\\lib\\isccfg\\win32\\libisccfg.vcxproj.filters",
                    "..\\lib\\lwres\\win32\\liblwres.vcxproj",
                    "..\\lib\\lwres\\win32\\liblwres.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\resolve.vcxproj",
+                   "..\\lib\\samples\\win32\\resolve.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\async.vcxproj",
+                   "..\\lib\\samples\\win32\\async.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\gai.vcxproj",
+                   "..\\lib\\samples\\win32\\gai.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\update.vcxproj",
+                   "..\\lib\\samples\\win32\\update.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\request.vcxproj",
+                   "..\\lib\\samples\\win32\\request.vcxproj.filters",
+                   "..\\lib\\samples\\win32\\nsprobe.vcxproj",
+                   "..\\lib\\samples\\win32\\nsprobe.vcxproj.filters",
                    "..\\lib\\tests\\win32\\libtests.vcxproj",
                    "..\\lib\\tests\\win32\\libtests.vcxproj.filters",
                    "..\\lib\\win32\\bindevt\\bindevt.vcxproj",
@@ -305,7 +380,8 @@ my @projectlist = ("..\\bin\\check\\win32\\checkconf.vcxproj",
 
 my %configdefh;
 
-my @substdefh = ("ALLOW_FILTER_AAAA",
+my @substdefh = ("AES_SIT",
+                 "ALLOW_FILTER_AAAA",
                  "CONFIGARGS",
                  "DNS_RDATASET_FIXED",
                  "ENABLE_RPZ_NSDNAME",
@@ -314,15 +390,23 @@ my @substdefh = ("ALLOW_FILTER_AAAA",
                  "HAVE_EVP_SHA384",
                  "HAVE_EVP_SHA512",
                  "HAVE_GEOIP",
-                 "HAVE_GEOIP_V6",
                  "HAVE_GEOIP_CITY_V6",
+                 "HAVE_GEOIP_V6",
                  "HAVE_LIBXML2",
+                 "HAVE_OPENSSL_AES",
                  "HAVE_OPENSSL_DSA",
                  "HAVE_OPENSSL_ECDSA",
+                 "HAVE_OPENSSL_EVP_AES",
                  "HAVE_OPENSSL_GOST",
+                 "HAVE_PKCS11_ECDSA",
+                 "HAVE_PKCS11_GOST",
                  "HAVE_READLINE",
-                 "HMAC_RETURN_INT",
+                 "HMAC_SHA1_SIT",
+                 "HMAC_SHA256_SIT",
                  "ISC_LIST_CHECKINIT",
+                 "PREFER_GOSTASN1",
+                 "TUNE_LARGE",
+                 "WANT_QUERYTRACE",
                  "WITH_IDN");
 
 # for platform.h
@@ -330,12 +414,30 @@ my @substdefh = ("ALLOW_FILTER_AAAA",
 my %configdefp;
 
 my @substdefp = ("ISC_PLATFORM_HAVEATOMICSTORE",
+                 "ISC_PLATFORM_HAVEATOMICSTOREQ",
                  "ISC_PLATFORM_HAVECMPXCHG",
                  "ISC_PLATFORM_HAVEXADD",
                  "ISC_PLATFORM_HAVEXADDQ",
                  "ISC_PLATFORM_NEEDSTRCASESTR",
-                 "ISC_PLATFORM_OPENSSLHASH",
-                 "ISC_PLATFORM_USEBACKTRACE");
+                 "ISC_PLATFORM_USEBACKTRACE",
+                 "ISC_PLATFORM_USESIT",
+                 "ISC_PLATFORM_WANTAES");
+
+# for conf.sh
+
+my %configtest;
+
+my @substtest = ("CHECK_DSA",
+                 "CHECKDS",
+                 "COVERAGE",
+                 "DNSTAP",
+                 "FSTRM_CAPTURE",
+                 "JSONSTATS",
+                 "KEYMGR",
+                 "NZD_TOOLS",
+                 "PKCS11_TEST",
+                 "XMLSTATS",
+                 "ZLIB"),
 
 # includes
 
@@ -380,13 +482,17 @@ my @substdll = ("COMERR_DLL",
 
 my %configvar;
 
-my @substvar = ("BUILD_MACHINE",
+my @substvar = ("BIND9_VERSION",
+                "BUILD_MACHINE",
                 "BUILD_PLATFORM",
                 "COPTI",
                 "COPTML",
                 "COPTMLD",
                 "COPTX",
                 "COPTY",
+                "DLZ_SYSTEM_TEST",
+                "EXEEXT",
+                "expanded_sysconfdir",
                 "INTRINSIC",
                 "MACHINE",
                 "OPENSSL_PATH",
@@ -400,9 +506,9 @@ my @substvar = ("BUILD_MACHINE",
 
 my %configdefd;
 
-my @substdefd = ("PK11_LIB_LOCATION",
+my @substdefd = ("CRYPTO",
+                 "PK11_LIB_LOCATION",
                  "USE_GSSAPI",
-                 "USE_OPENSSL",
                  "USE_PKCS11",
                  "USE_PYTHON",
                  "USE_ISC_SPNEGO");
@@ -411,7 +517,8 @@ my @substdefd = ("PK11_LIB_LOCATION",
 
 my %configcond;
 
-my @substcond = ("ATOMIC",
+my @substcond = ("AES",
+                 "ATOMIC",
                  "GSSAPI",
                  "GEOIP",
                  "IDNKIT",
@@ -419,8 +526,12 @@ my @substcond = ("ATOMIC",
                  "OPENSSL",
                  "PKCS11",
                  "PYTHON",
+                 "SAMPLES",
+                 "STESTS",
                  "TESTS",
                  "XTESTS");
+
+my @allcond = (@substcond, "NOTYET", "NOLONGER");
 
 # arguments
 
@@ -430,15 +541,19 @@ my @enablelist = ("developer",
                   "fixed-rrset",
                   "intrinsics",
                   "isc-spnego",
+                  "native-pkcs11",
                   "openssl-hash",
                   "filter-aaaa",
+                  "querytrace",
                   "rpz-nsdname",
-                  "rpz-nsip");
-
+                  "rpz-nsip",
+                  "sit");
 
 # with-xxx/without-xxx
 
-my @withlist = ("cross-compile",
+my @withlist = ("aes",
+                "cc-alg",
+                "cross-compile",
                 "ecdsa",
                 "extra-tests",
                 "gssapi",
@@ -451,7 +566,10 @@ my @withlist = ("cross-compile",
                 "pkcs11",
                 "python",
                 "readline",
+                "samples",
+                "system-tests",
                 "tests",
+                "tuning",
                 "vcredist");
 
 # general arguments
@@ -479,20 +597,27 @@ my @help = (
 "  <none>                (command) print a summary of the configuration\n",
 "\nOptional Features:\n",
 "  enable-intrinsics     enable instrinsic/atomic functions [default=yes]\n",
-"  enable-openssl-hash   use OpenSSL for hash functions [default=no]\n",
+"  enable-native-pkcs11  use native PKCS#11 for all crypto [default=no]\n",
+"  enable-openssl-hash   use OpenSSL for hash functions [default=yes]\n",
 "  enable-isc-spnego     use SPNEGO from lib/dns [default=yes]\n",
 "  enable-filter-aaaa    enable filtering of AAAA records [default=no]\n",
 "  enable-fixed-rrset    enable fixed rrset ordering [default=no]\n",
 "  enable-developer      enable developer build settings [default=no]\n",
+"  enable-querytrace     enable very verbose query trace [default=no]\n",
 "  enable-rpz-nsip       enable rpz-nsip rules [default=yes]\n",
 "  enable-rpz-nsdname    enable rpz-nsdname rules [default=yes]\n",
+"  enable-sit            enable source identity token [default=yes]\n",
 "\nOptional Packages:\n",
 "  with-tests            build with test suite\n",
 "  with-extra-tests      build with extra test suite\n",
+"  with-system-tests     build with system test suite\n",
+"  with-samples          build with sample programs\n",
 "  with-openssl[=PATH]   build with OpenSSL yes|no|path\n",
 "  with-pkcs11[=PATH]    build with PKCS#11 support yes|no|provider-path\n",
 "  with-ecdsa            crypto ECDSA\n",
-"  with-gost             crypto GOST\n",
+"  with-gost[=ENC]       crypto GOST yes|no|raw|ans1\n",
+"  with-aes              crypto AES\n",
+"  with-sit-alg          choose the algorithm for SIT aes|sha1|sha256\n",
 "  with-gssapi[=PATH]    build with MIT KfW GSSAPI yes|no|path\n",
 "  with-libxml2[=PATH]   build with libxml2 library yes|no|path\n",
 "  with-geoip[=PATH]     build with GeoIP support yes|no|path\n",
@@ -500,7 +625,8 @@ my @help = (
 "  with-readline[=PATH]  build with readline library support yes|no|path\n",
 "  with-idn[=PATH]       build with IDN kit support yes|no|path\n",
 "  with-iconv[=PATH]     path of the iconv DLL [default=same than idn]\n",
-"  with-vcredist[=PATH]  visual C++ redistributable package yes|path\n\n",
+"  with-vcredist[=PATH]  visual C++ redistributable package yes|path\n",
+"  with-tuning=OPTION    tune for plaform size (large|default)\n",
 "  with-cross-compile    32 / 64 bit build / host plaforms\n");
 
 # Parse arguments
@@ -514,21 +640,29 @@ my $want_clean = "no";
 my $want_unknown = "no";
 my $unknown_value;
 my $enable_intrinsics = "yes";
-my $enable_openssl_hash = "no";
+my $enable_native_pkcs11 = "no";
+my $enable_openssl_hash = "auto";
 my $enable_filter_aaaa = "no";
 my $enable_isc_spnego = "yes";
 my $enable_fixed_rrset = "no";
 my $enable_developer = "no";
+my $enable_querytrace = "no";
 my $enable_rpz_nsip = "yes";
 my $enable_rpz_nsdname = "yes";
+my $enable_sit = "yes";
 my $use_tests = "no";
 my $use_xtests = "no";
+my $use_stests = "no";
+my $use_samples = "no";
 my $use_openssl = "auto";
 my $openssl_path = "..\\..\\";
 my $use_pkcs11 = "no";
 my $pkcs11_path = "unknown";
 my $use_ecdsa = "auto";
 my $use_gost = "auto";
+my $gost_encoding = "raw";
+my $use_aes = "auto";
+my $sit_algorithm = "aes";
 my $use_gssapi = "no";
 my $gssapi_path = "C:\\Program\ Files\\MIT\\Kerberos\\";
 my $use_geoip = "no";
@@ -536,7 +670,7 @@ my $geoip_path = "";
 my $use_libxml2 = "auto";
 my $libxml2_path = "..\\..\\";
 my $use_python = "auto";
-my $python_command = "python";
+my $python_command = "python.exe";
 my $use_readline = "no";
 my $readline_path = "..\\..\\";
 my $use_idn = "no";
@@ -545,6 +679,8 @@ my $iconv_path = " --idn-- ";
 my $use_vcredist = "yes";
 my $vcredist_path = " --infer-- ";
 my $cross_compile = "no";
+my $tuning = "default";
+my $want_checkfiles = "no";
 
 # no arguments -> usage
 
@@ -586,6 +722,8 @@ foreach (@ARGV) {
         $want_x64 = "yes";
     } elsif (/^clean$/i) {
         $want_clean = "yes";
+    } elsif (/^checkfiles$/i) {
+        $want_checkfiles = "yes";
     } else {
         $want_unknown = "yes";
         $unknown_value = $_;
@@ -596,6 +734,22 @@ foreach (@ARGV) {
 
 if ($legacy_only && ($want_x64 ne "yes")) {
     $want_win32 = "yes";
+}
+
+if ($want_checkfiles eq "yes") {
+	foreach (@filelist) {
+		next if -r $_ . ".in";
+		s/\\/\//g;
+		next if -r $_ . ".in";
+		print "missing $_.in from filelist\n";
+	}
+	foreach (@projectlist) {
+		next if -r $_ . ".in";
+		s/\\/\//g;
+		next if -r $_ . ".in";
+		print "missing $_.in from projectlist\n";
+	}
+	exit(0);
 }
 
 # configure the platform
@@ -613,6 +767,47 @@ if (($want_win32 eq "yes") && ($want_x64 eq "yes")) {
     $configvar{"MACHINE"} = "/machine:X64";
     $configvar{"BUILD_MACHINE"} = "/machine:X64";
 }
+# Standard configure variable
+$configvar{"EXEEXT"} = ".exe";
+
+# get the version information
+
+my %Versions;
+
+sub getversion {
+    my $data;
+    my $name;
+    my $value;
+    my $version;
+
+    open V, "..\\version" || die $!;
+    while (<V>) {
+        chomp;
+        ($data) = split(/\#/);
+        if ($data) {
+            ($name, $value) = split(/=/, $data);
+            ($name) = split(/\s+/, $name);
+            if ($name eq 'PRODUCT' || $name eq 'DESCRIPTION') {
+                ($value) =~ s/^["\s]+//;
+                ($value) =~ s/["\s]+$//;
+            } else {
+                ($value) = split(/\s+/, $value);
+            }
+            $Versions{$name} = $value;
+        }
+    }
+    close V;
+
+    $version = "$Versions{'MAJORVER'}.$Versions{'MINORVER'}";
+    if ($Versions{'PATCHVER'} ne "") {
+        $version = "$version.$Versions{'PATCHVER'}";
+    }
+    $version = "$version$Versions{'RELEASETYPE'}$Versions{'RELEASEVER'}";
+    $version = "$version$Versions{'EXTENSIONS'}";
+    $configvar{"BIND9_VERSION"} = "$version";
+}
+
+getversion();
 
 # append seen args to CONFIGARGS define
 
@@ -645,9 +840,15 @@ sub myenable {
         if ($val =~ /^no$/i) {
             $enable_intrinsics = "no";
         }
+    } elsif ($key =~ /^native-pkcs11$/i) {
+        if ($val =~ /^yes$/i) {
+            $enable_native_pkcs11 = "yes";
+        }
     } elsif ($key =~ /^openssl-hash$/i) {
         if ($val =~ /^yes$/i) {
             $enable_openssl_hash = "yes";
+        } elsif ($val =~ /^no$/i) {
+            $enable_openssl_hash = "no";
         }
     } elsif ($key =~ /^isc-spnego$/i) {
         if ($val =~ /^no$/i) {
@@ -665,6 +866,10 @@ sub myenable {
         if ($val =~ /^yes$/i) {
             $enable_developer = "yes";
         }
+    } elsif ($key =~ /^querytrace$/i) {
+        if ($val =~ /^yes$/i) {
+            $enable_querytrace = "yes";
+        }
     } elsif ($key =~ /^rpz-nsip$/i) {
         if ($val =~ /^no$/i) {
             $enable_rpz_nsip = "no";
@@ -672,6 +877,10 @@ sub myenable {
     } elsif ($key =~ /^rpz-nsdname$/i) {
         if ($val =~ /^no$/i) {
             $enable_rpz_nsdname = "no";
+        }
+    } elsif ($key =~ /^sit$/i) {
+        if ($val =~ /^no$/i) {
+            $enable_sit = "no";
         }
     } else {
         $want_unknown = "yes";
@@ -688,10 +897,15 @@ sub myenable {
 if ($enable_developer eq "yes") {
     $configdefh{"ISC_LIST_CHECKINIT"} = 1;
     $enable_filter_aaaa = "yes";
+    $enable_querytrace = "yes";
     # no atf on WIN32
     $enable_fixed_rrset = "yes";
     # TODO: dlz filesystem
     $use_tests = "yes";
+    $use_xtests = "yes";
+    $use_stests = "yes";
+    $use_samples = "yes";
+    $enable_sit = "yes";
 }
 
 # parse with/without
@@ -708,6 +922,15 @@ sub mywith {
         if ($val =~ /^yes$/i) {
             $use_tests = "yes";
             $use_xtests = "yes";
+        }
+    } elsif ($key =~ /^system-tests$/i) {
+        if ($val =~ /^yes$/i) {
+            $use_tests = "yes";
+            $use_stests = "yes";
+        }
+    } elsif ($key =~ /^samples$/i) {
+        if ($val =~ /^yes$/i) {
+            $use_samples = "yes";
         }
     } elsif ($key =~ /^openssl$/i) {
         if ($val =~ /^no$/i) {
@@ -735,7 +958,16 @@ sub mywith {
             $use_gost = "no";
         } elsif ($val =~ /^yes$/i) {
             $use_gost = "yes";
+            $gost_encoding = $val;
         }
+    } elsif ($key =~ /^aes$/i) {
+        if ($val =~ /^no$/i) {
+            $use_aes = "no";
+        } elsif ($val =~ /^yes$/i) {
+            $use_aes = "yes";
+        }
+    } elsif ($key =~ /^sit-alg$/i) {
+        $sit_algorithm = $val;
     } elsif ($key =~ /^gssapi$/i) {
         if ($val !~ /^no$/i) {
             $use_gssapi = "yes";
@@ -798,6 +1030,10 @@ sub mywith {
         if ($val =~ /^yes$/i) {
             $cross_compile = "yes";
         }
+    } elsif ($key =~ /^tuning$/i) {
+        if ($val =~ /^large$/i) {
+            $tuning = "large";
+        }
     } else {
         $want_unknown = "yes";
         if ($val eq "no") {
@@ -805,6 +1041,19 @@ sub mywith {
         } else {
             $unknown_value = "with-" . $key;
         }
+    }
+}
+
+# resolve enable-openssl-hash
+if ($enable_openssl_hash eq "auto") {
+    if ($use_openssl ne "no") {
+        if ($enable_native_pkcs11 eq "yes") {
+            $enable_openssl_hash="no";
+        } else {
+            $enable_openssl_hash="yes";
+        }
+    } else {
+        $enable_openssl_hash="no";
     }
 }
 
@@ -818,6 +1067,12 @@ if ($want_help ne "no") {
 # clean up and exit if requested
 if ($want_clean eq "yes") {
     my $file;
+
+    unlink($configfile);
+    unlink($platformfile);
+    unlink($confshfile);
+    unlink($icshfile);
+
     foreach $file (@filelist) {
         unlink($file);
     }
@@ -856,6 +1111,11 @@ if ($verbose) {
     } else {
         print "intrinsics: disabled\n";
     }
+    if ($enable_native_pkcs11 eq "yes") {
+        print "native-pkcs11: enabled\n";
+    } else {
+        print "native-pkcs11: disabled\n";
+    }
     if ($enable_openssl_hash eq "yes") {
         print "openssl-hash: enabled\n";
     } else {
@@ -881,6 +1141,11 @@ if ($verbose) {
     } else {
         print "developer: disabled\n";
     }
+    if ($enable_querytrace eq "yes") {
+        print "querytrace: enabled\n";
+    } else {
+        print "querytrace: disabled\n";
+    }
     if ($enable_rpz_nsip eq "yes") {
         print "rpz-nsip: enabled\n";
     } else {
@@ -890,6 +1155,12 @@ if ($verbose) {
         print "rpz-nsdname: enabled\n";
     } else {
         print "rpz-nsdname: disabled\n";
+    }
+    if ($enable_sit eq "yes") {
+        print "sit: enabled\n";
+        print "sit algorithm: $sit_algorithm\n";
+    } else {
+        print "sit: disabled\n";
     }
     if ($use_openssl eq "no") {
         print "openssl: disabled\n";
@@ -901,6 +1172,12 @@ if ($verbose) {
     }
     if ($use_xtests eq "yes") {
         print "extra tests: enabled\n";
+    }
+    if ($use_stests eq "yes") {
+        print "system tests: enabled\n";
+    }
+    if ($use_samples eq "yes") {
+        print "sample programs: enabled\n";
     }
     if ($use_pkcs11 eq "no") {
         print "pkcs11: disabled\n";
@@ -916,6 +1193,12 @@ if ($verbose) {
         print "gost: disabled\n";
     } else {
         print "gost: enabled\n";
+        print "gost private key encoding: $gost_encoding\n";
+    }
+    if ($use_aes eq "no") {
+        print "aes: disabled\n";
+    } else {
+        print "aes: enabled\n";
     }
     if ($use_gssapi eq "no") {
         print "gssapi: disabled\n";
@@ -956,50 +1239,71 @@ if ($verbose) {
 # Check environment
 
 # infer vcredist when not given
-
 if ($vcredist_path eq " --infer-- ") {
     if ($verbose) {
         print "trying to infer vcredist path from build environment\n";
     }
-    if ($ENV{"VCRedistPath"} ne "") {
-        $vcredist_path = $ENV{"VCRedistPath"};
-    } elsif ($ENV{"FrameworkSDKDir"} ne "") {
-        if (($want_win32 eq "yes") &&
-            (-f File::Spec->catfile($ENV{"FrameworkSDKDir"},
-                                    "BootStrapper", "Packages",
-                                    "vcredist_x86", "vcredist_x86.exe"))) {
-            $vcredist_path = File::Spec->catfile($ENV{"FrameworkSDKDir"},
-                                                 "BootStrapper",
-                                                 "Packages",
-                                                 "vcredist_x86",
-                                                 "vcredist_x86.exe");
-        } elsif (($want_x64 eq "yes") &&
-                 (-f File::Spec->catfile($ENV{"FrameworkSDKDir"},
-                                         "BootStrapper", "Packages",
-                                         "vcredist_x64",
-                                         "vcredist_x64.exe"))) {
-            $vcredist_path = File::Spec->catfile($ENV{"FrameworkSDKDir"},
-                                                 "BootStrapper",
-                                                 "Packages",
-                                                 "vcredist_x64",
-                                                 "vcredist_x64.exe");
-        }
-    } elsif ($ENV{"VCINSTALLDIR"} ne "") {
-        if (($want_win32 eq "yes") &&
-            (-f File::Spec->catfile($ENV{"VCINSTALLDIR"}, "redist",
-                                    "1033", "vcredist_x86.exe"))) {
-            $vcredist_path = File::Spec->catfile($ENV{"VCINSTALLDIR"},
-                                                 "redist", "1033",
-                                                 "vcredist_x86.exe");
-        } elsif (($want_x64 eq "yes") &&
-                 (-f File::Spec->catfile($ENV{"VCINSTALLDIR"}, "redist",
-                                         "1033", "vcredist_x64.exe"))) {
-            $vcredist_path = File::Spec->catfile($ENV{"VCINSTALLDIR"},
-                                                 "redist", "1033",
-                                                 "vcredist_x64.exe");
-        }
+
+    my @vcpaths = {};
+    push(@vcpaths, $ENV{"VCRedistPath"}) if ($ENV{"VCRedistPath"} ne "");
+    push(@vcpaths, File::Spec->catfile( cwd(), "..", ".." ));
+
+    if ($ENV{"FrameworkSDKDir"} ne "" && $want_win32 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"FrameworkSDKDir"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x86"));
+    } elsif ($ENV{"FrameworkSDKDir"} ne "" && $want_x64 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"FrameworkSDKDir"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x64"));
+    }
+
+    if ($ENV{"WindowsSDKDir"} ne "" && $want_win32 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"WindowsSDKDir"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x86"));
+    } elsif ($ENV{"WindowsSDKDir"} ne "" && $want_x64 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"WindowsSDKDir"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x64"));
+    }
+
+    if ($ENV{"WindowsSDKDir_old"} ne "" && $want_win32 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"WindowsSDKDir_old"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x86"));
+    } elsif ($ENV{"WindowsSDKDir_old"} ne "" && $want_x64 eq "yes") {
+        push(@vcpaths, File::Spec->catfile($ENV{"WindowsSDKDir_old"},
+                                           "BootStrapper", "Packages",
+                                           "vcredist_x64"));
+    }
+
+    if ($ENV{"VCINSTALLDIR"}) {
+        push(@vcpaths, File::Spec->catfile($ENV{"VCINSTALLDIR"},
+                                           "redist", "1033"));
+    }
+
+    my $rfile;
+    if ($want_win32 eq "yes") {
+        $rfile = "vcredist_x86.exe";
     } else {
+        $rfile = "vcredist_x64.exe";
+    }
+
+    foreach (@vcpaths) {
+        my $vp = File::Spec->catfile($_, $rfile);
+        if (-f $vp) {
+            $vcredist_path = $vp;
+            last;
+        }
+    }
+
+    if ($vcredist_path eq " --infer-- ") {
         die "with-vcredist is REQUIRED\n";
+    }
+
+    if ($verbose) {
+        print "found vcredist at " . $vcredist_path . "\n";
     }
 }
 
@@ -1025,7 +1329,7 @@ if (grep { -f and -x } ".\\mscver.exe") {
     die "can't get _MSC_VER value: $compret\n";
 }
 if ($verbose) {
-    print "_MSV_VER == $msc_ver\n";
+    print "_MSC_VER == $msc_ver\n";
 }
 if ($msc_ver < 1600) {
     print STDERR "warning: old version of C++ compiler/Visual Studio\n";
@@ -1135,11 +1439,64 @@ if ($enable_intrinsics eq "yes") {
     $configdefp{"ISC_PLATFORM_HAVEXADD"} = 1;
     if ($want_x64 eq "yes") {
         $configdefp{"ISC_PLATFORM_HAVEXADDQ"} = 1;
+        $configdefp{"ISC_PLATFORM_HAVEATOMICSTOREQ"} = 1;
     }
     $configdefp{"ISC_PLATFORM_HAVEATOMICSTORE"} = 1;
     $configdefp{"ISC_PLATFORM_HAVECMPXCHG"} = 1;
 } else {
     $configvar{"INTRINSIC"} = "false";
+}
+
+# enable-native-pkcs11
+if ($enable_native_pkcs11 eq "yes") {
+    if ($use_openssl eq "auto") {
+        $use_openssl = "no";
+    }
+    if ($use_openssl ne "no") {
+        die "can't have both OpenSSL and native PKCS#11\n";
+    }
+    if ($use_pkcs11 ne "yes") {
+        if ($verbose) {
+            print "native PKCS#11 support: force with-pkcs11\n";
+        }
+        $use_pkcs11 = "yes";
+    }
+    if ($pkcs11_path eq "unknown") {
+        if ($verbose) {
+            print "native PKCS#11 support: no PKCS#11 provider defined?\n";
+        }
+    }
+    $configdefd{"CRYPTO"} = "PKCS11CRYPTO";
+    if ($use_ecdsa eq "no") {
+        if ($verbose) {
+            print "no ECDSA support in native PKCS#11\n";
+        }
+    } else {
+        if ($verbose) {
+            print "enabled ECDSA support in native PKCS#11\n";
+        }
+        $configdefh{"HAVE_PKCS11_ECDSA"} = 1;
+    }
+    if ($use_gost eq "no") {
+        if ($verbose) {
+            print "no GOST support in native PKCS#11\n";
+        }
+    } else {
+        if ($verbose) {
+            print "enabled GOST support in native PKCS#11\n";
+        }
+        $configdefh{"HAVE_PKCS11_GOST"} = 1;
+    }
+    if ($use_aes eq "no") {
+        if ($verbose) {
+            print "no AES support in native PKCS#11\n";
+        }
+    } else {
+        if ($verbose) {
+            print "enabled AES support in native PKCS#11\n";
+        }
+        $use_aes = "pkcs11";
+    }
 }
 
 # enable-filter-aaaa
@@ -1157,9 +1514,19 @@ if ($enable_rpz_nsip ne "no") {
     $configdefh{"ENABLE_RPZ_NSIP"} = 1;
 }
 
+# enable-querytrace
+if ($enable_querytrace eq "yes") {
+    $configdefh{"WANT_QUERYTRACE"} = 1;
+}
+
 # enable-rpz-nsdname
 if ($enable_rpz_nsdname ne "no") {
     $configdefh{"ENABLE_RPZ_NSDNAME"} = 1;
+}
+
+# enable-sit
+if ($enable_sit ne "no") {
+    $configdefp{"ISC_PLATFORM_USESIT"} = 1;
 }
 
 # with-tests
@@ -1170,6 +1537,16 @@ if ($use_tests eq "yes") {
 # with-extra-tests
 if ($use_xtests eq "yes") {
     $configcond{"XTESTS"} = 1;
+}
+
+# with-system-tests
+if ($use_stests eq "yes") {
+    $configcond{"STESTS"} = 1;
+}
+
+# with-samples
+if ($use_samples eq "yes") {
+    $configcond{"SAMPLES"} = 1;
 }
 
 # with-openssl
@@ -1196,8 +1573,14 @@ if ($use_openssl eq "no") {
     foreach $file (sort {uc($b) cmp uc($a)} @dirlist) {
         if (-f File::Spec->catfile($openssl_path,
                                    $file,
-                                   "inc32\\openssl",
-                                   "opensslv.h")) {
+                                   "inc32\\openssl\\opensslv.h")) {
+            $openssl_path = File::Spec->catdir($openssl_path, $file);
+            $use_openssl = "yes";
+            last;
+        }
+        if (-f File::Spec->catfile($openssl_path,
+                                   $file,
+                                   "include\\openssl\\opensslv.h")) {
             $openssl_path = File::Spec->catdir($openssl_path, $file);
             $use_openssl = "yes";
             last;
@@ -1215,24 +1598,53 @@ if ($use_openssl eq "yes") {
     if ($verbose) {
         print "checking for OpenSSL built directory at \"$openssl_path\"\n";
     }
+    my $openssl_new = 0;
     if (!-f File::Spec->catfile($openssl_path,
-                                "inc32\\openssl",
-                                "opensslv.h")) {
-        die "can't find OpenSSL opensslv.h include\n";
-    }
-    if (!-f File::Spec->catfile($openssl_path, "out32dll", "libeay32.lib")) {
-        die "can't find OpenSSL libeay32.lib library\n";
-    }
-    if (!-f File::Spec->catfile($openssl_path, "out32dll", "libeay32.dll")) {
-        die "can't find OpenSSL libeay32.dll DLL\n";
+                                "inc32\\openssl\\opensslv.h")) {
+        $openssl_new = 1;
+        if (!-f File::Spec->catfile($openssl_path,
+                                "include\\openssl\\opensslv.h")) {
+            die "can't find OpenSSL opensslv.h include\n";
+        }
     }
     my $openssl_inc = File::Spec->catdir($openssl_path, "inc32");
     my $openssl_libdir = File::Spec->catdir($openssl_path, "out32dll");
     my $openssl_lib = File::Spec->catfile($openssl_libdir, "libeay32.lib");
     my $openssl_dll = File::Spec->catfile($openssl_libdir, "libeay32.dll");
+    if (!$openssl_new) {
+        # Check libraries are where we expect
+        if (!-f $openssl_lib) {
+            die "can't find OpenSSL libeay32.lib library\n";
+        }
+        if (!-f $openssl_dll) {
+            die "can't find OpenSSL libeay32.dll DLL\n";
+        }
+    } else {
+        # OpenSSL >= 1.1 is easier at the exception of the DLL
+        if ($verbose) {
+            print "new (>= 1.1) OpenSSL version\n";
+        }
+        $openssl_inc = File::Spec->catdir($openssl_path, "include");
+        $openssl_libdir = $openssl_path;
+        $openssl_lib = File::Spec->catfile($openssl_path, "libcrypto.lib");
+        if (!-f $openssl_lib) {
+            die "can't find OpenSSL libcrypto.lib library\n";
+        }
+        opendir DIR, $openssl_path || die "No Directory: $!\n";
+        my @dirlist = grep (/^libcrypto-[^.]+\.dll$/i, readdir(DIR));
+        closedir(DIR);
+        # We must get one file only
+        if (scalar(@dirlist) == 0) {
+            die "can't find OpenSSL libcrypto-*.dll DLL\n";
+        }
+        if (scalar(@dirlist) != 1) {
+            die "find more than one OpenSSL libcrypto-*.dll DLL candidate\n";
+        }
+        $openssl_dll = File::Spec->catdir($openssl_path, "@dirlist[0]");
+    }   
 
     $configcond{"OPENSSL"} = 1;
-    $configdefd{"USE_OPENSSL"} = "OPENSSL";
+    $configdefd{"CRYPTO"} = "OPENSSL";
     $configvar{"OPENSSL_PATH"} = "$openssl_path";
     $configinc{"OPENSSL_INC"} = "$openssl_inc";
     $configlib{"OPENSSL_LIB"} = "$openssl_lib";
@@ -1339,6 +1751,7 @@ EOF
                 print "EVP_sha256 test failed: disabling EVP_sha256\n";
             }
             $use_ecdsa = "no";
+            $enable_openssl_hash = "no";
         } else {
             $configdefh{"HAVE_EVP_SHA256"} = 1;
         }
@@ -1348,6 +1761,7 @@ EOF
             print "disabling EVP_sha256\n";
         }
         $use_ecdsa = "no";
+        $enable_openssl_hash = "no";
     }
 
     if ($verbose) {
@@ -1370,6 +1784,7 @@ EOF
                 print "EVP_sha384 test failed: disabling EVP_sha384\n";
             }
             $use_ecdsa = "no";
+            $enable_openssl_hash = "no";
         } else {
             $configdefh{"HAVE_EVP_SHA384"} = 1;
         }
@@ -1379,6 +1794,7 @@ EOF
             print "disabling EVP_sha384\n";
         }
         $use_ecdsa = "no";
+        $enable_openssl_hash = "no";
     }
 
     if ($verbose) {
@@ -1522,36 +1938,143 @@ if ($use_gost ne "no") {
     $configdefh{"HAVE_OPENSSL_GOST"} = 1;
 }
 
+if ($gost_encoding eq "ans1") {
+    $configdefh{"PREFER_GOSTASN1"} = 1;
+} elsif ($gost_encoding ne "raw") {
+    die "Unrecognized GOST private key encoding: $gost_encoding\n";
+}
+
+# with-aes
+if ($use_openssl eq "no") {
+    if ($use_aes ne "pkcs11") {
+        $use_aes = "no";
+    }
+}
+if ($use_aes eq "auto") {
+    if ($verbose) {
+        print "checking for OpenSSL EVP AES support\n";
+    }
+    $use_aes = "evp";
+    open F, ">testevpaes.c" || die $!;
+    print F << 'EOF';
+#include <openssl/evp.h>
+
+int
+main(void)
+{
+        EVP_CIPHER *aes128, *aes192, *aes256;
+
+        aes128 = EVP_aes_128_ecb();
+        aes192 = EVP_aes_192_ecb();
+        aes256 = EVP_aes_256_ecb();
+        if (aes128 == NULL || aes192 == NULL || aes256 == NULL)
+                return (1);
+        return (0);
+}
+EOF
+    close F;
+    my $include = $configinc{"OPENSSL_INC"};
+    my $library = $configlib{"OPENSSL_LIB"};
+    $compret = `cl /nologo /MD /I "$include" testevpaes.c "$library"`;
+    if (grep { -f and -x } ".\\testevpaes.exe") {
+        `.\\testevpaes.exe`;
+        if ($? != 0) {
+            if ($verbose) {
+                print "EVP AES test failed: disabling EVP AES\n";
+            }
+            $use_aes = "auto";
+        }
+    } else {
+        if ($verbose) {
+            print "can't compile EVP AES test: $compret\n";
+            print "disabling EVP AES\n";
+        }
+        $use_aes = "auto";
+    }
+}
+
+if ($use_aes eq "auto") {
+    if ($verbose) {
+        print "checking for OpenSSL native AES support\n";
+    }
+    $use_aes = "native";
+    open F, ">testaes.c" || die $!;
+    print F << 'EOF';
+#include <openssl/aes.h>
+
+AES_KEY k;
+const unsigned char bufin[16];
+unsigned char bufout[16];
+
+int
+main(void)
+{
+        AES_encrypt(bufin, bufout, &k);
+        return (0);
+}
+EOF
+    close F;
+    my $include = $configinc{"OPENSSL_INC"};
+    my $library = $configlib{"OPENSSL_LIB"};
+    $compret = `cl /nologo /MD /I "$include" testaes.c "$library"`;
+    if (grep { -f and -x } ".\\testaes.exe") {
+        `.\\testaes.exe`;
+        if ($? != 0) {
+            if ($verbose) {
+                print "native AES test failed: disabling AES\n";
+            }
+            $use_aes = "no";
+        }
+    } else {
+        if ($verbose) {
+            print "can't compile native AES test: $compret\n";
+            print "disabling AES\n";
+        }
+        $use_aes = "no";
+    }
+}
+
+if ($use_aes eq "yes") {
+    $configdefh{"HAVE_OPENSSL_EVP_AES"} = 1;
+} elsif ($use_aes eq "evp") {
+    $configdefh{"HAVE_OPENSSL_EVP_AES"} = 1;
+    $use_aes = "yes";
+} elsif ($use_aes eq "native") {
+    $configdefh{"HAVE_OPENSSL_AES"} = 1;
+    $use_aes = "yes";
+} elsif ($use_aes eq "pkcs11") {
+    $use_aes = "yes";
+}
+
+if ($use_aes eq "yes") {
+    $configdefp{"ISC_PLATFORM_WANTAES"} = 1;
+    $configcond{"AES"} = 1;
+}
+
+# with-sit-alg
+if ($enable_sit ne "no") {
+    if ($sit_algorithm eq "aes") {
+        if ($use_aes ne "yes") {
+            $sit_algorithm = "sha256";
+        } else {
+            $configdefh{"AES_SIT"} = 1;
+        }
+    }
+    if ($sit_algorithm eq "sha1") {
+        $configdefh{"HMAC_SHA1_SIT"} = 1;
+    } elsif ($sit_algorithm eq "sha256") {
+        $configdefh{"HMAC_SHA256_SIT"} = 1;
+    } elsif ($sit_algorithm ne "aes") {
+        die "Unrecognized SIT algorithm: $sit_algorithm\n";
+    }
+}
+
 # enable-openssl-hash
 if ($enable_openssl_hash eq "yes") {
     if ($use_openssl eq "no") {
         die "No OpenSSL for hash functions\n";
     }
     $configdefp{"ISC_PLATFORM_OPENSSLHASH"} = 1;
-    if ($verbose) {
-        print "checking HMAC_Init() return type\n";
-    }
-    open F, ">testhmac.c" || die $!;
-    print F << 'EOF';
-#include <openssl/hmac.h>
-
-int
-main(void)
-{
-        HMAC_CTX ctx;
-        int n = HMAC_Init(&ctx, NULL, 0, NULL);
-        n += HMAC_Update(&ctx, NULL, 0);
-        n += HMAC_Final(&ctx, NULL, NULL);
-        return(n);
-}
-EOF
-    close F;
-    my $include = $configinc{"OPENSSL_INC"};
-    my $library = $configlib{"OPENSSL_LIB"};
-    $compret = `cl /nologo /MD /I "$include" testhmac.c "$library"`;
-    if (grep { -f and -x } ".\\testhmac.exe") {
-        $configdefh{"HMAC_RETURN_INT"} = 1;
-    }
 }
 
 # with-pkcs11
@@ -1904,6 +2427,7 @@ if ($use_libxml2 eq "yes") {
     }
     $configcond{"LIBXML2"} = 1;
     $configdefh{"HAVE_LIBXML2"} = 1;
+    $configtest{"XMLSTATS"} = 1;
     my $libxml2_inc = File::Spec->catdir($libxml2_path, "include");
     $configinc{"LIBXML2_INC"} = "$libxml2_inc";
     my $libxml2_libdir = File::Spec->catdir($libxml2_path, "win32\\bin.msvc");
@@ -1922,25 +2446,93 @@ if ($use_python eq "no") {
     if ($verbose) {
         print "checking for python in path\n";
     }
-    my $pythonret = `python -c "quit()" 2>&1`;
+    my $pythonret = `python.exe -c "quit()" 2>&1`;
     if ($? != 0) {
-        die "can't launch the python interpreter: $pythonret\n";
+        print STDERR "can't launch the python interpreter: $pythonret\n";
+        $use_python = "no";
     }
-    $use_python = "yes";
 }
 if ($use_python ne "no") {
-    if ($verbose) {
+    if ($use_python ne "auto") {
+        if ($verbose) {
+           print "checking for $python_command\n";
+        }
         my $pythonret = `"$python_command" -c "quit()" 2>&1`;
         if ($? != 0) {
-            print STDERR
-                "can't lanch the local python interpreter: $pythonret\n";
+            die "can't launch $python_command: $pythonret\n";
         }
     }
-    $configcond{"PYTHON"} = 1;
-    $configdefd{"USE_PYTHON"} = "USE_PYTHON";
-    $configvar{"PYTHON"} = "$python_command";
-    # Only a default!
-    $configvar{"prefix"} = "C:\\Program Files\ISC BIND 9";
+    if ($python_command !~ /\.exe$/i) {
+        $python_command = $python_command . ".exe";
+    }
+    # tried to use the full path without success here
+    if ($verbose) {
+        print "checking for python module 'argparse'\n";
+    }
+    my $pythonret = `"$python_command" -c "import argparse" 2>&1`;
+    if ($? != 0) {
+        if ($use_python ne "auto") {
+            die "can't find python module 'argparse': $pythonret\n";
+        } else {
+            print STDERR "can't find python module 'argparse': $pythonret\n";
+            $use_python = "no";
+        }
+    }
+    if ($use_python ne "no") {
+        if ($verbose) {
+            print "checking for python module 'ply'\n";
+        }
+        $pythonret = `"$python_command" -c "from ply import *" 2>&1`;
+        if ($? != 0) {
+            if ($use_python ne "auto") {
+                die "can't find python module 'ply': $pythonret\n";
+            } else {
+                print STDERR "can't find python module 'ply': $pythonret\n";
+                $use_python = "no";
+            }
+        }
+    }
+    if ($use_python ne "no") {
+        if ($verbose) {
+            print "checking for python module 'win32api'\n";
+        }
+        $pythonret = `"$python_command" -c "import win32api" 2>&1`;
+        if ($? != 0) {
+            if ($use_python ne "auto") {
+                die "can't find python module 'win32api': $pythonret\n";
+            } else {
+                print STDERR
+                    "can't find python module 'win32api': $pythonret\n";
+                $use_python = "no";
+            }
+        }
+    }
+    if ($use_python ne "no") {
+        if ($verbose) {
+            print "checking for python module 'win32con'\n";
+        }
+        $pythonret = `"$python_command" -c "import win32con" 2>&1`;
+        if ($? != 0) {
+            if ($use_python ne "auto") {
+                die "can't find python module 'win32con': $pythonret\n";
+            } else {
+                print STDERR
+                    "can't find python module 'win32con': $pythonret\n";
+                $use_python = "no";
+            }
+        }
+    }
+    if ($use_python ne "no") {
+        $configcond{"PYTHON"} = 1;
+        $configdefd{"USE_PYTHON"} = "USE_PYTHON";
+        $configvar{"PYTHON"} = "$python_command";
+        $configtest{"CHECKDS"} = "checkds";
+        $configtest{"COVERAGE"} = "coverage";
+        $configtest{"KEYMGR"} = "keymgr";
+        # Doesn't matter
+        $configvar{"prefix"} = "__prefix__";
+        $configvar{"expanded_sysconfdir"} = "__prefix__\\etc";
+    }
 }
 
 # with-vcredist
@@ -1951,13 +2543,28 @@ if (!grep { -f and -x } $vcredist_path) {
     $configvar{"VCREDIST_PATH"} = "$vcredist_path";
 }
 
+# tuning
+if ($tuning eq "large") {
+    $configdefh{"TUNE_LARGE"} = 1;
+}
+
+# escape spaces
+
+sub kw {
+    if ($_[0] =~ / /) {
+        return "\"$_[0]\"";
+    } else {
+        return "$_[0]";
+    }
+}
+
 # setup config.h with %configdefh
 
 sub setupconfigh {
     my $line;
     my @Lines;
 
-    open F, $configfilein || die $!;
+    open F, $configfile . ".win32" || die $!;
     @Lines = <F>;
     close F;
 
@@ -1972,9 +2579,9 @@ sub setupconfigh {
         }
     }
 
-    open F, $configfileout || die $!;
+    open F, ">" . $configfile || die $!;
     if ($verbose) {
-        print "Setting up config.h\n";
+        print "Setting up $configfile\n";
     }
     foreach $line (@Lines) {
         print F $line . "\n";
@@ -2005,7 +2612,7 @@ sub setupplatformh {
 
     open F, ">" . $platformfile || die $!;
     if ($verbose) {
-        print "Setting up platform.h\n";
+        print "Setting up $platformfile\n";
     }
     foreach $line (@Lines) {
         print F $line . "\n";
@@ -2013,17 +2620,90 @@ sub setupplatformh {
     close F;
 }
 
-# escape spaces
+# setup conf.sh with %configtest and %configvar
 
-sub kw {
-    if ($_[0] =~ / /) {
-        return "\"$_[0]\"";
-    } else {
-        return "$_[0]";
+sub setupconfsh {
+    my $line;
+    my @Lines;
+    my $val;
+
+    open F, $confshfile . ".win32" || die $!;
+    @Lines = <F>;
+    close F;
+
+    foreach $line (@Lines) {
+        chomp $line;
+        while ($line =~ /@([^@]+)\@/) {
+            if ($1 ~~ @substtest) {
+                if (defined($configtest{$1})) {
+                    $val = kw($configtest{$1});
+                    $line = "$`$val$'";
+                } else {
+                    $line = "$`$'";
+                }
+            } elsif ($1 ~~ @substvar) {
+                if (defined($configvar{$1})) {
+                    $val = kw($configvar{$1});
+                    $line = "$`$val$'";
+                } else {
+                    $line = "$`$'";
+                }
+            }  else {
+                die "unknown control $& in $confshfile.win32\n";
+            }
+        }
     }
+
+    open F, ">" . $confshfile || die $!;
+    if ($verbose) {
+        print "Setting up $confshfile\n";
+    }
+    binmode(F);
+    foreach $line (@Lines) {
+        print F $line . "\n";
+    }
+    close F;
 }
 
-# setup a file with %configcond stack and %config{var,defd,inc,lib,dll}
+# setup isc-config.sh with %configvar accepting undefined
+
+sub setupicsh {
+    my $line;
+    my @Lines;
+    my $val;
+
+    open F, $icshfile . ".in" || die $!;
+    @Lines = <F>;
+    close F;
+
+    foreach $line (@Lines) {
+        chomp $line;
+        while ($line =~ /@([^@]+)\@/) {
+            if ($1 ~~ @substvar) {
+                if (defined($configvar{$1})) {
+                    $val = kw($configvar{$1});
+                    $line = "$`$val$'";
+                } else {
+                    $line = "$`$'";
+                }
+            }  else {
+                $line = "$`__$1__$'";
+            }
+        }
+    }
+
+    open F, ">" . $icshfile || die $!;
+    if ($verbose) {
+        print "Setting up $icshfile\n";
+    }
+    binmode(F);
+    foreach $line (@Lines) {
+        print F $line . "\n";
+    }
+    close F;
+}
+
+# setup a file with %configcond stack and %config{var,defd,inc,lib,dll,test}
 
 sub setupfile {
     my $line;
@@ -2047,11 +2727,15 @@ sub setupfile {
                 unshift(@conds, $cond);
                 unshift(@passes, $pass);
             }
-            $cond = $1;
-            if (defined($configcond{$cond})) {
-                # do nothing
+            if ($1 ~~ @allcond) {
+                $cond = $1;
+                if (defined($configcond{$cond})) {
+                    # do nothing
+                } else {
+                    $pass = 0;
+                }
             } else {
-                $pass = 0;
+                die "unknown condition \@IF $1 in $filename\n";
             }
             next;
         } elsif ($line =~ /^\@ELSE (.*)$/) {
@@ -2094,8 +2778,10 @@ sub setupfile {
             } elsif ($1 ~~ @substdefd) {
                 if (defined($configdefd{$1})) {
                     my $def = $configdefd{$1};
+                    my $pre = "$`";
+                    my $post = "$'";
                     $def =~ s/([\\ "])/\\$1/g;
-                    $line = qq($`/D "$def"$');
+                    $line = qq($pre/D "$def"$post);
                 } else {
                     $line = "$`$'";
                 }
@@ -2130,6 +2816,9 @@ sub setupfile {
     if ($verbose) {
         print "Setting up $filename\n";
     }
+    if (!$legacy_only) {
+        binmode(F);
+    }
     foreach $line (@Linesout) {
         print F $line . "\n";
     }
@@ -2160,11 +2849,15 @@ sub setupproject {
                 unshift(@conds, $cond);
                 unshift(@passes, $pass);
             }
-            $cond = $1;
-            if (defined($configcond{$cond})) {
-                # do nothing
+            if ($1 ~~ @allcond) {
+                $cond = $1;
+                if (defined($configcond{$cond})) {
+                    # do nothing
+                } else {
+                    $pass = 0;
+                }
             } else {
-                $pass = 0;
+                die "unknown condition \@IF $1 in $projectname\n";
             }
             next;
         } elsif ($line =~ /^\@ELSE (.*)$/) {
@@ -2254,16 +2947,16 @@ sub setupproject {
 sub makeversion {
     # List of directories with version files
 
-    my @dirlist = ("isc", "dns", "isccc", "isccfg", "lwres", "bind9");
+    my @dirlist = ("isc", "dns", "isccc", "isccfg", "lwres", "bind9", "irs");
     my %LibMacros = (
-        "isc"    => "LIBISC_EXPORTS",
-        "dns"    => "LIBDNS_EXPORTS",
-        "isccc"  => "LIBISCCC_EXPORTS",
-        "isccfg" => "LIBISCCFG_EXPORTS",
-        "lwres"  => "LIBLWRES_EXPORTS",
-        "bind9"  => "LIBBIND9_EXPORTS");
+        "bind9"   => "LIBBIND9_EXPORTS",
+        "dns"     => "LIBDNS_EXPORTS",
+        "irs"     => "LIBIRS_EXPORTS",
+        "isc"     => "LIBISC_EXPORTS",
+        "isccc"   => "LIBISCCC_EXPORTS",
+        "isccfg"  => "LIBISCCFG_EXPORTS",
+        "lwres"   => "LIBLWRES_EXPORTS");
     my @VersionNames = ("LIBINTERFACE", "LIBREVISION", "LIBAGE");
-    my %Versions;
     my $Version;
     my %ApiVersions;
     my $Mapapi;
@@ -2273,26 +2966,6 @@ sub makeversion {
     my $data;
     my $name;
     my $value;
-
-    # First get the version information
-
-    open V, "..\\version" || die $!;
-    while (<V>) {
-        chomp;
-        ($data) = split(/\#/);
-        if ($data) {
-            ($name, $value) = split(/=/, $data);
-            ($name) = split(/\s+/, $name);
-            if ($name eq 'PRODUCT' || $name eq 'DESCRIPTION') {
-                ($value) =~ s/^["\s]+//;
-                ($value) =~ s/["\s]+$//;
-            } else {
-                ($value) = split(/\s+/, $value);
-            }
-            $Versions{$name} = $value;
-        }
-    }
-    close V;
 
     # And the mapapi one
 
@@ -2354,7 +3027,7 @@ sub makeversion {
 ';
 
     $Version = "$Versions{'MAJORVER'}.$Versions{'MINORVER'}";
-    if ($Versions{'PATCHVER'} != "") {
+    if ($Versions{'PATCHVER'} ne "") {
         $Version = "$Version.$Versions{'PATCHVER'}";
     }
     $Version = "$Version$Versions{'RELEASETYPE'}$Versions{'RELEASEVER'}";
@@ -2404,7 +3077,7 @@ sub makesrcid {
     my $data;
     my $name;
     my $value;
-    my $srcid = "unset";
+    my $srcid = "unset_id";
 
     open SOUT, ">..\\srcid.h" || die "cannot open srcid.h: $!\n";
     if (open (SIN, "..\\srcid")) {
@@ -2467,6 +3140,125 @@ sub makesrcid {
     close SOUT;
 }
 
+# Build install files
+
+sub makeinstallfile {
+    open FOUT, ">InstallFlags" || die "cannot open InstallFlags: $!\n";
+    print FOUT "# Flags for BINDInstall\n";
+    if ($msc_ver >= 1400) {
+        print FOUT "runvcredist\n";
+    }
+    if ($want_x64 eq "yes") {
+        print FOUT "forwin64\n";
+    }
+    close FOUT;
+
+    open LOUT, ">InstallFiles" || die "cannot open InstallFiles: $!\n";
+    print LOUT "# File list for BINDInstall\n";
+    if ($msc_ver < 1400) {
+        if ($msc_ver >= 1310) {
+            print LOUT "mfc71.dll-WCTT\n";
+            print LOUT "msvcr71.dll-WCTT\n";
+        } elsif (($msc_ver > 1200) && ($msc_ver < 1310)) {
+            print LOUT "mfc70.dll-WCTT\n";
+            print LOUT "msvcr70.dll-WCTT\n";
+        }
+    }
+    print LOUT "bindevt.dll-BNFT\n";
+    print LOUT "libbind9.dll-BCFT\n";
+    print LOUT "libisc.dll-BCFT\n";
+    print LOUT "libisccfg.dll-BCFT\n";
+    print LOUT "libisccc.dll-BCFT\n";
+    print LOUT "libdns.dll-BCFT\n";
+    print LOUT "liblwres.dll-BCFT\n";
+    print LOUT "libirs.dll-BCFT\n";
+    if ($use_openssl eq "yes") {
+        my $v;
+        my $d;
+        my $name;
+        ($v, $d, $name) =File::Spec->splitpath($configdll{"OPENSSL_DLL"});
+        print LOUT "${name}-BCFT\n";
+    }
+    if ($use_libxml2 eq "yes") {
+        print LOUT "libxml2.dll-BCFT\n";
+    }
+    if ($use_gssapi eq "yes") {
+        if ($want_x64 eq "yes") {
+            print LOUT "gssapi64.dll-BCFT\n";
+            print LOUT "krb5_64.dll-BCFT\n";
+        } else {
+            print LOUT "gssapi32.dll-BCFT\n";
+            print LOUT "krb5_32.dll-BCFT\n";
+        }
+    }
+    if ($use_geoip eq "yes") {
+        print LOUT "libgeoip.dll-BCFT\n";
+    }
+    if ($use_idn eq "yes") {
+        print LOUT "idnkit.dll-BCFT\n";
+        print LOUT "iconv.dll-BCFT\n";
+    }
+    print LOUT "named.exe-BCFF\n";
+    print LOUT "nsupdate.exe-BNFT\n";
+    print LOUT "BINDInstall.exe-BNFT\n";
+    print LOUT "InstallFlags-BNFT\n";
+    print LOUT "InstallFiles-BNFT\n";
+    print LOUT "rndc.exe-BNFF\n";
+    print LOUT "dig.exe-BNFT\n";
+    print LOUT "host.exe-BNFT\n";
+    print LOUT "nslookup.exe-BNFT\n";
+    print LOUT "delv.exe-BNFT\n";
+    print LOUT "arpaname.exe-BNFT\n";
+    print LOUT "nsec3hash.exe-BNFF\n";
+    print LOUT "genrandom.exe-BNFF\n";
+    print LOUT "rndc-confgen.exe-BNFF\n";
+    print LOUT "ddns-confgen.exe-BNFF\n";
+    print LOUT "tsig-keygen.exe-BNFF\n";
+    print LOUT "dnssec-keygen.exe-BNFF\n";
+    print LOUT "dnssec-signzone.exe-BNFF\n";
+    print LOUT "dnssec-dsfromkey.exe-BNFF\n";
+    print LOUT "dnssec-importkey.exe-BNFF\n";
+    print LOUT "dnssec-keyfromlabel.exe-BNFF\n";
+    print LOUT "dnssec-revoke.exe-BNFF\n";
+    print LOUT "dnssec-settime.exe-BNFF\n";
+    print LOUT "dnssec-verify.exe-BNFF\n";
+    print LOUT "named-checkconf.exe-BNFF\n";
+    print LOUT "named-checkzone.exe-BNFF\n";
+    print LOUT "named-compilezone.exe-BNFF\n";
+    print LOUT "named-journalprint.exe-BNFF\n";
+    print LOUT "named-rrchecker.exe-BNFF\n";
+    print LOUT "isc-hmax-fixup.exe-BNFF\n";
+    if ($use_pkcs11 eq "yes") {
+        print LOUT "pkcs11-destroy.exe-BNFF\n";
+        print LOUT "pkcs11-keygen.exe-BNFF\n";
+        print LOUT "pkcs11-list.exe-BNFF\n";
+        print LOUT "pkcs11-tokens.exe-BNFF\n";
+    }
+    if ($use_python ne "no") {
+        print LOUT "dnssec-checkds.py-BNFF\n";
+        print LOUT "dnssec-coverage.py-BNFF\n";
+    }
+    print LOUT "readme1st.txt-BTFT\n";
+    close LOUT;
+}
+
+# Adjust system tests
+
+# WIN32 not a BSD
+$configtest{"CHECK_DSA"} = 0;
+
+# dnstap not supported
+#$configtest{"DNSTAP"} = "dnstap";
+#$configtest{"FSTRM_CAPTURE"} = "fstrm_capture";
+
+# no json-c library for WIN32
+#$configtest{"JSONSTATS"} = 1;
+
+# lmdb not supported
+#$configtest{"NZD_TOOLS"} = "nzd";
+
+# TODO check for pkcs11ssl and set PKCS11_TEST
+
 # Status
 
 if ($verbose) {
@@ -2487,6 +3279,15 @@ if ($verbose) {
     foreach $name (@substdefp) {
         if (defined($configdefp{$name})) {
             print qq(\t\t$name defined to "$configdefp{$name}"\n);
+        } else {
+            printf qq(\t\t$name undefined\n);
+        }
+    }
+
+    print "\tconf.sh:\n";
+    foreach $name (@substtest) {
+        if (defined($configtest{$name})) {
+            print qq(\t\t$name defined to "$configtest{$name}"\n);
         } else {
             printf qq(\t\t$name undefined\n);
         }
@@ -2545,6 +3346,10 @@ if (($want_win32 eq "yes") || ($want_x64 eq "yes")) {
 
     setupplatformh();
 
+    setupconfsh();
+
+    setupicsh();
+
     my $file;
     foreach $file (@filelist) {
         setupfile($file);
@@ -2560,6 +3365,8 @@ if (($want_win32 eq "yes") || ($want_x64 eq "yes")) {
 
     makesrcid();
 
+    makeinstallfile();
+
     print "Configured.\n";
 } else {
     print "add win32 or x64 to commit configuration to build files\n";
@@ -2570,41 +3377,50 @@ exit 0;
 # Notes: Unix configure.in options
 #  --enable-developer partially supported
 #  --enable-newstats (9.9/9.9sub only)
+#  --enable-native-pkcs11 supported
 #  --enable-openssl-version-check included without a way to disable it
 #  --enable-openssl-hash supported
 #  --enable-threads included without a way to disable it
 #  --enable-backtrace backtrace included without a way to disable it
 #  --enable-symtable incompatible with DLLs (or libtool)
-#  --enable-exportlib TODO (obsolete)
 #  --enable-ipv6 included without a way to disable it
-#  --enable-atomic supported (renamed intrinsic)
-#  --enable-spnego support (part of GSSAPI)
+#  --enable-atomic supported (renamed to intrinsic)
+#  --enable-isc-spnego supported (part of GSSAPI)
 #  --enable-fixed-rrset supported
+#  --enable-querytrace supported
 #  --disable-rpz-nsip supported
 #  --disable-rpz-nsdname supported
 #  --enable-filter-aaaa supported
+#  --enable-sit supported
+#  --enable-full-report supported by verbose
+#  --enable-seccomp not supported (Linux specific)
 #  --with-python supported
 #  --with-openssl supported
+#  --with-pkcs11 supported
 #  --with-ecdsa supported
 #  --with-gost supported
-#  --with-pkcs11 supported
+#  --with-aes supported
+#  --with-sit-alg supported
 #  --with-geoip supported
 #  --with-gssapi supported with MIT (K)erberos (f)or (W)indows
 #  --with-libxml2 supported
 #  --with-libjson not supported on WIN32 (package not available on WIN32)
-#  --with-purify ? (package available on WIN32 but for free?)
-#  --with-gperftools-profiler (package not available on WIN32)
+#  --with-purify not supported (package available on WIN32 but for free?)
+#  --with-gperftools-profiler not supported (package not available on WIN32)
 #  --with-libtool not supported on WIN32 (never)
+#  --with-locktype not supported on WIN32 (not yet available on WIN32)
 #  --with-readline supported
-#  --with-idn support
-#  --with-[lib]iconv (part of IDN)
+#  --with-docbook-xsl not supported (?)
+#  --with-idn[lib] supported
+#  --with-[lib]iconv supported (part of IDN)
 #  --with-atf not supported on WIN32 (package not available on WIN32)
 #  --with-tuning supported
 #  --with-dlopen included without a way to disable it
 #  --with-dlz-* ?
 #
 # Notes: MSVC versions
-# MSVC 14.0 _MSC_VER == 1900 (VS 14 (2014))
+# MSVC 15.0 _MSC_VER == 1910 (VS 2017)
+# MSVC 14.0 _MSC_VER == 1900 (VS 2015)
 # MSVC 12.0 _MSC_VER == 1800 (VS 2013)
 # MSVC 11.0 _MSC_VER == 1700 (VS 2012)
 # MSVC 10.0 _MSC_VER == 1600 (VS 2010)

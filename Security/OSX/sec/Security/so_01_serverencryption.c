@@ -124,6 +124,7 @@ static void tests(void)
     ok(CFEqualSafe(testData, decrypted), "round trip");
 
 
+    CFReleaseNull(full_key);
     CFReleaseNull(cert);
     CFReleaseNull(certInArray);
     CFReleaseNull(trust);

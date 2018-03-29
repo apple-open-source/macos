@@ -33,6 +33,8 @@ __END_DECLS
 
 #include <IOKit/network/IOMbufMemoryCursor.h>
 #include <IOKit/IOLib.h>
+#include "IONetworkDebug.h"
+
 
 #ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -96,6 +98,7 @@ bool IOMbufMemoryCursor::initWithSpecification(OutputSegmentFunc inOutSeg,
     maxSegmentSize = MIN(maxSegmentSize, PAGE_SIZE);
     maxNumSegments = inMaxNumSegments;
     coalesceCount = 0;
+
 
     return true;
 }

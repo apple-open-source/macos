@@ -28,6 +28,13 @@
     return self;
 }
 
+-(void)dealloc
+{
+    if(self) {
+        CFReleaseNull(self->pending_changes);
+    }
+}
+
 -(CFIndex) SOSTransportMessageGetTransportType
 {
     return kKVS;

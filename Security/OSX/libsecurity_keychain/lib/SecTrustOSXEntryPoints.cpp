@@ -28,6 +28,12 @@
 
 #include "SecTrustOSXEntryPoints.h"
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
+#include <AssertMacros.h>
+#include <notify.h>
+#include <mach/mach_time.h>
+
 #include <Security/Security.h>
 #include <Security/cssmtype.h>
 #include <Security/SecKeychain.h>
@@ -41,11 +47,6 @@
 
 #include <security_ocspd/ocspdClient.h>
 #include <security_ocspd/ocspdUtils.h>
-
-#include <CoreFoundation/CoreFoundation.h>
-#include <dispatch/dispatch.h>
-#include <AssertMacros.h>
-#include <notify.h>
 
 
 void SecTrustLegacySourcesListenForKeychainEvents(void) {
@@ -229,6 +230,7 @@ static void async_ocspd_complete(async_ocspd_t *ocspd) {
 bool SecTrustLegacyCRLFetch(async_ocspd_t *ocspd,
                        CFURLRef currCRLDP, CFAbsoluteTime verifyTime,
                        SecCertificateRef cert, CFArrayRef chain) {
+    ocspd->start_time = mach_absolute_time();
     dispatch_async(ocspd->queue, ^ {
         OSStatus status = fetchCRL(currCRLDP, verifyTime);
         switch (status) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -357,78 +357,6 @@ static void __DAMain( void )
     CFRelease( source );
 
     /*
-     * Create the BSD notification run loop source.
-     */
-
-    __gDAVolumeMountedPort = CFMachPortCreate( kCFAllocatorDefault, _DAVolumeMountedCallback, NULL, NULL );
-
-    if ( __gDAVolumeMountedPort == NULL )
-    {
-        DALogError( "could not create BSD notification port." );
-        exit( EX_SOFTWARE );
-    }
-
-    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeMountedPort, 0 );
-
-    if ( source == NULL )
-    {
-        DALogError( "could not create BSD notification run loop source." );
-        exit( EX_SOFTWARE );
-    }
-
-    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-    CFRelease( source );
-
-    /*
-     * Create the BSD notification run loop source.
-     */
-
-    __gDAVolumeUnmountedPort = CFMachPortCreate( kCFAllocatorDefault, _DAVolumeUnmountedCallback, NULL, NULL );
-
-    if ( __gDAVolumeUnmountedPort == NULL )
-    {
-        DALogError( "could not create BSD notification port." );
-        exit( EX_SOFTWARE );
-    }
-
-    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeUnmountedPort, 0 );
-
-    if ( source == NULL )
-    {
-        DALogError( "could not create BSD notification run loop source." );
-        exit( EX_SOFTWARE );
-    }
-
-    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-    CFRelease( source );
-
-    /*
-     * Create the BSD notification run loop source.
-     */
-
-    __gDAVolumeUpdatedPort = CFMachPortCreate( kCFAllocatorDefault, _DAVolumeUpdatedCallback, NULL, NULL );
-
-    if ( __gDAVolumeUpdatedPort == NULL )
-    {
-        DALogError( "could not create BSD notification port." );
-        exit( EX_SOFTWARE );
-    }
-
-    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeUpdatedPort, 0 );
-
-    if ( source == NULL )
-    {
-        DALogError( "could not create BSD notification run loop source." );
-        exit( EX_SOFTWARE );
-    }
-
-    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-    CFRelease( source );
-
-    /*
      * Create the I/O Kit notification run loop source.
      */
 
@@ -575,37 +503,91 @@ static void __DAMain( void )
      * Create the "file system mounted" notification.
      */
 
-    port = CFMachPortGetPort( __gDAVolumeMountedPort );
-
-    if ( notify_register_mach_port( kNotifyVFSMount, &port, NOTIFY_REUSE, &token ) )
+    if ( notify_register_mach_port( kNotifyVFSMount, &port, 0, &token ) )
     {
         DALogError( "could not create \"file system mounted\" notification." );
         exit( EX_SOFTWARE );
     }
 
+    __gDAVolumeMountedPort = CFMachPortCreateWithPort( kCFAllocatorDefault, port, _DAVolumeMountedCallback, NULL, NULL );
+
+    if ( __gDAVolumeMountedPort == NULL )
+    {
+        DALogError( "could not create \"file system mounted\" notification port." );
+        exit( EX_SOFTWARE );
+    }
+
+    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeMountedPort, 0 );
+
+    if ( source == NULL )
+    {
+        DALogError( "could not create \"file system mounted\" notification run loop source." );
+        exit( EX_SOFTWARE );
+    }
+
+    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
+
+    CFRelease( source );
+
     /*
      * Create the "file system unmounted" notification.
      */
 
-    port = CFMachPortGetPort( __gDAVolumeUnmountedPort );
-
-    if ( notify_register_mach_port( kNotifyVFSUnmount, &port, NOTIFY_REUSE, &token ) )
+    if ( notify_register_mach_port( kNotifyVFSUnmount, &port, 0, &token ) )
     {
         DALogError( "could not create \"file system unmounted\" notification." );
         exit( EX_SOFTWARE );
     }
 
+    __gDAVolumeUnmountedPort = CFMachPortCreateWithPort( kCFAllocatorDefault, port, _DAVolumeUnmountedCallback, NULL, NULL );
+
+    if ( __gDAVolumeUnmountedPort == NULL )
+    {
+        DALogError( "could not create \"file system unmounted\" notification port." );
+        exit( EX_SOFTWARE );
+    }
+
+    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeUnmountedPort, 0 );
+
+    if ( source == NULL )
+    {
+        DALogError( "could not create \"file system unmounted\" notification run loop source." );
+        exit( EX_SOFTWARE );
+    }
+
+    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
+
+    CFRelease( source );
+
     /*
      * Create the "file system updated" notification.
      */
 
-    port = CFMachPortGetPort( __gDAVolumeUpdatedPort );
-
-    if ( notify_register_mach_port( kNotifyVFSUpdate, &port, NOTIFY_REUSE, &token ) )
+    if ( notify_register_mach_port( kNotifyVFSUpdate, &port, 0, &token ) )
     {
         DALogError( "could not create \"file system updated\" notification." );
         exit( EX_SOFTWARE );
     }
+
+    __gDAVolumeUpdatedPort = CFMachPortCreateWithPort( kCFAllocatorDefault, port, _DAVolumeUpdatedCallback, NULL, NULL );
+
+    if ( __gDAVolumeUpdatedPort == NULL )
+    {
+        DALogError( "could not create \"file system updated\" notification port." );
+        exit( EX_SOFTWARE );
+    }
+
+    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeUpdatedPort, 0 );
+
+    if ( source == NULL )
+    {
+        DALogError( "could not create \"file system updated\" notification run loop source." );
+        exit( EX_SOFTWARE );
+    }
+
+    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
+
+    CFRelease( source );
 
     /*
      * Create the mount point folder.

@@ -136,7 +136,7 @@ syncbackup(int argc, char * const *argv)
                 
             case '?':
             default:
-                return 2; /* Return 2 triggers usage message. */
+                return SHOW_USAGE_MESSAGE;
         }
     
     if (hadError)

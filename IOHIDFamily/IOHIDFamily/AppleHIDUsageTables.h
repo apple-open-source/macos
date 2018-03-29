@@ -32,30 +32,30 @@
 
 /* Usage Pages */
 enum {
-    kHIDPage_AppleVendor                        = 0xff00,
-    kHIDPage_AppleVendorKeyboard                = 0xff01,
-    kHIDPage_AppleVendorMouse                   = 0xff02,
-    kHIDPage_AppleVendorAccelerometer           = 0xff03,
-    kHIDPage_AppleVendorAmbientLightSensor      = 0xff04,
-    kHIDPage_AppleVendorTemperatureSensor       = 0xff05,
-    kHIDPage_AppleVendorHeadset                 = 0xff07,
-    kHIDPage_AppleVendorPowerSensor             = 0xff08,
-    kHIDPage_AppleVendorSmartCover              = 0xff09,
-    kHIDPage_AppleVendorPlatinum                = 0xff0A,
-    kHIDPage_AppleVendorHeartRate               = 0xff0A,
-    kHIDPage_AppleVendorLisa                    = 0xff0B,
-    kHIDPage_AppleVendorMotion                  = 0xff0C,
-    kHIDPage_AppleVendorBattery                 = 0xff0D,
-    kHIDPage_AppleVendorIRRemote                = 0xff0E,
-    kHIDPage_AppleVendorDebug                   = 0xff0F,
-    kHIDPage_AppleVendorIRInterface             = 0xff10,
-    kHIDPage_AppleVendorDFR                     = 0xff11,
-    kHIDPage_AppleVendorDFRBrightness           = 0xff12,
-    kHIDPage_AppleVendorSenderID                = 0xff13,
-    kHIDPage_AppleVendorFilteredEvent           = 0xff50,
-    kHIDPage_AppleVendorMultitouch              = 0xff60,
-    kHIDPage_AppleVendorDisplay                 = 0xff92,
-    kHIDPage_AppleVendorTopCase                 = 0x00ff
+    kHIDPage_AppleVendor                        = 0xFF00,
+    kHIDPage_AppleVendorKeyboard                = 0xFF01,
+    kHIDPage_AppleVendorMouse                   = 0xFF02,
+    kHIDPage_AppleVendorAccelerometer           = 0xFF03,
+    kHIDPage_AppleVendorAmbientLightSensor      = 0xFF04,
+    kHIDPage_AppleVendorTemperatureSensor       = 0xFF05,
+    kHIDPage_AppleVendorHeadset                 = 0xFF07,
+    kHIDPage_AppleVendorPowerSensor             = 0xFF08,
+    kHIDPage_AppleVendorSmartCover              = 0xFF09,
+    kHIDPage_AppleVendorPlatinum                = 0xFF0A,
+    kHIDPage_AppleVendorHeartRate               = 0xFF0A,
+    kHIDPage_AppleVendorLisa                    = 0xFF0B,
+    kHIDPage_AppleVendorMotion                  = 0xFF0C,
+    kHIDPage_AppleVendorBattery                 = 0xFF0D,
+    kHIDPage_AppleVendorIRRemote                = 0xFF0E,
+    kHIDPage_AppleVendorDebug                   = 0xFF0F,
+    kHIDPage_AppleVendorIRInterface             = 0xFF10,
+    kHIDPage_AppleVendorDFR                     = 0xFF11,
+    kHIDPage_AppleVendorDFRBrightness           = 0xFF12,
+    kHIDPage_AppleVendorSenderID                = 0xFF13,
+    kHIDPage_AppleVendorFilteredEvent           = 0xFF50,
+    kHIDPage_AppleVendorMultitouch              = 0xFF60,
+    kHIDPage_AppleVendorDisplay                 = 0xFF92,
+    kHIDPage_AppleVendorTopCase                 = 0x00FF
 };
 
 
@@ -105,9 +105,9 @@ enum {
     kHIDUsage_AppleVendorKeyboard_Dashboard             = 0x0002,
     kHIDUsage_AppleVendorKeyboard_Function              = 0x0003,
     kHIDUsage_AppleVendorKeyboard_Launchpad             = 0x0004,
-    kHIDUsage_AppleVendorKeyboard_Reserved              = 0x000a,
-    kHIDUsage_AppleVendorKeyboard_CapsLockDelayEnable   = 0x000b,
-    kHIDUsage_AppleVendorKeyboard_PowerState            = 0x000c,
+    kHIDUsage_AppleVendorKeyboard_Reserved              = 0x000A,
+    kHIDUsage_AppleVendorKeyboard_CapsLockDelayEnable   = 0x000B,
+    kHIDUsage_AppleVendorKeyboard_PowerState            = 0x000C,
     kHIDUsage_AppleVendorKeyboard_Expose_All            = 0x0010,
     kHIDUsage_AppleVendorKeyboard_Expose_Desktop        = 0x0011,
     kHIDUsage_AppleVendorKeyboard_Brightness_Up         = 0x0020,
@@ -118,7 +118,7 @@ enum {
     kHIDUsage_AppleVendorKeyboard_WillReset             = 0x0040,
     kHIDUsage_AppleVendorKeyboard_Reset                 = 0x0041,
     kHIDUsage_AppleVendorKeyboard_WillFactoryReset      = 0x0042,
-    
+    kHIDUsage_AppleVendorKeyboard_AccessibilityToggle   = 0x0043,
 };
 
 /* AppleVendor Page Headset (0xff07) */
@@ -160,7 +160,8 @@ enum {
     kHIDUsage_AppleVendorMotion_DeviceMotion    = 0x0004,
     kHIDUsage_AppleVendorMotion_DeviceMotion6   = 0x0005,
     kHIDUsage_AppleVendorMotion_Orientation     = 0x0006,
-    kHIDUsage_AppleVendorMotion_DeviceMotion3   = 0x0007
+    kHIDUsage_AppleVendorMotion_DeviceMotion3   = 0x0007,
+    kHIDUsage_AppleVendorMotion_DeviceMotion10  = 0x0008
 };
 
 /* AppleVendor Battery (0xff0D) */
@@ -212,8 +213,8 @@ enum
     kHIDUsage_AV_TopCase_IlluminationToggle    = 0x0007,
     kHIDUsage_AV_TopCase_IlluminationUp        = 0x0008,
     kHIDUsage_AV_TopCase_IlluminationDown      = 0x0009,
-    kHIDUsage_AV_TopCase_ClamshellLatched      = 0x000a,
-    kHIDUsage_AV_TopCase_Reserved_MouseData    = 0x00c0
+    kHIDUsage_AV_TopCase_ClamshellLatched      = 0x000A,
+    kHIDUsage_AV_TopCase_Reserved_MouseData    = 0x00C0
 };
 
 /* AppleVendor DFR (0xff11) */

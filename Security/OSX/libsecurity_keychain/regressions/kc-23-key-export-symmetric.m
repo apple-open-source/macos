@@ -59,7 +59,7 @@ static void checkCryptoError(OSStatus status, NSString *functionName) {
 }
 #endif
 
-static SecKeyRef generateSymmetricKey(SecKeychainRef keychainRef, CFStringRef label)
+static CF_RETURNS_RETAINED SecKeyRef generateSymmetricKey(SecKeychainRef keychainRef, CFStringRef label)
 {
 	CFMutableDictionaryRef parameters;
 	int32_t rawnum;

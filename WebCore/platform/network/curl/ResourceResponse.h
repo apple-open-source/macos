@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,30 +26,38 @@
 
 #pragma once
 
-#include "HTTPHeaderNames.h"
-#include "HTTPParsers.h"
-
 #include "ResourceResponseBase.h"
 
 typedef struct _CFURLResponse* CFURLResponseRef;
 
 namespace WebCore {
 
+class CurlResponse;
+
 class ResourceResponse : public ResourceResponseBase {
 public:
     ResourceResponse()
-        : m_responseFired(false)
+        : ResourceResponseBase()
     {
     }
 
     ResourceResponse(const URL& url, const String& mimeType, long long expectedLength, const String& textEncodingName)
-        : ResourceResponseBase(url, mimeType, expectedLength, textEncodingName),
-          m_responseFired(false)
+        : ResourceResponseBase(url, mimeType, expectedLength, textEncodingName)
     {
     }
 
-    void setResponseFired(bool fired) { m_responseFired = fired; }
-    bool responseFired() { return m_responseFired; }
+    ResourceResponse(const CurlResponse&);
+
+    void appendHTTPHeaderField(const String&);
+
+    void setDeprecatedNetworkLoadMetrics(const NetworkLoadMetrics& networkLoadMetrics) { m_networkLoadMetrics = networkLoadMetrics; }
+
+    bool shouldRedirect();
+    bool isMovedPermanently() const;
+    bool isFound() const;
+    bool isSeeOther() const;
+    bool isNotModified() const;
+    bool isUnauthorized() const;
 
     // Needed for compatibility.
     CFURLResponseRef cfURLResponse() const { return 0; }
@@ -56,12 +65,10 @@ public:
 private:
     friend class ResourceResponseBase;
 
-    String platformSuggestedFilename() const
-    {
-        return filenameFromHTTPContentDisposition(httpHeaderField(HTTPHeaderName::ContentDisposition));
-    }
+    static bool isAppendableHeader(const String &key);
+    String platformSuggestedFilename() const;
 
-    bool m_responseFired;
+    void setStatusLine(const String&);
 };
 
 } // namespace WebCore

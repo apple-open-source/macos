@@ -66,16 +66,16 @@ recovery_key(int argc, char * const *argv)
                 NSError *nserror = NULL;
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
 
                 SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
                 if(rk == nil) {
                     printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
                 NSData *publicKey = SecRKCopyBackupPublicKey(rk);
                 if(publicKey == nil)
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
 
                 printmsg(CFSTR("example (not registered) public recovery key: %@\n"), publicKey);
                 break;
@@ -83,7 +83,7 @@ recovery_key(int argc, char * const *argv)
             case 'R': {
                 NSString *testString = SecRKCreateRecoveryKeyString(NULL);
                 if(testString == nil)
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
 
                 printmsg(CFSTR("public recovery string: %@\n"), testString);
 
@@ -94,19 +94,19 @@ recovery_key(int argc, char * const *argv)
                 NSError *nserror = NULL;
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
 
                 SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
                 if(rk == nil) {
                     printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
                 
                 CFErrorRef cferror = NULL;
                 if(!SecRKRegisterBackupPublicKey(rk, &cferror)) {
                     printmsg(CFSTR("Error from SecRKRegisterBackupPublicKey: %@\n"), cferror);
                     CFReleaseNull(cferror);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
                 break;
             }
@@ -146,12 +146,12 @@ recovery_key(int argc, char * const *argv)
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 NSString *fileName = [NSString stringWithFormat:@"%@.plist", testString];
                 if(testString == nil)
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 
                 NSDictionary *ver = SecRKCopyAccountRecoveryVerifier(testString, &localError);
                 if(ver == nil) {
                     printmsg(CFSTR("Failed to make verifier dictionary: %@\n"), localError);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
                 
                 printmsg(CFSTR("Verifier Dictionary: %@\n\n"), ver);
@@ -169,7 +169,7 @@ recovery_key(int argc, char * const *argv)
                 for (unsigned n = 0; n < sizeof(long_options)/sizeof(long_options[0]); n++) {
                     printf("\t [-%c|--%s\n", long_options[n].val, long_options[n].name);
                 }
-                return 2;
+                return SHOW_USAGE_MESSAGE;
             }
         }
     if (hadError)

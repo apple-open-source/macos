@@ -20,10 +20,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include "IOHIDDescriptorParser.h"
+#include "HIDMacTypes.h"
+
+#if KERNEL
+
 #include <IOKit/system.h>
 #include <IOKit/IOLib.h>
-#include <IOKit/hidsystem/IOHIDDescriptorParser.h>
-#include "HIDMacTypes.h"
 
 __private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
 {
@@ -41,3 +44,26 @@ __private_extern__ OSStatus PoolDeallocate (void *ptr, vm_size_t size)
 	IOFree(ptr, size);
 	return 0;
 }
+
+#else
+
+#include <stdio.h>
+
+void *PoolAllocateResident (vm_size_t size, unsigned char clear)
+{
+    void *mem = malloc (size);
+    
+    if ((mem != NULL) && clear) {
+        memset(mem, 0, size);
+    }
+    
+    return mem;
+}
+
+OSStatus PoolDeallocate (void *ptr, vm_size_t size)
+{
+    free(ptr);
+    return 0;
+}
+
+#endif

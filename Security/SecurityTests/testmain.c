@@ -19,12 +19,14 @@
 
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CFRunLoop.h>
+#include "keychain/ckks/CKKS.h"
 
 int main(int argc, char *argv[])
 {
     //printf("Build date : %s %s\n", __DATE__, __TIME__);
     //printf("WARNING: If running those tests on a device with a passcode, DONT FORGET TO UNLOCK!!!\n");
 
+    SecCKKSDisable();
 #if 0 && NO_SERVER
     SOSCloudKeychainServerInit();
 #endif

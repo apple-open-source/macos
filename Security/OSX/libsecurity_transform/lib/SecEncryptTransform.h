@@ -172,7 +172,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@return			the CFTypeID
 */
 
-	CFTypeID SecDecryptTransformGetTypeID()
+    CFTypeID SecDecryptTransformGetTypeID(void)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
 
 /*!
@@ -181,7 +181,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@return			the CFTypeID
 */
 
-	CFTypeID SecEncryptTransformGetTypeID()
+    CFTypeID SecEncryptTransformGetTypeID(void)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
 
 CF_IMPLICIT_BRIDGING_DISABLED

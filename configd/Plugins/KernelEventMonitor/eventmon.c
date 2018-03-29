@@ -179,58 +179,6 @@ dgram_socket(int domain)
     return s;
 }
 
-static int
-ifflags_set(int s, char * name, short flags)
-{
-    struct ifreq	ifr;
-    int 		ret;
-
-    bzero(&ifr, sizeof(ifr));
-    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
-    if (ret == -1) {
-		return (ret);
-    }
-    ifr.ifr_flags |= flags;
-    return (ioctl(s, SIOCSIFFLAGS, &ifr));
-}
-
-static int
-ifflags_clear(int s, char * name, short flags)
-{
-    struct ifreq	ifr;
-    int 		ret;
-
-    bzero(&ifr, sizeof(ifr));
-    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
-    if (ret == -1) {
-		return (ret);
-    }
-    ifr.ifr_flags &= ~flags;
-    return (ioctl(s, SIOCSIFFLAGS, &ifr));
-}
-
-static void
-mark_if_up(char * name)
-{
-	int s = dgram_socket(AF_INET);
-	if (s == -1)
-		return;
-	ifflags_set(s, name, IFF_UP);
-	close(s);
-}
-
-static void
-mark_if_down(char * name)
-{
-	int s = dgram_socket(AF_INET);
-	if (s == -1)
-		return;
-	ifflags_clear(s, name, IFF_UP);
-	close(s);
-}
-
 static void
 post_network_changed(void)
 {
@@ -481,11 +429,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						 (char *)ifr_name,
 						 protoEvent->proto_family,
 						 protoEvent->proto_remaining_count);
-					if (protoEvent->proto_remaining_count == 0) {
-						mark_if_down(ifr_name);
-					} else {
-						mark_if_up(ifr_name);
-					}
 					break;
 				}
 

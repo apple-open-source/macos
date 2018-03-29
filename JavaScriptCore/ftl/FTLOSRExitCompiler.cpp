@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -186,7 +186,7 @@ static void compileStub(
     // The first thing we need to do is restablish our frame in the case of an exception.
     if (exit.isGenericUnwindHandler()) {
         RELEASE_ASSERT(vm->callFrameForCatch); // The first time we hit this exit, like at all other times, this field should be non-null.
-        jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(*vm);
+        jit.restoreCalleeSavesFromEntryFrameCalleeSavesBuffer(vm->topEntryFrame);
         jit.loadPtr(vm->addressOfCallFrameForCatch(), MacroAssembler::framePointerRegister);
         jit.addPtr(CCallHelpers::TrustedImm32(codeBlock->stackPointerOffset() * sizeof(Register)),
             MacroAssembler::framePointerRegister, CCallHelpers::stackPointerRegister);
@@ -248,7 +248,7 @@ static void compileStub(
     jit.popToRestore(GPRInfo::regT0);
     jit.checkStackPointerAlignment();
     
-    if (vm->m_perBytecodeProfiler && jitCode->dfgCommon()->compilation) {
+    if (UNLIKELY(vm->m_perBytecodeProfiler && jitCode->dfgCommon()->compilation)) {
         Profiler::Database& database = *vm->m_perBytecodeProfiler;
         Profiler::Compilation* compilation = jitCode->dfgCommon()->compilation.get();
         
@@ -409,11 +409,11 @@ static void compileStub(
 
     RegisterSet allFTLCalleeSaves = RegisterSet::ftlCalleeSaveRegisters();
     RegisterAtOffsetList* baselineCalleeSaves = baselineCodeBlock->calleeSaveRegisters();
-    RegisterAtOffsetList* vmCalleeSaves = VM::getAllCalleeSaveRegisterOffsets();
+    RegisterAtOffsetList* vmCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
     RegisterSet vmCalleeSavesToSkip = RegisterSet::stackRegisters();
     if (exit.isExceptionHandler()) {
-        jit.loadPtr(&vm->topVMEntryFrame, GPRInfo::regT1);
-        jit.addPtr(CCallHelpers::TrustedImm32(VMEntryFrame::calleeSaveRegistersBufferOffset()), GPRInfo::regT1);
+        jit.loadPtr(&vm->topEntryFrame, GPRInfo::regT1);
+        jit.addPtr(CCallHelpers::TrustedImm32(EntryFrame::calleeSaveRegistersBufferOffset()), GPRInfo::regT1);
     }
 
     for (Reg reg = Reg::first(); reg <= Reg::last(); reg = reg.next()) {
@@ -507,19 +507,18 @@ extern "C" void* compileFTLOSRExit(ExecState* exec, unsigned exitID)
     if (shouldDumpDisassembly() || Options::verboseOSR() || Options::verboseFTLOSRExit())
         dataLog("Compiling OSR exit with exitID = ", exitID, "\n");
 
-    if (exec->vm().callFrameForCatch)
-        RELEASE_ASSERT(exec->vm().callFrameForCatch == exec);
+    VM& vm = exec->vm();
+    if (vm.callFrameForCatch)
+        RELEASE_ASSERT(vm.callFrameForCatch == exec);
     
     CodeBlock* codeBlock = exec->codeBlock();
     
     ASSERT(codeBlock);
     ASSERT(codeBlock->jitType() == JITCode::FTLJIT);
     
-    VM* vm = &exec->vm();
-    
     // It's sort of preferable that we don't GC while in here. Anyways, doing so wouldn't
     // really be profitable.
-    DeferGCForAWhile deferGC(vm->heap);
+    DeferGCForAWhile deferGC(vm.heap);
 
     JITCode* jitCode = codeBlock->jitCode()->ftl();
     OSRExit& exit = jitCode->osrExit[exitID];
@@ -543,7 +542,7 @@ extern "C" void* compileFTLOSRExit(ExecState* exec, unsigned exitID)
 
     prepareCodeOriginForOSRExit(exec, exit.m_codeOrigin);
     
-    compileStub(exitID, jitCode, exit, vm, codeBlock);
+    compileStub(exitID, jitCode, exit, &vm, codeBlock);
 
     MacroAssembler::repatchJump(
         exit.codeLocationForRepatch(codeBlock), CodeLocationLabel(exit.m_code.code()));

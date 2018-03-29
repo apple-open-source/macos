@@ -113,6 +113,12 @@ extern CFArrayRef
 SecCmsSignerInfoGetTimestampCertList(SecCmsSignerInfoRef signerinfo);
 
 /*!
+ @function
+ */
+extern SecCertificateRef
+SecCmsSignerInfoGetTimestampSigningCert(SecCmsSignerInfoRef signerinfo);
+
+/*!
     @function
     @abstract Return the signing time, in UTCTime format, of a CMS signerInfo.
     @param sinfo SignerInfo data for this signer.
@@ -151,6 +157,17 @@ SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo, CFTypeRef 
  */
 OSStatus
 SecCmsSignerInfoGetAppleCodesigningHashAgility(SecCmsSignerInfoRef sinfo, CFDataRef *sdata);
+
+/*!
+     @function
+     @abstract Return the data in the signed Codesigning Hash Agility V2 attribute.
+     @param sinfo SignerInfo data for this signer, pointer to a CFDictionaryRef for attribute values
+     @discussion Returns a CFDictionaryRef containing the values of the attribute. V2 encodes the hash
+        agility values using DER.
+     @result A return value of SECFailure is an error.
+ */
+extern OSStatus
+SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef sinfo, CFDictionaryRef *sdict);
 
 /*!
     @function
@@ -237,10 +254,20 @@ SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
 /*!
      @function
      @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
-     @discussion This is expected to be included in outgoing signed Apple code signatures.
+     @discussion This is expected to be included in outgoing Apple code signatures.
  */
  OSStatus
  SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, CFDataRef attrValue);
+
+/*!
+     @function
+     @abstract Add the Apple Codesigning Hash Agility V2 attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+     @discussion This is expected to be included in outgoing Apple code signatures. V2 encodes the hash agility values using DER.
+     The dictionary should have CFNumberRef keys, corresponding to SECOidTags for digest algorithms, and CFDataRef values,
+     corresponding to the digest value for that digest algorithm.
+ */
+OSStatus
+SecCmsSignerInfoAddAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef signerinfo, CFDictionaryRef attrValues);
 
 /*!
     @function

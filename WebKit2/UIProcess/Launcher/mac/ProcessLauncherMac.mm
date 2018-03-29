@@ -26,11 +26,10 @@
 #import "config.h"
 #import "ProcessLauncher.h"
 
-#import <WebCore/ServersSPI.h>
-#import <WebCore/WebCoreNSStringExtras.h>
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
 #import <mach/machine.h>
+#import <pal/spi/cocoa/ServersSPI.h>
 #import <spawn.h>
 #import <sys/param.h>
 #import <sys/stat.h>
@@ -55,9 +54,11 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
         return "com.apple.WebKit.WebContent";
     case ProcessLauncher::ProcessType::Network:
         return "com.apple.WebKit.Networking";
-#if ENABLE(DATABASE_PROCESS)
-    case ProcessLauncher::ProcessType::Database:
+    case ProcessLauncher::ProcessType::Storage:
+#if PLATFORM(IOS) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOS_SIMULATOR) && __IPHONE_OS_VERSION_MIN_REQUIRED < 110300
         return "com.apple.WebKit.Databases";
+#else
+        return "com.apple.WebKit.Storage";
 #endif
 #if ENABLE(NETSCAPE_PLUGIN_API)
     case ProcessLauncher::ProcessType::Plugin32:
@@ -67,7 +68,7 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
 #endif
     }
 }
-    
+
 static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
 {
 #if PLATFORM(IOS)
@@ -75,6 +76,11 @@ static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
     UNUSED_PARAM(launchOptions);
     return true;
 #else
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+    // Boost the WebContent process if the NSApplication run loop is not used.
+    if (launchOptions.processType == ProcessLauncher::ProcessType::Web)
+        return true;
+#endif
     // On Mac, leak a boost onto the NetworkProcess.
     return launchOptions.processType == ProcessLauncher::ProcessType::Network;
 #endif
@@ -169,6 +175,7 @@ void ProcessLauncher::launchProcess()
     mach_port_deallocate(mach_task_self(), listeningPort);
 
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
+    xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "ui-process-name", [[[NSProcessInfo processInfo] processName] UTF8String]);
 
     bool isWebKitDevelopmentBuild = ![[[[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] bundlePath] stringByDeletingLastPathComponent] hasPrefix:systemDirectoryPath()];
@@ -184,7 +191,7 @@ void ProcessLauncher::launchProcess()
 
     xpc_dictionary_set_value(bootstrapMessage.get(), "extra-initialization-data", extraInitializationData.get());
 
-    auto weakProcessLauncher = m_weakPtrFactory.createWeakPtr();
+    auto weakProcessLauncher = m_weakPtrFactory.createWeakPtr(*this);
     xpc_connection_set_event_handler(m_xpcConnection.get(), [weakProcessLauncher, listeningPort](xpc_object_t event) {
         ASSERT(xpc_get_type(event) == XPC_TYPE_ERROR);
 

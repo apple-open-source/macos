@@ -1424,9 +1424,9 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	free(dtp->dt_mods);
 	free(dtp->dt_provs);
-    
-    dt_strtab_destroy(dtp->dt_apple_ids);
-    
+
+	dt_strtab_destroy(dtp->dt_apple_ids);
+
 	free(dtp);
 }
 

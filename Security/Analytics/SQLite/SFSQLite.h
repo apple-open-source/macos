@@ -23,6 +23,8 @@
 
 // Header exposed for unit testing only
 
+#if __OBJC2__
+
 #import <Foundation/Foundation.h>
 #import <sqlite3.h>
 
@@ -39,7 +41,7 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
     SFSQLiteSynchronousModeFull = 2
 };
 
-@protocol SFSQLiteDelegate
+@protocol SFSQLiteDelegate <NSObject>
 @property (nonatomic, readonly) SInt32 userVersion;
 
 - (BOOL)migrateDatabase:(SFSQLite *)db fromVersion:(SInt32)version;
@@ -47,6 +49,7 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 
 // Wrapper around the SQLite API. Typically subclassed to add table accessor methods.
 @interface SFSQLite : NSObject {
+@private
     id<SFSQLiteDelegate> _delegate;
     NSString* _path;
     NSString* _schema;
@@ -147,3 +150,5 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 - (SInt32)dbUserVersion;
 
 @end
+
+#endif

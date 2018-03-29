@@ -32,6 +32,9 @@
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/NotImplemented.h>
+#include <wtf/cf/TypeCastsCF.h>
+
+WTF_DECLARE_CF_TYPE_TRAIT(SecCertificate);
 
 using namespace WebCore;
 
@@ -45,7 +48,7 @@ static SecCertificateRef leafCertificate(const CertificateInfo& certificateInfo)
 #endif
     ASSERT(certificateInfo.type() == CertificateInfo::Type::CertificateChain);
     ASSERT(CFArrayGetCount(certificateInfo.certificateChain()));
-    return (SecCertificateRef)CFArrayGetValueAtIndex(certificateInfo.certificateChain(), 0);
+    return checked_cf_cast<SecCertificateRef>(CFArrayGetValueAtIndex(certificateInfo.certificateChain(), 0));
 }
 
 static NSArray *chain(const CertificateInfo& certificateInfo)
@@ -69,7 +72,7 @@ static NSArray *chain(const CertificateInfo& certificateInfo)
 }
 
 // FIXME: This function creates an identity from a certificate, which should not be needed. We should pass an identity over IPC (as we do on iOS).
-bool AuthenticationManager::tryUseCertificateInfoForChallenge(const AuthenticationChallenge& challenge, const CertificateInfo& certificateInfo, const ChallengeCompletionHandler& completionHandler)
+bool AuthenticationManager::tryUseCertificateInfoForChallenge(const AuthenticationChallenge& challenge, const CertificateInfo& certificateInfo, ChallengeCompletionHandler& completionHandler)
 {
     if (certificateInfo.isEmpty())
         return false;
@@ -81,26 +84,16 @@ bool AuthenticationManager::tryUseCertificateInfoForChallenge(const Authenticati
         LOG_ERROR("Unable to create SecIdentityRef with certificate - %i", result);
         if (completionHandler)
             completionHandler(AuthenticationChallengeDisposition::Cancel, { });
-        else {
-#if USE(CFURLCONNECTION)
-            notImplemented();
-#else
+        else
             [challenge.sender() cancelAuthenticationChallenge:challenge.nsURLAuthenticationChallenge()];
-#endif
-        }
         return true;
     }
 
     NSURLCredential *credential = [NSURLCredential credentialWithIdentity:identity certificates:chain(certificateInfo) persistence:NSURLCredentialPersistenceNone];
     if (completionHandler)
         completionHandler(AuthenticationChallengeDisposition::UseCredential, Credential(credential));
-    else {
-#if USE(CFURLCONNECTION)
-        notImplemented();
-#else
+    else
         [challenge.sender() useCredential:credential forAuthenticationChallenge:challenge.nsURLAuthenticationChallenge()];
-#endif
-    }
     return true;
 }
 

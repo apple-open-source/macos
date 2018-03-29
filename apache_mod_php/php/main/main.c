@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -92,6 +92,8 @@
 #include "SAPI.h"
 #include "rfc1867.h"
 
+#include "ext/standard/html_tables.h"
+
 #if HAVE_MMAP || defined(PHP_WIN32)
 # if HAVE_UNISTD_H
 #  include <unistd.h>
@@ -123,6 +125,31 @@ PHPAPI int core_globals_id;
 #endif
 
 #define SAFE_FILENAME(f) ((f)?(f):"-")
+
+static char *get_safe_charset_hint(void) {
+	ZEND_TLS char *lastHint = NULL;
+	ZEND_TLS char *lastCodeset = NULL;
+	char *hint = SG(default_charset);
+	size_t len = strlen(hint);
+	size_t i = 0;
+
+	if (lastHint == SG(default_charset)) {
+		return lastCodeset;
+	}
+
+	lastHint = hint;
+	lastCodeset = NULL;
+
+	for (i = 0; i < sizeof(charset_map)/sizeof(charset_map[0]); i++) {
+		if (len == charset_map[i].codeset_len
+			&& zend_binary_strcasecmp(hint, len, charset_map[i].codeset, len) == 0) {
+			lastCodeset = (char*)charset_map[i].codeset;
+			break;
+		}
+	}
+
+	return lastCodeset;
+}
 
 /* {{{ PHP_INI_MH
  */
@@ -249,17 +276,17 @@ static void php_disable_classes(void)
  */
 static void php_binary_init(void)
 {
-	char *binary_location;
+	char *binary_location = NULL;
 #ifdef PHP_WIN32
 	binary_location = (char *)malloc(MAXPATHLEN);
-	if (GetModuleFileName(0, binary_location, MAXPATHLEN) == 0) {
+	if (binary_location && GetModuleFileName(0, binary_location, MAXPATHLEN) == 0) {
 		free(binary_location);
 		PG(php_binary) = NULL;
 	}
 #else
 	if (sapi_module.executable_location) {
 		binary_location = (char *)malloc(MAXPATHLEN);
-		if (!strchr(sapi_module.executable_location, '/')) {
+		if (binary_location && !strchr(sapi_module.executable_location, '/')) {
 			char *envpath, *path;
 			int found = 0;
 
@@ -289,8 +316,6 @@ static void php_binary_init(void)
 			free(binary_location);
 			binary_location = NULL;
 		}
-	} else {
-		binary_location = NULL;
 	}
 #endif
 	PG(php_binary) = binary_location;
@@ -762,10 +787,10 @@ PHPAPI ZEND_COLD void php_verror(const char *docref, const char *params, int typ
 	buffer_len = (int)vspprintf(&buffer, 0, format, args);
 
 	if (PG(html_errors)) {
-		replace_buffer = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT, NULL);
+		replace_buffer = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT, get_safe_charset_hint());
 		/* Retry with substituting invalid chars on fail. */
 		if (!replace_buffer || ZSTR_LEN(replace_buffer) < 1) {
-			replace_buffer = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT | ENT_HTML_SUBSTITUTE_ERRORS, NULL);
+			replace_buffer = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT | ENT_HTML_SUBSTITUTE_ERRORS, get_safe_charset_hint());
 		}
 
 		efree(buffer);
@@ -832,7 +857,7 @@ PHPAPI ZEND_COLD void php_verror(const char *docref, const char *params, int typ
 	}
 
 	if (PG(html_errors)) {
-		replace_origin = php_escape_html_entities((unsigned char*)origin, origin_len, 0, ENT_COMPAT, NULL);
+		replace_origin = php_escape_html_entities((unsigned char*)origin, origin_len, 0, ENT_COMPAT, get_safe_charset_hint());
 		efree(origin);
 		origin = ZSTR_VAL(replace_origin);
 	}
@@ -1154,7 +1179,7 @@ static ZEND_COLD void php_error_cb(int type, const char *error_filename, const u
 
 				if (PG(html_errors)) {
 					if (type == E_ERROR || type == E_PARSE) {
-						zend_string *buf = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT, NULL);
+						zend_string *buf = php_escape_html_entities((unsigned char*)buffer, buffer_len, 0, ENT_COMPAT, get_safe_charset_hint());
 						php_printf("%s<br />\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br />\n%s", STR_PRINT(prepend_string), error_type_str, ZSTR_VAL(buf), error_filename, error_lineno, STR_PRINT(append_string));
 						zend_string_free(buf);
 					} else {
@@ -1221,9 +1246,7 @@ static ZEND_COLD void php_error_cb(int type, const char *error_filename, const u
 					sapi_header_op(SAPI_HEADER_REPLACE, &ctr);
 				}
 				/* the parser would return 1 (failure), we can bail out nicely */
-				if (type == E_PARSE) {
-					CG(parse_error) = 0;
-				} else {
+				if (type != E_PARSE) {
 					/* restore memory limit */
 					zend_set_memory_limit(PG(memory_limit));
 					efree(buffer);
@@ -1637,7 +1660,9 @@ int php_request_startup(void)
 		zend_activate();
 		sapi_activate();
 
+#ifdef ZEND_SIGNALS
 		zend_signal_activate();
+#endif
 
 		if (PG(max_input_time) == -1) {
 			zend_set_timeout(EG(timeout_seconds), 1);
@@ -2107,6 +2132,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	ts_allocate_id(&php_win32_core_globals_id, sizeof(php_win32_core_globals), (ts_allocate_ctor) php_win32_core_globals_ctor, (ts_allocate_dtor) php_win32_core_globals_dtor);
 #endif
 #else
+	memset(&core_globals, 0, sizeof(core_globals));
 	php_startup_ticks();
 #endif
 	gc_globals_ctor();
@@ -2219,6 +2245,20 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	/* Register Zend ini entries */
 	zend_register_standard_ini_entries();
+
+#ifdef ZEND_WIN32
+	/* Until the current ini values was setup, the current cp is 65001.
+		If the actual ini vaues are different, some stuff needs to be updated.
+		It concerns at least main_cwd_state and there might be more. As we're
+		still in the startup phase, lets use the chance and reinit the relevant
+		item according to the current codepage. Still, if ini_set() is used
+		later on, a more intelligent way to update such stuff is needed.
+		Startup/shutdown routines could involve touching globals and thus
+		can't always be used on demand. */
+	if (!php_win32_cp_use_unicode()) {
+		virtual_cwd_main_cwd_init(1);
+	}
+#endif
 
 	/* Disable realpath cache if an open_basedir is set */
 	if (PG(open_basedir) && *PG(open_basedir)) {

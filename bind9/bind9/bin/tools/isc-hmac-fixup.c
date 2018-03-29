@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2010, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -21,12 +21,15 @@
 #include <isc/base64.h>
 #include <isc/buffer.h>
 #include <isc/md5.h>
+#include <isc/print.h>
 #include <isc/region.h>
 #include <isc/result.h>
 #include <isc/sha1.h>
 #include <isc/sha2.h>
 #include <isc/stdio.h>
 #include <isc/string.h>
+
+#include <pk11/site.h>
 
 #define HMAC_LEN	64
 
@@ -41,8 +44,13 @@ main(int argc, char **argv)  {
 
 	if (argc != 3) {
 		fprintf(stderr, "Usage:\t%s algorithm secret\n", argv[0]);
+#ifndef PK11_MD5_DISABLE
 		fprintf(stderr, "\talgorithm: (MD5 | SHA1 | SHA224 | "
 				"SHA256 | SHA384 | SHA512)\n");
+#else
+		fprintf(stderr, "\talgorithm: (SHA1 | SHA224 | "
+				"SHA256 | SHA384 | SHA512)\n");
+#endif
 		return (1);
 	}
 
@@ -54,6 +62,7 @@ main(int argc, char **argv)  {
 	}
 	isc_buffer_usedregion(&buf, &r);
 
+#ifndef PK11_MD5_DISABLE
 	if (!strcasecmp(argv[1], "md5") ||
 	    !strcasecmp(argv[1], "hmac-md5")) {
 		if (r.length > HMAC_LEN) {
@@ -65,7 +74,9 @@ main(int argc, char **argv)  {
 			r.base = key;
 			r.length = ISC_MD5_DIGESTLENGTH;
 		}
-	} else if (!strcasecmp(argv[1], "sha1") ||
+	} else
+#endif
+	if (!strcasecmp(argv[1], "sha1") ||
 		   !strcasecmp(argv[1], "hmac-sha1")) {
 		if (r.length > ISC_SHA1_DIGESTLENGTH) {
 			isc_sha1_t sha1ctx;

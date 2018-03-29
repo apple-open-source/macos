@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,10 +30,8 @@
 #ifndef _SECURITY_SECREVOCATIONSERVER_H_
 #define _SECURITY_SECREVOCATIONSERVER_H_
 
-#include <securityd/SecPolicyServer.h>
+#include <securityd/SecTrustServer.h>
 #include <securityd/SecRevocationDb.h>
-
-#define ENABLE_CRLS (TARGET_OS_MAC && !TARGET_OS_IPHONE)
 
 typedef struct OpaqueSecORVC *SecORVCRef;
 #if ENABLE_CRLS
@@ -43,28 +41,31 @@ typedef struct OpaqueSecCRVC *SecCRVCRef;
 /* Revocation verification context. */
 struct OpaqueSecRVC {
     /* Pointer to the builder for this revocation check */
-    SecPathBuilderRef builder;
+    SecPathBuilderRef   builder;
 
     /* Index of cert in pvc that this RVC is for 0 = leaf, etc. */
-    CFIndex certIX;
+    CFIndex             certIX;
 
     /* The OCSP Revocation verification context */
-    SecORVCRef orvc;
+    SecORVCRef          orvc;
 
 #if ENABLE_CRLS
-    SecCRVCRef crvc;
+    SecCRVCRef          crvc;
 #endif
 
     /* Valid database info for this revocation check */
-    SecValidInfoRef valid_info;
+    SecValidInfoRef     valid_info;
 
-    bool done;
+    bool                done;
 };
 typedef struct OpaqueSecRVC *SecRVCRef;
 
 bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder);
 CFAbsoluteTime SecRVCGetEarliestNextUpdate(SecRVCRef rvc);
 void SecRVCDelete(SecRVCRef rvc);
+bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc);
+bool SecRVCHasRevokedValidInfo(SecRVCRef rvc);
+void SecRVCSetRevokedResult(SecRVCRef rvc);
 
 
 #endif /* _SECURITY_SECREVOCATIONSERVER_H_ */

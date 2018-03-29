@@ -36,6 +36,8 @@
 #include "ScrollAlignment.h"
 #include "StyleImage.h"
 #include "TextAffinity.h"
+#include <wtf/IsoMalloc.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -55,15 +57,13 @@ class RenderBoxModelObject;
 class RenderInline;
 class RenderBlock;
 class RenderElement;
-class RenderFlowThread;
+class RenderFragmentedFlow;
 class RenderGeometryMap;
 class RenderLayer;
 class RenderLayerModelObject;
-class RenderNamedFlowFragment;
-class RenderNamedFlowThread;
-class RenderRegion;
+class RenderFragmentContainer;
 class RenderTheme;
-class SelectionSubtreeRoot;
+class SelectionRangeData;
 class TransformState;
 class VisiblePosition;
 
@@ -99,7 +99,7 @@ struct AnnotatedRegionValue {
 
 // Base class for all rendering tree objects.
 class RenderObject : public CachedImageClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_ISO_ALLOCATED(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
     friend class RenderElement;
@@ -109,6 +109,8 @@ public:
     // marked as anonymous in the constructor.
     explicit RenderObject(Node&);
     virtual ~RenderObject();
+
+    auto& weakPtrFactory() const { return m_weakFactory; }
 
     RenderTheme& theme() const;
 
@@ -160,19 +162,15 @@ public:
     WEBCORE_EXPORT RenderBox& enclosingBox() const;
     RenderBoxModelObject& enclosingBoxModelObject() const;
 
-    bool fixedPositionedWithNamedFlowContainingBlock() const;
-
     // Function to return our enclosing flow thread if we are contained inside one. This
     // function follows the containing block chain.
-    RenderFlowThread* flowThreadContainingBlock() const
+    RenderFragmentedFlow* enclosingFragmentedFlow() const
     {
-        if (flowThreadState() == NotInsideFlowThread)
+        if (fragmentedFlowState() == NotInsideFragmentedFlow)
             return nullptr;
 
-        return locateFlowThreadContainingBlock();
+        return locateEnclosingFragmentedFlow();
     }
-
-    RenderNamedFlowFragment* currentRenderNamedFlowFragment() const;
 
 #ifndef NDEBUG
     void setHasAXObject(bool flag) { m_hasAXObject = flag; }
@@ -205,9 +203,9 @@ public:
     void showRenderTreeForThis() const;
     void showLineTreeForThis() const;
 
-    void outputRenderObject(TextStream&, bool mark, int depth) const;
-    void outputRenderSubTreeAndMark(TextStream&, const RenderObject* markedObject, int depth) const;
-    void outputRegionsInformation(TextStream&) const;
+    void outputRenderObject(WTF::TextStream&, bool mark, int depth) const;
+    void outputRenderSubTreeAndMark(WTF::TextStream&, const RenderObject* markedObject, int depth) const;
+    void outputRegionsInformation(WTF::TextStream&) const;
 #endif
 
     bool isPseudoElement() const { return node() && node()->isPseudoElement(); }
@@ -244,8 +242,7 @@ public:
     virtual bool isRenderButton() const { return false; }
     virtual bool isRenderIFrame() const { return false; }
     virtual bool isRenderImage() const { return false; }
-    virtual bool isRenderRegion() const { return false; }
-    virtual bool isRenderNamedFlowFragment() const { return false; }
+    virtual bool isRenderFragmentContainer() const { return false; }
     virtual bool isReplica() const { return false; }
 
     virtual bool isRubyInline() const { return false; }
@@ -278,13 +275,12 @@ public:
     virtual bool isRenderFullScreenPlaceholder() const { return false; }
 #endif
     virtual bool isRenderGrid() const { return false; }
-    virtual bool isRenderNamedFlowThread() const { return false; }
-    bool isInFlowRenderFlowThread() const { return isRenderFlowThread() && !isOutOfFlowPositioned(); }
-    bool isOutOfFlowRenderFlowThread() const { return isRenderFlowThread() && isOutOfFlowPositioned(); }
+    bool isInFlowRenderFragmentedFlow() const { return isRenderFragmentedFlow() && !isOutOfFlowPositioned(); }
+    bool isOutOfFlowRenderFragmentedFlow() const { return isRenderFragmentedFlow() && isOutOfFlowPositioned(); }
 
     virtual bool isMultiColumnBlockFlow() const { return false; }
     virtual bool isRenderMultiColumnSet() const { return false; }
-    virtual bool isRenderMultiColumnFlowThread() const { return false; }
+    virtual bool isRenderMultiColumnFlow() const { return false; }
     virtual bool isRenderMultiColumnSpannerPlaceholder() const { return false; }
 
     virtual bool isRenderScrollbarPart() const { return false; }
@@ -312,16 +308,15 @@ public:
     bool childrenInline() const { return m_bitfields.childrenInline(); }
     void setChildrenInline(bool b) { m_bitfields.setChildrenInline(b); }
     
-    enum FlowThreadState {
-        NotInsideFlowThread = 0,
-        InsideOutOfFlowThread = 1,
-        InsideInFlowThread = 2,
+    enum FragmentedFlowState {
+        NotInsideFragmentedFlow = 0,
+        InsideInFragmentedFlow = 1,
     };
 
-    void setFlowThreadStateIncludingDescendants(FlowThreadState);
+    void setFragmentedFlowStateIncludingDescendants(FragmentedFlowState);
 
-    FlowThreadState flowThreadState() const { return m_bitfields.flowThreadState(); }
-    void setFlowThreadState(FlowThreadState state) { m_bitfields.setFlowThreadState(state); }
+    FragmentedFlowState fragmentedFlowState() const { return m_bitfields.fragmentedFlowState(); }
+    void setFragmentedFlowState(FragmentedFlowState state) { m_bitfields.setFragmentedFlowState(state); }
 
 #if ENABLE(MATHML)
     virtual bool isRenderMathMLBlock() const { return false; }
@@ -407,7 +402,7 @@ public:
         // RenderBlock::createAnonymousBlock(). This includes creating an anonymous
         // RenderBlock having a BLOCK or BOX display. Other classes such as RenderTextFragment
         // are not RenderBlocks and will return false. See https://bugs.webkit.org/show_bug.cgi?id=56709. 
-        return isAnonymous() && (style().display() == BLOCK || style().display() == BOX) && style().styleType() == NOPSEUDO && isRenderBlock() && !isListMarker() && !isRenderFlowThread() && !isRenderNamedFlowFragment() && !isRenderMultiColumnSet() && !isRenderView()
+        return isAnonymous() && (style().display() == BLOCK || style().display() == BOX) && style().styleType() == NOPSEUDO && isRenderBlock() && !isListMarker() && !isRenderFragmentedFlow() && !isRenderMultiColumnSet() && !isRenderView()
 #if ENABLE(FULLSCREEN_API)
             && !isRenderFullScreen()
             && !isRenderFullScreenPlaceholder()
@@ -417,19 +412,16 @@ public:
 #endif
             ;
     }
-    bool isAnonymousInlineBlock() const;
-    bool isElementContinuation() const { return node() && node()->renderer() != this; }
-    bool isInlineElementContinuation() const { return isElementContinuation() && isInline(); }
-    bool isBlockElementContinuation() const { return isElementContinuation() && !isInline(); }
-    virtual RenderBoxModelObject* virtualContinuation() const { return nullptr; }
 
     bool isFloating() const { return m_bitfields.floating(); }
 
-    bool isOutOfFlowPositioned() const { return m_bitfields.isOutOfFlowPositioned(); } // absolute or fixed positioning
-    bool isInFlowPositioned() const { return m_bitfields.isRelPositioned() || m_bitfields.isStickyPositioned(); } // relative or sticky positioning
-    bool isRelPositioned() const { return m_bitfields.isRelPositioned(); } // relative positioning
-    bool isStickyPositioned() const { return m_bitfields.isStickyPositioned(); }
     bool isPositioned() const { return m_bitfields.isPositioned(); }
+    bool isInFlowPositioned() const { return m_bitfields.isRelativelyPositioned() || m_bitfields.isStickilyPositioned(); }
+    bool isOutOfFlowPositioned() const { return m_bitfields.isOutOfFlowPositioned(); } // absolute or fixed positioning
+    bool isFixedPositioned() const { return isOutOfFlowPositioned() && style().position() == FixedPosition; }
+    bool isAbsolutelyPositioned() const { return isOutOfFlowPositioned() && style().position() == AbsolutePosition; }
+    bool isRelativelyPositioned() const { return m_bitfields.isRelativelyPositioned(); }
+    bool isStickilyPositioned() const { return m_bitfields.isStickilyPositioned(); }
 
     bool isText() const  { return !m_bitfields.isBox() && m_bitfields.isTextOrRenderView(); }
     bool isLineBreak() const { return m_bitfields.isLineBreak(); }
@@ -444,7 +436,7 @@ public:
 
     bool isDragging() const { return m_bitfields.hasRareData() && rareData().isDragging(); }
     bool hasReflection() const { return m_bitfields.hasRareData() && rareData().hasReflection(); }
-    bool isRenderFlowThread() const { return m_bitfields.hasRareData() && rareData().isRenderFlowThread(); }
+    bool isRenderFragmentedFlow() const { return m_bitfields.hasRareData() && rareData().isRenderFragmentedFlow(); }
     bool hasOutlineAutoAncestor() const { return m_bitfields.hasRareData() && rareData().hasOutlineAutoAncestor(); }
 
     bool isExcludedFromNormalLayout() const { return m_bitfields.isExcludedFromNormalLayout(); }
@@ -557,7 +549,7 @@ public:
 
     void setIsDragging(bool);
     void setHasReflection(bool = true);
-    void setIsRenderFlowThread(bool = true);
+    void setIsRenderFragmentedFlow(bool = true);
     void setHasOutlineAutoAncestor(bool = true);
 
     // Hook so that RenderTextControl can return the line height of its inner renderer.
@@ -580,7 +572,7 @@ public:
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
     virtual Position positionForPoint(const LayoutPoint&);
-    virtual VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*);
+    virtual VisiblePosition positionForPoint(const LayoutPoint&, const RenderFragmentContainer*);
     VisiblePosition createVisiblePosition(int offset, EAffinity) const;
     VisiblePosition createVisiblePosition(const Position&) const;
 
@@ -732,7 +724,6 @@ public:
     // When performing a global document tear-down, or when going into the page cache, the renderer of the document is cleared.
     bool renderTreeBeingDestroyed() const;
 
-    void destroyAndCleanupAnonymousWrappers();
     void destroy();
 
     // Virtual function helpers for the deprecated Flexible Box Layout (display: -webkit-box).
@@ -758,10 +749,8 @@ public:
     void imageChanged(CachedImage*, const IntRect* = nullptr) override;
     virtual void imageChanged(WrappedImagePtr, const IntRect* = nullptr) { }
 
-    SelectionSubtreeRoot& selectionRoot() const;
-    void selectionStartEnd(unsigned& spos, unsigned& epos) const;
-    
-    void removeFromParent();
+    void removeFromParentAndDestroy();
+    void removeFromParentAndDestroyCleaningUpAnonymousWrappers();
 
     CSSAnimationController& animation() const;
 
@@ -806,12 +795,12 @@ protected:
     void setPosChildNeedsLayoutBit(bool b) { m_bitfields.setPosChildNeedsLayout(b); }
     void setNeedsSimplifiedNormalFlowLayoutBit(bool b) { m_bitfields.setNeedsSimplifiedNormalFlowLayout(b); }
 
-    virtual RenderFlowThread* locateFlowThreadContainingBlock() const;
+    virtual RenderFragmentedFlow* locateEnclosingFragmentedFlow() const;
     static void calculateBorderStyleColor(const EBorderStyle&, const BoxSide&, Color&);
 
-    void initializeFlowThreadStateOnInsertion();
-    void resetFlowThreadStateOnRemoval();
-    static FlowThreadState computedFlowThreadState(const RenderObject&);
+    void initializeFragmentedFlowStateOnInsertion();
+    void resetFragmentedFlowStateOnRemoval();
+    static FragmentedFlowState computedFragmentedFlowState(const RenderObject&);
 
 private:
 #ifndef NDEBUG
@@ -844,6 +833,8 @@ private:
     RenderObject* m_previous;
     RenderObject* m_next;
 
+    WeakPtrFactory<RenderObject> m_weakFactory;
+
 #ifndef NDEBUG
     bool m_hasAXObject             : 1;
     bool m_setNeedsLayoutForbidden : 1;
@@ -868,7 +859,7 @@ private:
             IsStaticallyPositioned = 0,
             IsRelativelyPositioned = 1,
             IsOutOfFlowPositioned = 2,
-            IsStickyPositioned = 3
+            IsStickilyPositioned = 3
         };
 
     public:
@@ -897,7 +888,7 @@ private:
             , m_isExcludedFromNormalLayout(false)
             , m_positionedState(IsStaticallyPositioned)
             , m_selectionState(SelectionNone)
-            , m_flowThreadState(NotInsideFlowThread)
+            , m_fragmentedFlowState(NotInsideFragmentedFlow)
             , m_boxDecorationState(NoBoxDecorations)
         {
         }
@@ -936,13 +927,13 @@ private:
     private:
         unsigned m_positionedState : 2; // PositionedState
         unsigned m_selectionState : 3; // SelectionState
-        unsigned m_flowThreadState : 2; // FlowThreadState
+        unsigned m_fragmentedFlowState : 2; // FragmentedFlowState
         unsigned m_boxDecorationState : 2; // BoxDecorationState
 
     public:
         bool isOutOfFlowPositioned() const { return m_positionedState == IsOutOfFlowPositioned; }
-        bool isRelPositioned() const { return m_positionedState == IsRelativelyPositioned; }
-        bool isStickyPositioned() const { return m_positionedState == IsStickyPositioned; }
+        bool isRelativelyPositioned() const { return m_positionedState == IsRelativelyPositioned; }
+        bool isStickilyPositioned() const { return m_positionedState == IsStickilyPositioned; }
         bool isPositioned() const { return m_positionedState != IsStaticallyPositioned; }
 
         void setPositionedState(int positionState)
@@ -955,8 +946,8 @@ private:
         ALWAYS_INLINE SelectionState selectionState() const { return static_cast<SelectionState>(m_selectionState); }
         ALWAYS_INLINE void setSelectionState(SelectionState selectionState) { m_selectionState = selectionState; }
         
-        ALWAYS_INLINE FlowThreadState flowThreadState() const { return static_cast<FlowThreadState>(m_flowThreadState); }
-        ALWAYS_INLINE void setFlowThreadState(FlowThreadState flowThreadState) { m_flowThreadState = flowThreadState; }
+        ALWAYS_INLINE FragmentedFlowState fragmentedFlowState() const { return static_cast<FragmentedFlowState>(m_fragmentedFlowState); }
+        ALWAYS_INLINE void setFragmentedFlowState(FragmentedFlowState fragmentedFlowState) { m_fragmentedFlowState = fragmentedFlowState; }
 
         ALWAYS_INLINE BoxDecorationState boxDecorationState() const { return static_cast<BoxDecorationState>(m_boxDecorationState); }
         ALWAYS_INLINE void setBoxDecorationState(BoxDecorationState boxDecorationState) { m_boxDecorationState = boxDecorationState; }
@@ -970,13 +961,13 @@ private:
         RenderObjectRareData()
             : m_isDragging(false)
             , m_hasReflection(false)
-            , m_isRenderFlowThread(false)
+            , m_isRenderFragmentedFlow(false)
             , m_hasOutlineAutoAncestor(false)
         {
         }
         ADD_BOOLEAN_BITFIELD(isDragging, IsDragging);
         ADD_BOOLEAN_BITFIELD(hasReflection, HasReflection);
-        ADD_BOOLEAN_BITFIELD(isRenderFlowThread, IsRenderFlowThread);
+        ADD_BOOLEAN_BITFIELD(isRenderFragmentedFlow, IsRenderFragmentedFlow);
         ADD_BOOLEAN_BITFIELD(hasOutlineAutoAncestor, HasOutlineAutoAncestor);
 
         // From RenderElement

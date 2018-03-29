@@ -23,29 +23,45 @@
 #ifndef __IOHIDDescriptorParser__
 #define __IOHIDDescriptorParser__
 
+#if RTKIT
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef uint8_t     UInt8;
+typedef int8_t      Int8;
+typedef uint32_t    UInt32;
+typedef int32_t     SInt32;
+typedef uint32_t    IOByteCount;
+typedef bool        Boolean;
+typedef SInt32      OSStatus;
+typedef size_t      vm_size_t;
+
+#else
+
 #include <TargetConditionals.h>
 #include <IOKit/IOTypes.h>
-#include <IOKit/hidsystem/IOHIDUsageTables.h>
+
+#if __has_include(<MacTypes.h>)
+    #include <MacTypes.h>
+#endif
+
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if TARGET_OS_EMBEDDED
-/* Types and enums required by these functions but not in IOTypes.h */
-
-typedef UInt8		Byte;
-typedef SInt8		SignedByte;
-typedef unsigned long	FourCharCode;
-typedef FourCharCode	OSType;
-
-enum {
-	noErr	= 0
-};
-#endif
-
 /* End missing types and enums */
 
+
+    
+#if __has_include(<MacErrors.h>)
+    #include <MacErrors.h>
+#elif __has_include(<CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>)
+    #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#else
 enum
 {
 	kHIDSuccess						= 0,
@@ -88,7 +104,7 @@ enum
 	kHIDDeviceNotReady 		= -13910, 		// The device is still initializing, try again later
 	kHIDVersionIncompatibleErr,
 };
-
+#endif
 // types of HID reports (input, output, feature)
 enum
 {

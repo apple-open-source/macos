@@ -98,7 +98,7 @@ typedef struct IOFireWireIPPrivateHandlers
 const UInt32 kUnicastHi					= 0x0001;
 const UInt32 kUnicastLo					= 0x00000000;
 
-const UInt32 kIOFireWireIPNoResources	= 0xe0009001;
+const SInt32 kIOFireWireIPNoResources	= 0xe0009001;
 
 #define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value
 
@@ -232,44 +232,44 @@ public:
 	IPoFWDiagnostics	fIPoFWDiagnostics;
 	
 	// IOService overrides
-    virtual bool		start(IOService *provider);
-	virtual void		stop(IOService *provider);
-	virtual void		free();
-    virtual bool		finalize(IOOptionBits options);
-    virtual IOReturn	message(UInt32 type, IOService *provider, void *argument);
-	virtual bool		matchPropertyTable(OSDictionary * table);
+    virtual bool		start(IOService *provider) APPLE_KEXT_OVERRIDE;
+	virtual void		stop(IOService *provider) APPLE_KEXT_OVERRIDE;
+	virtual void		free(void) APPLE_KEXT_OVERRIDE;
+    virtual bool		finalize(IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn	message(UInt32 type, IOService *provider, void *argument) APPLE_KEXT_OVERRIDE;
+	virtual bool		matchPropertyTable(OSDictionary * table) APPLE_KEXT_OVERRIDE;
 
 	
 	#pragma mark -
 	#pragma mark еее IOFWController defs еее
-    virtual IOReturn 		setMaxPacketSize(UInt32 maxSize);
-	virtual IOReturn		getMaxPacketSize(UInt32 * maxSize) const;
-	virtual bool			createWorkLoop();
-	virtual IOWorkLoop		*getWorkLoop() const;
-	virtual IOOutputAction	getOutputHandler() const;
+    virtual IOReturn 		setMaxPacketSize(UInt32 maxSize) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn		getMaxPacketSize(UInt32 * maxSize) const APPLE_KEXT_OVERRIDE;
+	virtual bool			createWorkLoop(void) APPLE_KEXT_OVERRIDE;
+	virtual IOWorkLoop		*getWorkLoop(void) const APPLE_KEXT_OVERRIDE;
+	virtual IOOutputAction	getOutputHandler() const APPLE_KEXT_OVERRIDE;
 
-	virtual IOReturn		enable(IONetworkInterface * netif);
-	virtual IOReturn		disable(IONetworkInterface * netif);
+	virtual IOReturn		enable(IONetworkInterface * netif) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn		disable(IONetworkInterface * netif) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOReturn		setWakeOnMagicPacket( bool active );
-	virtual IOReturn		getPacketFilters(const OSSymbol	*group, UInt32	*filters ) const;
+	virtual IOReturn		setWakeOnMagicPacket( bool active ) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn		getPacketFilters(const OSSymbol	*group, UInt32	*filters ) const APPLE_KEXT_OVERRIDE;
 											
-	virtual IOReturn		getHardwareAddress(IOFWAddress *addr);
+	virtual IOReturn		getHardwareAddress(IOFWAddress *addr) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOReturn		setMulticastMode(IOEnetMulticastMode mode);
-	virtual IOReturn        setMulticastList(IOFWAddress *addrs, UInt32 count);
-	virtual IOReturn        setPromiscuousMode(IOEnetPromiscuousMode mode);
+	virtual IOReturn		setMulticastMode(IOEnetMulticastMode mode) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn        setMulticastList(IOFWAddress *addrs, UInt32 count) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn        setPromiscuousMode(IOEnetPromiscuousMode mode) APPLE_KEXT_OVERRIDE;
 
-	virtual IOOutputQueue	*createOutputQueue();
+	virtual IOOutputQueue	*createOutputQueue(void) APPLE_KEXT_OVERRIDE;
 	
-	virtual const OSString	*newVendorString() const;
-	virtual const OSString	*newModelString() const;
-	virtual const OSString	*newRevisionString() const;
+	virtual const OSString	*newVendorString(void) const APPLE_KEXT_OVERRIDE;
+	virtual const OSString	*newModelString(void) const APPLE_KEXT_OVERRIDE;
+	virtual const OSString	*newRevisionString(void) const APPLE_KEXT_OVERRIDE;
 		
-	virtual bool			configureInterface(IONetworkInterface *netif);
+	virtual bool			configureInterface(IONetworkInterface *netif) APPLE_KEXT_OVERRIDE;
 
     virtual void			receivePackets(mbuf_t pkt, UInt32 pkt_len, UInt32 options);
-	virtual UInt32			outputPacket(mbuf_t m, void * param);
+	virtual UInt32			outputPacket(mbuf_t m, void * param) APPLE_KEXT_OVERRIDE;
 
 	virtual	bool			arpCacheHandler(IP1394_ARP *fwa);
 	virtual UInt32			transmitPacket(mbuf_t m, void * param);
@@ -297,7 +297,7 @@ public:
 		@param none.
 		@result Tell family we can handle multipage mbufs. kIONetworkFeatureMultiPages
 	*/
-	UInt32 getFeatures() const;
+	UInt32 getFeatures(void) const APPLE_KEXT_OVERRIDE;
 
 	#pragma mark -
 	#pragma mark еее IOFireWireIP defs еее

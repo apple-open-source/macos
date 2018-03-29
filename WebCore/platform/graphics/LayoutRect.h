@@ -34,11 +34,13 @@
 #include "IntRect.h"
 #include "LayoutPoint.h"
 #include "LengthBox.h"
-#include <wtf/Vector.h>
+#include <wtf/Forward.h>
+
+namespace WTF {
+class TextStream;
+}
 
 namespace WebCore {
-
-class TextStream;
 
 class LayoutRect {
 public:
@@ -246,7 +248,7 @@ inline FloatRect snapRectToDevicePixelsWithWritingDirection(const LayoutRect& re
 
 FloatRect encloseRectToDevicePixels(const LayoutRect&, float pixelSnappingFactor);
 
-WEBCORE_EXPORT TextStream& operator<<(TextStream&, const LayoutRect&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const LayoutRect&);
 
 } // namespace WebCore
 

@@ -193,7 +193,7 @@ bool SOSPeerInfoIsRetirementTicket(SOSPeerInfoRef pi);
 
 bool SOSPeerInfoIsCloudIdentity(SOSPeerInfoRef pi);
 
-SOSPeerInfoRef SOSPeerInfoUpgradeSignatures(CFAllocatorRef allocator, SecKeyRef privKey, SecKeyRef perKey, SOSPeerInfoRef peer, CFErrorRef *error);
+CF_RETURNS_RETAINED SOSPeerInfoRef SOSPeerInfoUpgradeSignatures(CFAllocatorRef allocator, SecKeyRef privKey, SecKeyRef perKey, SOSPeerInfoRef peer, CFErrorRef *error);
 
 SOSViewResultCode SOSPeerInfoViewStatus(SOSPeerInfoRef pi, CFStringRef view, CFErrorRef *error);
 
@@ -211,7 +211,7 @@ SOSPeerInfoRef SOSPeerInfoSetIDSPreference(CFAllocatorRef allocator, SOSPeerInfo
 CFBooleanRef SOSPeerInfoCopyIDSFragmentationPreference(SOSPeerInfoRef peer);
 CFBooleanRef SOSPeerInfoCopyIDSACKModelPreference(SOSPeerInfoRef peer);
 SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
-SOSPeerInfoRef SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
+SOSPeerInfoRef CF_RETURNS_RETAINED SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
 
 CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer);
 bool SOSPeerInfoTransportTypeIs(SOSPeerInfoRef pi, CFStringRef transportType);

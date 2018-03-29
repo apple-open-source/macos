@@ -3,7 +3,6 @@
 if exists("+t_kD")
   let &t_kD="[3;*~"
 endif
-set belloff=
 
 " Needed for testing basic rightleft: Test_edit_rightleft
 source view_util.vim
@@ -26,7 +25,6 @@ func! Test_edit_01()
   " set for Travis CI?
   "  set nocp noesckeys
   new
-  set belloff=backspace
   " 1) empty buffer
   call assert_equal([''], getline(1,'$'))
   " 2) delete in an empty line
@@ -59,7 +57,6 @@ func! Test_edit_01()
   call cursor(1, 1)
   call feedkeys("A\<del>\<esc>", 'tnix')
   call assert_equal(["abc def", "ghi jkl"], getline(1, 2))
-  set belloff=
   let &bs=_bs
   bw!
 endfunc
@@ -218,14 +215,16 @@ endfunc
 
 func! Test_edit_08()
   " reset insertmode from i_ctrl-r_=
+  let g:bufnr = bufnr('%')
   new
   call setline(1, ['abc'])
   call cursor(1, 4)
-  call feedkeys(":set im\<cr>ZZZ\<c-r>=setbufvar(1,'&im', 0)\<cr>",'tnix')
+  call feedkeys(":set im\<cr>ZZZ\<c-r>=setbufvar(g:bufnr,'&im', 0)\<cr>",'tnix')
   call assert_equal(['abZZZc'], getline(1,'$'))
   call assert_equal([0, 1, 1, 0], getpos('.'))
   call assert_false(0, '&im')
   bw!
+  unlet g:bufnr
 endfunc
 
 func! Test_edit_09()
@@ -308,6 +307,33 @@ func! Test_edit_11()
   call cursor(3, 1)
   call feedkeys("i/* comment */", 'tnix')
   call assert_equal(['{', "\<tab>\<tab>int c;", "\<tab>\<tab>\<tab>/* comment */"], getline(1, '$'))
+  set cinkeys&vim indentkeys&vim
+  set nocindent indentexpr=
+  delfu Do_Indent
+  bw!
+endfunc
+
+func! Test_edit_11_indentexpr()
+  " Test that indenting kicks in
+  new
+  " Use indentexpr instead of cindenting
+  func! Do_Indent()
+    let pline=prevnonblank(v:lnum)
+    if empty(getline(v:lnum))
+      if getline(pline) =~ 'if\|then'
+        return shiftwidth()
+      else
+        return 0
+      endif
+    else
+        return 0
+    endif
+  endfunc
+  setl indentexpr=Do_Indent() indentkeys+=0=then,0=fi
+  call setline(1, ['if [ $this ]'])
+  call cursor(1, 1)
+  call feedkeys("othen\<cr>that\<cr>fi", 'tnix')
+  call assert_equal(['if [ $this ]', "then", "\<tab>that", "fi"], getline(1, '$'))
   set cinkeys&vim indentkeys&vim
   set nocindent indentexpr=
   delfu Do_Indent
@@ -448,13 +474,11 @@ func! Test_edit_00a_CTRL_A()
   new
   call setline(1, repeat([''], 5))
   call cursor(1, 1)
-  set belloff=all
   try
     call feedkeys("A\<NUL>", 'tnix')
   catch /^Vim\%((\a\+)\)\=:E29/
     call assert_true(1, 'E29 error caught')
   endtry
-  set belloff=
   call cursor(1, 1)
   call feedkeys("Afoobar \<esc>", 'tnix')
   call cursor(2, 1)
@@ -483,7 +507,6 @@ endfunc
 
 func! Test_edit_CTRL_G()
   new
-  set belloff=all
   call setline(1, ['foobar', 'foobar', 'foobar'])
   call cursor(2, 4)
   call feedkeys("ioooooooo\<c-g>k\<c-r>.\<esc>", 'tnix')
@@ -497,7 +520,6 @@ func! Test_edit_CTRL_G()
   call assert_equal([0, 3, 7, 0], getpos('.'))
   call feedkeys("i\<c-g>j\<esc>", 'tnix')
   call assert_equal([0, 3, 6, 0], getpos('.'))
-  set belloff=
   bw!
 endfunc
 
@@ -577,7 +599,6 @@ func! Test_edit_CTRL_K()
   %d
   call setline(1, 'A')
   call cursor(1, 1)
-  set belloff=all
   let v:testing = 1
   try
     call feedkeys("A\<c-x>\<c-k>\<esc>", 'tnix')
@@ -585,7 +606,6 @@ func! Test_edit_CTRL_K()
     " error sleeps 2 seconds, when v:testing is not set
     let v:testing = 0
   endtry
-  set belloff=
   call delete('Xdictionary.txt')
 
   if has("multi_byte")
@@ -826,7 +846,6 @@ func! Test_edit_CTRL_T()
   %d
   call setline(1, 'mad')
   call cursor(1, 1)
-  set belloff=all
   let v:testing = 1
   try
     call feedkeys("A\<c-x>\<c-t>\<esc>", 'tnix')
@@ -834,7 +853,6 @@ func! Test_edit_CTRL_T()
     " error sleeps 2 seconds, when v:testing is not set
     let v:testing = 0
   endtry
-  set belloff=
   call assert_equal(['mad'], getline(1, '$'))
   call delete('Xthesaurus')
   bw!
@@ -1006,7 +1024,6 @@ endfunc
 func! Test_edit_LEFT_RIGHT()
   " Left, Shift-Left, Right, Shift-Right
   new
-  set belloff=all
   call setline(1, ['abc def ghi', 'ABC DEF GHI', 'ZZZ YYY XXX'])
   let _ww=&ww
   set ww=
@@ -1048,7 +1065,6 @@ func! Test_edit_LEFT_RIGHT()
   call feedkeys("A\<s-right>\<esc>", 'tnix')
   call assert_equal([0, 3, 1, 0], getpos('.'))
   let &ww = _ww
-  set belloff=
   bw!
 endfunc
 
@@ -1108,7 +1124,6 @@ func! Test_edit_MOUSE()
 endfunc
 
 func! Test_edit_PAGEUP_PAGEDOWN()
-  set belloff=all
   10new
   call setline(1, repeat(['abc def ghi'], 30))
   call cursor(1, 1)
@@ -1204,12 +1219,10 @@ func! Test_edit_PAGEUP_PAGEDOWN()
   call assert_equal([0, 30, 11, 0], getpos('.'))
   call feedkeys("A\<S-Down>\<esc>", 'tnix')
   call assert_equal([0, 30, 11, 0], getpos('.'))
-  set startofline belloff=
   bw!
 endfunc
 
 func! Test_edit_forbidden()
-  set belloff=error,esc
   new
   " 1) edit in the sandbox is not allowed
   call setline(1, 'a')
@@ -1266,7 +1279,6 @@ func! Test_edit_forbidden()
       set norevins nofkmap
     endtry
   endif
-  set belloff=
   bw!
 endfunc
 
@@ -1363,3 +1375,16 @@ func Test_edit_complete_very_long_name()
   endif
   set swapfile&
 endfunc
+
+func Test_edit_quit()
+  edit foo.txt
+  split
+  new
+  call setline(1, 'hello')
+  3wincmd w
+  redraw!
+  call assert_fails('1q', 'E37:')
+  bwipe! foo.txt
+  only
+endfunc
+

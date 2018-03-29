@@ -39,7 +39,6 @@
 -(SOSViewResultCode) viewStatus:(SOSAccount*)account name:(CFStringRef) viewname err:(CFErrorRef *)error;
 -(bool) updateViewSets:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews;
 -(CFSetRef) copyPeerSetForView:(CFStringRef) viewName;
--(void) peerGotInSync:(SOSAccountTransaction*) aTxn peerID:(CFStringRef) peerID views:(CFSetRef) views;
 
 //DER
 -(size_t) getDEREncodedSize:(SOSAccount*)account err:(NSError**)error;

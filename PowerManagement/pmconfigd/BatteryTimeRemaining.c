@@ -1379,6 +1379,9 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
 // _readAndPublicACAdapter
 __private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionaryRef newAdapter)
 {
+    if (!adapterExists && !adapterDetails) {
+        goto exit;
+    }
 
     // Make sure we re-read the adapter on wake from sleep
     if (control.readACAdapterAgain) {

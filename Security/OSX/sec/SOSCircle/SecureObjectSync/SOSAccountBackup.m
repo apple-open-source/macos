@@ -265,6 +265,7 @@ bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccount*  account, CFStringRe
     
 errOut:
     CFReleaseNull(ring);
+    CFReleaseNull(backupSlice);
 
     if (bsError) {
         secnotice("backup", "Failed to find BKSB: %@, %@ (%@)", backupSliceData, backupSlice, bsError);
@@ -305,6 +306,7 @@ bool SOSAccountIsPeerInBackupAndCurrentInView(SOSAccount*  account, SOSPeerInfoR
     
 errOut:
     CFReleaseNull(ring);
+    CFReleaseNull(backupSlice);
 
     if (bsError) {
         secnotice("backup", "Failed to find BKSB: %@, %@ (%@)", backupSliceData, backupSlice, bsError);
@@ -514,7 +516,7 @@ exit:
     return result;
 }
 
-static CFMutableArrayRef SOSAccountIsRetiredPeerIDInBackupPeerList(SOSAccount*  account, CFArrayRef peers, CFSetRef peersInBackup){
+static CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountIsRetiredPeerIDInBackupPeerList(SOSAccount*  account, CFArrayRef peers, CFSetRef peersInBackup){
     CFMutableArrayRef removals = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     
     CFSetForEach(peersInBackup, ^(const void *value) {
@@ -551,6 +553,8 @@ bool SOSAccountRemoveBackupPeers(SOSAccount*  account, CFArrayRef peers, CFError
                 bool result = SOSAccountSetKeybagForViewBackupRing(account, viewName, bskb, error);
                 return result;
             });
+            CFReleaseNull(removals);
+            CFReleaseNull(peersInBackup);
         }
     });
     

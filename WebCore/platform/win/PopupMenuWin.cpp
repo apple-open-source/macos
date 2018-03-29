@@ -572,8 +572,7 @@ void PopupMenuWin::updateFromElement()
     m_focusedIndex = client()->selectedIndex();
 
     ::InvalidateRect(m_popup, 0, TRUE);
-    if (!scrollToRevealSelection())
-        ::UpdateWindow(m_popup);
+    scrollToRevealSelection();
 }
 
 const int separatorPadding = 4;
@@ -1097,9 +1096,7 @@ AccessiblePopupMenu::AccessiblePopupMenu(const PopupMenuWin& popupMenu)
 {
 }
 
-AccessiblePopupMenu::~AccessiblePopupMenu()
-{
-}
+AccessiblePopupMenu::~AccessiblePopupMenu() = default;
 
 HRESULT AccessiblePopupMenu::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppvObject)
 {

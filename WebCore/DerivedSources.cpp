@@ -36,6 +36,7 @@
 #include "JSANGLEInstancedArrays.cpp"
 #endif
 #include "JSAbstractWorker.cpp"
+#include "JSAccessibleNode.cpp"
 #include "JSAnimationEvent.cpp"
 #include "JSAttr.cpp"
 #include "JSBarProp.cpp"
@@ -49,7 +50,6 @@
 #include "JSBlobPropertyBag.cpp"
 #include "JSCanvasGradient.cpp"
 #include "JSCanvasPattern.cpp"
-#include "JSCanvasProxy.cpp"
 #include "JSCanvasRenderingContext2D.cpp"
 #include "JSByteLengthQueuingStrategy.cpp"
 #include "JSCountQueuingStrategy.cpp"
@@ -148,23 +148,18 @@
 #include "JSDeviceMotionEvent.h"
 #include "JSDeviceOrientationEvent.cpp"
 #endif
-#if ENABLE(PROXIMITY_EVENTS)
-#include "JSDeviceProximityEvent.cpp"
-#endif
 #include "JSDocument.cpp"
 #include "JSDocumentFragment.cpp"
 #include "JSDocumentType.cpp"
 #include "JSDOMApplicationCache.cpp"
 #include "JSDOMCSSNamespace.cpp"
-#include "JSDOMCoreException.cpp"
-#include "JSDOMError.cpp"
+#include "JSDOMException.cpp"
+#include "JSDOMFileSystem.cpp"
 #include "JSDOMFormData.cpp"
 #include "JSDOMImplementation.cpp"
 #include "JSDOMMimeType.cpp"
 #include "JSDOMMimeTypeArray.cpp"
-#include "JSDOMNamedFlowCollection.cpp"
 #include "JSDOMParser.cpp"
-#include "JSDOMPath.cpp"
 #include "JSDOMPlugin.cpp"
 #include "JSDOMPluginArray.cpp"
 #include "JSDOMSelection.cpp"
@@ -179,6 +174,7 @@
 #include "JSDOMWindowSpeechSynthesis.cpp"
 #include "JSDOMWindowWebDatabase.cpp"
 #include "JSElement.cpp"
+#include "JSErrorCallback.cpp"
 #include "JSErrorEvent.cpp"
 #include "JSEvent.cpp"
 #include "JSEventInit.cpp"
@@ -190,11 +186,15 @@
 #include "JSFetchRequest.cpp"
 #include "JSFetchResponse.cpp"
 #include "JSFile.cpp"
+#include "JSFileCallback.cpp"
 #include "JSFileError.cpp"
-#include "JSFileException.cpp"
 #include "JSFileList.cpp"
 #include "JSFileReader.cpp"
 #include "JSFileReaderSync.cpp"
+#include "JSFileSystemDirectoryEntry.cpp"
+#include "JSFileSystemEntry.cpp"
+#include "JSFileSystemEntryCallback.cpp"
+#include "JSFileSystemFileEntry.cpp"
 #include "JSFocusEvent.cpp"
 #include "JSFontFace.cpp"
 #include "JSFontFaceSet.cpp"
@@ -255,6 +255,7 @@
 #include "JSHTMLMediaElement.cpp"
 #include "JSHTMLMediaElementMediaSession.cpp"
 #include "JSHTMLMenuElement.cpp"
+#include "JSHTMLMenuItemElement.cpp"
 #include "JSHTMLMetaElement.cpp"
 #include "JSHTMLMeterElement.cpp"
 #include "JSHTMLModElement.cpp"
@@ -356,6 +357,7 @@
 #include "JSPageTransitionEvent.cpp"
 #include "JSPannerNode.cpp"
 #include "JSParentNode.cpp"
+#include "JSPath2D.cpp"
 #include "JSPerformance.cpp"
 #include "JSPerformanceEntry.cpp"
 #include "JSPerformanceMark.cpp"
@@ -406,7 +408,6 @@
 #include "JSSpeechSynthesisUtterance.cpp"
 #include "JSSpeechSynthesisVoice.cpp"
 #include "JSSQLError.cpp"
-#include "JSSQLException.cpp"
 #include "JSSQLResultSet.cpp"
 #include "JSSQLResultSetRowList.cpp"
 #include "JSSQLStatementCallback.cpp"
@@ -445,7 +446,6 @@
 #include "JSSVGDocument.cpp"
 #include "JSSVGElement.cpp"
 #include "JSSVGEllipseElement.cpp"
-#include "JSSVGException.cpp"
 #include "JSSVGExternalResourcesRequired.cpp"
 #include "JSSVGFEBlendElement.cpp"
 #include "JSSVGFEColorMatrixElement.cpp"
@@ -613,11 +613,11 @@
 #endif
 #include "JSValidityState.cpp"
 #include "JSVideoPlaybackQuality.cpp"
+#include "JSVisualViewport.cpp"
 #include "JSVoidCallback.cpp"
 #include "JSWaveShaperNode.cpp"
 #include "JSWebKitAnimationEvent.cpp"
 #include "JSWebKitCSSMatrix.cpp"
-#include "JSWebKitCSSRegionRule.cpp"
 #include "JSWebKitCSSViewportRule.cpp"
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 #include "JSWebKitMediaKeyError.cpp"
@@ -626,10 +626,8 @@
 #include "JSWebKitMediaKeySession.cpp"
 #include "JSWebKitMediaKeys.cpp"
 #endif
-#include "JSWebKitNamedFlow.cpp"
 #include "JSWebKitPlaybackTargetAvailabilityEvent.cpp"
 #include "JSWebKitPoint.cpp"
-#include "JSWebKitSubtleCrypto.cpp"
 #include "JSWebKitTransitionEvent.cpp"
 #include "JSWebSocket.cpp"
 #include "JSWheelEvent.cpp"
@@ -649,17 +647,7 @@
 #include "JSXMLHttpRequestUpload.cpp"
 #include "JSXMLSerializer.cpp"
 #include "JSXPathEvaluator.cpp"
-#include "JSXPathException.cpp"
 #include "JSXPathExpression.cpp"
 #include "JSXPathNSResolver.cpp"
 #include "JSXPathResult.cpp"
 #include "JSXSLTProcessor.cpp"
-
-// On MSVC, including StaticConstructors.h causes all global objects not to be
-// automatically initialized by the C runtime. This is useful in some specific
-// cases (e.g., the *Names.cpp files), but can be dangerous in others. We don't
-// want StaticConstructors.h to "pollute" all the source files we #include here
-// accidentally, so we'll throw an error whenever any file includes it.
-#ifdef StaticConstructors_h
-#error Do not include any file in DerivedSources.cpp that includes StaticConstructors.h
-#endif

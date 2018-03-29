@@ -428,16 +428,80 @@ segregated_in_use_enumerator(task_t task,
 				uintptr_t slot_band, clone_slot_band_base = clone_slot_base;
 				uintptr_t skip_adj = index_to_offset(nanozone, pMeta, (index_t)pMeta->slot_objects_skipped);
 
-				while (q.addr < pMeta->slot_limit_addr) {
-					// read slot in each remote band. Lands in some random location.
-					size_t len = MIN(pMeta->slot_bump_addr - q.addr, SLOT_IN_BAND_SIZE);
-					err = reader(task, (vm_address_t)(q.addr + skip_adj), len - skip_adj, (void **)&slot_band);
+				// Copy the bitarray_t denoting madvise()'d pages (if any) into *this* task's address space
+				bitarray_t madv_page_bitarray;
+				int log_page_count;
+
+				if (pMeta->slot_madvised_pages) {
+					log_page_count = pMeta->slot_madvised_log_page_count;
+					err = reader(task, (vm_address_t)(pMeta->slot_madvised_pages), bitarray_size(log_page_count),
+								 (void **)&madv_page_bitarray);
 					if (err) {
 						return err;
 					}
+				} else {
+					madv_page_bitarray = NULL;
+					log_page_count = 0;
+				}
 
-					// Place the data just read in the correct position relative to the local magazine.
-					memcpy((void *)(clone_slot_band_base + skip_adj), (void *)slot_band, len - skip_adj);
+				while (q.addr < pMeta->slot_limit_addr) {
+					// read slot in each remote band. Lands in some random location. Do not read
+					// parts of the slot that are in madvised pages.
+					if (!madv_page_bitarray) {
+						// Nothing madvised yet - read everything in one go.
+						size_t len = MIN(pMeta->slot_bump_addr - q.addr, SLOT_IN_BAND_SIZE) - skip_adj;
+						err = reader(task, (vm_address_t)(q.addr + skip_adj), len, (void **)&slot_band);
+						if (err) {
+							return err;
+						}
+
+						// Place the data just read in the correct position relative to the local magazine.
+						memcpy((void *)(clone_slot_band_base + skip_adj), (void *)slot_band, len);
+					} else {
+						// We madvised at least one page. Read only the pages that
+						// have not been madvised. If bitarray_t had operations
+						// like "get next bit set after a given bit" and "find
+						// next unset bit after a given bit", we could do this more
+						// efficiently but given that it doesn't, we have to walk
+						// through each page individually. In practice this is not
+						// much of an issue because this code is only used by
+						// sampling tools and the additional time required is not
+						// really noticeable.
+						size_t len = MIN(pMeta->slot_bump_addr - q.addr, SLOT_IN_BAND_SIZE) - skip_adj;
+						vm_address_t start_addr = (vm_address_t)(q.addr + skip_adj);
+						vm_address_t end_addr = (vm_address_t)(start_addr + len);
+						void *target_addr = (void *)(clone_slot_band_base + skip_adj);
+						for (vm_address_t addr = start_addr; addr < end_addr;) {
+							vm_address_t next_page_addr = trunc_page(addr) + vm_page_size;
+							size_t read_size = MIN(len, next_page_addr - addr);
+
+							boolean_t madvised = false;
+							nano_blk_addr_t r;
+							r.addr = addr;
+							index_t pgnum = ((((unsigned)r.fields.nano_band) << NANO_OFFSET_BITS) | ((unsigned)r.fields.nano_offset)) >>
+							vm_kernel_page_shift;
+							unsigned int log_page_count = pMeta->slot_madvised_log_page_count;
+							madvised = (pgnum < (1 << log_page_count)) &&
+							bitarray_get(madv_page_bitarray, log_page_count, pgnum);
+							if (!madvised) {
+								// This is not an madvised page - grab the data.
+								err = reader(task, addr, read_size, (void **)&slot_band);
+								if (err) {
+									return err;
+								}
+
+								// Place the data just read in the correct position relative to the local magazine.
+								memcpy(target_addr, (void *)slot_band, read_size);
+							} else {
+								// This is an madvised page - there should be nothing in here that's
+								// on the freelist, so just write garbage to the target memory.
+								memset(target_addr, (char)0xee, read_size);
+							}
+							addr = next_page_addr;
+							target_addr += read_size;
+							len -= read_size;
+						}
+					}
 
 					// Simultaneously advance pointers in remote and ourselves to the next band.
 					q.addr += BAND_SIZE;
@@ -471,22 +535,6 @@ segregated_in_use_enumerator(task_t task,
 					}
 				}
 				// N.B. pMeta->slot_LIFO in *this* task is now drained (remote free list has *not* been disturbed)
-
-				// Copy the bitarray_t denoting madvise()'d pages (if any) into *this* task's address space
-				bitarray_t madv_page_bitarray;
-				int log_page_count;
-
-				if (pMeta->slot_madvised_pages) {
-					log_page_count = pMeta->slot_madvised_log_page_count;
-					err = reader(task, (vm_address_t)(pMeta->slot_madvised_pages), bitarray_size(log_page_count),
-							(void **)&madv_page_bitarray);
-					if (err) {
-						return err;
-					}
-				} else {
-					madv_page_bitarray = NULL;
-					log_page_count = 0;
-				}
 
 				// Enumerate all the block indices issued to date, and report those not on the free list
 				index_t i;
@@ -1516,6 +1564,7 @@ nano_ptr_in_use_enumerator(task_t task,
 {
 	nanozone_t *nanozone;
 	kern_return_t err;
+	struct nanozone_s zone_copy;
 
 	if (!reader) {
 		reader = nanozone_default_reader;
@@ -1525,8 +1574,9 @@ nano_ptr_in_use_enumerator(task_t task,
 	if (err) {
 		return err;
 	}
+	memcpy(&zone_copy, nanozone, sizeof(zone_copy));
 
-	err = segregated_in_use_enumerator(task, context, type_mask, nanozone, reader, recorder);
+	err = segregated_in_use_enumerator(task, context, type_mask, &zone_copy, reader, recorder);
 	return err;
 }
 

@@ -55,7 +55,7 @@ do_set_identity_preference(CFTypeRef keychainOrArray,
 
 	// must have a service name
 	if (!service) {
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	// find identity (if specified by name or hash)
@@ -97,7 +97,7 @@ do_get_identity_preference(const char *service,
 {
 	int result = 0;
 	if (!service) {
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 	CFStringRef serviceRef = CFStringCreateWithCString(NULL, service, kCFStringEncodingUTF8);
 	SecCertificateRef certRef = NULL;
@@ -228,7 +228,7 @@ set_identity_preference(int argc, char * const *argv)
 				break;
 			case '?':
 			default:
-				result = 2; /* @@@ Return 2 triggers usage message. */
+				result = SHOW_USAGE_MESSAGE;
 				goto cleanup;
 		}
 	}

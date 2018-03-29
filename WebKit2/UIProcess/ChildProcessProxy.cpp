@@ -49,6 +49,8 @@ ChildProcessProxy::~ChildProcessProxy()
 
 void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
+    launchOptions.processIdentifier = m_processIdentifier;
+
     if (const char* userDirectorySuffix = getenv("DIRHELPER_USER_DIR_SUFFIX"))
         launchOptions.extraInitializationData.add(ASCIILiteral("user-directory-suffix"), userDirectorySuffix);
 
@@ -70,11 +72,9 @@ void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchO
     case ProcessLauncher::ProcessType::Network:
         varname = "NETWORK_PROCESS_CMD_PREFIX";
         break;
-#if ENABLE(DATABASE_PROCESS)
-    case ProcessLauncher::ProcessType::Database:
-        varname = "DATABASE_PROCESS_CMD_PREFIX";
+    case ProcessLauncher::ProcessType::Storage:
+        varname = "STORAGE_PROCESS_CMD_PREFIX";
         break;
-#endif
     }
     const char* processCmdPrefix = getenv(varname);
     if (processCmdPrefix && *processCmdPrefix)

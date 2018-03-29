@@ -98,7 +98,7 @@ cssmErrorString(CSSM_RETURN error)
 			CFStringRef result = copyErrorMessageFromBundle(error,CFSTR("SecErrorMessages"));
 			if (result == NULL)
 				result = copyErrorMessageFromBundle(error,CFSTR("SecDebugErrorMessages"));
-			err = cfString(result, true);
+			err = cfString(result, errSecErrorStringNotAvailable);
             CFReleaseSafe(result);
 		}
 		

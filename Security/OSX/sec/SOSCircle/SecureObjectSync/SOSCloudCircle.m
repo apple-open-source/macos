@@ -365,7 +365,7 @@ static int simple_int_error_request(enum SecXPCOperation op, CFErrorRef* error)
     return result;
 }
 
-static SOSPeerInfoRef peer_info_error_request(enum SecXPCOperation op, CFErrorRef* error)
+static CF_RETURNS_RETAINED SOSPeerInfoRef peer_info_error_request(enum SecXPCOperation op, CFErrorRef* error)
 {
     SOSPeerInfoRef result = NULL;
     __block CFDataRef data = NULL;
@@ -559,11 +559,11 @@ static bool cfstring_and_cfdata_to_cfdata_cfdata_error_request(enum SecXPCOperat
         result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
 
         xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCData);
-        if (response && (NULL != temp_result) && data) {
+        if ((NULL != temp_result) && data) {
             *data = _CFXPCCreateCFObjectFromXPCObject(temp_result);
         }
         temp_result = xpc_dictionary_get_value(response, kSecXPCKeyKeybag);
-        if (response && (NULL != temp_result) && data2) {
+        if ((NULL != temp_result) && data2) {
             *data2 = _CFXPCCreateCFObjectFromXPCObject(temp_result);
         }
 
@@ -1075,8 +1075,11 @@ static CF_RETURNS_RETAINED SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pub
 }
 
 SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFErrorRef *error){
+    secnotice("devRecovery", "Enter SOSCCCopyMyPeerWithNewDeviceRecoverySecret()");
     CFDataRef publicKeyData = SOSCopyDeviceBackupPublicKey(secret, error);
+    secnotice("devRecovery", "SOSCopyDeviceBackupPublicKey (%@)", publicKeyData);
     SOSPeerInfoRef copiedPeer = publicKeyData ? SOSSetNewPublicBackupKey(publicKeyData, error) : NULL;
+    secnotice("devRecovery", "SOSSetNewPublicBackupKey (%@)", copiedPeer);
     CFReleaseNull(publicKeyData);
     return copiedPeer;
 }
@@ -1228,13 +1231,13 @@ static bool idscommand_to_bool_error_request(enum SecXPCOperation op,
 
 bool SOSCCRegisterUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
-    secnotice("sosops", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials!! %@\n", user_label);
+    secnotice("circleOps", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials for %@\n", user_label);
     return SOSCCSetUserCredentials(user_label, user_password, error);
 }
 
 bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
-    secnotice("sosops", "SOSCCSetUserCredentials!! %@\n", user_label);
+    secnotice("circleOps", "SOSCCSetUserCredentials for %@\n", user_label);
 	sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
     sec_trace_return_bool_api(^{
 		do_if_registered(soscc_SetUserCredentials, user_label, user_password, error);
@@ -1245,7 +1248,7 @@ bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
 
 bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
-    secnotice("sosops", "SOSCCSetUserCredentialsAndDSID!! %@\n", user_label);
+    secnotice("circleOps", "SOSCCSetUserCredentialsAndDSID for %@\n", user_label);
     sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_SetUserCredentialsAndDSID, user_label, user_password, dsid, error);
@@ -1265,6 +1268,8 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
 
     }, NULL)
 }
+
+
 bool SOSCCSetDeviceID(CFStringRef IDS, CFErrorRef* error)
 {
     secnotice("sosops", "SOSCCSetDeviceID!! %@\n", IDS);
@@ -1347,14 +1352,41 @@ bool SOSCCRequestSyncWithPeerOverKVS(CFStringRef peerID, CFDataRef message, CFEr
     }, NULL)
 }
 
-bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
-{
-	sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
+static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
     sec_trace_return_bool_api(^{
-	    do_if_registered(soscc_TryUserCredentials, user_label, user_password, error);
-
-    	return label_and_password_to_bool_error_request(kSecXPCOpTryUserCredentials, user_label, user_password, error);
+        do_if_registered(soscc_TryUserCredentials, user_label, user_password, dsid, error);
+        
+        bool result = false;
+        __block CFStringRef account_dsid = dsid;
+        
+        require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+        require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+        
+        if(account_dsid == NULL){
+            account_dsid = CFSTR("");
+        }
+        
+        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpTryUserCredentials, user_label, user_password, account_dsid, error);
+    out:
+        return result;
+        
     }, NULL)
+
+}
+
+bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
+{
+    secnotice("sosops", "SOSCCTryUserCredentialsAndDSID!! %@\n", user_label);
+    require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+    require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+    CFStringRef account_dsid = (dsid != NULL) ? dsid: CFSTR("");
+    return SOSCCTryUserCredentialsAndDSID_internal(user_label, user_password, account_dsid, error);
+out:
+    return false;
+}
+
+bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error) {
+    return SOSCCTryUserCredentialsAndDSID_internal(user_label, user_password, NULL, error);
 }
 
 
@@ -1829,18 +1861,15 @@ bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
 @implementation SecSOSStatus
 @synthesize connection = _connection;
 
-- (instancetype) initWithEndpoint:(xpc_endpoint_t)endpoint
+- (instancetype) init
 {
     if ((self = [super init]) == NULL)
         return NULL;
 
     NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SOSControlProtocol)];
     _SOSControlSetupInterface(interface);
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
 
-    [listenerEndpoint _setEndpoint:endpoint];
-
-    self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
+    self.connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydSOSServiceName) options:0];
     if (self.connection == NULL)
         return NULL;
 
@@ -1862,11 +1891,7 @@ SOSCCGetStatusObject(CFErrorRef *error)
     static SecSOSStatus *control;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        xpc_endpoint_t endpoint = _SecSecuritydCopySOSStatusEndpoint(error);
-        if (endpoint == NULL)
-            return;
-
-        control = [[SecSOSStatus alloc] initWithEndpoint:endpoint];
+        control = [[SecSOSStatus alloc] init];
     });
     return control.connection.remoteObjectProxy;
 }

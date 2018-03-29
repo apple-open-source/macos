@@ -176,7 +176,7 @@ private:
     void setFocus(bool) override;
     void frameRectsChanged() override;
     void setParent(WebCore::ScrollView*) override;
-    void handleEvent(WebCore::Event*) override;
+    void handleEvent(WebCore::Event&) override;
     void notifyWidget(WebCore::WidgetNotification) override;
     void show() override;
     void hide() override;
@@ -224,7 +224,7 @@ private:
     bool artificialPluginInitializationDelayEnabled() const override;
     void protectPluginFromDestruction() override;
     void unprotectPluginFromDestruction() override;
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLATFORM(X11)
     uint64_t createPluginContainer() override;
     void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID) override;
     void windowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID) override;
@@ -238,7 +238,7 @@ private:
     void didFinishLoad(WebFrame*) override;
     void didFailLoad(WebFrame*, bool wasCancelled) override;
 
-    std::unique_ptr<WebEvent> createWebEvent(WebCore::MouseEvent*) const;
+    std::unique_ptr<WebEvent> createWebEvent(WebCore::MouseEvent&) const;
 
     RefPtr<WebCore::HTMLPlugInElement> m_pluginElement;
     RefPtr<Plugin> m_plugin;

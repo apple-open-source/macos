@@ -1,108 +1,3348 @@
-2017-08-09  Jason Marcell  <jmarcell@apple.com>
+2018-02-19  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r220459. rdar://problem/33820790
+        Cherry-pick r228580. rdar://problem/37675341
 
-    2017-08-09  Daniel Bates  <dabates@apple.com>
+    2018-02-16  Brent Fulgham  <bfulgham@apple.com>
 
-            REGRESSION (r219013): OAuth flows are broken when redirecting back to application after authentication
-            https://bugs.webkit.org/show_bug.cgi?id=175247
-            <rdar://problem/33679804>
+            [Cocoa][WebKitLegacy] REGRESSION(r221559): Coda 2 crashes when switching views
+            https://bugs.webkit.org/show_bug.cgi?id=182882
+            <rdar://problem/35672661>
 
-            Reviewed by Brady Eidson.
+            Reviewed by Dan Bernstein.
 
-            Plumb knowledge of whether a navigation was in response to receiving a redirect response.
-            We do not actually make use of this knowledge in WebKitLegacy because we do not know of any
-            clients that need to make use of this information at this time. If such a needs comes up
-            then we can expose API/SPI similar to what we do for WebKit.
+            Make sure the smart pointer hold the collection of subviews lives at least as
+            long as the loop using it.
 
-            * WebCoreSupport/WebFrameLoaderClient.h:
-            * WebCoreSupport/WebFrameLoaderClient.mm:
-            (WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
-
-2017-08-09  Jason Marcell  <jmarcell@apple.com>
-
-        Cherry-pick r220473. rdar://problem/33810961
-
-    2017-08-09  Wenson Hsieh  <wenson_hsieh@apple.com>
-
-            [iOS DnD] ENABLE_DRAG_SUPPORT should be turned off for iOS 10 and enabled by default
-            https://bugs.webkit.org/show_bug.cgi?id=175392
-            <rdar://problem/33783207>
-
-            Reviewed by Tim Horton and Megan Gardner.
-
-            Tweak FeatureDefines to enable drag and drop by default, and disable only on unsupported platforms (i.e. iOS 10).
-
-            * Configurations/FeatureDefines.xcconfig:
-
-2017-08-09  Jason Marcell  <jmarcell@apple.com>
-
-        Cherry-pick r220429. rdar://problem/33810973
-
-    2017-08-08  Brady Eidson  <beidson@apple.com>
-
-            Don't enable default icon loading in WK1 for apps linked against old SDKs.
-            <rdar://problem/33724060> and https://bugs.webkit.org/show_bug.cgi?id=175342
-
-            Reviewed by Andy Estes.
-
-            * Misc/WebKitVersionChecks.h:
-            * WebCoreSupport/WebFrameLoaderClient.mm:
-            (WebFrameLoaderClient::getLoadDecisionForIcons): Don't do any icon loading unless
-              the app is linked against new WebKit with the new behavior.
-
-2017-07-26  Jason Marcell  <jmarcell@apple.com>
-
-        Cherry-pick r219876. rdar://problem/33523847
-
-    2017-07-25  Said Abou-Hallawa  <sabouhallawa@apple.com>
-
-            Async image decoding for large images should be disabled after the first time a tile is painted
-            https://bugs.webkit.org/show_bug.cgi?id=174451
-            <rdar://problem/31246421>
-
-            Reviewed by Simon Fraser.
-
-            * WebView/WebFrame.mm:
-            (-[WebFrame _paintBehaviorForDestinationContext:]):
-            (-[WebFrame _drawRect:contentsOnly:]):
             * WebView/WebHTMLView.mm:
-            (imageFromRect):
+            (-[WebHTMLView _web_makePluginSubviewsPerformSelector:withObject:]):
 
-2017-07-22  Jason Marcell  <jmarcell@apple.com>
+2018-02-04  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r219626. rdar://problem/33465685
+        Apply patch. rdar://problem/36547114
 
-    2017-07-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+    Disable some runtime feature flags on safari-605-branch
 
-            [iOS DnD] [WK1] Add missing calls to WebThreadLock() in some WebView drag-and-drop SPIs
-            https://bugs.webkit.org/show_bug.cgi?id=174640
-            <rdar://problem/33297400>
+    2018-02-04  Maciej Stachowiak  <mjs@apple.com>
+
+            Disable some runtime feature flags on safari-605-branch
+            <rdar://problem/36547114>
+
+            Reviewed by Maciej Stachowiak.
+
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]): Re-enable legacy WebRTC API.
+
+2018-01-24  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r227479. rdar://problem/36830349
+
+    2018-01-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Harden against layout passes triggered when iterating through HTMLFormElement::associatedElements
+            https://bugs.webkit.org/show_bug.cgi?id=182037
+            <rdar://problem/36747812>
+
+            Reviewed by Ryosuke Niwa.
+
+            Rename associatedElements() to unsafeAssociatedElements(), and add ScriptDisallowedScopes. See WebCore ChangeLog
+            for more details.
+
+            * WebView/WebHTMLRepresentation.mm:
+            (-[WebHTMLRepresentation elementWithName:inForm:]):
+            (-[WebHTMLRepresentation controlsInForm:]):
+
+2018-01-22  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r227371. rdar://problem/36763183
+
+    2018-01-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            WebViews created via -initSimpleHTMLDocumentWithStyle: don't propagate attachmentElementEnabled state
+            https://bugs.webkit.org/show_bug.cgi?id=181960
+            <rdar://problem/36431678>
 
             Reviewed by Tim Horton.
 
-            Adds a missing call to WebThreadLock() in -_requestStartDataInteraction:globalPosition:. Previously, this was
-            invoked at the call site in UIKit, but was removed after some refactoring in UIKit. Instead, we should lock the
-            web thread here, to match the other WebView drag and drop SPI methods.
+            Mail's compose view is initialized via the -initSimpleHTMLDocumentWithStyle: codepath. This is intended to be
+            a fast path for initializing WebViews, which bypasses certain initialization steps present in the regular -init
+            path, such as calling -_preferencesChanged: to sync RuntimeEnabledFeatures with WebPreferences.
 
-            This patch also adds a WebThreadLock() call in -_dataInteractionCaretRect. While this is fine today, since all
-            existing callers of _dataInteractionCaretRect already invoke other methods that WebThreadLock() beforehand, we
-            should make this robust against future UIKit changes that could make this no longer the case.
+            This means that even though we set -[WebPreferences attachmentElementEnabled] to YES for Mail, the value of the
+            RuntimeEnabledFeature isn't updated to match. To fix this, we explicitly invoke
+            RuntimeEnabledFeatures::setAttachmentElementEnabled here to make sure the value is in sync with WebPreferences.
 
             * WebView/WebView.mm:
-            (-[WebView _requestStartDataInteraction:globalPosition:]):
-            (-[WebView _dataInteractionCaretRect]):
+            (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
 
-2017-07-17  Jason Marcell  <jmarcell@apple.com>
+2018-01-22  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r219413. rdar://problem/33337335
+        Cherry-pick r227282. rdar://problem/36746077
 
-    2017-06-29  Dean Jackson  <dino@apple.com>
+    2018-01-21  Ryosuke Niwa  <rniwa@webkit.org>
 
-            Disable some features on this release branch.
-            <rdar://problem/32913370>
+            Turning off custom pasteboard data doesn't actually turn it off in WK2
+            https://bugs.webkit.org/show_bug.cgi?id=181920
+            <rdar://problem/36686429>
+
+            Reviewed by Wenson Hsieh.
+
+            Always disable custom pasteboard data in WebKit1. See r226156 for details.
+
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+            * WebView/WebView.mm:
+            (-[WebView _preferencesChanged:]):
+
+2018-01-22  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r227274. rdar://problem/36722660
+
+    2018-01-20  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Stop eagerly loading PassKit.framework
+            https://bugs.webkit.org/show_bug.cgi?id=181911
+            <rdar://problem/36555369>
+
+            Reviewed by Tim Horton.
+
+            * WebCoreSupport/WebPaymentCoordinatorClient.h:
+            * WebCoreSupport/WebPaymentCoordinatorClient.mm:
+            (WebPaymentCoordinatorClient::validatedPaymentNetwork):
+
+            Implemented PaymentCoordinatorClient::validatedPaymentNetwork().
+
+2018-01-22  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r227240. rdar://problem/36722464
+
+    2018-01-19  Dean Jackson  <dino@apple.com>
+
+            REGRESSION (r221092): Swipe actions are hard to perform in FastMail app
+            https://bugs.webkit.org/show_bug.cgi?id=181817
+            <rdar://problem/35274055>
+
+            Reviewed by Simon Fraser.
+
+            Add a linked-on-or-after check to set passive touch listeners on document in WebCore.
+
+            * Misc/WebKitVersionChecks.h:
+            * WebView/WebView.mm:
+            (-[WebView _commonInitializationWithFrameName:groupName:]):
+
+2018-01-22  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r227079. rdar://problem/36722442
+
+    2018-01-17  Youenn Fablet  <youenn@apple.com>
+
+            Put fetch Request.keepalive behind a runtime flag
+            https://bugs.webkit.org/show_bug.cgi?id=181592
+
+            Reviewed by Chris Dumez.
+
+            * WebView/WebPreferenceKeysPrivate.h:
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+            (-[WebPreferences fetchAPIKeepAliveEnabled]):
+            (-[WebPreferences setFetchAPIKeepAliveEnabled:]):
+            * WebView/WebPreferencesPrivate.h:
+            * WebView/WebView.mm:
+            (-[WebView _preferencesChanged:]):
+
+2018-01-16  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r226790. rdar://problem/36568094
+
+    2018-01-11  Youenn Fablet  <youenn@apple.com>
+
+            Replace WebRTCLegacyAPIDisabled by WebRTCLegacyAPIEnabled and switch off WebRTC legacy flag by default
+            https://bugs.webkit.org/show_bug.cgi?id=181480
+
+            Reviewed by Eric Carlson.
+
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+
+2018-01-12  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/36303061
+
+    Disable WebKit features we don't want to ship after branching
+    <rdar://problem/36303061>
+
+    2018-01-12  Maciej Stachowiak  <mjs@apple.com>
+
+            Disable WebKit features we don't want to ship after branching
+            <rdar://problem/36303061>
+
+            Reviewed by Maciej Stachowiak.
 
             * Configurations/FeatureDefines.xcconfig:
+
+2018-01-08  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix #2: Enable -Wcast-qual for WebInspectorUI, WebKitLegacy, WebKit projects
+        <https://webkit.org/b/181256>
+        <rdar://problem/36281730>
+
+        * Plugins/WebNetscapePluginEventHandlerCocoa.mm:
+        (WebNetscapePluginEventHandlerCocoa::handleTSMEvent):
+        - Use reinterpret_cast<NPNSString*>(const_cast<CFMutableStringRef>())
+          to avoid warnings from casting CFStringRef to NPNSString*.
+          Note that CFMutableStringRef is the same as CFStringRef
+          without the const modifier, hence its use in the const_cast<>
+          above.
+
+2018-01-08  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix: Enable -Wcast-qual for WebInspectorUI, WebKitLegacy, WebKit projects
+        <https://webkit.org/b/181256>
+        <rdar://problem/36281730>
+
+        * Carbon/HIWebView.mm:
+        (StartUpdateObserver): Include TypeCastsCF.h from WTF, and use
+        checked_cf_cast<CFRunLoopRef>() to fix warning.
+
+2018-01-07  David Kilzer  <ddkilzer@apple.com>
+
+        Enable -Wcast-qual for WebInspectorUI, WebKitLegacy, WebKit projects
+        <https://webkit.org/b/181256>
+        <rdar://problem/36281730>
+
+        Reviewed by Darin Adler.
+
+        * Carbon/CarbonUtils.m:
+        (PoolCleaner):
+        - Use #pragmas to ignore -Wcast-qual warnings when using a
+          C-style cast from CFTypeRef to CFRunloopRef.
+        * Carbon/CarbonWindowFrame.m:
+        (-[CarbonWindowFrame title]):
+        - Use #pragmas to ignore -Wcast-qual warnings when using a
+          C-style cast from CFStringRef to NSString *.
+        * Carbon/HIViewAdapter.m:
+        (+[HIViewAdapter getHIViewForNSView:]):
+        - Use #pragmas to ignore -Wcast-qual warnings when using a
+          C-style cast from CFTypeRef to HIViewRef.
+        * Configurations/Base.xcconfig:
+        (WARNING_CFLAGS): Add -Wcast-qual.
+        * Misc/WebElementDictionary.mm:
+        (-[WebElementDictionary objectForKey:]):
+        - Use static_cast<SEL>(const_cast<void*>()) to fix
+          warning.
+        * Misc/WebNSDataExtras.mm: Renamed from Source/WebKitLegacy/mac/Misc/WebNSDataExtras.m.
+        (-[NSString _web_capitalizeRFC822HeaderFieldName]):
+        (-[NSData _webkit_guessedMIMETypeForXML]):
+        (-[NSData _webkit_guessedMIMEType]):
+        (-[NSData _web_isCaseInsensitiveEqualToCString:]):
+        (_findEOL):
+        (-[NSData _webkit_parseRFC822HeaderFields]):
+        (-[NSData _web_startsWithBlankLine]):
+        (-[NSData _web_locationAfterFirstBlankLine]):
+        - Rename WebNSDataExtras.m to WebNSDataExtras.mm and change file
+          type to Objective-C++.  This fixes the warnings about
+          discarding the `const` modifier when casing from CFStringRef
+          to NSString * because in older clang versions, -Wcast-qual was
+          completely broken when compiling C++ and Objective-C++ source
+          files.  In newer clang versions, discarding the `const`
+          modifier for toll-free bridged types is ignored when compiling
+          Objective-C++ source.
+        - Update copyright and license header.
+        - Use reinterpret_cast<> and static_cast<> to fix warnings
+          unrelated to (NSString *) C-style casts.
+        - Replace use of MIN() macro with std::min<> template functions.
+        - Fix location of `*` for local variables modified above.
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        (WebKit::NetscapePluginHostManager::initializeVendorPort):
+        (WebKit::NetscapePluginHostManager::instantiatePlugin):
+        - Use static_cast<uint8_t*>(const_cast<void*>()) to fix
+          warnings.
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::NetscapePluginHostProxy):
+        - Use reinterpret_cast<mig_subsystem_t>(const_cast<struct WKWebKitPluginClient_subsystem*>())
+          to fix warning.
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::invoke):
+        - Use static_cast<char*>(const_cast<void*>()) to fix
+          warning when using -[NSData bytes].
+        (WebKit::ProxyInstance::fieldValue const):
+        - Use reinterpret_cast<char*>(const_cast<unsigned char*>())
+          to fix warning when using CFDataGetBytePtr().
+        * Plugins/Hosted/WebTextInputWindowController.m:
+        (-[WebTextInputPanel _interpretKeyEvent:string:]):
+        - Use #pragma to ignore -Wcast-qual warning since there
+          is not a good way to avoid this warning in Objective-C.
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::deliverData):
+        - Use const_cast<void*>() to fix warning when using
+          -[NSData bytes].
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView _createPlugin]):
+        - Change C-style cast to const_cast<char*>() to fix
+          warning.
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::wrapCryptoKey const):
+        (WebChromeClient::unwrapCryptoKey const):
+        - Change C-style cast to
+          static_cast<uint8_t*>(const_cast<void*>() to fix
+          warning.
+        * WebView/WebPDFView.mm:
+        (_applicationInfoForMIMEType):
+        - Change local variable type from 'NSURL *' to
+          'CFURLRef' to fix warning.  Cast back to 'NSURL *'
+          when calling -[NSURL path].
+
+2018-01-05  Dan Bernstein  <mitz@apple.com>
+
+        Fixed the build following AppKit API deprecations in a recent SDKs
+
+        * WebView/WebFullScreenController.mm:
+        (-[WebFullScreenController enterFullScreen:]): Suppressed deprecation warnings.
+        (-[WebFullScreenController exitFullScreen]): Ditto.
+        (-[WebFullScreenController _startEnterFullScreenAnimationWithDuration:]): Ditto.
+        (-[WebFullScreenController _startExitFullScreenAnimationWithDuration:]): Ditto.
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView drawRect:]): Ditto.
+        (-[WebHTMLView _endPrintModeAndRestoreWindowAutodisplay]): Ditto.
+        (-[WebHTMLView knowsPageRange:]): Ditto.
+        * WebView/WebView.mm:
+        (LayerFlushController::flushLayers): Ditto.
+
+2018-01-03  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Attachment Support] Create attachment elements when dropping files on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=181192
+        <rdar://problem/36280945>
+
+        Reviewed by Tim Horton.
+
+        Make some minor adjustments for changes to the pasteboard in WebCore. See WebCore/ChangeLog for more detail.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::informationForItemAtIndex):
+        (WebPlatformStrategies::getFilenamesForDataInteraction): Deleted.
+
+2018-01-03  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Attachment Support] Add plumbing for starting a drag with promised blob data
+        https://bugs.webkit.org/show_bug.cgi?id=181201
+
+        Reviewed by Tim Horton.
+
+        Minor adjustment to account for a DragClient interface change. See WebCore ChangeLog for more details.
+
+        * WebCoreSupport/WebDragClient.h:
+
+2018-01-02  Jiewen Tan  <jiewen_tan@apple.com>
+
+        Add a WebAuthentication runtime feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=181220
+        <rdar://problem/36055305>
+
+        Reviewed by Brent Fulgham.
+
+        Renames the CredentialManagement runtime feature flag into WebAuthentication.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences webAuthenticationEnabled]):
+        (-[WebPreferences setWebAuthenticationEnabled:]):
+        (-[WebPreferences credentialManagementEnabled]): Deleted.
+        (-[WebPreferences setCredentialManagementEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-12-22  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2018
+        https://bugs.webkit.org/show_bug.cgi?id=181141
+
+        Reviewed by Dan Bernstein.
+
+        * Info.plist:
+
+2017-12-30  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Attachment Support] Remove current macOS support for dragging file-backed attachments
+        https://bugs.webkit.org/show_bug.cgi?id=181188
+
+        Reviewed by Dan Bernstein.
+
+        See WebCore/ChangeLog for more detail.
+
+        * WebCoreSupport/WebDragClient.h:
+        * WebCoreSupport/WebDragClient.mm:
+        (WebDragClient::declareAndWriteAttachment): Deleted.
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView namesOfPromisedFilesDroppedAtDestination:]):
+
+2017-12-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Unreviewed, continue to fix build failures due to AppKit API deprecation
+
+        Wraps more code in -Wdeprecated-declarations.
+
+        * Carbon/HIWebView.mm:
+        (overrideCGContext):
+
+2017-12-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Unreviewed, fix build failures due to using deprecated AppKit symbols when building 32-bit
+
+        Wrap some more code in -Wdeprecated-declarations to try and fix the 32-bit build using the newest SDK.
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (-[CarbonWindowAdapter setViewsNeedDisplay:]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+        (-[WebNetscapePluginView sendDrawRectEvent:]):
+        (-[WebNetscapePluginView drawRect:]):
+
+2017-12-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Fix build failures due to using deprecated AppKit symbols
+        https://bugs.webkit.org/show_bug.cgi?id=181110
+        <rdar://problem/36162865>
+
+        Reviewed by Dan Bernstein and Tim Horton.
+
+        See WebCore ChangeLog for more details. Additionally makes a few minor adjustments to pass our style checker.
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:]):
+        * Misc/WebNSPasteboardExtras.h:
+        * Misc/WebNSPasteboardExtras.mm:
+        (+[NSPasteboard _web_writableTypesForURL]):
+        (_createWritableTypesForImageWithoutArchive):
+        (_createWritableTypesForImageWithArchive):
+        (+[NSPasteboard _web_dragTypesForURL]):
+        (-[NSPasteboard _web_bestURL]):
+        (-[NSPasteboard _web_writeURL:andTitle:types:]):
+        (+[NSPasteboard _web_setFindPasteboardString:withOwner:]):
+        (-[NSPasteboard _web_writeFileWrapperAsRTFDAttachment:]):
+        (-[NSPasteboard _web_writeImage:element:URL:title:archive:types:source:]):
+        (-[NSPasteboard _web_declareAndWriteDragImageForElement:URL:title:archive:source:]):
+        * Panels/WebAuthenticationPanel.m:
+        (-[WebAuthenticationPanel runAsModalDialogWithChallenge:]):
+        (-[WebAuthenticationPanel sheetDidEnd:returnCode:contextInfo:]):
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView drawRect:]):
+        * WebInspector/WebNodeHighlightView.mm:
+        (-[WebNodeHighlightView drawRect:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _updateBackgroundAndUpdatesWhileOffscreen]):
+        (-[WebFrame _drawRect:contentsOnly:]):
+        * WebView/WebHTMLView.mm:
+        (kit):
+        (-[WebHTMLView _documentFragmentFromPasteboard:inContext:allowPlainText:]):
+        (-[WebHTMLView _plainTextFromPasteboard:]):
+        (-[WebHTMLView _writeSelectionWithPasteboardTypes:toPasteboard:cachedAttributedString:]):
+        (+[WebHTMLView _insertablePasteboardTypes]):
+        (+[WebHTMLView _selectionPasteboardTypes]):
+        (-[WebHTMLView pasteboard:provideDataForType:]):
+        (-[WebHTMLView _writeSelectionToPasteboard:]):
+        (-[WebHTMLView _documentFragmentFromPasteboard:forType:inContext:subresources:]):
+        (-[WebHTMLView validRequestorForSendType:returnType:]):
+        (-[WebHTMLView validateUserInterfaceItemWithoutDelegate:]):
+        (createMenuItem):
+        (-[WebHTMLView _fontAttributesFromFontPasteboard]):
+        (-[WebHTMLView _colorAsString:]):
+        (-[WebHTMLView copyFont:]):
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView _recursiveDisplayRectIfNeededIgnoringOpacity:isVisibleRect:rectIsVisibleRectForView:topView:]):
+        (-[WebPDFView _recursiveDisplayAllDirtyWithLockFocus:visRect:]):
+        (-[WebPDFView _recursive:displayRectIgnoringOpacity:inContext:topView:]):
+        (-[WebPDFView pasteboardTypesForSelection]):
+        (-[WebPDFView writeSelectionWithPasteboardTypes:toPasteboard:]):
+        * WebView/WebView.h:
+        * WebView/WebView.mm:
+        (-[WebView performDragOperation:]):
+        (-[WebView validateUserInterfaceItemWithoutDelegate:]):
+        (-[WebView _searchWithGoogleFromMenu:]):
+
+2017-12-21  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorkerThreadProxy should set the correct cookie and cache partitioning options
+        https://bugs.webkit.org/show_bug.cgi?id=181000
+
+        Reviewed by Chris Dumez.
+
+        * Misc/WebCache.mm:
+        (+[WebCache addImageToCache:forURL:forFrame:]):
+
+2017-12-21  Jeremy Jones  <jeremyj@apple.com>
+
+        Update FULLSCREEN_API feature defines.
+        https://bugs.webkit.org/show_bug.cgi?id=181015
+
+        Reviewed by Tim Horton.
+
+        Change enabled iphone sdk for FULLSCREEN_API.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-12-21  Jer Noble  <jer.noble@apple.com>
+
+        Add initial DOM support for Media Capabilities
+        https://bugs.webkit.org/show_bug.cgi?id=181064
+
+        Reviewed by Eric Carlson.
+
+        Add a new preference to enable the (disabled-by-default) Media Capabilities API.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences mediaCapabilitiesEnabled]):
+        (-[WebPreferences setMediaCapabilitiesEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-12-21  Jeremy Jones  <jeremyj@apple.com>
+
+        Enable picture-in-picture from inline element on suspend.
+        https://bugs.webkit.org/show_bug.cgi?id=180942
+        rdar://problem/34745234
+
+        Reviewed by Jer Noble.
+
+        Update signature of enterVideoFullscreenForVideoElement().
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::enterVideoFullscreenForVideoElement):
+
+2017-12-20  Daniel Bates  <dabates@apple.com>
+
+        Remove Alternative Presentation Button
+        https://bugs.webkit.org/show_bug.cgi?id=180500
+        <rdar://problem/35891047>
+
+        Reviewed by Simon Fraser.
+
+        We no longer need the alternative presentation button.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-12-19  Jer Noble  <jer.noble@apple.com>
+
+        Playing media elements which call "pause(); play()" will have the play promise rejected.
+        https://bugs.webkit.org/show_bug.cgi?id=180781
+        <rdar://problem/33191377>
+
+        Reviewed by Eric Carlson.
+
+        shouldRequireUserGestureToLoadVideo() should default to false on Mac.
+
+        * WebView/WebView.mm:
+        (shouldRequireUserGestureToLoadVideo):
+
+2017-12-19  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        API test WKAttachmentTests.InsertPastedAttributedStringContainingMultipleAttachments is failing on El Capitan and Sierra
+        https://bugs.webkit.org/show_bug.cgi?id=180977
+
+        Reviewed by Tim Horton.
+
+        Fixes a failing API test by updating markup deserialization codepaths in WebKitLegacy to behave like the modern
+        WebCore counterpart. When determining element tags to exclude when generating markup from an attributed string,
+        don't add "object" as an element to exclude if the attachment element runtime feature is enabled.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (attributesForAttributedStringConversion):
+        * WebView/WebHTMLView.mm:
+        (+[WebHTMLView _excludedElementsForAttributedStringConversion]):
+
+2017-12-18  David Kilzer  <ddkilzer@apple.com>
+
+        BUILD FIX: Ignore NSWindow deprecation warnings from the mysterious future
+
+        Attempt to fix the following warnings:
+
+            AppKit instance variables are private, and the ability to access them will be removed in a future release. [-Werror,-Wdeprecated-declarations]
+
+        For the following instance variables:
+
+            _borderView
+            _contentView
+            _frame
+            _wFlags
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:disableOrdering:carbon:]):
+        (-[CarbonWindowAdapter reconcileToCarbonWindowBounds]):
+        (-[CarbonWindowAdapter _termWindowIfOwner]):
+        (-[CarbonWindowAdapter _windowMovedToRect:]):
+        (-[CarbonWindowAdapter setContentView:]):
+        (-[CarbonWindowAdapter _handleRootBoundsChanged]):
+        (-[CarbonWindowAdapter _handleContentBoundsChanged]):
+
+2017-12-16  Dan Bernstein  <mitz@apple.com>
+
+        WKWebView has no equivalent of -[WebView setAlwaysShowVerticalScroller:]
+        https://bugs.webkit.org/show_bug.cgi?id=180613
+        <rdar://problem/35946124>
+
+        Reviewed by Geoff Garen.
+
+        * WebKit.mac.exp: Removed WebCoreScrollbarAlwaysOn, which is no longer being used by any
+          clients.
+        * WebView/WebDynamicScrollBarsView.h: Ditto.
+        * WebView/WebDynamicScrollBarsView.mm: Ditto.
+
+2017-12-14  David Kilzer  <ddkilzer@apple.com>
+
+        Enable -Wstrict-prototypes for WebKit
+        <https://webkit.org/b/180757>
+        <rdar://problem/36024132>
+
+        Rubber-stamped by Joseph Pecoraro.
+
+        * Configurations/Base.xcconfig:
+        (CLANG_WARN_STRICT_PROTOTYPES): Add. Set to YES.
+
+2017-12-14  John Wilander  <wilander@apple.com>
+
+        Storage Access API: Implement frame-specific access in the document.cookie layer
+        https://bugs.webkit.org/show_bug.cgi?id=180682
+        <rdar://problem/35982257>
+
+        Reviewed by Alex Christensen.
+
+        CookiesStrategy::cookiesForDOM(), CookiesStrategy::setCookiesFromDOM(),
+        CookiesStrategy::cookieRequestHeaderFieldValue(), and
+        CookiesStrategy::getRawCookies() now take optional parameters for
+        frameID and pageID to allow frame-specific scoping of cookies.
+
+        This change makes the return values of FrameLoaderClient::frameID()
+        and FrameLoaderClient::pageID() std::optional<uint64_t> so that
+        WebCore can call those getters and get the right return values in
+        WebKit and std:nullopt in WebKitLegacy.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::pageID const):
+        (WebFrameLoaderClient::frameID const):
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::cookiesForDOM):
+        (WebPlatformStrategies::setCookiesFromDOM):
+        (WebPlatformStrategies::cookieRequestHeaderFieldValue):
+        (WebPlatformStrategies::getRawCookies):
+
+2017-12-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove ColorSpaceDeviceRGB and most users of the obsolete deviceRGB colorspace
+        https://bugs.webkit.org/show_bug.cgi?id=180689
+
+        Reviewed by Tim Horton.
+
+        Use sRGBColorSpaceRef() from WebCore.
+
+        * WebView/WebHTMLView.mm:
+        (imageFromRect):
+
+2017-12-11  Tim Horton  <timothy_horton@apple.com>
+
+        Stop using deprecated target conditional for simulator builds
+        https://bugs.webkit.org/show_bug.cgi?id=180662
+        <rdar://problem/35136156>
+
+        Reviewed by Simon Fraser.
+
+        * postprocess-headers.sh:
+
+2017-12-11  David Quesada  <david_quesada@apple.com>
+
+        Turn on ENABLE_APPLICATION_MANIFEST
+        https://bugs.webkit.org/show_bug.cgi?id=180562
+        rdar://problem/35924737
+
+        Reviewed by Geoffrey Garen.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-12-08  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Remove pthread_once in favor of dispatch_once
+        https://bugs.webkit.org/show_bug.cgi?id=180591
+
+        Reviewed by Saam Barati.
+
+        * Misc/WebKitErrors.m:
+        (+[NSError _registerWebKitErrors]):
+        (registerErrors): Deleted.
+        * Storage/WebStorageManager.mm:
+        (+[WebStorageManager _storageDirectoryPath]):
+        (initializeLocalStoragePath): Deleted.
+
+2017-12-07  Darin Adler  <darin@apple.com>
+
+        Remove some unused code from WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=180567
+
+        Reviewed by Anders Carlsson.
+
+        * Misc/WebKitNSStringExtras.h: Researched which of these functions are used in
+        macOS (back a few versions) and iOS and removed unused
+        _web_drawAtPoint:font:textColor:allowingFontSmoothing:,
+        _web_drawDoubledAtPoint:withTopColor:bottomColor:font:,
+        _web_stringByStrippingReturnCharacters, _webkit_hasCaseInsensitiveSubstring:,
+        _webkit_stringByCollapsingNonPrintingCharacters,
+        _webkit_stringByCollapsingWhitespaceCharacters,
+        _web_stringWithData:textEncodingName:, and
+        _webkit_localStorageDirectoryWithBundleIdentifier:.
+
+        * Misc/WebKitNSStringExtras.mm: Made WebKitLocalCacheDefaultsKey private to
+        this source file.
+        (canUseFastRenderer): Made this faster by not calling u_charDirection for
+        Latin-1 characters, and also added special cases for U_DIR_NON_SPACING_MARK
+        and U_BOUNDARY_NEUTRAL, which should not prevent use of the fast renderer.
+        (-[NSString _web_drawAtPoint:font:textColor:allowingFontSmoothing:]): Deleted.
+        (-[NSString _web_drawAtPoint:font:textColor:]): Removed unneeded code to
+        handle font smoothing options.
+        (-[NSString _web_drawDoubledAtPoint:withTopColor:bottomColor:font:]): Deleted.
+        (-[NSString _web_stringByAbbreviatingWithTildeInPath]): Moved comment here
+        from header and made it a little clearer.
+        (-[NSString _web_stringByStrippingReturnCharacters]): Deleted.
+        (-[NSString _webkit_hasCaseInsensitiveSubstring:]): Deleted.
+        (-[NSString _webkit_stringByCollapsingNonPrintingCharacters]): Deleted.
+        (-[NSString _webkit_stringByCollapsingWhitespaceCharacters]): Deleted.
+        (+[NSString _web_stringWithData:textEncodingName:]): Deleted.
+        (+[NSString _webkit_localCacheDirectoryWithBundleIdentifier:]): Streamlined
+        implementation a bit and used whole words instead of abbreviations.
+        (+[NSString _webkit_localStorageDirectoryWithBundleIdentifier:]): Deleted.
+
+        * Misc/WebNSFileManagerExtras.mm:
+        (-[NSFileManager _webkit_pathWithUniqueFilenameForPath:]): Use the
+        filenameByFixingIllegalCharacters function from WebCore directly instead of
+        indirectly through the method _webkit_filenameByFixingIllegalCharacters.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView URLWithCString:]): Rewrote to use simple
+        string replacements instead of _web_stringByStrippingReturnCharacters
+        and to use NSString methods instead of CFString functions.
+
+2017-12-07  Jessie Berlin  <jberlin@webkit.org>
+
+        Ignore deprecation warnings.
+
+        * WebView/WebHTMLView.mm:
+        (-[NSWindow _web_borderView]):
+        (-[WebHTMLView _setAsideSubviews]):
+        * WebView/WebView.mm:
+        (-[WebView encodeWithCoder:]):
+
+2017-12-02  Darin Adler  <darin@apple.com>
+
+        Modernize some aspects of text codecs, eliminate WebKit use of strcasecmp
+        https://bugs.webkit.org/show_bug.cgi?id=180009
+
+        Reviewed by Alex Christensen.
+
+        * History/HistoryPropertyList.mm: Removed include of StringExtras.h.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebKit::getAuthenticationInfo): Use equalLettersIgnoringASCIICase instead
+        of strcasecmp.
+
+        * WebView/WebPreferences.mm:
+        (contains): Ditto. Also made this a template so it's easier to call on an array.
+        (cacheModelForMainBundle): Take advantage of the above to make it cleaner.
+
+2017-12-05  Brent Fulgham  <bfulgham@apple.com>
+
+        Limit user agent versioning to an upper bound
+        https://bugs.webkit.org/show_bug.cgi?id=180365
+        <rdar://problem/34550617>
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebView/WebView.mm:
+        (+[WebView _standardUserAgentWithApplicationName:]): Don't pass the WebKit bundle version when
+        creating the User Agent string.
+        (webKitBundleVersionString): Deleted.
+
+2017-12-05  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Stop specifying TARGET_OS_EMBEDDED in postprocess-headers.sh's unifdef options
+        https://bugs.webkit.org/show_bug.cgi?id=180457
+        <rdar://problem/35143007>
+
+        Reviewed by Tim Horton.
+
+        None of WebKitLegacy's framework headers mention TARGET_OS_EMBEDDED, so there's no need to
+        check for this macro during post-processing.
+
+        * postprocess-headers.sh:
+
+2017-12-04  David Quesada  <david_quesada@apple.com>
+
+        Add a class for parsing application manifests
+        https://bugs.webkit.org/show_bug.cgi?id=177973
+        rdar://problem/34747949
+
+        Reviewed by Geoffrey Garen.
+
+        * Configurations/FeatureDefines.xcconfig: Add ENABLE_APPLICATION_MANIFEST feature flag.
+
+2017-11-30  Stephan Szabo  <stephan.szabo@sony.com>
+
+        Make LegacyCustomProtocolManager optional for network process
+        https://bugs.webkit.org/show_bug.cgi?id=176230
+
+        Reviewed by Alex Christensen.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-30  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Fix some NSOperationQueue leaks
+        https://bugs.webkit.org/show_bug.cgi?id=180221
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebView.mm:
+        (-[WebView performDragOperation:]):
+
+2017-11-30  Darin Adler  <darin@apple.com>
+
+        [Mac] remove unneeded RetainPtr use introduced in r225142
+        https://bugs.webkit.org/show_bug.cgi?id=180202
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebImmediateActionController.mm:
+        (-[WebImmediateActionController _animationControllerForText]): Got rid of unnecessary
+        RetainPtr.
+
+2017-11-29  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        Remove the ImageSource from the class hierarchy that connects BitmapImage to ImageFrame
+        https://bugs.webkit.org/show_bug.cgi?id=175595
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebPreferences.mm:
+
+2017-11-27  Tim Horton  <timothy_horton@apple.com>
+
+        One too many zeroes in macOS version number in FeatureDefines
+        https://bugs.webkit.org/show_bug.cgi?id=180011
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-23  Darin Adler  <darin@apple.com>
+
+        Fix dictionary leak in lookup, convert FindOptions to OptionSet, tweak code style nearby
+        https://bugs.webkit.org/show_bug.cgi?id=179981
+
+        Reviewed by Sam Weinig.
+
+        * WebView/WebImmediateActionController.mm:
+        (-[WebImmediateActionController _animationControllerForText]): Use RetainPtr so we don't leak.
+        * WebView/WebView.mm:
+        (coreOptions): Use |= instead of | to build up FindOptions.
+
+2017-11-23  Sam Weinig  <sam@webkit.org>
+
+        Remove unneeded ScriptController::processingUserGesture() forwarding functions
+        https://bugs.webkit.org/show_bug.cgi?id=179954
+
+        Reviewed by Darin Adler.
+
+        Replace ScriptController::processingUserGesture() and ScriptController::processingUserGestureForMedia()
+        with direct calls to the corresponding UserGestureIndicator functions.
+
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController processingUserGesture]):
+        * WebView/WebView.mm:
+        (-[WebView _isProcessingUserGesture]):
+
+2017-11-23  Darin Adler  <darin@apple.com>
+
+        Reduce WTF::String operations that do unnecessary Unicode operations instead of ASCII
+        https://bugs.webkit.org/show_bug.cgi?id=179907
+
+        Reviewed by Sam Weinig.
+
+        * History/BinaryPropertyList.cpp:
+        (BinaryPropertyListPlan::writeStringObject): Use isAllASCII.
+        (BinaryPropertyListSerializer::appendStringObject): Ditto.
+        * WebView/WebHTMLRepresentation.mm:
+        (regExpForLabels): Removed TextCaseSensitive since it is now the default.
+        (matchLabelsAgainstString): Use JSC::Yarr::TextCaseInsensitive.
+
+2017-11-22  Ali Juma  <ajuma@chromium.org>
+
+        Implement VisualViewport API attributes
+        https://bugs.webkit.org/show_bug.cgi?id=179385
+
+        Reviewed by Frédéric Wang.
+
+        Add a VisualViewportAPI preference.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences visualViewportAPIEnabled]):
+        (-[WebPreferences setVisualViewportAPIEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-11-22  Christopher Reid  <chris.reid@sony.com>
+
+        WebCoreObjCExtras.h is being included in too many places
+        https://bugs.webkit.org/show_bug.cgi?id=179931
+
+        Reviewed by Darin Adler.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        * Plugins/WebBasePluginPackage.mm:
+        * Plugins/WebNetscapePluginStream.mm:
+        * Plugins/WebNetscapePluginView.mm:
+        * WebView/WebTextIterator.mm:
+        * WebView/WebViewData.mm:
+
+2017-11-22  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r225093.
+        https://bugs.webkit.org/show_bug.cgi?id=179938
+
+        Compilation failed on WinCairo 64-bit Release (Requested by
+        fredw on #webkit).
+
+        Reverted changeset:
+
+        "Implement VisualViewport API attributes"
+        https://bugs.webkit.org/show_bug.cgi?id=179385
+        https://trac.webkit.org/changeset/225093
+
+2017-11-21  Ali Juma  <ajuma@chromium.org>
+
+        Implement VisualViewport API attributes
+        https://bugs.webkit.org/show_bug.cgi?id=179385
+
+        Reviewed by Frédéric Wang.
+
+        Add a VisualViewportAPI preference.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences visualViewportAPIEnabled]):
+        (-[WebPreferences setVisualViewportAPIEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-11-21  Christopher Reid  <chris.reid@sony.com>
+
+        [PAL] Remove FileSystem's dependency on WebCoreNSStringExtras
+        https://bugs.webkit.org/show_bug.cgi?id=179504
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebKitNSStringExtras.mm:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        * Plugins/WebBasePluginPackage.mm:
+
+2017-11-19  Tim Horton  <timothy_horton@apple.com>
+
+        Remove unused TOUCH_ICON_LOADING feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=179873
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-19  Tim Horton  <timothy_horton@apple.com>
+
+        Remove unused LEGACY_VENDOR_PREFIXES feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=179872
+
+        Reviewed by Darin Adler.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-16  Daniel Bates  <dabates@apple.com>
+
+        Add feature define for alternative presentation button element
+        https://bugs.webkit.org/show_bug.cgi?id=179692
+        Part of <rdar://problem/34917108>
+
+        Reviewed by Andy Estes.
+
+        Only enabled on Cocoa platforms by default.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-14  Nan Wang  <n_wang@apple.com>
+
+        AX: AOM: Implement AccessibleNode class and support label and role attributes
+        https://bugs.webkit.org/show_bug.cgi?id=179494
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences accessibilityObjectModelEnabled]):
+        (-[WebPreferences setAccessibilityObjectModelEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-11-14  Alex Christensen  <achristensen@webkit.org>
+
+        Remove Cocoa CFURLConnection loading code
+        https://bugs.webkit.org/show_bug.cgi?id=179688
+
+        Reviewed by Antti Koivisto.
+
+        * Misc/WebDownload.mm:
+        (-[WebDownload _initWithLoadingCFURLConnection:request:response:delegate:proxy:]): Deleted.
+        * Misc/WebDownloadInternal.h:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::convertMainResourceLoadToDownload):
+        * WebView/WebView.mm:
+        (-[WebView scheduleInRunLoop:forMode:]):
+        (-[WebView unscheduleFromRunLoop:forMode:]):
+
+2017-11-14  Daniel Bates  <dabates@apple.com>
+
+        Update comment in FeatureDefines.xcconfig to reflect location of Visual Studio property files
+        for feature defines
+
+        Following r195498 and r201917 the Visual Studio property files for feature defines have
+        moved from directory WebKitLibraries/win/tools/vsprops to directory Source/cmake/tools/vsprops.
+        Update the comment in FeatureDefines.xcconfig to reflect the new location and names of these
+        files.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-14  Jer Noble  <jer.noble@apple.com>
+
+        Enable Modern EME tests in DumpRenderTree
+        https://bugs.webkit.org/show_bug.cgi?id=179544
+
+        Reviewed by Alex Christensen.
+
+        Add a WebPreferences property to enable the (modern) EME API.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences encryptedMediaAPIEnabled]):
+        (-[WebPreferences setEncryptedMediaAPIEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-11-14  Antti Koivisto  <antti@apple.com>
+
+        Enable display:contents by default
+        https://bugs.webkit.org/show_bug.cgi?id=179655
+
+        Reviewed by Sam Weinig.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2017-11-13  Alex Christensen  <achristensen@webkit.org>
+
+        Merge NetworkProcess::EnsurePrivateBrowsingSession and NetworkProcess::AddWebsiteDataStore into one message type
+        https://bugs.webkit.org/show_bug.cgi?id=178751
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+        (WebFrameNetworkingContext::ensurePrivateBrowsingSession):
+
+2017-11-08  Keith Miller  <keith_miller@apple.com>
+
+        Async iteration should only fetch the next method once and add feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=179451
+
+        Reviewed by Geoffrey Garen.
+
+        Add feature flag for Async iteration.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-13  Mark Lam  <mark.lam@apple.com>
+
+        Add more overflow check book-keeping for MarkedArgumentBuffer.
+        https://bugs.webkit.org/show_bug.cgi?id=179634
+        <rdar://problem/35492517>
+
+        Reviewed by Saam Barati.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::invoke):
+        (WebKit::NetscapePluginInstanceProxy::invokeDefault):
+        (WebKit::NetscapePluginInstanceProxy::construct):
+
+2017-11-12  Darin Adler  <darin@apple.com>
+
+        More is<> and downcast<>, less static_cast<>
+        https://bugs.webkit.org/show_bug.cgi?id=179600
+
+        Reviewed by Chris Dumez.
+
+        * DOM/DOM.mm:
+        (kit): Use is/downcast.
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::handleKeyboardEvent): Ditto.
+        (WebEditorClient::handleInputMethodKeydown): Ditto.
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _interpretKeyEvent:savingCommands:]): Ditto.
+
+2017-11-10  Frederik Riedel  <frederik.riedel@frogg.io>
+
+        [iOS] Use new class name from UIKit when checking UITextSuggestion type for WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=179397
+
+        Reviewed by Wenson Hsieh.
+
+        * DOM/DOMHTMLInputElement.mm:
+        (-[DOMHTMLInputElement insertTextSuggestion:]):
+
+2017-11-08  Jeremy Jones  <jeremyj@apple.com>
+
+        HTMLMediaElement should not use element fullscreen on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=179418
+        rdar://problem/35409277
+
+        Reviewed by Eric Carlson.
+
+        Add ENABLE_VIDEO_USES_ELEMENT_FULLSCREEN to determine if HTMLMediaElement should use element full screen or not.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-06  Alex Christensen  <achristensen@webkit.org>
+
+        Make ResourceLoader::willSendRequestInternal asynchronous
+        https://bugs.webkit.org/show_bug.cgi?id=179251
+
+        Reviewed by Andy Estes.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::start):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::start):
+
+2017-11-01  Darin Adler  <darin@apple.com>
+
+        Simplify event dispatch code and make it a bit more consistent
+        https://bugs.webkit.org/show_bug.cgi?id=178991
+
+        Reviewed by Chris Dumez.
+
+        * DOM/DOMEvent.mm:
+        (-[DOMEvent srcElement]): Call target instead of srcElement.
+
+2017-11-04  Aishwarya Nirmal  <anirmal@apple.com>
+
+        [Touch Bar Web API] Add support for menuitem tag
+        https://bugs.webkit.org/show_bug.cgi?id=179020
+
+        Reviewed by Ryosuke Niwa.
+
+        Adds in properties and methods that allow the menuitem runtime feature
+        to be enabled or disabled.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences menuItemElementEnabled]):
+        (-[WebPreferences setMenuItemElementEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-11-02  Alex Christensen  <achristensen@webkit.org>
+
+        Use CompletionHandlers for redirects
+        https://bugs.webkit.org/show_bug.cgi?id=179163
+
+        Reviewed by Tim Horton.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.h:
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::willSendRequest):
+        * Plugins/WebNetscapePluginStream.h:
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::willSendRequest):
+
+2017-11-02  Christopher Reid  <chris.reid@sony.com>
+
+        Add a FileSystem namespace to FileSystem.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=179063
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebNSFileManagerExtras.mm:
+        * Storage/WebDatabaseProvider.mm:
+
+2017-11-02  Frederic Wang  <fwang@igalia.com>
+
+        Add references to bug 179167 in FIXME comments
+        https://bugs.webkit.org/show_bug.cgi?id=179168
+
+        Reviewed by Daniel Bates.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-11-01  Jeremy Jones  <jeremyj@apple.com>
+
+        Implement WKFullscreenWindowController for iOS.
+        https://bugs.webkit.org/show_bug.cgi?id=178924
+        rdar://problem/34697120
+
+        Reviewed by Simon Fraser.
+
+        Enable ENABLE_FULLSCREEN_API for iOS. Fix a build error.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebView.mm:
+        (-[WebView fullScreenPlaceholderView]):
+
+2017-10-31  Tim Horton  <timothy_horton@apple.com>
+
+        Clean up some drag and drop feature flags
+        https://bugs.webkit.org/show_bug.cgi?id=179082
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-10-31  Simon Fraser  <simon.fraser@apple.com>
+
+        Make it possible to test rubber-banding in overflow scroll
+        https://bugs.webkit.org/show_bug.cgi?id=179078
+
+        Reviewed by Sam Weinig.
+
+        Add internals.unconstrainedScrollTo(element, x, y) and plumb through ScrollClamping
+        (which replaces RenderLayer::ScrollOffsetClamping) to support it.
+
+        Flip the default from unclamped to clamped for various RenderLayer scrolling-related
+        functions, since most callers want clamped.
+
+        * DOM/DOMHTML.mm:
+        (-[DOMHTMLElement setScrollXOffset:scrollYOffset:adjustForIOSCaret:]):
+
+2017-10-31  Tim Horton  <timothy_horton@apple.com>
+
+        Fix up some content filtering feature flags
+        https://bugs.webkit.org/show_bug.cgi?id=179079
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-10-28  Zalan Bujtas  <zalan@apple.com>
+
+        [FrameView::layout cleanup] Move core layout logic to a separate class.
+        https://bugs.webkit.org/show_bug.cgi?id=178771
+        <rdar://problem/35166542>
+
+        Reviewed by Simon Fraser.
+
+        Move layout code out from FrameView to LayoutContext.
+
+        * WebView/WebClipView.mm:
+        (-[WebClipView _immediateScrollToPoint:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame layoutCount]):
+
+2017-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix issues with WebView subframe painting
+        https://bugs.webkit.org/show_bug.cgi?id=178842
+        rdar://problem/34072253
+
+        Reviewed by Daniel Bates.
+        
+        WebHTMLView overrides some NSView internal methods to make sure that AppKit doesn't paint
+        subframes (WebKit controls subframe painting). The method signature of one of these changed in macOS
+        High Sierra, so match the new signature.
+
+        Also rename the 'rect' param to 'displayRect' to match AppKit code.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inGraphicsContext:shouldChangeFontReferenceColor:_recursive:displayRectIgnoringOpacity:inGraphicsContext:CGContext:topView:shouldChangeFontReferenceColor:]):
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inGraphicsContext:CGContext:shouldChangeFontReferenceColor:_recursive:displayRectIgnoringOpacity:inGraphicsContext:CGContext:topView:shouldChangeFontReferenceColor:]): Deleted.
+
+2017-10-25  Youenn Fablet  <youenn@apple.com>
+
+        Enable ServiceWorker to fetch resources
+        https://bugs.webkit.org/show_bug.cgi?id=178673
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::pageID const):
+        (WebFrameLoaderClient::frameID const):
+        (WebFrameLoaderClient::sessionID const):
+
+        Added implementation to the new getters.
+        They are noop in the context of WK1.
+
+2017-10-24  Eric Carlson  <eric.carlson@apple.com>
+
+        Web Inspector: Enable WebKit logging configuration and display
+        https://bugs.webkit.org/show_bug.cgi?id=177027
+        <rdar://problem/33964767>
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (stringForMessageSource): Deal with Media and WebRTC message sources.
+
+2017-10-20  Antoine Quint  <graouts@apple.com>
+
+        [Web Animations] Provide basic timeline and animation interfaces
+        https://bugs.webkit.org/show_bug.cgi?id=178526
+
+        Reviewed by Dean Jackson.
+
+        Remove the WEB_ANIMATIONS compile-time flag.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-10-19  Sam Weinig  <sam@webkit.org>
+
+        [Settings] Move global settings into their own file
+        https://bugs.webkit.org/show_bug.cgi?id=178512
+
+        Reviewed by Darin Adler.
+
+        Moves all global settigns out of SettingsBase and into the new DeprecatedGlobalSettings.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::supportsVideoFullscreen):
+        * WebView/WebDynamicScrollBarsView.mm:
+        (+[WebDynamicScrollBarsView _horizontalScrollerClass]):
+        (+[WebDynamicScrollBarsView _verticalScrollerClass]):
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView _preferencesChanged:]):
+        (+[WebView _doNotStartObservingNetworkReachability]):
+
+2017-10-17  Jiewen Tan  <jiewen_tan@apple.com>
+
+        Replace some stack raw pointers with RefPtrs within WebCore/html
+        https://bugs.webkit.org/show_bug.cgi?id=178201
+        <rdar://problem/34841692>
+
+        Reviewed by Ryosuke Niwa.
+
+        * DOM/DOM.mm:
+        (kit):
+        Change the type of node as toNode() is changed to return RefPtr.
+
+2017-10-18  Chris Dumez  <cdumez@apple.com>
+
+        [Service Worker] Add stubs for Client / WindowClient / Clients
+        https://bugs.webkit.org/show_bug.cgi?id=178469
+
+        Reviewed by Youenn Fablet.
+
+        Rename PageVisiblityState to VisibilityState.
+
+        * WebView/WebView.mm:
+        (kit):
+
+2017-10-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Unreviewed, rolling out r223291.
+
+        See WebCore ChangeLog for more detail.
+
+        Reverted changeset:
+
+        "Remove Editor::simplifyMarkup"
+        https://bugs.webkit.org/show_bug.cgi?id=178271
+        https://trac.webkit.org/changeset/223291
+
+2017-10-17  Keith Miller  <keith_miller@apple.com>
+
+        Change WebCore sources to work with unified source builds
+        https://bugs.webkit.org/show_bug.cgi?id=178229
+
+        Rubber stamped by Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-10-16  Sam Weinig  <sam@webkit.org>
+
+        [Settings] Remove all custom code from Settings.h/cpp
+        https://bugs.webkit.org/show_bug.cgi?id=178330
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        
+            Update for naming changes of FrameFlattening now that it is an enum class.
+
+2017-10-13  Alex Christensen  <achristensen@webkit.org>
+
+        Remove Editor::simplifyMarkup
+        https://bugs.webkit.org/show_bug.cgi?id=178271
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebView.mm:
+        (-[WebView _simplifyMarkup:endNode:]):
+
+2017-10-12  Chris Dumez  <cdumez@apple.com>
+
+        [Mac] Add support for MouseEvent.buttons
+        https://bugs.webkit.org/show_bug.cgi?id=178214
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]):
+
+2017-10-11  Sam Weinig  <sam@webkit.org>
+
+        Remove out-parameter variants of copyToVector
+        https://bugs.webkit.org/show_bug.cgi?id=178155
+
+        Reviewed by Tim Horton.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView destroyPlugin]):
+        * WebView/WebHTMLRepresentation.mm:
+        (newArrayWithStrings):
+
+            Replace out-parameter based copyToVector, with one that returns a Vector.
+
+2017-10-11  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Sanitize URL in pasteboard for other applications and cross origin content
+        https://bugs.webkit.org/show_bug.cgi?id=178060
+        <rdar://problem/34874518>
+
+        Reviewed by Wenson Hsieh.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::typesSafeForDOMToReadAndWrite):
+
+2017-10-11  Chris Dumez  <cdumez@apple.com>
+
+        Modernize Geolocation code
+        https://bugs.webkit.org/show_bug.cgi?id=178148
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebCoreSupport/WebGeolocationClient.h:
+        * WebCoreSupport/WebGeolocationClient.mm:
+        (WebGeolocationClient::lastPosition):
+        * WebView/WebGeolocationPosition.mm:
+        (-[WebGeolocationPositionInternal initWithCoreGeolocationPosition:]):
+        (core):
+        (-[WebGeolocationPosition initWithTimestamp:latitude:longitude:accuracy:]):
+        (-[WebGeolocationPosition initWithGeolocationPosition:]):
+        * WebView/WebGeolocationPositionInternal.h:
+
+2017-10-10  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Enable custom pasteboard data in DumpRenderTree and WebKitTestRunner
+        https://bugs.webkit.org/show_bug.cgi?id=178154
+
+        Reviewed by Wenson Hsieh.
+
+        Enable custom pasteboard data by default.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences customPasteboardDataEnabled]): Added.
+        (-[WebPreferences setCustomPasteboardDataEnabled:]): Added.
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-10-10  Sam Weinig  <sam@webkit.org>
+
+        Replace copyKeysToVector/copyValuesToVector with copyToVector(map.keys())/copyToVector(map.values())
+        https://bugs.webkit.org/show_bug.cgi?id=178102
+
+        Reviewed by Tim Horton.
+
+        * History/WebHistory.mm:
+        (-[WebHistoryPrivate rebuildHistoryByDayIfNeeded:]):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::stopAllStreams):
+        * WebCoreSupport/WebUserMediaClient.mm:
+        (WebUserMediaClient::pageDestroyed):
+
+2017-10-09  Robin Morisset  <rmorisset@apple.com>
+
+        Make the names of the options consistent
+        https://bugs.webkit.org/show_bug.cgi?id=177933
+
+        Reviewed by Saam Barati.
+
+        * WebView/WebFrame.h:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView setMarkedText:selectedRange:]):
+        * WebView/WebView.h:
+
+2017-10-06  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Tweak support for classifying form controls (followup to r222487)
+        https://bugs.webkit.org/show_bug.cgi?id=177917
+        <rdar://problem/34820122>
+
+        Reviewed by Dean Jackson.
+
+        Implement _autofillContext in legacy WebKit, and remove the two previous SPI hooks.
+
+        * DOM/DOMHTMLInputElement.mm:
+        (-[DOMHTMLInputElement _autofillContext]):
+        (-[DOMHTMLInputElement acceptsAutofilledLoginCredentials]): Deleted.
+        (-[DOMHTMLInputElement representingPageURL]): Deleted.
+
+2017-10-05  Keith Miller  <keith_miller@apple.com>
+
+        Unreviewed, tapi builds without optimization so we should have TAPI passes -DRELEASE_WITHOUT_OPTIMIZATIONS.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2017-10-05  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Enable ENABLE_ENCRYPTED_MEDIA build-time setting
+        https://bugs.webkit.org/show_bug.cgi?id=177261
+
+        Reviewed by Eric Carlson.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-10-05  Chris Dumez  <cdumez@apple.com>
+
+        Drop unused parameters for CookiesStrategy::cookiesEnabled()
+        https://bugs.webkit.org/show_bug.cgi?id=177957
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::cookiesEnabled):
+
+2017-10-05  Youenn Fablet  <youenn@apple.com>
+
+        Make LibWebRTCProvider port agnostic
+        https://bugs.webkit.org/show_bug.cgi?id=177747
+
+        Reviewed by Alex Christensen & Alex Garcia.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2017-10-04  Alex Christensen  <achristensen@webkit.org>
+
+        Stop linking with WebKitSystemInterface
+        https://bugs.webkit.org/show_bug.cgi?id=177915
+
+        Reviewed by Antti Koivisto.
+
+        * Configurations/DebugRelease.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+
+2017-10-04  Alex Christensen  <achristensen@webkit.org>
+
+        Remove unnecessary includes of WebKitSystemInterface on Cocoa platforms
+        https://bugs.webkit.org/show_bug.cgi?id=177912
+
+        Reviewed by Saam Barati.
+
+        * Carbon/CarbonUtils.m:
+        * Carbon/CarbonWindowAdapter.mm:
+        * Carbon/HIWebView.mm:
+        * DefaultDelegates/WebDefaultContextMenuDelegate.mm:
+        * Misc/WebNSFileManagerExtras.mm:
+        * Misc/WebNSPasteboardExtras.mm:
+        * Misc/WebNSURLExtras.mm:
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        * Plugins/Hosted/WebHostedNetscapePluginView.h:
+        * Plugins/Hosted/WebTextInputWindowController.m:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        * Plugins/WebNetscapePluginEventHandlerCarbon.mm:
+        * Plugins/WebNetscapePluginEventHandlerCocoa.mm:
+        * Plugins/WebNetscapePluginStream.mm:
+        * Plugins/WebNetscapePluginView.mm:
+        * Plugins/WebPluginDatabase.mm:
+        * WebCoreSupport/PopupMenuMac.mm:
+        * WebCoreSupport/WebChromeClient.mm:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebInspectorClient.mm:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebCoreSupport/WebSystemInterface.mm:
+        * WebView/WebDynamicScrollBarsView.mm:
+        * WebView/WebFrame.mm:
+        * WebView/WebFrameView.mm:
+        * WebView/WebFullScreenController.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebPreferences.mm:
+        * WebView/WebView.mm:
+
+2017-09-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Follow-up to https://trac.webkit.org/r222239 to fix crashes.
+        rdar://problem/34705779
+
+        Addressing review comments that I somehow landed without.
+
+        * WebView/WebHTMLView.mm: Undo adding #if guards around -_web_uniqueWebDataURL
+
+2017-09-29  Chris Dumez  <cdumez@apple.com>
+
+        Split some logic out of VisitedLinkStore and make it reusable
+        https://bugs.webkit.org/show_bug.cgi?id=177575
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebVisitedLinkStore.h:
+        * WebCoreSupport/WebVisitedLinkStore.mm:
+        (WebVisitedLinkStore::addVisitedLink):
+        (WebVisitedLinkStore::removeVisitedLink):
+        (WebVisitedLinkStore::isLinkVisited):
+        (WebVisitedLinkStore::addVisitedLinkHash):
+
+2017-09-28  Jonathan Bedard  <jbedard@apple.com>
+
+        Build fix for High Sierra 32 bit Mac
+        https://bugs.webkit.org/show_bug.cgi?id=177551
+        <rdar://problem/34690283>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Some assertions have been removed from the SDK. Replace these assertions with equivalent
+        WTF assert code.  Since the files in this patch are using tabs, some style changes were
+        also made.
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (+[CarbonWindowAdapter frameViewClassForStyleMask:]):
+        (-[CarbonWindowAdapter initWithContentRect:styleMask:backing:defer:]):
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:disableOrdering:carbon:]):
+        (-[CarbonWindowAdapter setViewsNeedDisplay:]):
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:]):
+        (-[CarbonWindowAdapter dealloc]):
+        (-[CarbonWindowAdapter windowRef]):
+        (-[CarbonWindowAdapter _hasWindowRef]):
+        (-[CarbonWindowAdapter _managesWindowRef]):
+        (-[CarbonWindowAdapter _removeWindowRef]):
+        (-[CarbonWindowAdapter _carbonWindowClass]):
+        (-[CarbonWindowAdapter reconcileToCarbonWindowBounds]):
+        (-[CarbonWindowAdapter sendSuperEvent:]):
+        (-[CarbonWindowAdapter relinquishFocus]):
+        (-[CarbonWindowAdapter _cancelKey:]):
+        (-[CarbonWindowAdapter _commonAwake]):
+        (-[CarbonWindowAdapter _destroyRealWindow:]):
+        (-[CarbonWindowAdapter _oldPlaceWindow:]):
+        (-[CarbonWindowAdapter _termWindowIfOwner]):
+        (-[CarbonWindowAdapter _windowMovedToRect:]):
+        (-[CarbonWindowAdapter constrainFrameRect:toScreen:]):
+        (-[CarbonWindowAdapter selectKeyViewFollowingView:]):
+        (-[CarbonWindowAdapter selectKeyViewPrecedingView:]):
+        (-[CarbonWindowAdapter canBecomeKeyWindow]):
+        (-[CarbonWindowAdapter canBecomeMainWindow]):
+        (-[CarbonWindowAdapter encodeWithCoder:]):
+        (-[CarbonWindowAdapter initWithCoder:]):
+        (-[CarbonWindowAdapter setContentView:]):
+        (-[CarbonWindowAdapter worksWhenModal]):
+        (-[CarbonWindowAdapter _setModalWindowLevel]):
+        (-[CarbonWindowAdapter _clearModalWindowLevel]):
+        (-[CarbonWindowAdapter carbonHICommandIDFromActionSelector:]):
+        (-[CarbonWindowAdapter sendCarbonProcessHICommandEvent:]):
+        (-[CarbonWindowAdapter sendCarbonUpdateHICommandStatusEvent:withMenuRef:andMenuItemIndex:]):
+        (-[CarbonWindowAdapter _handleRootBoundsChanged]):
+        (-[CarbonWindowAdapter _handleContentBoundsChanged]):
+        (-[CarbonWindowAdapter _handleCarbonEvent:callRef:]):
+        (NSCarbonWindowHandleEvent):
+        (-[CarbonWindowAdapter _reallyDoOrderWindow:relativeTo:findKey:forCounter:force:isModal:]):
+        (-[CarbonWindowAdapter _growBoxRect]):
+        * Carbon/HIWebView.mm:
+        (HIWebViewGetWebView):
+        (HIWebViewConstructor):
+        (HIWebViewDestructor):
+        (HIWebViewRegisterClass):
+        (GetBehaviors):
+        (Draw):
+        (HitTest):
+        (GetRegion):
+        (GetWindowRef):
+        (CreateNSEventAdoptingCGEvent):
+        (CopyEventCGEvent):
+        (CreateNSEventWithCarbonClickEvent):
+        (Click):
+        (CreateNSEventWithCarbonEvent):
+        (MouseUp):
+        (CreateNSEventWithCarbonMouseMoveEvent):
+        (MouseMoved):
+        (MouseDragged):
+        (MouseWheelMoved):
+        (ContextMenuClick):
+        (GetKind):
+        (BoundsChanged):
+        (OwningWindowChanged):
+        (WindowHandler):
+        (SyncFrame):
+        (SetFocusPart):
+        (AdvanceFocus):
+        (RelinquishFocus):
+        (ActiveStateChanged):
+        (ProcessCommand):
+        (UpdateCommandStatus):
+        (_NSSelectorForHICommand):
+        (HIWebViewEventHandler):
+        (StartUpdateObserver):
+        (StopUpdateObserver):
+        (UpdateObserver):
+
+2017-09-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Drag event DataTransfer has unexpected types "dyn.ah62d4..."
+        https://bugs.webkit.org/show_bug.cgi?id=172526
+        <rdar://problem/32396081>
+
+        Reviewed by Ryosuke Niwa.
+
+        Adjust for changes in WebCore. See WebCore ChangeLog for more details.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::webExposedTypes):
+        (WebPlatformStrategies::writeCustomData):
+
+2017-09-27  Matt Lewis  <jlewis3@apple.com>
+
+        Unreviewed, rolling out r222567.
+
+        This broke and internal build.
+
+        Reverted changeset:
+
+        "Build fix for High Sierra 32 bit Mac"
+        https://bugs.webkit.org/show_bug.cgi?id=177551
+        http://trac.webkit.org/changeset/222567
+
+2017-09-27  Jonathan Bedard  <jbedard@apple.com>
+
+        Build fix for High Sierra 32 bit Mac
+        https://bugs.webkit.org/show_bug.cgi?id=177551
+        <rdar://problem/34690283>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Some assertions have been removed from the SDK. Replace these assertions with equivalent
+        WTF assert code.  Since the files in this patch are using tabs, some style changes were
+        also made.
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (+[CarbonWindowAdapter frameViewClassForStyleMask:]):
+        (-[CarbonWindowAdapter initWithContentRect:styleMask:backing:defer:]):
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:disableOrdering:carbon:]):
+        (-[CarbonWindowAdapter setViewsNeedDisplay:]):
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:]):
+        (-[CarbonWindowAdapter dealloc]):
+        (-[CarbonWindowAdapter windowRef]):
+        (-[CarbonWindowAdapter _hasWindowRef]):
+        (-[CarbonWindowAdapter _managesWindowRef]):
+        (-[CarbonWindowAdapter _removeWindowRef]):
+        (-[CarbonWindowAdapter _carbonWindowClass]):
+        (-[CarbonWindowAdapter reconcileToCarbonWindowBounds]):
+        (-[CarbonWindowAdapter sendSuperEvent:]):
+        (-[CarbonWindowAdapter relinquishFocus]):
+        (-[CarbonWindowAdapter _cancelKey:]):
+        (-[CarbonWindowAdapter _commonAwake]):
+        (-[CarbonWindowAdapter _destroyRealWindow:]):
+        (-[CarbonWindowAdapter _oldPlaceWindow:]):
+        (-[CarbonWindowAdapter _termWindowIfOwner]):
+        (-[CarbonWindowAdapter _windowMovedToRect:]):
+        (-[CarbonWindowAdapter constrainFrameRect:toScreen:]):
+        (-[CarbonWindowAdapter selectKeyViewFollowingView:]):
+        (-[CarbonWindowAdapter selectKeyViewPrecedingView:]):
+        (-[CarbonWindowAdapter canBecomeKeyWindow]):
+        (-[CarbonWindowAdapter canBecomeMainWindow]):
+        (-[CarbonWindowAdapter encodeWithCoder:]):
+        (-[CarbonWindowAdapter initWithCoder:]):
+        (-[CarbonWindowAdapter setContentView:]):
+        (-[CarbonWindowAdapter worksWhenModal]):
+        (-[CarbonWindowAdapter _setModalWindowLevel]):
+        (-[CarbonWindowAdapter _clearModalWindowLevel]):
+        (-[CarbonWindowAdapter carbonHICommandIDFromActionSelector:]):
+        (-[CarbonWindowAdapter sendCarbonProcessHICommandEvent:]):
+        (-[CarbonWindowAdapter sendCarbonUpdateHICommandStatusEvent:withMenuRef:andMenuItemIndex:]):
+        (-[CarbonWindowAdapter _handleRootBoundsChanged]):
+        (-[CarbonWindowAdapter _handleContentBoundsChanged]):
+        (-[CarbonWindowAdapter _handleCarbonEvent:callRef:]):
+        (NSCarbonWindowHandleEvent):
+        (-[CarbonWindowAdapter _reallyDoOrderWindow:relativeTo:findKey:forCounter:force:isModal:]):
+        (-[CarbonWindowAdapter _growBoxRect]):
+        * Carbon/HIWebView.mm:
+        (HIWebViewGetWebView):
+        (HIWebViewConstructor):
+        (HIWebViewDestructor):
+        (HIWebViewRegisterClass):
+        (GetBehaviors):
+        (Draw):
+        (HitTest):
+        (GetRegion):
+        (GetWindowRef):
+        (CreateNSEventAdoptingCGEvent):
+        (CopyEventCGEvent):
+        (CreateNSEventWithCarbonClickEvent):
+        (Click):
+        (CreateNSEventWithCarbonEvent):
+        (MouseUp):
+        (CreateNSEventWithCarbonMouseMoveEvent):
+        (MouseMoved):
+        (MouseDragged):
+        (MouseWheelMoved):
+        (ContextMenuClick):
+        (GetKind):
+        (BoundsChanged):
+        (OwningWindowChanged):
+        (WindowHandler):
+        (SyncFrame):
+        (SetFocusPart):
+        (AdvanceFocus):
+        (RelinquishFocus):
+        (ActiveStateChanged):
+        (ProcessCommand):
+        (UpdateCommandStatus):
+        (_NSSelectorForHICommand):
+        (HIWebViewEventHandler):
+        (StartUpdateObserver):
+        (StopUpdateObserver):
+        (UpdateObserver):
+
+2017-09-25  Alex Christensen  <achristensen@webkit.org>
+
+        Make PolicyAction an encodable enum class
+        https://bugs.webkit.org/show_bug.cgi?id=177480
+
+        Reviewed by Antti Koivisto.
+
+        * Plugins/WebPluginContainerCheck.mm:
+        (-[WebPluginContainerCheck _continueWithPolicy:]):
+        (-[WebPluginContainerCheck _isForbiddenFileLoad]):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (-[WebFramePolicyListener invalidate]):
+        (-[WebFramePolicyListener ignore]):
+        (-[WebFramePolicyListener download]):
+        (-[WebFramePolicyListener use]):
+        (-[WebFramePolicyListener continue]):
+        * WebView/WebPolicyDelegate.mm:
+        (-[WebPolicyDecisionListener use]):
+        (-[WebPolicyDecisionListener ignore]):
+        (-[WebPolicyDecisionListener download]):
+
+2017-09-25  Frederik Riedel  <riedel@apple.com>
+
+        Expose way to set values of classified form controls as {Legacy WebKit, WebKit} SPI
+        https://bugs.webkit.org/show_bug.cgi?id=174394
+        <rdar://problem/33183504>
+
+        Reviewed by Ryosuke Niwa.
+
+        * DOM/DOMHTMLInputElement.h:
+        * DOM/DOMHTMLInputElement.mm:
+        (-[DOMHTMLInputElement acceptsAutofilledLoginCredentials]):
+        Determines if this HTMLInputElement is part of a login screen.
+        (-[DOMHTMLInputElement representingPageUrl]):
+        Returns the webpage's URL that is currently displayed in the Web View.
+        (-[DOMHTMLInputElement insertTextSuggestion:]):
+        Inserts login credentials into the Web View.
+
+2017-09-25  Sam Weinig  <sam@webkit.org>
+
+        Remove unused EditorClient functions
+        https://bugs.webkit.org/show_bug.cgi?id=177463
+
+        Reviewed by Alex Christensen.
+
+        Remove unused EditorClient functions.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::canonicalizeURL): Deleted.
+        (WebEditorClient::canonicalizeURLString): Deleted.
+        (WebEditorClient::writeDataToPasteboard): Deleted.
+        (WebEditorClient::supportedPasteboardTypesForCurrentSelection): Deleted.
+        (WebEditorClient::readDataFromPasteboard): Deleted.
+        (WebEditorClient::pasteboardChangeCount): Deleted.
+
+2017-09-25  Alex Christensen  <achristensen@webkit.org>
+
+        Stop using PolicyCallback
+        https://bugs.webkit.org/show_bug.cgi?id=176088
+
+        Reviewed by Andy Estes.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (-[WebFramePolicyListener invalidate]):
+        (-[WebFramePolicyListener receivedPolicyDecision:]):
+
+2017-09-25  Sam Weinig  <sam@webkit.org>
+
+        Remove unnecessary userVisibleString EditorClient function
+        https://bugs.webkit.org/show_bug.cgi?id=177456
+
+        Reviewed by Dan Bernstein.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::userVisibleString): Deleted.
+
+            Remove userVisibleString client function.
+
+2017-09-25  Alex Christensen  <achristensen@webkit.org>
+
+        Separate form submission from PolicyChecker infrastructure
+        https://bugs.webkit.org/show_bug.cgi?id=177396
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchWillSubmitForm):
+
+2017-09-22  Zalan Bujtas  <zalan@apple.com>
+
+        WeakPtrFactory should populate m_ref lazily.
+        https://bugs.webkit.org/show_bug.cgi?id=177375
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::WebEditorClient):
+        (WebEditorClient::requestCandidatesForSelection):
+
+2017-09-22  Chris Dumez  <cdumez@apple.com>
+
+        Use high resolution timestamp for event time
+        https://bugs.webkit.org/show_bug.cgi?id=154246
+        <rdar://problem/34333304>
+
+        Reviewed by Ryosuke Niwa.
+
+        Use WallTime / MonotonicTime instead of double type for clarity.
+
+        * DOM/DOMEvent.mm:
+        (-[DOMEvent timeStamp]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _dragSourceEndedAt:operation:]):
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]):
+
+2017-09-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Enable dataTransfer.items on macOS and iOS
+        https://bugs.webkit.org/show_bug.cgi?id=177335
+
+        Reviewed by Sam Weinig.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2017-09-20  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: WebView indication highlights sticks around for WebKitLegacy views
+        https://bugs.webkit.org/show_bug.cgi?id=177101
+        <rdar://problem/34500648>
+
+        Reviewed by Brian Burg.
+
+        * WebInspector/WebNodeHighlight.mm:
+        Ensure we close the window that we have just removed.
+
+2017-09-20  Antti Koivisto  <antti@apple.com>
+
+        Remove DOM and styling support for CSS Regions
+        https://bugs.webkit.org/show_bug.cgi?id=177221
+
+        Reviewed by Andreas Kling.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * DOM/DOMCSS.mm:
+        (kitClass):
+        * DOM/DOMElement.mm:
+        (-[DOMElement webkitRegionOverset]): Deleted.
+
+2017-09-19  Alexey Proskuryakov  <ap@apple.com>
+
+        Layering violation in Editor::createFragment
+        https://bugs.webkit.org/show_bug.cgi?id=176123
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebNSURLExtras.h:
+        * Misc/WebNSURLExtras.mm:
+        * WebView/WebFrame.mm:
+        * WebView/WebHTMLView.mm:
+        Removed multiple copies of webkit-fake-url creation code, switching to URL::fakeURLWithRelativePart().
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (_WebCreateFragment): Added a stub implementation for older OSes. This is needed
+        because WebKitLegacy.exp is not passed through preprocessor, so there is no sane
+        way to avoid exporting the symbol just on newer OSes.
+
+2017-09-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+        On iOS, getData can't get text set by setData during copy event
+        https://bugs.webkit.org/show_bug.cgi?id=176980
+        <rdar://problem/34453915>
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::copy): Deleted.
+
+2017-09-18  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream miscellaneous WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=177029
+
+        Reviewed by Alex Christensen.
+
+        * DefaultDelegates/WebDefaultContextMenuDelegate.mm:
+        (-[WebDefaultUIDelegate menuItemWithTag:target:representedObject:]):
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::NetscapePluginHostProxy):
+        * WebCoreSupport/PopupMenuMac.mm:
+        (PopupMenuMac::show):
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView setDataSource:]):
+        (-[WebHTMLView attachRootLayer:]):
+        * WebView/WebView.mm:
+        (-[WebView _needsAdobeFrameReloadingQuirk]):
+        (-[WebView _needsLinkElementTextCSSQuirk]):
+        (-[WebView _needsIsLoadingInAPISenseQuirk]):
+        (-[WebView _needsFrameLoadDelegateRetainQuirk]):
+        (-[WebView _preferencesChanged:]):
+
+2017-09-15  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Upstream MediaRemote and VideoToolbox WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176953
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-09-14  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream SpeechSynthesis-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176931
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-09-14  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Add PrivateSymbolMode::{Include,Exclude} for PropertyNameArray
+        https://bugs.webkit.org/show_bug.cgi?id=176867
+
+        Reviewed by Sam Weinig.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+
+2017-09-13  Andy Estes  <aestes@apple.com>
+
+        [CF] Upstream CFNetwork-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176729
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebView.mm:
+        (+[WebView _setCacheModel:]):
+
+2017-09-13  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Refactor WebContentReader out of EditorMac and EditorIOS
+        https://bugs.webkit.org/show_bug.cgi?id=176770
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebEditorClient.mm:
+
+2017-09-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Dragging & dropping a file creates an attachment element even when it's disabled
+        https://bugs.webkit.org/show_bug.cgi?id=176769
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-09-11  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS DnD] Support DataTransfer.setDragImage when starting a drag on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=176721
+        <rdar://problem/34373660>
+
+        Reviewed by Tim Horton.
+
+        Rename elementBounds => dragPreviewFrameInRootViewCoordinates. (Note: Unfortunately, _draggedElementBounds in
+        WebViewPrivate.h can't be renamed yet, due to binary and SDK compatibility with UIKit).
+
+        * WebView/WebView.mm:
+        (-[WebView _startDrag:]):
+        (-[WebView _draggedElementBounds]):
+        (-[WebView _endedDataInteraction:global:]):
+        * WebView/WebViewData.h:
+
+2017-09-11  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream QTKit-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176472
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-09-09  Mark Lam  <mark.lam@apple.com>
+
+        Avoid duplicate computations of ExecState::vm().
+        https://bugs.webkit.org/show_bug.cgi?id=176647
+
+        Reviewed by Saam Barati.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::invokeDefault):
+        (WebKit::NetscapePluginInstanceProxy::construct):
+        (WebKit::NetscapePluginInstanceProxy::setProperty):
+        (WebKit::NetscapePluginInstanceProxy::removeProperty):
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyRuntimeMethod::create):
+
+2017-09-08  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r221773.
+        https://bugs.webkit.org/show_bug.cgi?id=176614
+
+        This caused build failures. (Requested by mlewis13 on
+        #webkit).
+
+        Reverted changeset:
+
+        "[Mac] Upstream QTKit-related WebKitSystemInterface functions"
+        https://bugs.webkit.org/show_bug.cgi?id=176472
+        http://trac.webkit.org/changeset/221773
+
+2017-09-07  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream QTKit-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176472
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-09-07  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [PAL] Unify PlatformUserPreferredLanguages.h with Language.h
+        https://bugs.webkit.org/show_bug.cgi?id=176561
+
+        Reviewed by Brent Fulgham.
+
+        * Misc/WebNSUserDefaultsExtras.mm:
+
+2017-09-07  Alex Christensen  <achristensen@webkit.org>
+
+        Modernize Geolocation code
+        https://bugs.webkit.org/show_bug.cgi?id=176496
+
+        Reviewed by Andy Estes.
+
+        * WebCoreSupport/WebGeolocationClient.h:
+        * WebCoreSupport/WebGeolocationClient.mm:
+        (WebGeolocationClient::requestPermission):
+        (-[WebGeolocationPolicyListener initWithGeolocation:]):
+        (-[WebGeolocationPolicyListener initWithGeolocation:forWebView:]):
+        (-[WebGeolocationProviderInitializationListener initWithGeolocation:]):
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView _geolocationDidFailWithMessage:]):
+
+2017-09-05  Tim Horton  <timothy_horton@apple.com>
+
+        Remove some unused bits of code and resources
+        https://bugs.webkit.org/show_bug.cgi?id=176275
+
+        Reviewed by Dan Bernstein.
+
+        * Misc/WebNSFileManagerExtras.mm:
+        Include FileSystem instead of FileSystemIOS.
+
+2017-09-03  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Tidy a few things in legacy WebHTMLView
+        https://bugs.webkit.org/show_bug.cgi?id=176280
+
+        Reviewed by Dan Bernstein.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::attachRootGraphicsLayer): Made this function Mac-only, because the
+        methods it calls on WebHTMLView were doing nothing on iOS.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _paintBehaviorForDestinationContext:]): Changed iOS code so that it no longer
+        depends on -[WebHTMLView _web_isDrawingIntoLayer], which always returned YES on iOS.
+
+        * WebView/WebHTMLView.mm: Define WebEvent on both iOS and Mac so more event handling
+        code can be shared without #if below. Use #if PLATFORM(MAC) instead of #if !PLATFORM(IOS)
+        in a lot more places. Move many of the SPI declarations up to the top in alphabetical
+        order. Removed all sorts of unused things. Made more code and fields Mac-only where
+        what was compiled was doing nothing on iOS and it makes the resulting code simpler.
+        Use RetainPtr instead of writing retain/release wherever possible.
+        (+[WebMenuTarget sharedMenuTarget]): Moved global inside this method and used C++
+        initialization for it. Removed various unused methods and declarations of methods.
+        (promisedDataClient): Use NeverDestroyed instead of just doing a "new" on the heap.
+        (-[WebHTMLView _imageExistsAtPaths:]): Deleted.
+        (-[WebHTMLView _documentFragmentWithPaths:]): Use RetainPtr and modern for loop.
+        (+[WebHTMLView _excludedElementsForAttributedStringConversion]): Use C++ initialization,
+        and remove CFRetain no longer needed since we don't support garbage collection any more.
+        (uniqueURLWithRelativePart): Simplified using [NSUUID UUID].
+        (-[WebHTMLView _plainTextFromPasteboard:]): Simplified with RetainPtr.
+        (-[WebHTMLView _pasteWithPasteboard:allowPlainText:]): Ditto.
+        (-[WebHTMLView _pasteAsPlainTextWithPasteboard:]): Ditto.
+        (-[WebHTMLView _removeWindowObservers]): Removed code dealing with empty
+        methods windowWillOrderOnScreen: and windowWillOrderOffScreen:.
+        (-[WebHTMLView _shouldDeleteRange:]): Deleted. Was unused.
+        (-[WebHTMLView _writeSelectionWithPasteboardTypes:toPasteboard:cachedAttributedString:]):
+        Simplified with stringByReplacingOccurrencesOfString and modern string literal syntax.
+        (-[WebHTMLView _setMouseDownEvent:]): Ditto.
+        (-[WebHTMLView _web_setPrintingModeRecursive:adjustViewSize:]): Added. Helper method so
+        the next three methhods can be super-simple. Used RetainPtr and a modern for loop to make
+        this method simpler than the functions it replaced. Also got rid of the enumeratingSubviews
+        debug flag; we haven't used it for years and it's not clearly helpful.
+        (-[WebHTMLView _web_setPrintingModeRecursive]): Turned into a one-liner with the above.
+        (-[WebHTMLView _web_clearPrintingModeRecursive]): Ditto.
+        (-[WebHTMLView _web_setPrintingModeRecursiveAndAdjustViewSize]): Ditto.
+        (-[WebHTMLView _web_makePluginSubviewsPerformSelector:withObject:]): Moved from the
+        WebInternal category to the WebHTMLViewFileInternal category so it can be called by
+        two additional methods in the WebPrivate category and still be called by the two
+        methods in the WebInternal category that were already using it.
+        (-[WebHTMLView didAddSubview:]): Deleted.
+        (-[WebHTMLView _insideAnotherHTMLView]): Deleted.
+        (-[WebHTMLView _clearLastHitViewIfSelf]): Deleted. Inlined the implementation in the one
+        place this was called, the close method.
+        (-[WebHTMLView _setToolTip:]): Simplified with RetainPtr.
+        (-[WebHTMLView pasteboard:provideDataForType:]): Ditto.
+        (-[WebHTMLView _autoscroll]): Simplified by making this Mac-only.
+        (-[WebHTMLView _hasHTMLDocument]): Deleted. The one caller was removed a long time ago.
+        (-[WebHTMLView _web_documentFragmentFromPasteboard:pasteboardType:imageMIMEType:]):
+        Added helper method to make the one below simpler.
+        (-[WebHTMLView _documentFragmentFromPasteboard:forType:inContext:subresources:]):
+        Compared pasteboard type strings using isEqualToString: rather than using == since
+        we want to actually compare the string contents. Also updated to use modern for loop,
+        renamed a local variable from "s" to "localSubresources", and factored out the handling
+        of three image types to use the helper method above.
+        (-[WebHTMLView _pauseNullEventsForAllNetscapePlugins]): Rewrite using the
+        _web_makePluginSubviewsPerformSelector:withObject: method.
+        (-[WebHTMLView _resumeNullEventsForAllNetscapePlugins]): Ditto.
+        (-[NSView _web_addDescendentWebHTMLViewsToArray:]): Fixed spelling to use the adjective
+        "descendent" rather than the noun "descendant". Also removed Mac-only optimization to
+        not call the -[NSView subviews] method to make this identical on both platforms and used
+        a modern for loop.
+        (-[NSMutableDictionary _web_setObjectIfNotNil:forKey:]): Deleted.
+        (-[WebHTMLView acceptsFirstResponder]): Reduced amount of platform-specific code by
+        defining WebEventMouseDown as a synonym for NSEventTypeLeftMouseDown on Mac.
+        (-[WebHTMLView addWindowObservers]): Removed code dealing with empty
+        methods windowWillOrderOnScreen: and windowWillOrderOffScreen:.
+        (-[WebHTMLView willRemoveSubview:]): Removed the enumeratingSubviews check.
+        (-[WebHTMLView drawSingleRect:]): Rearranged this method to make it clearer that most
+        of it is Mac-only.
+        (-[WebHTMLView windowWillOrderOnScreen:]): Deleted. All the current version of this
+        method did was call itself on the main thread, and do nothing if called on main thread.
+        (-[WebHTMLView windowWillOrderOffScreen:]): Deleted. Ditto.
+        (-[WebHTMLView _isSelectionEvent:]): Merged macOS and iOS versions.
+        (-[WebHTMLView resignFirstResponder]): Removed iOS-specific code in the macOS-specific
+        half of this method.
+        (-[WebHTMLView setDataSource:]): Simplified using RetainPtr.
+        (-[WebHTMLView _setPrinting:minimumPageLogicalWidth:logicalHeight:originalPageWidth:originalPageHeight:maximumShrinkRatio:adjustViewSize:paginateScreenContent:]):
+        Simplified using a modern for loop and RetainPtr.
+        (-[WebHTMLView knowsPageRange:]): Simplified using RetainPtr.
+        (-[WebHTMLView keyDown:]): Ditto.
+        (-[WebHTMLView _selectionStartFontAttributesAsRTF]): Ditto.
+        (-[WebHTMLView performKeyEquivalent:]): Ditto.
+        (-[WebHTMLView _styleForAttributeChange:]): Ditto.
+        (-[WebHTMLView complete:]): Ditto.
+        (-[WebHTMLView _windowChangedKeyState]): Removed iOS-specific code since this method is
+        now macOS-only.
+        (-[WebHTMLView _selectionChanged]): Removed call to _updateSelectionForInputManager on
+        iOS since that is now macOS-only.
+        (-[WebHTMLView promisedDragTIFFDataSource]): Deleted.
+        (-[WebHTMLView _startAutoscrollTimer:]): Moved this into an internal category instead of
+        a private one because it is not used or needed outside WebKit. Also made it macOS-only
+        and reorganized to use early return.
+        (-[WebHTMLView _stopAutoscrollTimer]): Moved into internal category. It remains a no-op
+        on iOS, but kept there so we don't have to do #if at every call site.
+        (-[WebHTMLView _pluginController]): Moved into internal category.
+        (-[WebHTMLView validAttributesForMarkedText]): Simplified by removing CFRetain that was
+        there only for GC, using C++ initialization, removing obsolete comment.
+        (-[WebHTMLView _updateSelectionForInputManager]): Made this macOS-only and removed
+        peculiar iOS-only comment.
+        (+[NSURL _web_uniqueWebDataURL]): Simplified using [NSUUID UUID].
+
+        * WebView/WebHTMLViewInternal.h: Removed unused promisedDragTIFFDataSource method.
+        Made attachRootLayer:, detachRootLayer, _web_isDrawingIntoLayer,
+        _web_isDrawingIntoAcceleratedLayer all macOS-only. Moved _startAutoscrollTimer:,
+        _stopAutoscrollTimer, and _pluginController here from SPI header since they aren't
+        needed or used as SPI. And made _startAutoscrollTimer macOS-only.
+
+        * WebView/WebHTMLViewPrivate.h: Removed unneeded and unused SPI: _insideAnotherHTMLView,
+        _clearLastHitViewIfSelf, _pluginController, _startAutoscrollTimer:, and _stopAutoscrollTimer.
+        Made _transparentBackground and _setTransparentBackground: macOS-only. These probably
+        are not needed on macOS either, but I wasn't able to make absolutely sure I could remove
+        them at this time.
+
+2017-09-03  Sam Weinig  <sam@webkit.org>
+
+        Remove CanvasProxy
+        https://bugs.webkit.org/show_bug.cgi?id=176288
+
+        Reviewed by Yusuke Suzuki.
+
+        CanvasProxy does not appear to be in any current HTML spec
+        and was disabled and unimplemented in our tree. Time to 
+        get rid of it.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-09-02  Andy Estes  <aestes@apple.com>
+
+        [CA] Upstream QuartzCore-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176270
+
+        Reviewed by Tim Horton.
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * Plugins/Hosted/WebHostedNetscapePluginView.h:
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (WebKit::SoftwareCARenderer::SoftwareCARenderer):
+        (WebKit::SoftwareCARenderer::~SoftwareCARenderer):
+        (WebKit::SoftwareCARenderer::context const):
+        (WebKit::SoftwareCARenderer::renderContext const):
+        (WebKit::SoftwareCARenderer::render):
+        (-[WebHostedNetscapePluginView createPlugin]):
+        (-[WebHostedNetscapePluginView createPluginLayer]):
+        (-[WebHostedNetscapePluginView destroyPlugin]):
+        (-[WebHostedNetscapePluginView drawRect:]):
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-09-01  Andy Estes  <aestes@apple.com>
+
+        [CG] Upstream CoreGraphics-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176200
+
+        Reviewed by Tim Horton.
+
+        * Carbon/HIWebView.mm:
+        (-[NSWindowGraphicsContext _web_setGraphicsPort:]):
+        (overrideCGContext):
+        (restoreCGContext):
+        (Draw):
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (+[WebHostedNetscapePluginView initialize]):
+        * Plugins/WebBaseNetscapePluginView.h:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebKit::sendUserChangeNotifications):
+        * Plugins/WebNetscapePluginView.mm:
+        (+[WebNetscapePluginView initialize]):
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _paintBehaviorForDestinationContext:]):
+        * WebView/WebFullScreenController.mm:
+        (setClipRectForWindow):
+        (-[WebFullScreenController finishedEnterFullScreenAnimation:]):
+        (-[WebFullScreenController finishedExitFullScreenAnimation:]):
+        (-[WebFullScreenController _startEnterFullScreenAnimationWithDuration:]):
+        (-[WebFullScreenController _startExitFullScreenAnimationWithDuration:]):
+
+2017-08-31  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream AppKit-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176175
+
+        Reviewed by Brady Eidson.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::keyEvent):
+        * Plugins/Hosted/WebTextInputWindowController.m:
+        (-[WebTextInputPanel init]):
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView scrollWheel:]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _removeWindowObservers]):
+        (-[WebHTMLView addWindowObservers]):
+        * WebView/WebView.mm:
+        (-[WebView addWindowObserversForWindow:]):
+        (-[WebView removeWindowObservers]):
+        (-[WebView viewWillMoveToWindow:]):
+
+2017-08-31  Alex Christensen  <achristensen@webkit.org>
+
+        Add ObjC SPI corresponding to WKPageLoaderClient's webGLLoadPolicy and resolveWebGLLoadPolicy
+        https://bugs.webkit.org/show_bug.cgi?id=175779
+        <rdar://problem/22367975>
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::webGLPolicyForURL const):
+        (WebFrameLoaderClient::resolveWebGLPolicyForURL const):
+
+2017-08-30  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream Accessibility-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176093
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-08-30  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream Carbon-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176087
+
+        Reviewed by Alex Christensen.
+
+        * Carbon/CarbonUtils.m:
+        (getNSAutoreleasePoolCount):
+        (WebInitForCarbon):
+        (PoolCleaner):
+        * Carbon/CarbonWindowAdapter.mm:
+        (+[CarbonWindowAdapter frameViewClassForStyleMask:]):
+        (-[CarbonWindowAdapter initWithCarbonWindowRef:takingOwnership:disableOrdering:carbon:]):
+        (-[CarbonWindowAdapter _oldPlaceWindow:]):
+        (-[CarbonWindowAdapter _windowMovedToRect:]):
+        * Carbon/HIViewAdapter.m:
+        * Carbon/HIWebView.mm:
+        (Draw):
+        (CreateNSEventAdoptingCGEvent):
+        (CopyEventCGEvent):
+        (CreateNSEventWithCarbonClickEvent):
+        (Click):
+        (CreateNSEventWithCarbonEvent):
+        (MouseUp):
+        (CreateNSEventWithCarbonMouseMoveEvent):
+        (MouseMoved):
+        (MouseDragged):
+        (MouseWheelMoved):
+        (WindowHandler):
+        (HIWebViewEventHandler):
+        * Misc/QuickDrawCompatibility.h: Removed.
+        * Plugins/WebNetscapePluginEventHandlerCarbon.mm:
+        (getCarbonEvent):
+        (WebNetscapePluginEventHandlerCarbon::keyDown):
+        (WebNetscapePluginEventHandlerCarbon::keyUp):
+        * Plugins/WebNetscapePluginEventHandlerCocoa.mm:
+        (WebNetscapePluginEventHandlerCocoa::keyDown):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView tellQuickTimeToChill]):
+
+2017-08-29  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream WKSetMetadataURL() from WebKitSystemInterface
+        https://bugs.webkit.org/show_bug.cgi?id=176046
+
+        Reviewed by Alex Christensen.
+
+        Removed the pthread logic from -_webkit_setMetadataURL:referrer:atPath: and replaced with
+        WebCore::setMetadataURL(), which uses dispatch_async() for the same purpose as the pthread.
+
+        * Misc/WebNSFileManagerExtras.mm:
+        (-[NSFileManager _webkit_setMetadataURL:referrer:atPath:]):
+        (setMetaData): Deleted.
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2017-08-28  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Upstream WKGetWebDefaultCFStringEncoding()
+        https://bugs.webkit.org/show_bug.cgi?id=176039
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences _systemCFStringEncoding]):
+
+2017-08-28  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Upstream CFNetwork-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176032
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebView.mm:
+        (-[WebView _cachedResponseForURL:]):
+
+2017-08-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Disable access to secure cookies if an HTTPS site loads mixed content (Part 2: Header Requests)
+        https://bugs.webkit.org/show_bug.cgi?id=175992
+        <rdar://problem/34086613>
+
+        Reviewed by Daniel Bates.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::cookieRequestHeaderFieldValue): Modify to accept a flag indicating if secure
+        cookies should be included, and return a pair containing the resulting cookie string and a boolean
+        indicating if secure cookies were accessed.
+
+2017-08-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Picking an emoji via the emoji dialog (Ctrl+Cmd+Space) fires inconsistent beforeinput events.
+        https://bugs.webkit.org/show_bug.cgi?id=170955
+        <rdar://problem/31697653>
+
+        Reviewed by Ryosuke Niwa.
+
+        Tweak -insertText: to pass TextEventInputAutocompletion to Editor::insertText when inserting text, if existing
+        text is being replaced.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView insertText:]):
+
+2017-08-24  Chris Dumez  <cdumez@apple.com>
+
+        [Directory Upload] Add basic support for input.webkitdirectory
+        https://bugs.webkit.org/show_bug.cgi?id=175950
+        <rdar://problem/33951915>
+
+        Reviewed by Geoffrey Garen.
+
+        Add private API to toggle Directory Upload support on Mac WebKit1.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences setDirectoryUploadEnabled:]):
+        (-[WebPreferences directoryUploadEnabled]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [WK2] EditorState updates should be rolled into the layer update lifecycle when possible
+        https://bugs.webkit.org/show_bug.cgi?id=175370
+        <rdar://problem/33799806>
+
+        Reviewed by Ryosuke Niwa.
+
+        Adjust WebEditorClient for interface changes.
+
+        * WebCoreSupport/WebEditorClient.h:
+
+2017-08-22  Alex Christensen  <achristensen@webkit.org>
+
+        Remove ChromeClient::scrollbarsModeDidChange
+        https://bugs.webkit.org/show_bug.cgi?id=175805
+
+        Reviewed by Daniel Bates.
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2017-08-22  Alex Christensen  <achristensen@webkit.org>
+
+        Remove ChromeClient::hasOpenedPopup
+        https://bugs.webkit.org/show_bug.cgi?id=175804
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::hasOpenedPopup const): Deleted.
+
+2017-08-22  Brent Fulgham  <bfulgham@apple.com> and Pranjal Jumde  <pjumde@apple.com>
+
+        Disable access to secure cookies if an HTTPS site loads mixed content
+        https://bugs.webkit.org/show_bug.cgi?id=157053
+        <rdar://problem/11290808>
+
+        Reviewed by Dan Bates.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::cookiesForDOM): Check and return whether secure cookies were accessed. Accept a new argument
+        indicating whether secure cookies should be included in the response.
+
+2017-08-21  Yoshiaki Jitsukawa  <Yoshiaki.Jitsukawa@sony.com>
+
+        [PAL] Move spi/mac directory into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175649
+
+        Reviewed by Myles C. Maxfield.
+
+        * Misc/WebSharingServicePickerController.h:
+        * WebCoreSupport/WebContextMenuClient.mm:
+        * WebCoreSupport/WebEditorClient.mm:
+        * WebCoreSupport/WebSelectionServiceController.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebImmediateActionController.h:
+        * WebView/WebImmediateActionController.mm:
+        * WebView/WebView.mm:
+
+2017-08-17  Don Olmstead  <don.olmstead@sony.com>
+
+        [PAL] Relocate SessionID to root
+        https://bugs.webkit.org/show_bug.cgi?id=175684
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+
+2017-08-17  Andreas Kling  <akling@apple.com>
+
+        Disable CSS regions at compile time
+        https://bugs.webkit.org/show_bug.cgi?id=175630
+
+        Reviewed by Antti Koivisto.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-17  Don Olmstead  <don.olmstead@sony.com>
+
+        [PAL] Move SessionID into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=174192
+
+        Reviewed by Antti Koivisto.
+
+        * Misc/WebCache.mm:
+        (+[WebCache imageForURL:]):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::convertMainResourceLoadToDownload):
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+        (WebFrameNetworkingContext::ensurePrivateBrowsingSession):
+        (WebFrameNetworkingContext::destroyPrivateBrowsingSession):
+        (WebFrameNetworkingContext::storageSession const):
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::cookieRequestHeaderFieldValue):
+        * WebKitPrefix.h:
+
+2017-08-16  Andy Estes  <aestes@apple.com>
+
+        [Apple Pay] Rename PaymentRequest to ApplePaySessionPaymentRequest
+        https://bugs.webkit.org/show_bug.cgi?id=175648
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebPaymentCoordinatorClient.h:
+        * WebCoreSupport/WebPaymentCoordinatorClient.mm:
+        (WebPaymentCoordinatorClient::showPaymentUI):
+
+2017-08-16  Yoshiaki Jitsukawa  <Yoshiaki.Jitsukawa@sony.com>
+
+        [PAL] Move spi/ios and spi/win directories into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175171
+
+        Reviewed by Antti Koivisto.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebView/WebView.mm:
+
+2017-08-16  Andy Estes  <aestes@apple.com>
+
+        [Payment Request] Add an ENABLE flag and an experimental feature preference
+        https://bugs.webkit.org/show_bug.cgi?id=175622
+
+        Reviewed by Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-15  Don Olmstead  <don.olmstead@sony.com>
+
+        [PAL] Move Sleep classes into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175456
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebView/WebFullScreenController.h:
+
+2017-08-15  Youenn Fablet  <youenn@apple.com>
+
+        [Cache API] Adding generic support for CacheStorage and Cache methods
+        https://bugs.webkit.org/show_bug.cgi?id=175455
+
+        Reviewed by Chris Dumez.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+
+2017-08-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove Proximity Events and related code
+        https://bugs.webkit.org/show_bug.cgi?id=175545
+
+        Reviewed by Daniel Bates.
+
+        No platform enables Proximity Events, so remove code inside ENABLE(PROXIMITY_EVENTS)
+        and other related code.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove ENABLE(REQUEST_AUTOCOMPLETE) code, which was disabled everywhere
+        https://bugs.webkit.org/show_bug.cgi?id=175504
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * DOM/DOMHTMLFormElement.mm:
+        (-[DOMHTMLFormElement requestAutocomplete]): Deleted.
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2017-08-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove ENABLE_VIEW_MODE_CSS_MEDIA and related code
+        https://bugs.webkit.org/show_bug.cgi?id=175557
+
+        Reviewed by Jon Lee.
+
+        No port cares about the ENABLE(VIEW_MODE_CSS_MEDIA) feature, so remove it.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-13  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        Composition underline color is always black
+        https://bugs.webkit.org/show_bug.cgi?id=174675
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebView/WebHTMLView.mm:
+        (extractUnderlines): If NSUnderlineColorAttributeName
+        is not present use text color for composition underline.
+        (-[WebHTMLView setMarkedText:selectedRange:]): Use text color
+        for composition underline in the plain text case.
+
+2017-08-11  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Replace DATA_TRANSFER_ITEMS by a runtime flag and add a stub implementation
+        https://bugs.webkit.org/show_bug.cgi?id=175474
+        <rdar://problem/33844628>
+
+        Reviewed by Wenson Hsieh.
+
+        Replaced the build flag by a runtime flag and disabled the feature by default.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Disables dataTransfer.items by default.
+        (-[WebPreferences dataTransferItemsEnabled]): Added.
+        (-[WebPreferences setDataTransferItemsEnabled:]): Added.
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-10  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        Remove ENABLE_GAMEPAD_DEPRECATED
+        https://bugs.webkit.org/show_bug.cgi?id=175361
+
+        Reviewed by Carlos Garcia Campos.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-09  Chris Dumez  <cdumez@apple.com>
+
+        Disable Beacon API on WK1 DRT and WK2 when not using NETWORK_SESSION
+        https://bugs.webkit.org/show_bug.cgi?id=175401
+
+        Reviewed by Brady Eidson.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences beaconAPIEnabled]): Deleted.
+        (-[WebPreferences setBeaconAPIEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-09  Yoshiaki Jitsukawa  <Yoshiaki.Jitsukawa@sony.com>
+
+        [PAL] Move spi/cocoa and spi/cg directories into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175175
+
+        Reviewed by Myles C. Maxfield.
+
+        * History/WebHistory.mm:
+        * Misc/WebDownload.mm:
+        * Misc/WebKitNSStringExtras.mm:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        * Plugins/WebPluginDatabase.mm:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebInspector/WebNodeHighlight.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebIndicateLayer.mm:
+        * WebView/WebView.mm:
+        * WebView/WebViewData.h:
+
+2017-08-09  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS DnD] ENABLE_DRAG_SUPPORT should be turned off for iOS 10 and enabled by default
+        https://bugs.webkit.org/show_bug.cgi?id=175392
+        <rdar://problem/33783207>
+
+        Reviewed by Tim Horton and Megan Gardner.
+
+        Tweak FeatureDefines to enable drag and drop by default, and disable only on unsupported platforms (i.e. iOS 10).
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-09  Daniel Bates  <dabates@apple.com>
+
+        REGRESSION (r219013): OAuth flows are broken when redirecting back to application after authentication
+        https://bugs.webkit.org/show_bug.cgi?id=175247
+        <rdar://problem/33679804>
+
+        Reviewed by Brady Eidson.
+
+        Plumb knowledge of whether a navigation was in response to receiving a redirect response.
+        We do not actually make use of this knowledge in WebKitLegacy because we do not know of any
+        clients that need to make use of this information at this time. If such a needs comes up
+        then we can expose API/SPI similar to what we do for WebKit.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+
+2017-08-08  Brady Eidson  <beidson@apple.com>
+
+        Don't enable default icon loading in WK1 for apps linked against old SDKs.
+        <rdar://problem/33724060> and https://bugs.webkit.org/show_bug.cgi?id=175342
+
+        Reviewed by Andy Estes.
+
+        * Misc/WebKitVersionChecks.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::getLoadDecisionForIcons): Don't do any icon loading unless
+          the app is linked against new WebKit with the new behavior.
+
+2017-08-07  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Preview Canvas path when viewing a recording
+        https://bugs.webkit.org/show_bug.cgi?id=174967
+
+        Reviewed by Brian Burg.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences inspectorAdditionsEnabled]):
+        (-[WebPreferences setInspectorAdditionsEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+        Add plumbing for new InspectorAdditions runtime flag.
+
+2017-08-07  Brian Burg  <bburg@apple.com>
+
+        Remove CANVAS_PATH compilation guard
+        https://bugs.webkit.org/show_bug.cgi?id=175207
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-04  Youenn Fablet  <youenn@apple.com>
+
+        [Cache API] Add Cache and CacheStorage IDL definitions
+        https://bugs.webkit.org/show_bug.cgi?id=175201
+
+        Reviewed by Brady Eidson.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences cacheAPIEnabled]):
+        (-[WebPreferences setCacheAPIEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-04  Matt Lewis  <jlewis3@apple.com>
+
+        Unreviewed, rolling out r220271.
+
+        Rolling out due to Layout Test failing on iOS Simulator.
+
+        Reverted changeset:
+
+        "Remove STREAMS_API compilation guard"
+        https://bugs.webkit.org/show_bug.cgi?id=175165
+        http://trac.webkit.org/changeset/220271
+
+2017-08-04  Youenn Fablet  <youenn@apple.com>
+
+        Remove STREAMS_API compilation guard
+        https://bugs.webkit.org/show_bug.cgi?id=175165
+
+        Reviewed by Darin Adler.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-03  Brian Burg  <bburg@apple.com>
+
+        Remove ENABLE(WEB_SOCKET) guards
+        https://bugs.webkit.org/show_bug.cgi?id=167044
+
+        Reviewed by Joseph Pecoraro.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebPreferencesPrivate.h:
+
+2017-08-03  Yoshiaki Jitsukawa  <jitsu@rd.scei.sony.co.jp>
+
+        [PAL] Move spi/cf directory into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175057
+
+        Reviewed by Antti Koivisto.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        * Plugins/WebNetscapePluginStream.mm:
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+        * WebView/WebPreferences.mm:
+        * WebView/WebView.mm:
+
+2017-08-03  Youenn Fablet  <youenn@apple.com>
+
+        Remove FETCH_API compilation guard
+        https://bugs.webkit.org/show_bug.cgi?id=175154
+
+        Reviewed by Chris Dumez.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-08-03  Brady Eidson  <beidson@apple.com>
+
+        Add SW IDLs and stub out basic functionality.
+        https://bugs.webkit.org/show_bug.cgi?id=175115
+
+        Reviewed by Chris Dumez.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-08-02  Sam Weinig  <sam@webkit.org>
+
+        [WebIDL] Convert MutationCallback to be a normal generated callback
+        https://bugs.webkit.org/show_bug.cgi?id=174140
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOMDocument.mm:
+        (-[DOMDocument createNodeIterator:whatToShow:filter:expandEntityReferences:]):
+        (-[DOMDocument createTreeWalker:whatToShow:filter:expandEntityReferences:]):
+        Pass, now necessary, Document to NativeNodeFilter constructor.
+
+2017-08-01  Chris Dumez  <cdumez@apple.com>
+
+        Add initial support for navigator.sendBeacon
+        https://bugs.webkit.org/show_bug.cgi?id=175007
+        <rdar://problem/33547728>
+
+        Reviewed by Sam Weinig.
+
+        Add setting to toggle support for the Beacon API (it is disabled by default).
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences beaconAPIEnabled]):
+        (-[WebPreferences setBeaconAPIEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2017-07-28  Jeremy Jones  <jeremyj@apple.com>
+
+        Remove Web prefix from WebVideoFullscreen and WebPlaybackSession classes.
+        https://bugs.webkit.org/show_bug.cgi?id=174437
+
+        Reviewed by Darin Adler.
+
+        Remove redundant Web- prefix from classes in WebKit namespace.
+
+        * WebView/WebView.mm:
+        (-[WebView _setUpPlaybackControlsManagerForMediaElement:]):
+        * WebView/WebViewData.h:
+        * WebView/WebViewData.mm:
+
+2017-07-26  Brian Burg  <bburg@apple.com>
+
+        Remove WEB_TIMING feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=174795
+
+        Reviewed by Alex Christensen.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2017-07-25  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        Async image decoding for large images should be disabled after the first time a tile is painted
+        https://bugs.webkit.org/show_bug.cgi?id=174451
+        <rdar://problem/31246421>
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _paintBehaviorForDestinationContext:]):
+        (-[WebFrame _drawRect:contentsOnly:]):
+        * WebView/WebHTMLView.mm:
+        (imageFromRect):
+
+2017-07-23  Darin Adler  <darin@apple.com>
+
+        More NeverDestroyed and related cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=174745
+
+        Reviewed by Alex Christensen.
+
+        * DOM/DOMUIKitExtensions.mm: Removed a lot of unneeded "using"
+        for names that aren't even used in this file.
+        (-[DOMNode boundingBoxes]): Use @[] syntax instead of
+        -[NSArray arrayWithObject:].
+        (-[DOMNode absoluteQuads]): Ditto.
+        (-[DOMNode findExplodedTextNodeAtPoint:]): Use auto* instead
+        of writing out various types.
+        (-[DOMHTMLAreaElement boundingBoxesWithOwner:]): Use @[]
+        syntax instea of -[NSArray arrayWithObject:].
+        (-[DOMHTMLAreaElement absoluteQuadsWithOwner:]): Ditto.
+        (-[DOMHTMLImageElement dataRepresentation:]): Use auto* instead
+        of writing out various types.
+        (-[DOMHTMLImageElement mimeType]): Ditto.
+
+2017-07-24  Chris Dumez  <cdumez@apple.com>
+
+        ExceptionCode enumeration should use modern exception names
+        https://bugs.webkit.org/show_bug.cgi?id=174794
+
+        Reviewed by Geoffrey Garen.
+
+        * DOM/ExceptionHandlers.mm:
+        (raiseNotSupportedErrorException):
+
+2017-07-23  Chris Dumez  <cdumez@apple.com>
+
+        Drop ExceptionCodeDescription class
+        https://bugs.webkit.org/show_bug.cgi?id=174757
+
+        Reviewed by Darin Adler.
+
+        Stop using ExceptionCodeDescription.
+
+        * DOM/ExceptionHandlers.mm:
+        (raiseDOMErrorException):
+
+2017-07-21  Andreas Kling  <akling@apple.com>
+
+        Use more references in event dispatch code
+        https://bugs.webkit.org/show_bug.cgi?id=174681
+
+        Reviewed by Geoffrey Garen.
+
+        * DOM/ObjCEventListener.h:
+        * DOM/ObjCEventListener.mm:
+        (WebCore::ObjCEventListener::handleEvent):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (NetscapePluginWidget::handleEvent):
+
+2017-07-21  Brady Eidson  <beidson@apple.com>
+
+        Get rid of WebCore IconDatabase code.
+        https://bugs.webkit.org/show_bug.cgi?id=174700
+
+        Reviewed by Tim Horton.
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics iconPageURLMappingCount]):
+        (+[WebCoreStatistics iconRetainedPageURLCount]):
+        (+[WebCoreStatistics iconRecordCount]):
+        (+[WebCoreStatistics iconsWithDataCount]):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebIconDatabaseClient.h: Removed.
+        * WebCoreSupport/WebIconDatabaseClient.mm: Removed.
+        * WebView/WebView.mm:
+        (-[WebView mainFrameIconURL]):
+
+2017-07-20  Chris Dumez  <cdumez@apple.com>
+
+        Drop legacy XPathException type
+        https://bugs.webkit.org/show_bug.cgi?id=174679
+
+        Reviewed by Sam Weinig.
+
+        Drop legacy XPathException type and use DOMException instead. Both Firefox and Chrome
+        no longer expose XPathException.
+
+        * DOM/ExceptionHandlers.mm:
+        (raiseDOMErrorException):
+
+2017-07-20  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, rolling out r219706.
+
+        Broke iOS build
+
+        Reverted changeset:
+
+        "Drop legacy XPathException type"
+        https://bugs.webkit.org/show_bug.cgi?id=174679
+        http://trac.webkit.org/changeset/219706
+
+2017-07-20  Chris Dumez  <cdumez@apple.com>
+
+        Drop legacy XPathException type
+        https://bugs.webkit.org/show_bug.cgi?id=174679
+
+        Reviewed by Sam Weinig.
+
+        Drop legacy XPathException type and use DOMException instead. Both Firefox and Chrome
+        no longer expose XPathException.
+
+        * DOM/ExceptionHandlers.mm:
+        (raiseDOMErrorException):
+        * WebKit.exp:
+
+2017-07-20  Chris Dumez  <cdumez@apple.com>
+
+        Replace calls to Vector::resize() with calls to more efficient shrink() / grow() when applicable
+        https://bugs.webkit.org/show_bug.cgi?id=174660
+
+        Reviewed by Geoffrey Garen.
+
+        Replace calls to Vector::resize() with calls to more efficient shrink() / grow() when applicable.
+        This essentially replaces a branch to figure out if the new size is less or greater than the
+        current size by an assertion.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+
+2017-07-20  Brady Eidson  <beidson@apple.com>
+
+        Deprecate WebIconDatabase in WebKitLegacy/mac.
+        https://bugs.webkit.org/show_bug.cgi?id=174607
+
+        Reviewed by Alex Christensen.
+
+        This patch:
+        1 - Formally deprecates WebIconDatabase (which was never API anyways)
+        2 - Guts the class to where it can only return the default icon at the small size
+        3 - Reworks other parts of WebKitLegacy that used it for anything to either
+            use something else or to not do anything.
+        
+        This patch *could* go much farther. A future patch is what will remove WebCore/IconDatabase
+        and that patch will remove all of the last remnants of WebIconDatabase.
+        
+        * History/WebHistoryItem.mm:
+        (-[WebHistoryItem icon]):
+
+        * Misc/WebIconDatabase.h:
+        * Misc/WebIconDatabase.mm:
+        (-[WebIconDatabase init]):
+        (-[WebIconDatabase iconForURL:withSize:cache:]):
+        (-[WebIconDatabase iconForURL:withSize:]):
+        (-[WebIconDatabase defaultIconWithSize:]):
+        (-[WebIconDatabase defaultIconForURL:withSize:]):
+        (-[WebIconDatabase iconURLForURL:]):
+        (-[WebIconDatabase retainIconForURL:]):
+        (-[WebIconDatabase releaseIconForURL:]):
+        (+[WebIconDatabase delayDatabaseCleanup]):
+        (+[WebIconDatabase allowDatabaseCleanup]):
+        (-[WebIconDatabase setDelegate:]):
+        (-[WebIconDatabase delegate]):
+        (+[WebIconDatabase initialize]): Deleted.
+        (-[WebIconDatabase isEnabled]): Deleted.
+        (-[WebIconDatabase setEnabled:]): Deleted.
+        (-[WebIconDatabase removeAllIcons]): Deleted.
+        (+[WebIconDatabase _checkIntegrityBeforeOpening]): Deleted.
+        (-[WebIconDatabase _sendNotificationForURL:]): Deleted.
+        (-[WebIconDatabase _sendDidRemoveAllIconsNotification]): Deleted.
+        (-[WebIconDatabase _startUpIconDatabase]): Deleted.
+        (-[WebIconDatabase _shutDownIconDatabase]): Deleted.
+        (-[WebIconDatabase _applicationWillTerminate:]): Deleted.
+        (-[WebIconDatabase _iconForFileURL:withSize:]): Deleted.
+        (-[WebIconDatabase _resetCachedWebPreferences:]): Deleted.
+        (-[WebIconDatabase _largestIconFromDictionary:]): Deleted.
+        (-[WebIconDatabase _iconsBySplittingRepresentationsOfIcon:]): Deleted.
+        (-[WebIconDatabase _iconFromDictionary:forSize:cache:]): Deleted.
+        (-[WebIconDatabase _scaleIcon:toSize:]): Deleted.
+        (-[WebIconDatabase _databaseDirectory]): Deleted.
+        (webGetNSImage): Deleted.
+
+        * Misc/WebIconDatabaseDelegate.h: Removed.
+        * Misc/WebIconDatabaseInternal.h: Removed.
+        * Misc/WebIconDatabasePrivate.h: Removed.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (webGetNSImage):
+
+        * WebCoreSupport/WebIconDatabaseClient.mm:
+        (WebIconDatabaseClient::didRemoveAllIcons):
+        (WebIconDatabaseClient::didImportIconURLForPageURL):
+
+        * WebView/WebView.mm:
+        (-[WebView setFrameLoadDelegate:]):
+        (-[WebView mainFrameIcon]):
+
+2017-07-18  Andy Estes  <aestes@apple.com>
+
+        [Xcode] Enable CLANG_WARN_RANGE_LOOP_ANALYSIS
+        https://bugs.webkit.org/show_bug.cgi?id=174631
+
+        Reviewed by Tim Horton.
+
+        * Configurations/Base.xcconfig:
+
+2017-07-18  Andy Estes  <aestes@apple.com>
+
+        [Xcode] Enable CLANG_WARN_OBJC_LITERAL_CONVERSION
+        https://bugs.webkit.org/show_bug.cgi?id=174631
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2017-07-18  Andy Estes  <aestes@apple.com>
+
+        [Xcode] Enable CLANG_WARN_NON_LITERAL_NULL_CONVERSION
+        https://bugs.webkit.org/show_bug.cgi?id=174631
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/Base.xcconfig:
+
+2017-07-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS DnD] [WK1] Add missing calls to WebThreadLock() in some WebView drag-and-drop SPIs
+        https://bugs.webkit.org/show_bug.cgi?id=174640
+        <rdar://problem/33297400>
+
+        Reviewed by Tim Horton.
+
+        Adds a missing call to WebThreadLock() in -_requestStartDataInteraction:globalPosition:. Previously, this was
+        invoked at the call site in UIKit, but was removed after some refactoring in UIKit. Instead, we should lock the
+        web thread here, to match the other WebView drag and drop SPI methods.
+
+        This patch also adds a WebThreadLock() call in -_dataInteractionCaretRect. While this is fine today, since all
+        existing callers of _dataInteractionCaretRect already invoke other methods that WebThreadLock() beforehand, we
+        should make this robust against future UIKit changes that could make this no longer the case.
+
+        * WebView/WebView.mm:
+        (-[WebView _requestStartDataInteraction:globalPosition:]):
+        (-[WebView _dataInteractionCaretRect]):
+
+2017-07-18  Andy Estes  <aestes@apple.com>
+
+        [Xcode] Enable CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING
+        https://bugs.webkit.org/show_bug.cgi?id=174631
+
+        Reviewed by Darin Adler.
+
+        * Configurations/Base.xcconfig:
+
+2017-07-17  Sam Weinig  <sam@webkit.org>
+
+        [WebIDL] Remove custom bindings that require non-caching JS strings
+        https://bugs.webkit.org/show_bug.cgi?id=174552
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOMHTMLCanvasElement.mm:
+        (-[DOMHTMLCanvasElement toDataURL:]):
+        Update to account for implementation now returning an UncachedString.
+
+2017-07-17  Darin Adler  <darin@apple.com>
+
+        Improve use of NeverDestroyed
+        https://bugs.webkit.org/show_bug.cgi?id=174348
+
+        Reviewed by Sam Weinig.
+
+        * Misc/WebStringTruncator.mm:
+        (+[WebStringTruncator centerTruncateString:toWidth:]): Replace
+        NeverDestroyed<RetainPtr> with just an NSFont * global.
+
+        * Plugins/Hosted/NetscapePluginHostManager.h: Removed unneeded include of
+        NeverDestroyed.h.
+        * Storage/WebDatabaseManager.mm: Ditto.
+        * WebCoreSupport/WebFrameNetworkingContext.mm: Ditto.
+        * WebCoreSupport/WebPlatformStrategies.mm: Ditto.
+
+        * WebView/WebView.mm: Removed unneeded include of NetworkStateNotifier.h.
+        (aeDescFromJSValue): Removed double hashing by using the return value from
+        add rather than calling contains before calling add.
 
 2017-07-14  Jer Noble  <jer.noble@apple.com>
 

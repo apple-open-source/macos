@@ -33,7 +33,6 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSize.h>
-#include <chrono>
 #include <stdint.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RunLoop.h>
@@ -105,6 +104,8 @@ public:
 #if PLATFORM(COCOA)
     virtual WebCore::MachSendRight createFence();
 #endif
+
+    virtual void dispatchPresentationCallbacksAfterFlushingLayers(const Vector<CallbackID>&) { }
 
 protected:
     explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy&);

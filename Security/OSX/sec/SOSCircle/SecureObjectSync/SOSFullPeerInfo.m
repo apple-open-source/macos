@@ -102,9 +102,8 @@ static bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *e
     
     newPeer = create_modification(fullPeerInfo->peer_info, device_key, error);
     require_quiet(newPeer, fail);
-    
+
     CFTransferRetained(fullPeerInfo->peer_info, newPeer);
-    
     result = true;
     
 fail:
@@ -140,7 +139,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, allocator);
 
     CFStringRef IDSID = CFSTR("");
-    CFStringRef transportType = SOSTransportMessageTypeIDSV2;
+    CFStringRef transportType = SOSTransportMessageTypeKVS;
     CFBooleanRef preferIDS = kCFBooleanFalse;
     CFBooleanRef preferIDSFragmentation = kCFBooleanTrue;
     CFBooleanRef preferACKModel = kCFBooleanTrue;
@@ -175,7 +174,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCopyFullPeerInfo(SOSFullPeerInfoRef toCopy) {
     require_quiet(fpi, errOut);
     fpi->peer_info = SOSPeerInfoCreateCopy(kCFAllocatorDefault, piToCopy, NULL);
     require_quiet(fpi->peer_info, errOut);
-    fpi->key_ref = toCopy->key_ref;
+    fpi->key_ref = CFRetainSafe(toCopy->key_ref);
     CFTransferRetained(retval, fpi);
 
 errOut:
@@ -252,6 +251,7 @@ CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
 
 exit:
     CFReleaseNull(query);
+    CFReleaseNull(pubKey);
 
     secnotice("fpi","no private key found");
     return (CFDataRef)vData;
@@ -360,8 +360,7 @@ static CFStringRef SOSFullPeerInfoCopyFormatDescription(CFTypeRef aObj, CFDictio
 bool SOSFullPeerInfoUpdateGestalt(SOSFullPeerInfoRef peer, CFDictionaryRef gestalt, CFErrorRef* error)
 {
     return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoCopyWithGestaltUpdate(kCFAllocatorDefault, peer,
-                                                                                                 gestalt, key, error);
+        return SOSPeerInfoCopyWithGestaltUpdate(kCFAllocatorDefault, peer, gestalt, key, error);
     });
 }
 

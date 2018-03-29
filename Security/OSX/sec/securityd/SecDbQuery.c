@@ -41,7 +41,7 @@
 #include <Security/SecItemInternal.h>
 #include <Security/SecAccessControl.h>
 #include <Security/SecAccessControlPriv.h>
-#include <Security/SecPolicyInternal.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/SecuritydXPC.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonDigestSPI.h>

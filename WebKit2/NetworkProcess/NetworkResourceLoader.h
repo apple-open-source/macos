@@ -77,7 +77,7 @@ public:
     const WebCore::ResourceResponse& response() const { return m_response; }
 
     NetworkConnectionToWebProcess& connectionToWebProcess() { return m_connection; }
-    WebCore::SessionID sessionID() const { return m_parameters.sessionID; }
+    PAL::SessionID sessionID() const { return m_parameters.sessionID; }
     ResourceLoadIdentifier identifier() const { return m_parameters.identifier; }
     uint64_t frameID() const { return m_parameters.webFrameID; }
     uint64_t pageID() const { return m_parameters.webPageID; }
@@ -96,6 +96,7 @@ public:
     void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) override;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) override;
     void didFailLoading(const WebCore::ResourceError&) override;
+    void didBlockAuthenticationChallenge() override;
     bool shouldCaptureExtraNetworkLoadMetrics() const override;
 
     void convertToDownload(DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
@@ -110,7 +111,6 @@ private:
     IPC::Connection* messageSenderConnection() override;
     uint64_t messageSenderDestinationID() override { return m_parameters.identifier; }
 
-#if ENABLE(NETWORK_CACHE)
     bool canUseCache(const WebCore::ResourceRequest&) const;
     bool canUseCachedRedirect(const WebCore::ResourceRequest&) const;
 
@@ -120,7 +120,6 @@ private:
     void sendResultForCacheEntry(std::unique_ptr<NetworkCache::Entry>);
     void validateCacheEntry(std::unique_ptr<NetworkCache::Entry>);
     void dispatchWillSendRequestForCacheEntry(std::unique_ptr<NetworkCache::Entry>);
-#endif
 
     void startNetworkLoad(const WebCore::ResourceRequest&);
     void continueDidReceiveResponse();
@@ -135,6 +134,11 @@ private:
 
     void consumeSandboxExtensions();
     void invalidateSandboxExtensions();
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    bool shouldLogCookieInformation() const;
+    void logCookieInformation() const;
+#endif
 
     const NetworkResourceLoadParameters m_parameters;
 
@@ -161,11 +165,10 @@ private:
     unsigned m_retrievedDerivedDataCount { 0 };
 
     WebCore::Timer m_bufferingTimer;
-#if ENABLE(NETWORK_CACHE)
+    RefPtr<NetworkCache::Cache> m_cache;
     RefPtr<WebCore::SharedBuffer> m_bufferedDataForCache;
     std::unique_ptr<NetworkCache::Entry> m_cacheEntryForValidation;
     bool m_isWaitingContinueWillSendRequestForCachedRedirect { false };
-#endif
 };
 
 } // namespace WebKit

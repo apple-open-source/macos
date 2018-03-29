@@ -34,7 +34,13 @@
 
 namespace WebCore {
 
+class GraphicsContextPlatformPrivate;
 struct GraphicsContextState;
+
+namespace Cairo {
+struct FillSource;
+struct StrokeSource;
+}
 
 // Much like PlatformContextSkia in the Skia port, this class holds information that
 // would normally be private to GraphicsContext, except that we want to allow access
@@ -50,7 +56,11 @@ public:
     cairo_t* cr() { return m_cr.get(); }
     void setCr(cairo_t* cr) { m_cr = cr; }
 
+    GraphicsContextPlatformPrivate* graphicsContextPrivate() { return m_graphicsContextPrivate; }
+    void setGraphicsContextPrivate(GraphicsContextPlatformPrivate* graphicsContextPrivate) { m_graphicsContextPrivate = graphicsContextPrivate; }
+
     ShadowBlur& shadowBlur() { return m_shadowBlur; }
+    Vector<float>& layers() { return m_layers; }
 
     void save();
     void restore();
@@ -64,15 +74,20 @@ public:
     InterpolationQuality imageInterpolationQuality() const;
 
     enum PatternAdjustment { NoAdjustment, AdjustPatternForGlobalAlpha };
-    void prepareForFilling(const GraphicsContextState&, PatternAdjustment);
+    void prepareForFilling(const Cairo::FillSource&, PatternAdjustment);
 
     enum AlphaPreservation { DoNotPreserveAlpha, PreserveAlpha };
-    void prepareForStroking(const GraphicsContextState&, AlphaPreservation = PreserveAlpha);
+    void prepareForStroking(const Cairo::StrokeSource&, AlphaPreservation);
 
 private:
-    void clipForPatternFilling(const GraphicsContextState&);
+    void clipForPatternFilling(const FloatSize&, const AffineTransform&, bool, bool);
 
     RefPtr<cairo_t> m_cr;
+
+    // Keeping a pointer to GraphicsContextPlatformPrivate here enables calling
+    // Windows-specific methods from CairoOperations (where only PlatformContextCairo
+    // can be leveraged).
+    GraphicsContextPlatformPrivate* m_graphicsContextPrivate { nullptr };
 
     class State;
     State* m_state;
@@ -81,7 +96,8 @@ private:
     // GraphicsContext is responsible for managing the state of the ShadowBlur,
     // so it does not need to be on the state stack.
     ShadowBlur m_shadowBlur;
-
+    // Transparency layers.
+    Vector<float> m_layers;
 };
 
 } // namespace WebCore

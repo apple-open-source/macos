@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2005, 2007, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2005, 2007, 2011-2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000, 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id$
+# $Id: tests.sh,v 1.37 2012/02/22 23:47:35 tbox Exp $
 
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
@@ -23,7 +23,9 @@ SYSTEMTESTTOP=..
 DIGOPTS="+tcp +noadd +nosea +nostat +noquest +nocomm +nocmd"
 
 status=0
+n=0
 
+n=`expr $n + 1`
 echo "I:testing basic zone transfer functionality"
 $DIG $DIGOPTS example. \
 	@10.53.0.2 axfr -p 5300 > dig.out.ns2 || status=1
@@ -49,6 +51,7 @@ $PERL ../digcomp.pl dig1.good dig.out.ns2 || status=1
 
 $PERL ../digcomp.pl dig1.good dig.out.ns3 || status=1
 
+n=`expr $n + 1`
 echo "I:testing TSIG signed zone transfers"
 $DIG $DIGOPTS tsigzone. \
     	@10.53.0.2 axfr -y tsigzone.:1234abcd8765 -p 5300 \
@@ -124,6 +127,7 @@ grep "1397051952 ; serial" ns2/slave.db > /dev/null 2>&1 || tmp=1
 if test $tmp != 0 ; then echo "I:failed"; fi
 status=`expr $status + $tmp`
 
+n=`expr $n + 1`
 echo "I:testing ixfr-from-differences yes;"
 tmp=0
 for i in 0 1 2 3 4 5 6 7 8 9
@@ -146,6 +150,7 @@ test -f ns3/example.bk.jnl || tmp=1
 if test $tmp != 0 ; then echo "I:failed"; fi
 status=`expr $status + $tmp`
 
+n=`expr $n + 1`
 echo "I:testing ixfr-from-differences master; (master zone)"
 tmp=0
 
@@ -166,6 +171,7 @@ test -f ns3/master.bk.jnl || tmp=1
 if test $tmp != 0 ; then echo "I:failed"; fi
 status=`expr $status + $tmp`
 
+n=`expr $n + 1`
 echo "I:testing ixfr-from-differences master; (slave zone)"
 tmp=0
 
@@ -186,6 +192,7 @@ test -f ns6/slave.bk.jnl && tmp=1
 if test $tmp != 0 ; then echo "I:failed"; fi
 status=`expr $status + $tmp`
 
+n=`expr $n + 1`
 echo "I:testing ixfr-from-differences slave; (master zone)"
 tmp=0
 
@@ -195,6 +202,8 @@ test -f ns7/master2.db.jnl && tmp=1
 
 if test $tmp != 0 ; then echo "I:failed"; fi
 status=`expr $status + $tmp`
+
+n=`expr $n + 1`
 echo "I:testing ixfr-from-differences slave; (slave zone)"
 tmp=0
 
@@ -235,7 +244,7 @@ $SENDCMD < ans5/goodaxfr
 sleep 1
 
 # Initially, ns4 is not authoritative for anything.
-# Now that ans is up and running with the right data, we make it
+# Now that ans is up and running with the right data, we make ns4
 # a slave for nil.
 
 cat <<EOF >>ns4/named.conf
@@ -246,8 +255,9 @@ zone "nil" {
 };
 EOF
 
-$RNDCCMD reload | sed 's/^/I:ns4 /'
+cur=`awk 'END {print NR}' ns4/named.run`
 
+$RNDCCMD reload | sed 's/^/I:ns4 /'
 
 for i in 0 1 2 3 4 5 6 7 8 9
 do
@@ -255,6 +265,12 @@ do
 	grep SOA dig.out.ns4 > /dev/null && break
 	sleep 1
 done
+
+sed -n "$cur,\$p" < ns4/named.run | grep "Transfer status: success" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
 
 $DIGCMD nil. TXT | grep 'initial AXFR' >/dev/null || {
     echo "I:failed"
@@ -270,6 +286,12 @@ $RNDCCMD retransfer nil | sed 's/^/I:ns4 /'
 
 sleep 2
 
+sed -n "$cur,\$p" < ns4/named.run | grep "Transfer status: expected a TSIG or SIG(0)" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
+
 $DIGCMD nil. TXT | grep 'unsigned AXFR' >/dev/null && {
     echo "I:failed"
     status=1
@@ -283,6 +305,12 @@ sleep 1
 $RNDCCMD retransfer nil | sed 's/^/I:ns4 /'
 
 sleep 2
+
+sed -n "$cur,\$p" < ns4/named.run | grep "Transfer status: tsig verify failure" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
 
 $DIGCMD nil. TXT | grep 'bad keydata AXFR' >/dev/null && {
     echo "I:failed"
@@ -298,6 +326,12 @@ $RNDCCMD retransfer nil | sed 's/^/I:ns4 /'
 
 sleep 2
 
+sed -n "$cur,\$p" < ns4/named.run | grep "Transfer status: expected a TSIG or SIG(0)" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
+
 $DIGCMD nil. TXT | grep 'partially signed AXFR' >/dev/null && {
     echo "I:failed"
     status=1
@@ -311,6 +345,12 @@ sleep 1
 $RNDCCMD retransfer nil | sed 's/^/I:ns4 /'
 
 sleep 2
+
+sed -n "$cur,\$p" < ns4/named.run | grep "tsig key 'tsig_key': key name and algorithm do not match" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
 
 $DIGCMD nil. TXT | grep 'unknown key AXFR' >/dev/null && {
     echo "I:failed"
@@ -326,10 +366,56 @@ $RNDCCMD retransfer nil | sed 's/^/I:ns4 /'
 
 sleep 2
 
+sed -n "$cur,\$p" < ns4/named.run | grep "tsig key 'tsig_key': key name and algorithm do not match" > /dev/null || {
+    echo "I: failed: expected status was not logged"
+    status=1
+}
+cur=`awk 'END {print NR}' ns4/named.run`
+
 $DIGCMD nil. TXT | grep 'incorrect key AXFR' >/dev/null && {
     echo "I:failed"
     status=1
 }
 
+n=`expr $n + 1`
+echo "I:test mapped zone with out of zone data ($n)"
+tmp=0
+$DIG -p 5300 txt mapped @10.53.0.3 > dig.out.1.$n
+grep "status: NOERROR," dig.out.1.$n > /dev/null || tmp=1
+$PERL $SYSTEMTESTTOP/stop.pl . ns3
+$PERL $SYSTEMTESTTOP/start.pl --noclean --restart . ns3
+$DIG -p 5300 txt mapped @10.53.0.3 > dig.out.2.$n
+grep "status: NOERROR," dig.out.2.$n > /dev/null || tmp=1
+$DIG -p 5300 axfr mapped @10.53.0.3 > dig.out.3.$n
+$PERL ../digcomp.pl knowngood.mapped dig.out.3.$n || tmp=1
+if test $tmp != 0 ; then echo "I:failed"; fi
+status=`expr $status + $tmp`
+
+n=`expr $n + 1`
+echo "I:test that a zone with too many records is rejected (AXFR) ($n)"
+tmp=0
+grep "'axfr-too-big/IN'.*: too many records" ns6/named.run >/dev/null || tmp=1
+if test $tmp != 0 ; then echo "I:failed"; fi
+status=`expr $status + $tmp`
+
+n=`expr $n + 1`
+echo "I:test that a zone with too many records is rejected (IXFR) ($n)"
+tmp=0
+grep "'ixfr-too-big./IN.*: too many records" ns6/named.run >/dev/null && tmp=1
+$NSUPDATE << EOF
+zone ixfr-too-big
+server 10.53.0.1 5300
+update add the-31st-record.ixfr-too-big 0 TXT this is it
+send
+EOF
+for i in 1 2 3 4 5 6 7 8
+do
+    grep "'ixfr-too-big/IN'.*: too many records" ns6/named.run >/dev/null && break
+    sleep 1
+done
+grep "'ixfr-too-big/IN'.*: too many records" ns6/named.run >/dev/null || tmp=1
+if test $tmp != 0 ; then echo "I:failed"; fi
+status=`expr $status + $tmp`
+
 echo "I:exit status: $status"
-exit $status
+[ $status -eq 0 ] || exit 1

@@ -40,32 +40,30 @@ public:
     // actually somewhat likely because of how we do buffering of new cases.
     CallLinkInfo* callLinkInfo() const { return m_callLinkInfo.get(); }
     JSObject* customSlotBase() const { return m_customSlotBase.get(); }
-    DOMJIT::GetterSetter* domJIT() const { return m_domJIT; }
+    std::optional<DOMAttributeAnnotation> domAttribute() const { return m_domAttribute; }
 
     JSObject* alternateBase() const override;
 
-    void emitDOMJITGetter(AccessGenerationState&, GPRReg baseForGetGPR);
+    void emitDOMJITGetter(AccessGenerationState&, const DOMJIT::GetterSetter*, GPRReg baseForGetGPR);
 
     static std::unique_ptr<AccessCase> create(
         VM&, JSCell* owner, AccessType, PropertyOffset, Structure*,
-        const ObjectPropertyConditionSet& = ObjectPropertyConditionSet(),
-        bool viaProxy = false,
-        WatchpointSet* additionalSet = nullptr,
-        PropertySlot::GetValueFunc = nullptr,
-        JSObject* customSlotBase = nullptr,
-        DOMJIT::GetterSetter* = nullptr);
+        const ObjectPropertyConditionSet&, bool viaProxy, WatchpointSet* additionalSet, PropertySlot::GetValueFunc,
+        JSObject* customSlotBase, std::optional<DOMAttributeAnnotation>, std::unique_ptr<PolyProtoAccessChain>);
 
     static std::unique_ptr<AccessCase> create(VM&, JSCell* owner, AccessType, Structure*, PropertyOffset,
-        const ObjectPropertyConditionSet&, PutPropertySlot::PutValueFunc = nullptr,
-        JSObject* customSlotBase = nullptr);
+        const ObjectPropertyConditionSet&, std::unique_ptr<PolyProtoAccessChain>,
+        PutPropertySlot::PutValueFunc = nullptr, JSObject* customSlotBase = nullptr);
 
     void dumpImpl(PrintStream&, CommaPrinter&) const override;
     std::unique_ptr<AccessCase> clone() const override;
 
     ~GetterSetterAccessCase();
 
+    void* customAccessor() const { return m_customAccessor.opaque; }
+
 private:
-    GetterSetterAccessCase(VM&, JSCell*, AccessType, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, bool viaProxy, WatchpointSet* additionalSet, JSObject* customSlotBase);
+    GetterSetterAccessCase(VM&, JSCell*, AccessType, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, bool viaProxy, WatchpointSet* additionalSet, JSObject* customSlotBase, std::unique_ptr<PolyProtoAccessChain>);
 
     GetterSetterAccessCase(const GetterSetterAccessCase&);
 
@@ -76,7 +74,7 @@ private:
         PropertySlot::GetValueFunc getter;
         void* opaque;
     } m_customAccessor;
-    DOMJIT::GetterSetter* m_domJIT;
+    std::optional<DOMAttributeAnnotation> m_domAttribute;
 };
 
 } // namespace JSC

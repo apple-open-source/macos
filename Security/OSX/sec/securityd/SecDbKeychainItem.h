@@ -35,12 +35,14 @@
 __BEGIN_DECLS
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error);
-bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef operation, SecAccessControlRef *paccess_control, CFDataRef acm_context,
+                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error);
+bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
+                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error); // used for backup
+bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef *paccess_control, CFDataRef acm_context,
                      CFDataRef blob, const SecDbClass *db_class, CFArrayRef caller_access_groups,
-                     CFMutableDictionaryRef *attributes_p, uint32_t *version_p, CFErrorRef *error);
+                     CFMutableDictionaryRef *attributes_p, uint32_t *version_p, bool decryptSecretData, keyclass_t* outKeyclass, CFErrorRef *error);
 bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
-                         CFMutableDictionaryRef *item, SecAccessControlRef *access_control, CFErrorRef *error);
+                         CFMutableDictionaryRef *item, SecAccessControlRef *access_control, keyclass_t* keyclass, CFErrorRef *error);
 SecDbItemRef SecDbItemCreateWithBackupDictionary(CFAllocatorRef allocator, const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef *error);
 bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error);
 bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error);
@@ -53,6 +55,8 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
 
 SecAccessControlRef SecDbItemCopyAccessControl(SecDbItemRef item, CFErrorRef *error);
 bool SecDbItemSetAccessControl(SecDbItemRef item, SecAccessControlRef access_control, CFErrorRef *error);
+
+void SecDbResetMetadataKeys(void);
 
 __END_DECLS
 

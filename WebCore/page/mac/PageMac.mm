@@ -35,6 +35,7 @@
 #import "Logging.h"
 #import "MainFrame.h"
 #import "RenderObject.h"
+#import <pal/Logging.h>
 
 #if PLATFORM(IOS)
 #import "WebCoreThreadInternal.h"
@@ -45,24 +46,16 @@ namespace WebCore {
 void Page::platformInitialize()
 {
 #if PLATFORM(IOS)
-#if USE(CFURLCONNECTION)
-    addSchedulePair(SchedulePair::create(WebThreadRunLoop(), kCFRunLoopCommonModes));
-#else
     addSchedulePair(SchedulePair::create(WebThreadNSRunLoop(), kCFRunLoopCommonModes));
-#endif // USE(CFURLCONNECTION)
 #else
-#if USE(CFURLCONNECTION)
     addSchedulePair(SchedulePair::create([[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes));
-#else
-    addSchedulePair(SchedulePair::create([NSRunLoop currentRunLoop], kCFRunLoopCommonModes));
-#endif
 #endif
 
 #if ENABLE(TREE_DEBUGGING)
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
-        registerNotifyCallback("com.apple.WebKit.showRenderTree", printRenderTreeForLiveDocuments);
-        registerNotifyCallback("com.apple.WebKit.showLayerTree", printLayerTreeForLiveDocuments);
+        PAL::registerNotifyCallback("com.apple.WebKit.showRenderTree", printRenderTreeForLiveDocuments);
+        PAL::registerNotifyCallback("com.apple.WebKit.showLayerTree", printLayerTreeForLiveDocuments);
     });
 #endif
 }
@@ -73,14 +66,12 @@ void Page::addSchedulePair(Ref<SchedulePair>&& pair)
         m_scheduledRunLoopPairs = std::make_unique<SchedulePairHashSet>();
     m_scheduledRunLoopPairs->add(pair.ptr());
 
-#if !USE(CFURLCONNECTION)
     for (Frame* frame = &m_mainFrame.get(); frame; frame = frame->tree().traverseNext()) {
         if (DocumentLoader* documentLoader = frame->loader().documentLoader())
             documentLoader->schedule(pair);
         if (DocumentLoader* documentLoader = frame->loader().provisionalDocumentLoader())
             documentLoader->schedule(pair);
     }
-#endif
 
     // FIXME: make SharedTimerMac use these SchedulePairs.
 }
@@ -93,14 +84,12 @@ void Page::removeSchedulePair(Ref<SchedulePair>&& pair)
 
     m_scheduledRunLoopPairs->remove(pair.ptr());
 
-#if !USE(CFURLCONNECTION)
     for (Frame* frame = &m_mainFrame.get(); frame; frame = frame->tree().traverseNext()) {
         if (DocumentLoader* documentLoader = frame->loader().documentLoader())
             documentLoader->unschedule(pair);
         if (DocumentLoader* documentLoader = frame->loader().provisionalDocumentLoader())
             documentLoader->unschedule(pair);
     }
-#endif
 }
 
 } // namespace

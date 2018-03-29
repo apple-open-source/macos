@@ -9,3 +9,69 @@
              CRYPTO_add(&issuer->references, 1, CRYPTO_LOCK_X509);
  #else
              X509_up_ref(issuer);
+
+--- modules/ssl/ssl_engine_init.c.orig	2017-09-08 05:20:16.000000000 -0700
++++ modules/ssl/ssl_engine_init.c	2018-01-16 16:54:57.000000000 -0800
+@@ -541,7 +544,7 @@
+     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
+                  "Creating new SSL context (protocols: %s)", cp);
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #ifndef OPENSSL_NO_SSL3
+     if (protocol == SSL_PROTOCOL_SSLV3) {
+         method = mctx->pkp ?
+@@ -583,7 +586,11 @@
+ 
+     SSL_CTX_set_options(ctx, SSL_OP_ALL);
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    if (sc->allow_empty_fragments) {
++        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
++    }
++
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     /* always disable SSLv2, as per RFC 6176 */
+     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+ 
+@@ -607,7 +614,7 @@
+     }
+ #endif
+ 
+-#else /* #if OPENSSL_VERSION_NUMBER < 0x10100000L */
++#else /* #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) */
+     /* We first determine the maximum protocol version we should provide */
+     if (protocol & SSL_PROTOCOL_TLSV1_2) {
+         prot = TLS1_2_VERSION;
+@@ -642,7 +649,7 @@
+     }
+ #endif
+     SSL_CTX_set_min_proto_version(ctx, prot);
+-#endif /* if OPENSSL_VERSION_NUMBER < 0x10100000L */
++#endif /* if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) */
+ 
+ #ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
+     if (sc->cipher_server_pref == TRUE) {
+--- modules/ssl/ssl_engine_kernel.c.orig        2017-05-02 11:01:17 UTC
++++ modules/ssl/ssl_engine_kernel.c
+@@ -2455,7 +2455,7 @@
+     SRP_user_pwd *u;
+ 
+     if (username == NULL
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+         || (u = SRP_VBASE_get_by_user(mctx->srp_vbase, username)) == NULL) {
+ #else
+         || (u = SRP_VBASE_get1_by_user(mctx->srp_vbase, username)) == NULL) {
+--- modules/ssl/ssl_engine_vars.c.orig  2017-03-20 12:01:16 UTC
++++ modules/ssl/ssl_engine_vars.c
+@@ -541,7 +541,7 @@ 
+         resdup = FALSE;
+     }
+     else if (strcEQ(var, "A_KEY")) {
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+         nid = OBJ_obj2nid((ASN1_OBJECT *)(xs->cert_info->key->algor->algorithm));
+ #else
+         ASN1_OBJECT *paobj;
+

@@ -181,7 +181,7 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
 }
 
 #if USE_KEYSTORE
-static bool ks_access_control_needed_error(CFErrorRef *error, CFDataRef access_control_data, CFTypeRef operation) {
+bool ks_access_control_needed_error(CFErrorRef *error, CFDataRef access_control_data, CFTypeRef operation) {
     if (error == NULL)
         return false;
 
@@ -268,7 +268,7 @@ bool ks_separate_data_and_key(CFDictionaryRef blob_dict, CFDataRef *ed_data, CFD
     return ok;
 }
 
-static bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_t keybag, keyclass_t keyclass, CFDataRef access_control_data, CFDataRef acm_context_data, CFErrorRef *error)
+bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_t keybag, keyclass_t keyclass, CFDataRef access_control_data, CFDataRef acm_context_data, CFErrorRef *error)
 {
     const char *operation_string = "";
     if (CFEqual(operation, kAKSKeyOpDecrypt)) {

@@ -617,9 +617,8 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
             self->_ensurePeerRegistration = ((self->_ensurePeerRegistration && !handledEnsurePeerRegistration) || self->_shadowEnsurePeerRegistration);
             
             self->_shadowEnsurePeerRegistration = NO;
-            
-            if(self->_ensurePeerRegistration && ![self.lockMonitor locked])
-                [self doEnsurePeerRegistration];
+
+            [self handlePendingEnsurePeerRegistrationRequests:true];
 
             bool hadShadowPeerIDs = ![self->_shadowPendingSyncPeerIDs isEmpty] || ![self->_shadowPendingSyncBackupPeerIDs isEmpty];
 
@@ -666,8 +665,12 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
             // Handle shadow pended stuff
 
             // We only kick off another sync if we got new stuff during handling
-            if (hadShadowPeerIDs && ![self.lockMonitor locked])
-                [self newPeersToSyncWith];
+            if (hadShadowPeerIDs && ![self.lockMonitor locked]) {
+                secnotice("event", "%@ syncWithPeersPending: %d inCallout: %d isLocked: %d", self, [self hasPendingSyncIDs], self->_inCallout, [self.lockMonitor locked]);
+                if ([self hasPendingSyncIDs] && !self->_inCallout && ![self.lockMonitor locked]){
+                    [self doSyncWithPendingPeers];
+                }
+            }
 
             /* We don't want to call processKeyChangedEvent if we failed to
              handle pending keys and the device didn't unlock nor receive
@@ -713,11 +716,28 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
     }];
 }
 
+- (void)handlePendingEnsurePeerRegistrationRequests:(bool)onlyIfUnlocked
+{
+    // doEnsurePeerRegistration's callback will be run on _calloutQueue, so we should check the 'are we running yet' flags on that queue
+    dispatch_async(_calloutQueue, ^{
+        if(self.ensurePeerRegistration && (!onlyIfUnlocked || ![self.lockMonitor locked])) {
+            if(self.ensurePeerRegistrationEnqueuedButNotStarted) {
+                secnotice("EnsurePeerRegistration", "%@ ensurePeerRegistration block already enqueued, not starting a new one", self);
+                return;
+            }
+
+            [self doEnsurePeerRegistration];
+        }
+    });
+}
+
 - (void) doEnsurePeerRegistration
 {
     NSObject<CKDAccount>* accountDelegate = [self account];
+    self.ensurePeerRegistrationEnqueuedButNotStarted = true;
     [self calloutWith:^(NSSet *pending, NSSet* pendingSyncIDs, NSSet* pendingBackupSyncIDs, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, NSSet *handledSyncs, bool handledEnsurePeerRegistration, NSError* error)) {
         NSError* error = nil;
+        self.ensurePeerRegistrationEnqueuedButNotStarted = false;
         bool handledEnsurePeerRegistration = [accountDelegate ensurePeerRegistration:&error];
         secnotice("EnsurePeerRegistration", "%@ ensurePeerRegistration called, %@ (%@)", self, handledEnsurePeerRegistration ? @"success" : @"failure", error);
         if (!handledEnsurePeerRegistration) {
@@ -766,17 +786,6 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
     }];
 }
 
-- (void)newPeersToSyncWith
-{
-    secnotice("event", "%@ syncWithPeersPending: %d inCallout: %d isLocked: %d", self, [self hasPendingSyncIDs], _inCallout, [self.lockMonitor locked]);
-    if(_ensurePeerRegistration){
-        [self doEnsurePeerRegistration];
-    }
-    if ([self hasPendingSyncIDs] && !_inCallout && ![self.lockMonitor locked]){
-        [self doSyncWithPendingPeers];
-    }
-}
-
 - (bool)hasPendingNonShadowSyncIDs {
     return ![_pendingSyncPeerIDs isEmpty] || ![_pendingSyncBackupPeerIDs isEmpty];
 }
@@ -815,9 +824,8 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
 
     [self persistState];
 
-    if(_ensurePeerRegistration){
-        [self doEnsurePeerRegistration];
-    }
+    [self handlePendingEnsurePeerRegistrationRequests:true];
+
     if ([self hasPendingSyncIDs] && !_inCallout && ![self.lockMonitor locked]){
         [self doSyncWithPendingPeers];
     }
@@ -843,9 +851,7 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
         _shadowEnsurePeerRegistration = YES;
     } else {
         _ensurePeerRegistration = YES;
-        if (![self.lockMonitor locked]){
-            [self doEnsurePeerRegistration];
-        }
+        [self handlePendingEnsurePeerRegistrationRequests:true];
         [self persistState];
     }
     
@@ -864,9 +870,7 @@ const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
     dispatch_assert_queue(_ckdkvsproxy_queue);
 
     secnotice("event", "%@ Unlocked", self);
-    if (_ensurePeerRegistration) {
-        [self doEnsurePeerRegistration];
-    }
+    [self handlePendingEnsurePeerRegistrationRequests:false];
     
     // First send changed keys to securityd so it can proccess updates
     [self processPendingKeysForCurrentLockState];

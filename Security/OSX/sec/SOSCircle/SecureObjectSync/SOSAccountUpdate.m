@@ -275,7 +275,7 @@ CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccount* account, CFDictio
     if(!trust.trustedCircle) // We don't fail, we intentionally handle nothing.
         return CFDictionaryCreateForCFTypes(kCFAllocatorDefault, NULL);
 
-    CFDictionaryRef retirement_dictionary = asDictionary(CFDictionaryGetValue(circle_retirement_messages, circle_name), error);
+    CFDictionaryRef retirement_dictionary = asDictionary(CFDictionaryGetValue(circle_retirement_messages, circle_name), NULL);
     if(!retirement_dictionary)
         return CFDictionaryCreateForCFTypes(kCFAllocatorDefault, NULL);
 
@@ -312,7 +312,7 @@ CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccount* account, CFDictio
 
 static SOSCircleRef SOSAccountCreateCircleFrom(CFStringRef circleName, CFTypeRef value, CFErrorRef *error) {
     if (value && !isData(value) && !isNull(value)) {
-        secnotice("circleCreat", "Value provided not appropriate for a circle");
+        secnotice("circleOps", "Value provided not appropriate for a circle");
         CFStringRef description = CFCopyTypeIDDescription(CFGetTypeID(value));
         SOSCreateErrorWithFormat(kSOSErrorUnexpectedType, NULL, error, NULL,
                                  CFSTR("Expected data or NULL got %@"), description);
@@ -322,20 +322,20 @@ static SOSCircleRef SOSAccountCreateCircleFrom(CFStringRef circleName, CFTypeRef
     
     SOSCircleRef circle = NULL;
     if (!value || isNull(value)) {
-        secnotice("circleCreat", "No circle found in data: %@", value);
+        secnotice("circleOps", "No circle found in data: %@", value);
         circle = NULL;
     } else {
         circle = SOSCircleCreateFromData(NULL, (CFDataRef) value, error);
         if (circle) {
             CFStringRef name = SOSCircleGetName(circle);
             if (!CFEqualSafe(name, circleName)) {
-                secnotice("circleCreat", "Expected circle named %@, got %@", circleName, name);
+                secnotice("circleOps", "Expected circle named %@, got %@", circleName, name);
                 SOSCreateErrorWithFormat(kSOSErrorNameMismatch, NULL, error, NULL,
                                          CFSTR("Expected circle named %@, got %@"), circleName, name);
                 CFReleaseNull(circle);
             }
         } else {
-            secnotice("circleCreat", "SOSCircleCreateFromData returned NULL.");
+            secnotice("circleOps", "SOSCircleCreateFromData returned NULL.");
         }
     }
     return circle;
@@ -379,27 +379,27 @@ bool SOSAccountHandleParametersChange(SOSAccount* account, CFDataRef parameters,
     
     if(SOSAccountRetrieveCloudParameters(account, &newKey, parameters, &newParameters, error)) {
         debugDumpUserParameters(CFSTR("SOSAccountHandleParametersChange got new user key parameters:"), parameters);
-        secnotice("keygen", "SOSAccountHandleParametersChange got new public key: %@", newKey);
+        secnotice("circleOps", "SOSAccountHandleParametersChange got new public key: %@", newKey);
 
         if (CFEqualSafe(account.accountKey, newKey)) {
-            secnotice("updates", "Got same public key sent our way. Ignoring.");
+            secnotice("circleOps", "Got same public key sent our way. Ignoring.");
             success = true;
         } else if (CFEqualSafe(account.previousAccountKey, newKey)) {
-            secnotice("updates", "Got previous public key repeated. Ignoring.");
+            secnotice("circleOps", "Got previous public key repeated. Ignoring.");
             success = true;
         } else {
             SOSAccountSetUnTrustedUserPublicKey(account, newKey);
+            CFReleaseNull(newKey);
             SOSAccountSetParameters(account, newParameters);
-            newKey = NULL;
 
             if(SOSAccountRetryUserCredentials(account)) {
-                secnotice("keygen", "Successfully used cached password with new parameters");
+                secnotice("circleOps", "Successfully used cached password with new parameters");
                 SOSAccountGenerationSignatureUpdate(account, error);
             } else {
-                secnotice("keygen", "Got new parameters for public key - could not find or use cached password");
+                secnotice("circleOps", "Got new parameters for public key - could not find or use cached password");
                 SOSAccountPurgePrivateCredential(account);
             }
-
+            secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountHandleParametersChange");
             account.circle_rings_retirements_need_attention = true;
             account.key_interests_need_updating = true;
 

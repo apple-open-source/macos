@@ -273,10 +273,12 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
             endpwent();
         }
         if ( userName.length() == 0 )	// did we ultimately get one?
+        {
             MacOSError::throwMe(errAuthorizationInternal);
+        }
 
         SecurityServer::ClientSession().resetKeyStorePassphrase(password ? CssmData(const_cast<void *>(password), passwordLength) : CssmData());
-
+        secwarning("SecKeychainResetLogin: reset AKS passphrase");
 		if (password)
 		{
 			// Clear the plist and move aside (rename) the existing login.keychain
@@ -295,10 +297,12 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
 			// (implicitly calls resetKeychain, login, and defaultKeychain)
 			globals().storageManager.makeLoginAuthUI(NULL, true);
 		}
+        secwarning("SecKeychainResetLogin: reset osx keychain");
 
 		// Post a "list changed" event after a reset, so apps can refresh their list.
 		// Make sure we are not holding mLock when we post this event.
 		KCEventNotifier::PostKeychainEvent(kSecKeychainListChangedEvent);
+
 
 	END_SECAPI
 }

@@ -325,7 +325,7 @@ errOut:
 
 @end
 
-void (^runTestForObject)(id, NSUInteger, BOOL *) =
+void (^runPolicyTestForObject)(id, NSUInteger, BOOL *) =
 ^(NSDictionary *testDict, NSUInteger idx, BOOL *stop) {
     NSString *majorTestName = nil, *minorTestName = nil;
     TestObject *test = nil;
@@ -384,7 +384,7 @@ void (^runTestForObject)(id, NSUInteger, BOOL *) =
     require_action_quiet(expectedResult = [testDict objectForKey:kSecTrustTestExpectedResult],
                          testOut, fail("%@: failed to get expected result for test", test.fullTestName));
 
-    /* If we enabled test certificates on a non-internal device, expect a failure instead of succees. */
+    /* If we enabled test certificates on a non-internal device, expect a failure instead of success. */
     if (enableTestCertificates && !SecIsInternalRelease() && ([expectedResult unsignedIntValue] == 4)) {
         ok(trustResult == 5,
            "%@: actual trust result %u did not match expected trust result %u",
@@ -425,7 +425,7 @@ static void tests(void)
 
     plan_tests((int)[testsArray count]);
 
-    [testsArray enumerateObjectsUsingBlock:runTestForObject];
+    [testsArray enumerateObjectsUsingBlock:runPolicyTestForObject];
 
 exit:
     return;

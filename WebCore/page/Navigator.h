@@ -31,7 +31,7 @@ class DOMPluginArray;
 
 class Navigator final : public NavigatorBase, public ScriptWrappable, public DOMWindowProperty, public Supplementable<Navigator> {
 public:
-    static Ref<Navigator> create(Frame& frame) { return adoptRef(*new Navigator(frame)); }
+    static Ref<Navigator> create(ScriptExecutionContext& context, Frame& frame) { return adoptRef(*new Navigator(context, frame)); }
     virtual ~Navigator();
 
     String appVersion() const;
@@ -40,7 +40,8 @@ public:
     bool cookieEnabled() const;
     bool javaEnabled() const;
     String userAgent() const final;
-
+    bool onLine() const final;
+    
 #if PLATFORM(IOS)
     bool standalone() const;
 #endif
@@ -48,7 +49,7 @@ public:
     void getStorageUpdates();
 
 private:
-    explicit Navigator(Frame&);
+    explicit Navigator(ScriptExecutionContext&, Frame&);
 
     mutable RefPtr<DOMPluginArray> m_plugins;
     mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;

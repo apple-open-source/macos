@@ -78,7 +78,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
     
-    virtual void		free();
+    virtual void		free(void) APPLE_KEXT_OVERRIDE;
     
 public:
 
@@ -112,7 +112,7 @@ public:
 	
 	bool notDoubleComplete();
 
-	void gotAck(int ackCode);
+	void gotAck(int ackCode) APPLE_KEXT_OVERRIDE;
 	
 	/*!
 		@function createFragmentedDescriptors
@@ -217,7 +217,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
     
-    virtual void		free();
+    virtual void		free(void) APPLE_KEXT_OVERRIDE;
     
 public:
 	/*!

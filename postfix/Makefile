@@ -3,7 +3,7 @@
 #
 
 PROJECT=postfix
-OPEN_SOURCE_VERSION=3.1.4
+OPEN_SOURCE_VERSION=3.2.2
 
 SHELL := /bin/sh
 

@@ -54,7 +54,6 @@
 #import "HTMLTableCellElement.h"
 #import "HTMLTextAreaElement.h"
 #import "LoaderNSURLExtras.h"
-#import "NSAttributedStringSPI.h"
 #import "RGBColor.h"
 #import "RenderImage.h"
 #import "RenderText.h"
@@ -62,6 +61,7 @@
 #import "StyledElement.h"
 #import "TextIterator.h"
 #import <objc/runtime.h>
+#import <pal/spi/cocoa/NSAttributedStringSPI.h>
 #import <wtf/ASCIICType.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/text/StringBuilder.h>
@@ -179,11 +179,6 @@ typedef NS_ENUM(NSInteger, NSWritingDirection) {
     NSWritingDirectionLeftToRight   =  0,    // Left to right writing direction
     NSWritingDirectionRightToLeft   =  1     // Right to left writing direction
 } NS_ENUM_AVAILABLE_IOS(6_0);
-
-typedef NS_ENUM(NSInteger, NSWritingDirectionFormatType) {
-    NSWritingDirectionEmbedding     = (0 << 1),
-    NSWritingDirectionOverride      = (1 << 1)
-} NS_ENUM_AVAILABLE_IOS(9_0);
 
 enum {
     NSEnterCharacter                = 0x0003,
@@ -1360,11 +1355,12 @@ static Class _WebMessageDocumentClass()
     static BOOL lookedUpClass = NO;
     if (!lookedUpClass) {
         // If the class is not there, we don't want to try again
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
-        _WebMessageDocumentClass = objc_lookUpClass("WebMessageDocument");
-#else
-        _WebMessageDocumentClass = objc_lookUpClass("MFWebMessageDocument");
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+        _WebMessageDocumentClass = objc_lookUpClass("EditableWebMessageDocument");
 #endif
+        if (!_WebMessageDocumentClass)
+            _WebMessageDocumentClass = objc_lookUpClass("WebMessageDocument");
+
         if (_WebMessageDocumentClass && ![_WebMessageDocumentClass respondsToSelector:@selector(document:attachment:forURL:)])
             _WebMessageDocumentClass = Nil;
         lookedUpClass = YES;
@@ -2228,7 +2224,7 @@ void HTMLConverter::_processText(CharacterData& characterData)
     bool wasSpace = false;
     if (_caches->propertyValueForNode(characterData, CSSPropertyWhiteSpace).startsWith("pre")) {
         if (textLength && originalString.length() && _flags.isSoft) {
-            unichar c = originalString.at(0);
+            unichar c = originalString.characterAt(0);
             if (c == '\n' || c == '\r' || c == NSParagraphSeparatorCharacter || c == NSLineSeparatorCharacter || c == NSFormFeedCharacter || c == WebNextLineCharacter)
                 rangeToReplace = NSMakeRange(textLength - 1, 1);
         }
@@ -2238,7 +2234,7 @@ void HTMLConverter::_processText(CharacterData& characterData)
         StringBuilder builder;
         LChar noBreakSpaceRepresentation = 0;
         for (unsigned i = 0; i < count; i++) {
-            UChar c = originalString.at(i);
+            UChar c = originalString.characterAt(i);
             bool isWhitespace = c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == 0xc || c == 0x200b;
             if (isWhitespace)
                 wasSpace = (!wasLeading || !suppressLeadingSpace);
@@ -2264,7 +2260,7 @@ void HTMLConverter::_processText(CharacterData& characterData)
     if (outputString.length()) {
         String textTransform = _caches->propertyValueForNode(characterData, CSSPropertyTextTransform);
         if (textTransform == "capitalize")
-            makeCapitalized(&outputString, 0); // FIXME: Needs to take locale into account to work correctly.
+            outputString = capitalize(outputString, ' '); // FIXME: Needs to take locale into account to work correctly.
         else if (textTransform == "uppercase")
             outputString = outputString.convertToUppercaseWithoutLocale(); // FIXME: Needs locale to work correctly.
         else if (textTransform == "lowercase")

@@ -29,8 +29,6 @@
 #if ENABLE(DRAG_SUPPORT) && PLATFORM(MAC)
 
 #import "BitmapImage.h"
-#import "CoreGraphicsSPI.h"
-#import "CoreTextSPI.h"
 #import "Element.h"
 #import "FloatRoundedRect.h"
 #import "FontCascade.h"
@@ -38,16 +36,16 @@
 #import "FontSelector.h"
 #import "GraphicsContext.h"
 #import "Image.h"
-#import "LinkPresentationSPI.h"
 #import "StringTruncator.h"
 #import "TextIndicator.h"
-#import "TextRun.h"
 #import "URL.h"
-#import <wtf/NeverDestroyed.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <pal/spi/cocoa/CoreTextSPI.h>
+#import <pal/spi/cocoa/LinkPresentationSPI.h>
 #import <wtf/SoftLinking.h>
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
-SOFT_LINK_PRIVATE_FRAMEWORK(LinkPresentation)
+SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(LinkPresentation)
 #endif
 
 namespace WebCore {
@@ -200,11 +198,10 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     NSURL *cocoaURL = url;
     NSString *absoluteURLString = [cocoaURL absoluteString];
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
-    LinkPresentationLibrary();
-    NSString *domain = [cocoaURL _lp_simplifiedDisplayString];
-#else
     NSString *domain = absoluteURLString;
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    if (LinkPresentationLibrary())
+        domain = [cocoaURL _lp_simplifiedDisplayString];
 #endif
 
     if ([title isEqualToString:absoluteURLString])
@@ -305,7 +302,11 @@ DragImageRef createDragImageForLink(Element&, URL& url, const String& title, Tex
     RetainPtr<NSImage> dragImage = adoptNS([[NSImage alloc] initWithSize:imageSize]);
     [dragImage lockFocus];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     GraphicsContext context((CGContextRef)[NSGraphicsContext currentContext].graphicsPort);
+#pragma clang diagnostic pop
+
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
     context.translate(linkImageShadowRadius, linkImageShadowRadius - linkImageShadowOffsetY);
     context.setShadow({ 0, linkImageShadowOffsetY }, linkImageShadowRadius, { 0.f, 0.f, 0.f, .25 });

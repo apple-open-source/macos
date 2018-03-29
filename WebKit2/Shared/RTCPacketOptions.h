@@ -40,7 +40,7 @@ namespace WebKit {
 
 struct RTCPacketOptions {
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, RTCPacketOptions&);
+    static std::optional<RTCPacketOptions> decode(IPC::Decoder&);
 
     rtc::PacketOptions options;
 };

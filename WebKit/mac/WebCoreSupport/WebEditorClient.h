@@ -79,10 +79,7 @@ private:
     void didWriteSelectionToPasteboard() final;
     void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) final;
 
-    NSString *userVisibleString(NSURL *) final;
     void setInsertionPasteboard(const String&) final;
-    NSURL *canonicalizeURL(NSURL *) final;
-    NSURL *canonicalizeURLString(NSString *) final;
 
 #if USE(APPKIT)
     void uppercaseWord() final;
@@ -110,10 +107,11 @@ private:
 
     void respondToChangedContents() final;
     void respondToChangedSelection(WebCore::Frame*) final;
-    void didChangeSelectionAndUpdateLayout() final { }
+    void didEndUserTriggeredSelectionChanges() final { }
     void updateEditorStateAfterLayoutIfEditabilityChanged() final;
     void discardedComposition(WebCore::Frame*) final;
     void canceledComposition() final;
+    void didUpdateComposition() final { }
 
     void registerUndoStep(WebCore::UndoStep&) final;
     void registerRedoStep(WebCore::UndoStep&) final;
@@ -141,14 +139,10 @@ private:
 #if PLATFORM(IOS)
     void startDelayingAndCoalescingContentChangeNotifications() final;
     void stopDelayingAndCoalescingContentChangeNotifications() final;
-    void writeDataToPasteboard(NSDictionary*) final;
-    NSArray* supportedPasteboardTypesForCurrentSelection() final;
-    NSArray* readDataFromPasteboard(NSString* type, int index) final;
     bool hasRichlyEditableSelection() final;
     int getPasteboardItemsCount() final;
     RefPtr<WebCore::DocumentFragment> documentFragmentFromDelegate(int index) final;
     bool performsTwoStepPaste(WebCore::DocumentFragment*) final;
-    int pasteboardChangeCount() final;
 #endif
 
     bool performTwoStepDrop(WebCore::DocumentFragment&, WebCore::Range& destination, bool isMove) final;

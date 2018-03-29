@@ -24,6 +24,7 @@
 //#include <IOKit/pwr_mgt/RootDomain.h>
 #include <sys/sysctl.h>
 
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/smc/AppleSMCFamily.h>
 #include "AppleSmartBatteryManager.h"
 #include "AppleSmartBattery.h"
@@ -74,6 +75,7 @@ static IOPMPowerState myTwoStates[2] = {
 #define super IOService
 
 OSDefineMetaClassAndStructors(AppleSmartBatteryManager, IOService)
+
 
 bool AppleSmartBatteryManager::start(IOService *provider)
 {
@@ -320,7 +322,9 @@ void AppleSmartBatteryManager::handleBatteryInserted(void)
 {
     BM_LOG1("SmartBattery: battery inserted!\n");
     fInacessible = false;
-    fBattery->handleBatteryInserted();
+    if (fBattery) {
+        fBattery->handleBatteryInserted();
+    }
     return;
 }
 
@@ -328,7 +332,9 @@ void AppleSmartBatteryManager::handleBatteryRemoved(void)
 {
     BM_ERRLOG("Received battery removed notification\n");
     fInacessible = true;
-    fBattery->handleBatteryRemoved();
+    if (fBattery) {
+        fBattery->handleBatteryRemoved();
+    }
     return;
 }
 
@@ -338,13 +344,12 @@ void AppleSmartBatteryManager::handleBatteryRemoved(void)
  * Called by AppleSmartBatteryManagerUserClient
  */
 
-IOReturn AppleSmartBatteryManager::inhibitChargingGated(int level)
+IOReturn AppleSmartBatteryManager::inhibitChargingGated(uint64_t level)
 {
     IOReturn        ret = kIOReturnSuccess;
     
-    if(!fManagerGate) return kIOReturnInternalError;
     
-    ret = fSmbus->inhibitCharging(level);
+    ret = fSmbus->inhibitCharging(level ? 1 : 0);
     if (ret == kIOReturnSuccess) {
         this->setProperty("Charging Inhibited", level ? true : false);
     }
@@ -356,7 +361,9 @@ IOReturn AppleSmartBatteryManager::inhibitChargingGated(int level)
 IOReturn AppleSmartBatteryManager::inhibitCharging(int level)
 {
     
-    return fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::inhibitChargingGated), this, (void *)(uintptr_t)level);
+    if(!fManagerGate) return kIOReturnInternalError;
+    return fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this,
+                &AppleSmartBatteryManager::inhibitChargingGated), (void *)(uintptr_t)level);
 }
 
 /* 
@@ -364,13 +371,12 @@ IOReturn AppleSmartBatteryManager::inhibitCharging(int level)
  * 
  * Called by AppleSmartBatteryManagerUserClient
  */
-IOReturn AppleSmartBatteryManager::disableInflowGated(int level)
+IOReturn AppleSmartBatteryManager::disableInflowGated(uint64_t level)
 {
     IOReturn        ret = kIOReturnSuccess;
     
-    if(!fManagerGate) return kIOReturnInternalError;
     
-    ret = fSmbus->disableInflow(level);
+    ret = fSmbus->disableInflow(level ? 1 : 0);
     if (ret == kIOReturnSuccess) {
         this->setProperty("Inflow Disabled", level ? true : false);
     }
@@ -382,7 +388,8 @@ IOReturn AppleSmartBatteryManager::disableInflowGated(int level)
 IOReturn AppleSmartBatteryManager::disableInflow(int level)
 {
 
-    return fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::disableInflowGated), this, (void *)(uintptr_t)level);
+    if(!fManagerGate) return kIOReturnInternalError;
+    return fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::disableInflowGated), (void *)(uintptr_t)level);
 
 }
 
@@ -396,9 +403,7 @@ IOReturn AppleSmartBatteryManager::disableInflow(int level)
 void AppleSmartBatteryManager::handleFullDischarge(void)
 {
     
-#if 0
     IOPMrootDomain      *root_domain = getPMRootDomain();
-    IOReturn            ret;
     void *              messageArgument = NULL;
 
     if( getProperty("Inflow Disabled") )
@@ -408,10 +413,7 @@ void AppleSmartBatteryManager::handleFullDischarge(void)
         /* 
          * Send disable inflow command to SB Manager
          */
-        fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
-                           this, &AppleSmartBatteryManager::gatedSendCommand),
-                           (void *)kDisableInflowCmd, (void *)0, /* OFF */ 
-                           (void *)&ret, NULL);
+        disableInflow(0);
     }
 
 
@@ -425,7 +427,6 @@ void AppleSmartBatteryManager::handleFullDischarge(void)
                 messageArgument );
     }
     
-#endif
 }
 
 

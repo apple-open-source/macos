@@ -54,6 +54,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
+#include <Security/SecCMS.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecECKey.h>
@@ -65,17 +66,46 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 
 #include "SecCertificateRequest.h"
 
-CFTypeRef kSecOidCommonName = CFSTR("CN");
-CFTypeRef kSecOidCountryName = CFSTR("C");
-CFTypeRef kSecOidStateProvinceName = CFSTR("ST");
-CFTypeRef kSecOidLocalityName = CFSTR("L");
-CFTypeRef kSecOidOrganization = CFSTR("O");
-CFTypeRef kSecOidOrganizationalUnit = CFSTR("OU");
+/* Subject Name Attribute OID constants */
+const CFStringRef kSecOidCommonName = CFSTR("CN");
+const CFStringRef kSecOidCountryName = CFSTR("C");
+const CFStringRef kSecOidStateProvinceName = CFSTR("ST");
+const CFStringRef kSecOidLocalityName = CFSTR("L");
+const CFStringRef kSecOidOrganization = CFSTR("O");
+const CFStringRef kSecOidOrganizationalUnit = CFSTR("OU");
 //CFTypeRef kSecOidEmailAddress = CFSTR("1.2.840.113549.1.9.1");
 // keep natural order: C > ST > L > O > OU > CN > Email
 
+/* Type constants */
 const unsigned char SecASN1PrintableString = SEC_ASN1_PRINTABLE_STRING;
 const unsigned char SecASN1UTF8String = SEC_ASN1_UTF8_STRING;
+
+/* Parameter dictionary keys */
+const CFStringRef kSecCSRChallengePassword = CFSTR("csrChallengePassword");
+const CFStringRef kSecSubjectAltName = CFSTR("subjectAltName");
+const CFStringRef kSecCertificateKeyUsage = CFSTR("keyUsage");
+const CFStringRef kSecCSRBasicContraintsPathLen = CFSTR("basicConstraints");
+const CFStringRef kSecCertificateExtensions = CFSTR("certificateExtensions");
+const CFStringRef kSecCertificateExtensionsEncoded = CFSTR("certificateExtensionsEncoded");
+
+/* SubjectAltName dictionary keys */
+const CFStringRef kSecSubjectAltNameDNSName = CFSTR("dNSName");
+const CFStringRef kSecSubjectAltNameEmailAddress = CFSTR("rfc822Name");
+const CFStringRef kSecSubjectAltNameURI = CFSTR("uniformResourceIdentifier");
+const CFStringRef kSecSubjectAltNameNTPrincipalName = CFSTR("ntPrincipalName");
+
+/* PKCS9 OIDs */
+static const uint8_t pkcs9ExtensionsRequested[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 14 };
+static const uint8_t pkcs9ChallengePassword[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 7 };
+
+/* ASN1 BOOLEAN TRUE */
+static const uint8_t encoded_asn1_true = 0xFF;
+static const SecAsn1Item asn1_true =
+{ sizeof(encoded_asn1_true), (uint8_t*)&encoded_asn1_true };
+
+/* ASN1 NULL */
+static const uint8_t encoded_null[2] = { SEC_ASN1_NULL, 0 };
+static const SecAsn1Item asn1_null = { sizeof(encoded_null), (uint8_t*)encoded_null };
 
 static uint8_t * mod128_oid_encoding_ptr(uint8_t *ptr, uint32_t src, bool final)
 {
@@ -160,7 +190,7 @@ static inline bool printable_string(CFStringRef string)
 }
 
 static bool make_nss_atv(PRArenaPool *poolp, 
-    const void * oid, const void * value, const unsigned char type_in, NSS_ATV *nss_atv)
+    CFTypeRef oid, const void * value, const unsigned char type_in, NSS_ATV *nss_atv)
 {
     size_t length = 0;
     char *buffer = NULL;
@@ -291,13 +321,13 @@ static void make_general_names(const void *key, const void *value, void *context
     }
 
     NSS_GeneralName general_name_item = { { }, -1 };
-    if (kCFCompareEqualTo == CFStringCompare(CFSTR("dNSName"), key, kCFCompareCaseInsensitive))
+    if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameDNSName, key, kCFCompareCaseInsensitive))
         general_name_item.tag = NGT_DNSName;
-    else if (kCFCompareEqualTo == CFStringCompare(CFSTR("rfc822Name"), key, kCFCompareCaseInsensitive))
+    else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameEmailAddress, key, kCFCompareCaseInsensitive))
         general_name_item.tag = NGT_RFC822Name;
-    else if (kCFCompareEqualTo == CFStringCompare(CFSTR("uniformResourceIdentifier"), key, kCFCompareCaseInsensitive))
+    else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameURI, key, kCFCompareCaseInsensitive))
         general_name_item.tag = NGT_URI;
-	else if (kCFCompareEqualTo == CFStringCompare(CFSTR("ntPrincipalName"), key, kCFCompareCaseInsensitive))
+	else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameNTPrincipalName, key, kCFCompareCaseInsensitive))
 	{
         /*
             NT Principal in SubjectAltName is defined in the context of Smartcards:
@@ -403,20 +433,6 @@ static SecAsn1Item make_subjectAltName_extension(PRArenaPool *poolp, CFDictionar
 
     return subjectAltExt;
 }
-
-CFTypeRef kSecCSRChallengePassword = CFSTR("csrChallengePassword");
-CFTypeRef kSecSubjectAltName = CFSTR("subjectAltName");
-CFTypeRef kSecCertificateKeyUsage = CFSTR("keyUsage");
-CFTypeRef kSecCSRBasicContraintsPathLen = CFSTR("basicConstraints");
-CFTypeRef kSecCertificateExtensions = CFSTR("certificateExtensions");
-CFTypeRef kSecCertificateExtensionsEncoded = CFSTR("certificateExtensionsEncoded");
-
-static const uint8_t pkcs9ExtensionsRequested[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 14 };
-static const uint8_t pkcs9ChallengePassword[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 7 };
-
-static const uint8_t encoded_asn1_true = 0xFF;
-static const SecAsn1Item asn1_true =
-    { sizeof(encoded_asn1_true), (uint8_t*)&encoded_asn1_true };
 
 struct add_custom_extension_args {
     PLArenaPool *poolp;
@@ -577,8 +593,6 @@ out:
     return csr_extensions;
 }
 
-
-
 static
 NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictionaryRef parameters)
 {
@@ -662,19 +676,125 @@ out:
 #endif
 }
 
-static const uint8_t encoded_null[2] = { SEC_ASN1_NULL, 0 };
-static const SecAsn1Item asn1_null = { sizeof(encoded_null), (uint8_t*)encoded_null };
+static CF_RETURNS_RETAINED CFDataRef make_public_key (SecKeyRef publicKey, SecAsn1PubKeyInfo *publicKeyInfo, bool *allocated_parameters) {
+    CFDataRef publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
+    if (!publicKeyData) { return NULL; }
+    uint8_t *spki_params = NULL;
+
+    if (SecKeyGetAlgorithmId(publicKey) == kSecRSAAlgorithmID) {
+        publicKeyInfo->algorithm.algorithm.Length = oidRsa.length;
+        publicKeyInfo->algorithm.algorithm.Data = oidRsa.data;
+        publicKeyInfo->algorithm.parameters = asn1_null;
+        *allocated_parameters = false;
+    } else if (SecKeyGetAlgorithmId(publicKey) == kSecECDSAAlgorithmID) {
+        publicKeyInfo->algorithm.algorithm.Length = oidEcPubKey.length;
+        publicKeyInfo->algorithm.algorithm.Data = oidEcPubKey.data;
+        size_t parameters_size = 0;
+        SecECNamedCurve namedCurve = SecECKeyGetNamedCurve(publicKey);
+        switch (namedCurve) {
+            case kSecECCurveSecp256r1:
+                parameters_size = oidEcPrime256v1.length + 2;
+                spki_params = malloc(parameters_size);
+                memcpy(spki_params + 2, oidEcPrime256v1.data, oidEcPrime256v1.length);
+                break;
+            case kSecECCurveSecp384r1:
+                parameters_size = oidAnsip384r1.length + 2;
+                spki_params = malloc(parameters_size);
+                memcpy(spki_params + 2, oidAnsip384r1.data, oidAnsip384r1.length);
+                break;
+            case kSecECCurveSecp521r1:
+                parameters_size = oidAnsip521r1.length + 2;
+                spki_params = malloc(parameters_size);
+                memcpy(spki_params + 2, oidAnsip521r1.data, oidAnsip521r1.length);
+                break;
+            default:
+                CFReleaseNull(publicKeyData);
+                return NULL;
+        }
+        spki_params[0] = 0x06;
+        spki_params[1] = (uint8_t)(parameters_size - 2);
+        publicKeyInfo->algorithm.parameters.Length = parameters_size;
+        publicKeyInfo->algorithm.parameters.Data = spki_params;
+        *allocated_parameters = true;
+    } else {
+        CFReleaseNull(publicKeyData);
+        return NULL;
+    }
+
+    publicKeyInfo->subjectPublicKey.Data = (uint8_t *)CFDataGetBytePtr(publicKeyData);
+    publicKeyInfo->subjectPublicKey.Length = CFDataGetLength(publicKeyData) * 8;
+
+    return publicKeyData;
+}
+
+static CF_RETURNS_RETAINED CFDataRef make_signature (void *data_pointer, size_t data_length, SecKeyRef privateKey,
+                                                     CFStringRef digestAlgorithm, SecAsn1AlgId *signature_algorithm_info) {
+    SecKeyAlgorithm keyAlgorithm = NULL;
+    CFIndex keyAlgorithmId = SecKeyGetAlgorithmId(privateKey);
+    if (keyAlgorithmId == kSecRSAAlgorithmID) {
+        if (!digestAlgorithm || CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA1)) {
+            /* default is SHA-1 for backwards compatibility */
+            keyAlgorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+            signature_algorithm_info->algorithm.Length = oidSha1Rsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha1Rsa.data;
+        } else if (CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA256)) {
+            keyAlgorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
+            signature_algorithm_info->algorithm.Length = oidSha256Rsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha256Rsa.data;
+        } else if (CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA384)) {
+            keyAlgorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
+            signature_algorithm_info->algorithm.Length = oidSha384Rsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha384Rsa.data;
+        } else if (CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA512)) {
+            keyAlgorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
+            signature_algorithm_info->algorithm.Length = oidSha512Rsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha512Rsa.data;
+        }
+        /* All RSA signatures use NULL paramters */
+        signature_algorithm_info->parameters = asn1_null;
+    } else if (keyAlgorithmId == kSecECDSAAlgorithmID) {
+        if (!digestAlgorithm || CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA256)) {
+            keyAlgorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
+            signature_algorithm_info->algorithm.Length = oidSha256Ecdsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha256Ecdsa.data;
+        } else if (CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA384)) {
+            keyAlgorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA384;
+            signature_algorithm_info->algorithm.Length = oidSha384Ecdsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha384Ecdsa.data;
+        } else if (CFEqualSafe(digestAlgorithm, kSecCMSHashingAlgorithmSHA512)) {
+            keyAlgorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA512;
+            signature_algorithm_info->algorithm.Length = oidSha512Ecdsa.length;
+            signature_algorithm_info->algorithm.Data = oidSha512Ecdsa.data;
+        }
+        /* All EC signatures use absent paramters */
+        signature_algorithm_info->parameters.Length = 0;
+        signature_algorithm_info->parameters.Data = NULL;
+    }
+
+    if (!keyAlgorithm) { return NULL; }
+
+    CFDataRef data = NULL, signature = NULL;
+    if (!data_pointer || data_length == 0) { return NULL; }
+    data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, data_pointer, data_length, kCFAllocatorNull);
+    signature = SecKeyCreateSignature(privateKey, keyAlgorithm, data, NULL);
+    CFReleaseSafe(data);
+    if (!signature) { return NULL; }
+
+    return signature;
+}
 
 CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject, 
-    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
+    CFDictionaryRef parameters, SecKeyRef __unused publicKey, SecKeyRef privateKey)
 {
     if (subject == NULL || *subject == NULL) {
         return NULL;
     }
 
     CFDataRef csr = NULL;
-    CFDataRef publicKeyData= NULL;
-    uint8_t *signature = NULL, *spki_params = NULL;
+    CFDataRef publicKeyData= NULL, signature = NULL;
+    bool allocated_parameters = false;
+    SecKeyRef realPublicKey = NULL; /* We calculate this from the private key rather than
+                                     * trusting the caller to give us the right one. */
     PRArenaPool *poolp = PORT_NewArena(1024);
     
     if (!poolp)
@@ -723,43 +843,10 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     certReq.reqInfo.subject.rdns = rdnps;
     
     /* public key info */
-    if (SecKeyGetAlgorithmId(publicKey) == kSecRSAAlgorithmID) {
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length = oidRsa.length;
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data = oidRsa.data;
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
-    } else if (SecKeyGetAlgorithmId(publicKey) == kSecECDSAAlgorithmID) {
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length = oidEcPubKey.length;
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data = oidEcPubKey.data;
-        size_t parameters_size = 0;
-        SecECNamedCurve namedCurve = SecECKeyGetNamedCurve(publicKey);
-        switch (namedCurve) {
-            case kSecECCurveSecp256r1:
-                parameters_size = oidEcPrime256v1.length + 2;
-                spki_params = malloc(parameters_size);
-                memcpy(spki_params + 2, oidEcPrime256v1.data, oidEcPrime256v1.length);
-                break;
-            case kSecECCurveSecp384r1:
-                parameters_size = oidAnsip384r1.length + 2;
-                spki_params = malloc(parameters_size);
-                memcpy(spki_params + 2, oidAnsip384r1.data, oidAnsip384r1.length);
-                break;
-            case kSecECCurveSecp521r1:
-                parameters_size = oidAnsip521r1.length + 2;
-                spki_params = malloc(parameters_size);
-                memcpy(spki_params + 2, oidAnsip521r1.data, oidAnsip521r1.length);
-                break;
-            default:
-                goto out;
-        }
-        spki_params[0] = 0x06;
-        spki_params[1] = (uint8_t)(parameters_size - 2);
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Length = parameters_size;
-        certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Data = spki_params;
-    }
-
-    publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
+    realPublicKey = SecKeyCopyPublicKey(privateKey);
+    require_quiet(realPublicKey, out);
+    publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
+    require_quiet(publicKeyData, out);
     
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
@@ -768,49 +855,15 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     SecAsn1Item reqinfo = {};
     SEC_ASN1EncodeItem(poolp, &reqinfo, &certReq.reqInfo, kSecAsn1CertRequestInfoTemplate);
 
-    /* Use SHA-1 for RSA for backwards compatbility. */
-    if (SecKeyGetAlgorithmId(privateKey) == kSecRSAAlgorithmID) {
-        /* calculate signature */
-        uint8_t reqinfo_hash[CC_SHA1_DIGEST_LENGTH];
-        CCDigest(kCCDigestSHA1, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
-        CFDataRef digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reqinfo_hash, CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
-        CFDataRef sigData = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1,
-                                                  digest, nil);
-        CFReleaseNull(digest);
-        require_quiet(sigData, out);
-        size_t signature_length = (size_t)CFDataGetLength(sigData);
-        signature = malloc(signature_length);
-        memcpy(signature, CFDataGetBytePtr(sigData), CFDataGetLength(sigData));
-        CFReleaseNull(sigData);
-
-        /* signature and info */
-        certReq.signatureAlgorithm.algorithm.Length = oidSha1Rsa.length;
-        certReq.signatureAlgorithm.algorithm.Data = oidSha1Rsa.data;
-        certReq.signatureAlgorithm.parameters = asn1_null;
-        certReq.signature.Data = signature;
-        certReq.signature.Length = signature_length * 8;
-    } else if (SecKeyGetAlgorithmId(privateKey) == kSecECDSAAlgorithmID) {
-        /* calculate signature */
-        uint8_t reqinfo_hash[CC_SHA256_DIGEST_LENGTH];
-        CCDigest(kCCDigestSHA256, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
-        CFDataRef digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reqinfo_hash, CC_SHA256_DIGEST_LENGTH, kCFAllocatorNull);
-        CFDataRef sigData = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmECDSASignatureDigestX962SHA256,
-                              digest, nil);
-        CFReleaseNull(digest);
-        require_quiet(sigData, out);
-        size_t signature_length = (size_t)CFDataGetLength(sigData);
-        signature = malloc(signature_length);
-        memcpy(signature, CFDataGetBytePtr(sigData), CFDataGetLength(sigData));
-        CFReleaseNull(sigData);
-
-        /* signature and info */
-        certReq.signatureAlgorithm.algorithm.Length = oidSha256Ecdsa.length;
-        certReq.signatureAlgorithm.algorithm.Data = oidSha256Ecdsa.data;
-        certReq.signatureAlgorithm.parameters.Data = NULL;
-        certReq.signatureAlgorithm.parameters.Length = 0;
-        certReq.signature.Data = signature;
-        certReq.signature.Length = signature_length * 8;
+    /* calculate signature and encode signature info */
+    CFStringRef algorithm = NULL;
+    if (parameters) {
+        algorithm = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
     }
+    signature = make_signature(reqinfo.Data, reqinfo.Length, privateKey, algorithm, &certReq.signatureAlgorithm);
+    require_quiet(signature, out);
+    certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
+    certReq.signature.Length = 8 * CFDataGetLength(signature);
     
     /* encode csr */
     SecAsn1Item cert_request = {};
@@ -819,21 +872,26 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
     
 out:
+    if (allocated_parameters) {
+        free(certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Data);
+    }
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
-    if (signature) { free(signature); }
-    if (spki_params) { free(spki_params); }
+    CFReleaseSafe(realPublicKey);
     CFReleaseSafe(publicKeyData);
+    CFReleaseSafe(signature);
     return csr;
 }
 
 CFDataRef SecGenerateCertificateRequest(CFArrayRef subject, 
-    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
+    CFDictionaryRef parameters, SecKeyRef __unused publicKey, SecKeyRef privateKey)
 {
     CFDataRef csr = NULL;
     PRArenaPool *poolp = PORT_NewArena(1024);
-    CFDataRef publicKeyData = NULL;
-    uint8_t *signature = NULL;
+    CFDataRef publicKeyData = NULL, signature = NULL;
+    SecKeyRef realPublicKey = NULL; /* We calculate this from the private key rather than
+                                     * trusting the caller to give us the right one. */
+    bool allocated_parameters = false;
     
     if (!poolp)
         return NULL;
@@ -850,13 +908,10 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     certReq.reqInfo.subject.rdns = make_subject(poolp, (CFArrayRef)subject);
     
     /* public key info */
-    certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length = oidRsa.length;
-    certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data = oidRsa.data;
-    certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
-    
-    publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
+    realPublicKey = SecKeyCopyPublicKey(privateKey);
+    require_quiet(realPublicKey, out);
+    publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
+    require_quiet(publicKeyData, out);
     
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
@@ -865,25 +920,15 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     SecAsn1Item reqinfo = {};
     SEC_ASN1EncodeItem(poolp, &reqinfo, &certReq.reqInfo, kSecAsn1CertRequestInfoTemplate);
 
-    /* calculate signature */
-    uint8_t reqinfo_hash[CC_SHA1_DIGEST_LENGTH];
-    CCDigest(kCCDigestSHA1, reqinfo.Data, reqinfo.Length, reqinfo_hash);
-    CFDataRef digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reqinfo_hash, CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
-    CFDataRef sigData = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1,
-                                              digest, nil);
-    CFReleaseNull(digest);
-    require_quiet(sigData, out);
-    size_t signature_length = (size_t)CFDataGetLength(sigData);
-    signature = malloc(signature_length);
-    memcpy(signature, CFDataGetBytePtr(sigData), CFDataGetLength(sigData));
-    CFReleaseNull(sigData);
-
-    /* signature and info */
-    certReq.signatureAlgorithm.algorithm.Length = oidSha1Rsa.length;
-    certReq.signatureAlgorithm.algorithm.Data = oidSha1Rsa.data;
-    certReq.signatureAlgorithm.parameters = asn1_null;
-    certReq.signature.Data = signature;
-    certReq.signature.Length = signature_length * 8;
+    /* calculate signature and encode signature info */
+    CFStringRef algorithm = NULL;
+    if (parameters) {
+        algorithm = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
+    }
+    signature = make_signature(reqinfo.Data, reqinfo.Length, privateKey, algorithm, &certReq.signatureAlgorithm);
+    require_quiet(signature, out);
+    certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
+    certReq.signature.Length = 8 * CFDataGetLength(signature);
     
     /* encode csr */
     SecAsn1Item cert_request = {};
@@ -892,11 +937,51 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
     
 out:
+    if (allocated_parameters) {
+        free(certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Data);
+    }
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
+    CFReleaseSafe(realPublicKey);
     CFReleaseSafe(publicKeyData);
-    if (signature) { free(signature); }
+    CFReleaseSafe(signature);
     return csr;
+}
+
+static SecKeyAlgorithm determine_key_algorithm(bool isRsa, SecAsn1AlgId *algId) {
+    SecKeyAlgorithm keyAlg = NULL;
+    SecAsn1Oid oid = algId->algorithm;
+
+    /* We don't check the parameters match the algorithm OID since there was some RFC confusion
+     * about NULL or absent parameters. */
+    if (isRsa) {
+        if (oid.Length == oidSha1Rsa.length &&
+            (0 == memcmp(oidSha1Rsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+        } else if (oid.Length == oidSha256Rsa.length &&
+                           (0 == memcmp(oidSha256Rsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
+        } else if (oid.Length == oidSha384Rsa.length &&
+                   (0 == memcmp(oidSha384Rsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
+        } else if (oid.Length == oidSha512Rsa.length &&
+                   (0 == memcmp(oidSha512Rsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
+        }
+    } else {
+        if (oid.Length == oidSha256Ecdsa.length &&
+            (0 == memcmp(oidSha256Ecdsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
+        } else if (oid.Length == oidSha384Ecdsa.length &&
+                   (0 == memcmp(oidSha384Ecdsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmECDSASignatureMessageX962SHA384;
+        } else if (oid.Length == oidSha512Ecdsa.length &&
+                   (0 == memcmp(oidSha512Ecdsa.data, oid.Data, oid.Length))) {
+            keyAlg = kSecKeyAlgorithmECDSASignatureMessageX962SHA512;
+        }
+    }
+
+    return keyAlg;
 }
 
 bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
@@ -905,83 +990,68 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
     PRArenaPool *poolp = PORT_NewArena(1024);
     SecKeyRef candidatePublicKey = NULL;
     CFMutableDictionaryRef keyAttrs = NULL;
-    CFDataRef keyData = NULL, hash = NULL, signature = NULL;
+    CFDataRef keyData = NULL, signature = NULL, data = NULL;
     bool valid = false;
-	NSSCertRequest certReq;
-	memset(&certReq, 0, sizeof(certReq));
+	NSSCertRequest decodedCertReq;
+    NSS_SignedCertRequest undecodedCertReq;
+	memset(&decodedCertReq, 0, sizeof(decodedCertReq));
+    memset(&undecodedCertReq, 0, sizeof(undecodedCertReq));
+
+    /* Decode the CSR */
     SecAsn1Item csr_item = { CFDataGetLength(csr), (uint8_t*)CFDataGetBytePtr(csr) };
-    require_noerr_quiet(SEC_ASN1DecodeItem(poolp, &certReq, kSecAsn1CertRequestTemplate, 
+    require_noerr_quiet(SEC_ASN1DecodeItem(poolp, &decodedCertReq, kSecAsn1CertRequestTemplate,
+        &csr_item), out);
+    require_noerr_quiet(SEC_ASN1DecodeItem(poolp, &undecodedCertReq, kSecAsn1SignedCertRequestTemplate,
         &csr_item), out);
 
-    /* signature and info */
-    require(certReq.signatureAlgorithm.algorithm.Length == oidSha1Rsa.length ||
-            certReq.signatureAlgorithm.algorithm.Length == oidSha256Ecdsa.length, out);
-    require(0 == memcmp(oidSha1Rsa.data, certReq.signatureAlgorithm.algorithm.Data,
-        oidSha1Rsa.length) ||
-            0 == memcmp(oidSha256Ecdsa.data, certReq.signatureAlgorithm.algorithm.Data,
-                        oidSha256Ecdsa.length), out);
-    require(certReq.signatureAlgorithm.parameters.Length == asn1_null.Length ||
-            certReq.signatureAlgorithm.parameters.Length == 0, out);
-    require(certReq.signatureAlgorithm.parameters.Length == 0 ||
-            0 == memcmp(asn1_null.Data, certReq.signatureAlgorithm.parameters.Data,
-        asn1_null.Length), out);
-
-    /* encode request info by itself to calculate signature */
-    SecAsn1Item reqinfo = {};
-    SEC_ASN1EncodeItem(poolp, &reqinfo, &certReq.reqInfo, kSecAsn1CertRequestInfoTemplate);
-
-    /* calculate signature */
-    uint8_t reqinfo_hash[CC_SHA256_DIGEST_LENGTH];
-    CFIndex hash_size = 0;
-    if (0 == memcmp(oidSha1Rsa.data, certReq.signatureAlgorithm.algorithm.Data,
-                    oidSha1Rsa.length)) {
-        require(reqinfo.Length<=UINT32_MAX, out);
-        CCDigest(kCCDigestSHA1, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
-        hash_size = CC_SHA1_DIGEST_LENGTH;
-    } else {
-        require(reqinfo.Length<=UINT32_MAX, out);
-        CCDigest(kCCDigestSHA256, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
-        hash_size = CC_SHA256_DIGEST_LENGTH;
-    }
-
-    /* @@@ check for version 0 */
-    SecKeyAlgorithm alg = NULL;
-    if (certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length == oidRsa.length &&
-        0 == memcmp(oidRsa.data, certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data, oidRsa.length)) {
+    /* get public key */
+    bool isRsa = true;
+    if (decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length == oidRsa.length &&
+        0 == memcmp(oidRsa.data, decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data, oidRsa.length)) {
         require(candidatePublicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
-                                                              certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data,
-                                                              certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length / 8,
+                                                              decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data,
+                                                              decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length / 8,
                                                               kSecKeyEncodingPkcs1), out);
-        alg = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
-    } else if (certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length == oidEcPubKey.length &&
-               0 == memcmp(oidEcPubKey.data, certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data, oidEcPubKey.length)) {
+    } else if (decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length == oidEcPubKey.length &&
+               0 == memcmp(oidEcPubKey.data, decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data, oidEcPubKey.length)) {
         keyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
-                                                        certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data,
-                                                        certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length / 8,
-                                                        kCFAllocatorNull);
+                                              decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data,
+                                              decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length / 8,
+                                              kCFAllocatorNull);
         keyAttrs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
-                                                                    &kCFTypeDictionaryValueCallBacks);
+                                             &kCFTypeDictionaryValueCallBacks);
         CFDictionaryAddValue(keyAttrs, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
         CFDictionaryAddValue(keyAttrs, kSecAttrKeyClass, kSecAttrKeyClassPublic);
         require(candidatePublicKey = SecKeyCreateWithData(keyData, keyAttrs, NULL),
                 out);
-        alg = kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
+        isRsa = false;
     } else {
         goto out;
     }
 
-    hash = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reqinfo_hash, hash_size, kCFAllocatorNull);
-    signature = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, certReq.signature.Data, certReq.signature.Length / 8, kCFAllocatorNull);
-    require_quiet(SecKeyVerifySignature(candidatePublicKey, alg, hash, signature, NULL), out);
+    /* get the signature algorithm */
+    SecAsn1AlgId algId = decodedCertReq.signatureAlgorithm;
+    /* check the parameters are NULL or absent */
+    require(algId.parameters.Length == asn1_null.Length || algId.parameters.Length == 0, out);
+    require(algId.parameters.Length == 0 || 0 == memcmp(asn1_null.Data, algId.parameters.Data, asn1_null.Length), out);
+    SecKeyAlgorithm alg = determine_key_algorithm(isRsa, &algId);
+
+    /* verify signature */
+    signature = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, undecodedCertReq.signature.Data,
+                                            undecodedCertReq.signature.Length / 8, kCFAllocatorNull);
+    data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, undecodedCertReq.certRequestBlob.Data,
+                                       undecodedCertReq.certRequestBlob.Length, kCFAllocatorNull);
+    require_quiet(alg && signature && data, out);
+    require_quiet(SecKeyVerifySignature(candidatePublicKey, alg, data, signature, NULL), out);
         
     SecAsn1Item subject_item = { 0 }, extensions_item = { 0 }, challenge_item = { 0 };
     require_quiet(SEC_ASN1EncodeItem(poolp, &subject_item, 
-        &certReq.reqInfo.subject, kSecAsn1NameTemplate), out);
+        &decodedCertReq.reqInfo.subject, kSecAsn1NameTemplate), out);
 
-    if (*certReq.reqInfo.attributes) {
+    if (*decodedCertReq.reqInfo.attributes) {
         uint32_t ix;
-        for (ix = 0; certReq.reqInfo.attributes[ix]; ix++) {
-            NSS_Attribute *attr = certReq.reqInfo.attributes[ix];
+        for (ix = 0; decodedCertReq.reqInfo.attributes[ix]; ix++) {
+            NSS_Attribute *attr = decodedCertReq.reqInfo.attributes[ix];
             if ( (sizeof(pkcs9ChallengePassword) == attr->attrType.Length) &&
                 !memcmp(pkcs9ChallengePassword, attr->attrType.Data, sizeof(pkcs9ChallengePassword)))
                     challenge_item = *attr->attrValue[0];
@@ -1014,7 +1084,7 @@ out:
     CFReleaseSafe(candidatePublicKey);
     CFReleaseNull(keyAttrs);
     CFReleaseNull(keyData);
-    CFReleaseNull(hash);
+    CFReleaseNull(data);
     CFReleaseNull(signature);
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
@@ -1068,13 +1138,15 @@ DER_CFDateToUTCTime(PRArenaPool *poolp, CFAbsoluteTime date, SecAsn1Item * utcTi
 
 SecCertificateRef
 SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters, 
-    SecKeyRef publicKey, SecKeyRef privateKey)
+    SecKeyRef __unused publicKey, SecKeyRef privateKey)
 {
     SecCertificateRef cert = NULL;
     PRArenaPool *poolp = PORT_NewArena(1024);
     CFDictionaryRef pubkey_attrs = NULL;
-    CFDataRef publicKeyData = NULL;
-    uint8_t *signature = NULL;
+    CFDataRef publicKeyData = NULL, signature = NULL;
+    SecKeyRef realPublicKey = NULL; /* We calculate this from the private key rather than
+                                     * trusting the caller to give us the right one. */
+    bool allocated_parameters = false;
     if (!poolp)
         return NULL;
 
@@ -1103,72 +1175,65 @@ SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters,
     /* extensions */
     cert_tmpl.tbs.extensions = extensions_from_parameters(poolp, parameters);
 
-    /* @@@ we only handle rsa keys */
-    pubkey_attrs = SecKeyCopyAttributeDictionary(publicKey);
-    CFTypeRef key_type = CFDictionaryGetValue(pubkey_attrs, kSecAttrKeyType);
-    if (key_type && CFEqual(key_type, kSecAttrKeyTypeRSA)) {
-        /* public key data and algorithm */
-        cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.algorithm = CSSMOID_RSA;
-        cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
+    /* encode public key */
+    realPublicKey = SecKeyCopyPublicKey(privateKey);
+    require_quiet(realPublicKey, out);
+    publicKeyData = make_public_key(realPublicKey, &cert_tmpl.tbs.subjectPublicKeyInfo, &allocated_parameters);
+    require_quiet(publicKeyData, out);
 
-        publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
-
-        /* signature algorithm */
-        cert_tmpl.tbs.signature.algorithm = CSSMOID_SHA1WithRSA;
-        cert_tmpl.tbs.signature.parameters = asn1_null;
-        cert_tmpl.signatureAlgorithm.algorithm = CSSMOID_SHA1WithRSA;
-        cert_tmpl.signatureAlgorithm.parameters = asn1_null;
-
-        /* encode request info by itself to calculate signature */
-        SecAsn1Item tbscert = {};
-        SEC_ASN1EncodeItem(poolp, &tbscert, &cert_tmpl.tbs, kSecAsn1TBSCertificateTemplate);
-
-        /* calculate signature */
-        uint8_t tbscert_hash[CC_SHA1_DIGEST_LENGTH];
-        CCDigest(kCCDigestSHA1, tbscert.Data, tbscert.Length, tbscert_hash);
-        CFDataRef digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, tbscert_hash, CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
-        CFDataRef sigData = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1,
-                                                  digest, NULL);
-        CFReleaseNull(digest);
-        require_quiet(sigData, out);
-        size_t signature_length = (size_t)CFDataGetLength(sigData);
-        signature = malloc(signature_length);
-        memcpy(signature, CFDataGetBytePtr(sigData), CFDataGetLength(sigData));
-        CFReleaseNull(sigData);
-
-        /* signature */
-        cert_tmpl.signature.Data = signature;
-        cert_tmpl.signature.Length = signature_length * 8;
-
-        /* encode cert */
-        SecAsn1Item signed_cert = {};
-        require_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl, 
-                    kSecAsn1SignedCertTemplate), out);
-        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, 
-                signed_cert.Data, signed_cert.Length);
+    /* encode the signature algorithm info */
+    CFStringRef algorithm = NULL;
+    if (parameters) {
+        algorithm = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
     }
+    signature = make_signature(NULL, 0, privateKey, algorithm, &cert_tmpl.tbs.signature);
+    CFReleaseNull(signature);
+
+    /* encode request info by itself to calculate signature */
+    SecAsn1Item tbscert = {};
+    SEC_ASN1EncodeItem(poolp, &tbscert, &cert_tmpl.tbs, kSecAsn1TBSCertificateTemplate);
+
+    /* calculate signature and encode signature algorithm info */
+    signature = make_signature(tbscert.Data, tbscert.Length, privateKey, algorithm, &cert_tmpl.signatureAlgorithm);
+    require_quiet(signature, out);
+    cert_tmpl.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
+    cert_tmpl.signature.Length = CFDataGetLength(signature) * 8;
+
+    /* encode cert */
+    SecAsn1Item signed_cert = {};
+    require_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
+                                     kSecAsn1SignedCertTemplate), out);
+    cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
+                                         signed_cert.Data, signed_cert.Length);
 out:
+    if (allocated_parameters) {
+        free(cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.parameters.Data);
+    }
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
+    CFReleaseSafe(realPublicKey);
     CFReleaseSafe(pubkey_attrs);
     CFReleaseNull(publicKeyData);
-    if (signature) { free(signature); }
+    CFReleaseNull(signature);
     return cert;
 }
 
-
 SecCertificateRef
 SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
-    SecKeyRef publicKey, CFTypeRef subject, CFTypeRef extensions)
+                           SecKeyRef publicKey, CFTypeRef subject, CFTypeRef extensions) {
+    return SecIdentitySignCertificateWithAlgorithm(issuer, serialno, publicKey, subject, extensions, NULL);
+}
+
+SecCertificateRef
+SecIdentitySignCertificateWithAlgorithm(SecIdentityRef issuer, CFDataRef serialno,
+    SecKeyRef publicKey, CFTypeRef subject, CFTypeRef extensions, CFStringRef hashingAlgorithm)
 {
     SecCertificateRef cert = NULL;
     SecKeyRef privateKey = NULL;
-    uint8_t *signature = NULL;
+    bool allocated_parameters = false;
 
     PRArenaPool *poolp = PORT_NewArena(1024);
-    CFDataRef publicKeyData = NULL;
+    CFDataRef publicKeyData = NULL, signature = NULL;
     if (!poolp)
         return NULL;
 
@@ -1218,58 +1283,41 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
         }
     }
 
-    /* @@@ we only handle rsa keys */
-    if (SecKeyGetAlgorithmId(publicKey) == kSecRSAAlgorithmID) {
-        /* public key data and algorithm */
-        cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.algorithm = CSSMOID_RSA;
-        cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
+    /* subject public key info */
+    publicKeyData = make_public_key(publicKey, &cert_tmpl.tbs.subjectPublicKeyInfo, &allocated_parameters);
+    require_quiet(publicKeyData, out);
 
-        publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
+    /* encode the signature algorithm info */
+    require_noerr_quiet(SecIdentityCopyPrivateKey(issuer, &privateKey), out);
+    signature = make_signature(NULL, 0, privateKey, hashingAlgorithm, &cert_tmpl.tbs.signature);
+    CFReleaseNull(signature);
 
-        /* signature algorithm */
-        cert_tmpl.tbs.signature.algorithm = CSSMOID_SHA1WithRSA;
-        cert_tmpl.tbs.signature.parameters = asn1_null;
-        cert_tmpl.signatureAlgorithm.algorithm = CSSMOID_SHA1WithRSA;
-        cert_tmpl.signatureAlgorithm.parameters = asn1_null;
+    /* encode request info by itself to calculate signature */
+    SecAsn1Item tbscert = {};
+    SEC_ASN1EncodeItem(poolp, &tbscert, &cert_tmpl.tbs, kSecAsn1TBSCertificateTemplate);
 
-        /* encode request info by itself to calculate signature */
-        SecAsn1Item tbscert = {};
-        SEC_ASN1EncodeItem(poolp, &tbscert, &cert_tmpl.tbs, kSecAsn1TBSCertificateTemplate);
+    /* calculate signature and encode signature algorithm info */
+    signature = make_signature(tbscert.Data, tbscert.Length, privateKey, hashingAlgorithm, &cert_tmpl.signatureAlgorithm);
+    require_quiet(signature, out);
+    cert_tmpl.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
+    cert_tmpl.signature.Length = CFDataGetLength(signature) * 8;
 
-        /* calculate signature */
-        uint8_t tbscert_hash[CC_SHA1_DIGEST_LENGTH];
-        CCDigest(kCCDigestSHA1, tbscert.Data, tbscert.Length, tbscert_hash);
-        
-        require_noerr_quiet(SecIdentityCopyPrivateKey(issuer, &privateKey), out);
-        CFDataRef digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, tbscert_hash, CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
-        CFDataRef sigData = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1,
-                                                  digest, NULL);
-        CFReleaseNull(digest);
-        require_quiet(sigData, out);
-        size_t signature_length = (size_t)CFDataGetLength(sigData);
-        signature = malloc(signature_length);
-        memcpy(signature, CFDataGetBytePtr(sigData), CFDataGetLength(sigData));
-        CFReleaseNull(sigData);
+    /* encode cert */
+    SecAsn1Item signed_cert = {};
+    require_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
+                                     kSecAsn1SignedCertTemplate), out);
+    cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
+                                         signed_cert.Data, signed_cert.Length);
 
-        /* signature */
-        cert_tmpl.signature.Data = signature;
-        cert_tmpl.signature.Length = signature_length * 8;
-
-        /* encode cert */
-        SecAsn1Item signed_cert = {};
-        require_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl, 
-                    kSecAsn1SignedCertTemplate), out);
-        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, 
-                signed_cert.Data, signed_cert.Length);
-    }
 out:
-        CFReleaseSafe(privateKey);
+    if (allocated_parameters) {
+        free(cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.parameters.Data);
+    }
+    CFReleaseSafe(privateKey);
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
     CFReleaseSafe(publicKeyData);
-    if (signature) { free(signature); }
+    CFReleaseSafe(signature);
     return cert;
 }
 
@@ -1283,7 +1331,7 @@ SecGenerateCertificateRequestSubject(SecCertificateRef ca_certificate, CFArrayRe
         return NULL;
 
     /*
-        Going agains the spec here:
+        Going against the spec here:
 
             3.2.3.  GetCertInitial
 

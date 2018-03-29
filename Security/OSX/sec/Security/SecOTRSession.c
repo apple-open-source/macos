@@ -484,6 +484,7 @@ static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
             emptyKeys = &session->_keyCache[0];
 
         }
+        assert(emptyKeys);
 
         // Fill in the entry.
         memcpy(emptyKeys->_fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE);
@@ -1026,7 +1027,7 @@ static void SecOTRAcceptNewRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKey
     SecOTRSEnableTimeToRoll(session);
 }
 
-OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef initialKey) {
+OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef CF_CONSUMED initialKey) {
    
     bzero(session->_keyCache, sizeof(session->_keyCache));
     

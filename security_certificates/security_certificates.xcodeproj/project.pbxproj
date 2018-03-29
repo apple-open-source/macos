@@ -12,7 +12,7 @@
 			buildConfigurationList = C27AD4470987FCE9001272E0 /* Build configuration list for PBXAggregateTarget "osx_trust_store" */;
 			buildPhases = (
 				BE9D63141A7315B20021F0B6 /* Copy Files */,
-				D4E4B0AA1E64EF2E000BF513 /* Copy CertificatePinning AssetTypeDescriptor */,
+				D4E4B0AA1E64EF2E000BF513 /* Copy PKITrustSupplementals AssetTypeDescriptor */,
 			);
 			dependencies = (
 				BED60BBF1A6F315A00A395C2 /* PBXTargetDependency */,
@@ -26,7 +26,7 @@
 			buildConfigurationList = BE555B311A72F4D500AEDA9C /* Build configuration list for PBXAggregateTarget "ios_trust_store" */;
 			buildPhases = (
 				BE9D63101A7315850021F0B6 /* CopyFiles */,
-				D4E4B0AC1E64EF60000BF513 /* Copy CertificatePinning AssetTypeDescriptor */,
+				D4E4B0AC1E64EF60000BF513 /* Copy PKITrustSupplementals AssetTypeDescriptor */,
 			);
 			dependencies = (
 				BE555B351A72F4E900AEDA9C /* PBXTargetDependency */,
@@ -46,6 +46,17 @@
 			);
 			name = legacy_osx_trust_store;
 			productName = legacy_trust_store;
+		};
+		D4AE942B1FD64501002FE721 /* PKITrustSupplementalsAsset */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D4AE942D1FD64501002FE721 /* Build configuration list for PBXAggregateTarget "PKITrustSupplementalsAsset" */;
+			buildPhases = (
+				D4AE942C1FD64501002FE721 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = PKITrustSupplementalsAsset;
+			productName = CertificatePinningAsset;
 		};
 		D4F55FAF1E81D700001D7F03 /* CertificatePinningAsset */ = {
 			isa = PBXAggregateTarget;
@@ -81,8 +92,10 @@
 		BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7E71A72D3F900C14393 /* AppleESCertificates.plist */; };
 		BED9C8051ED64DB60052A224 /* ValidUpdate.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED9C8031ED64DA30052A224 /* ValidUpdate.plist */; };
 		D443E1691E28264800CD9CB0 /* CertificatePinning.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */; };
-		D4E4B0AB1E64EF39000BF513 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist in Copy CertificatePinning AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4F8CF371E5FF18200ECC040 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist */; };
-		D4E4B0AD1E64EF6F000BF513 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist in Copy CertificatePinning AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4F8CF371E5FF18200ECC040 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist */; };
+		D4AE94301FD6453F002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */; };
+		D4AE94311FD6454E002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */; };
+		D4CE8BDA201C178900E342E6 /* AnalyticsSamplingRates.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */; };
+		D4CE8BDB201C178900E342E6 /* AppleCertificateAuthorities.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -186,26 +199,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D4E4B0AA1E64EF2E000BF513 /* Copy CertificatePinning AssetTypeDescriptor */ = {
+		D4E4B0AA1E64EF2E000BF513 /* Copy PKITrustSupplementals AssetTypeDescriptor */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/AssetTypeDescriptors;
 			dstSubfolderSpec = 0;
 			files = (
-				D4E4B0AB1E64EF39000BF513 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist in Copy CertificatePinning AssetTypeDescriptor */,
+				D4AE94301FD6453F002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */,
 			);
-			name = "Copy CertificatePinning AssetTypeDescriptor";
+			name = "Copy PKITrustSupplementals AssetTypeDescriptor";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D4E4B0AC1E64EF60000BF513 /* Copy CertificatePinning AssetTypeDescriptor */ = {
+		D4E4B0AC1E64EF60000BF513 /* Copy PKITrustSupplementals AssetTypeDescriptor */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/AssetTypeDescriptors;
 			dstSubfolderSpec = 0;
 			files = (
-				D4E4B0AD1E64EF6F000BF513 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist in Copy CertificatePinning AssetTypeDescriptor */,
+				D4AE94311FD6454E002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */,
 			);
-			name = "Copy CertificatePinning AssetTypeDescriptor";
+			name = "Copy PKITrustSupplementals AssetTypeDescriptor";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -238,8 +251,15 @@
 		BED60BAF1A6F2EC500A395C2 /* evroot.config */ = {isa = PBXFileReference; lastKnownFileType = text; path = evroot.config; sourceTree = "<group>"; };
 		BED60BD41A6F470200A395C2 /* CertificateTool.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CertificateTool.xcodeproj; path = CertificateTool/CertificateTool.xcodeproj; sourceTree = "<group>"; };
 		BED9C8031ED64DA30052A224 /* ValidUpdate.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = ValidUpdate.plist; path = valid_db_snapshot/ValidUpdate.plist; sourceTree = "<group>"; };
+		D4143DA21FF7127D001A441B /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		D418CC761E69F42200330A44 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = Pinning/Makefile; sourceTree = "<group>"; usesTabs = 1; };
 		D418CC771E69F46D00330A44 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = Pinning/README.txt; sourceTree = "<group>"; };
+		D4AE94221FD64257002FE721 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = TrustSupplementalsAsset/Makefile; sourceTree = "<group>"; usesTabs = 1; };
+		D4AE94251FD64257002FE721 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TrustSupplementalsAsset/Info.plist; sourceTree = "<group>"; };
+		D4AE94261FD64257002FE721 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = TrustSupplementalsAsset/README.txt; sourceTree = "<group>"; };
+		D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; path = TrustSupplementalsAsset/com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; sourceTree = "<group>"; };
+		D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AnalyticsSamplingRates.plist; path = TrustSupplementalsAsset/AnalyticsSamplingRates.plist; sourceTree = "<group>"; };
+		D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AppleCertificateAuthorities.plist; path = TrustSupplementalsAsset/AppleCertificateAuthorities.plist; sourceTree = "<group>"; };
 		D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = CertificatePinning.plist; path = Pinning/CertificatePinning.plist; sourceTree = "<group>"; };
 		D4F8CF341E5FEF8700ECC040 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Pinning/Info.plist; sourceTree = "<group>"; };
 		D4F8CF371E5FF18200ECC040 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; path = Pinning/com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; sourceTree = "<group>"; };
@@ -260,6 +280,7 @@
 			isa = PBXGroup;
 			children = (
 				0C406A851C0FA6270053517B /* log_list.json */,
+				D4143DA21FF7127D001A441B /* README */,
 			);
 			path = certificate_transparency;
 			sourceTree = "<group>";
@@ -275,6 +296,7 @@
 				0C406A841C0FA6270053517B /* certificate_transparency */,
 				BE5C26DC1EA82F1200943012 /* valid_db_snapshot */,
 				D4D71DCB1E26F524009CF310 /* Pinning */,
+				D4AE942A1FD6428D002FE721 /* TrustSupplementalsAsset */,
 				BE7F81FC1A3F697800784BBB /* Products */,
 				BED60BD41A6F470200A395C2 /* CertificateTool.xcodeproj */,
 			);
@@ -354,6 +376,19 @@
 				BED60BE01A6F470200A395C2 /* BuildiOSAsset */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D4AE942A1FD6428D002FE721 /* TrustSupplementalsAsset */ = {
+			isa = PBXGroup;
+			children = (
+				D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */,
+				D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */,
+				D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */,
+				D4AE94251FD64257002FE721 /* Info.plist */,
+				D4AE94221FD64257002FE721 /* Makefile */,
+				D4AE94261FD64257002FE721 /* README.txt */,
+			);
+			name = TrustSupplementalsAsset;
 			sourceTree = "<group>";
 		};
 		D4D71DCB1E26F524009CF310 /* Pinning */ = {
@@ -452,6 +487,7 @@
 				4C28D11F06309BEB002A21D3 /* crlcache */,
 				BE7F81FA1A3F697800784BBB /* Certificates */,
 				D4F55FAF1E81D700001D7F03 /* CertificatePinningAsset */,
+				D4AE942B1FD64501002FE721 /* PKITrustSupplementalsAsset */,
 			);
 		};
 /* End PBXProject section */
@@ -485,6 +521,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4CE8BDA201C178900E342E6 /* AnalyticsSamplingRates.plist in Resources */,
+				D4CE8BDB201C178900E342E6 /* AppleCertificateAuthorities.plist in Resources */,
 				BED4A7FF1A72D73A00C14393 /* certsIndex.data in Resources */,
 				BED4A8001A72D73A00C14393 /* certsTable.data in Resources */,
 				BED4A8011A72D73A00C14393 /* EVRoots.plist in Resources */,
@@ -505,6 +543,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		D4AE942C1FD64501002FE721 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Pinning/CertificatePinning.plist",
+				"$(SRCROOT)/TrustSupplementalsAsset/Info.plist",
+				"$(SRCROOT)/CertificateTool/BuildiOSAsset/BuildTrustedCTLogsPlist.rb ",
+				"$(SRCROOT)/certificate_transparency/log_list.json",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ASSET_DIR=${DSTROOT}/BuiltSupplementalAssets\nASSET_DATA=${ASSET_DIR}/AssetData\nASSET_TOOLS_DIR=${SRCROOT}/CertificateTool/BuildiOSAsset\nCT_DIR=${SRCROOT}/certificate_transparency\nPINNING_DIR=${SRCROOT}/Pinning\nSRC_ASSET_DIR=${SRCROOT}/TrustSupplementalsAsset\n\nmkdir -p ${ASSET_DIR}\nditto ${SRC_ASSET_DIR}/Info.plist ${ASSET_DIR}\nmkdir -p ${ASSET_DATA}\n\necho \"Starting TrustedCTLogs.plist file build\"\nruby ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.rb ${CT_DIR}/log_list.json ${ASSET_DATA}/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Converting TrustedCTLogs.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist\n\necho \"Moving CertificatePinning.plist\"\nplutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o ${ASSET_DATA}/CertificatePinning.plist\n\necho \"Moving AnalyticsSamplingRates.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AnalyticsSamplingRates.plist -o ${ASSET_DATA}/AnalyticsSamplingRates.plist\n\necho \"Moving AppleCertificateAuthorities.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AppleCertificateAuthorities.plist -o ${ASSET_DATA}/AppleCertificateAuthorities.plist\n";
+			showEnvVarsInLog = 0;
+		};
 		D4F55FB31E81D707001D7F03 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -765,6 +821,20 @@
 			};
 			name = Debug;
 		};
+		D4AE942E1FD64501002FE721 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D4AE942F1FD64501002FE721 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		D4F55FB11E81D700001D7F03 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -832,6 +902,15 @@
 			buildConfigurations = (
 				C27AD44C0987FCE9001272E0 /* Debug */,
 				BE555B211A72DAC700AEDA9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D4AE942D1FD64501002FE721 /* Build configuration list for PBXAggregateTarget "PKITrustSupplementalsAsset" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4AE942E1FD64501002FE721 /* Debug */,
+				D4AE942F1FD64501002FE721 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008, 2010, 2012-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008, 2010, 2012-2017  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: rootns.c,v 1.40 2010/06/18 05:36:24 marka Exp $ */
+/* $Id: rootns.c,v 1.40.476.1 2012/02/07 00:44:14 each Exp $ */
 
 /*! \file */
 
@@ -62,16 +62,19 @@ static char root_ns[] =
 "A.ROOT-SERVERS.NET.     3600000 IN      A       198.41.0.4\n"
 "A.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:503:BA3E::2:30\n"
 "B.ROOT-SERVERS.NET.     3600000 IN      A       192.228.79.201\n"
+"B.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:200::b\n"
 "C.ROOT-SERVERS.NET.     3600000 IN      A       192.33.4.12\n"
 "C.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:2::c\n"
 "D.ROOT-SERVERS.NET.     3600000 IN      A       199.7.91.13\n"
 "D.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:2d::d\n"
 "E.ROOT-SERVERS.NET.     3600000 IN      A       192.203.230.10\n"
+"E.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:a8::e\n"
 "F.ROOT-SERVERS.NET.     3600000 IN      A       192.5.5.241\n"
 "F.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:2F::F\n"
 "G.ROOT-SERVERS.NET.     3600000 IN      A       192.112.36.4\n"
-"H.ROOT-SERVERS.NET.     3600000 IN      A       128.63.2.53\n"
-"H.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:1::803F:235\n"
+"G.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:12::d0d\n"
+"H.ROOT-SERVERS.NET.     3600000 IN      A       198.97.190.53\n"
+"H.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:1::53\n"
 "I.ROOT-SERVERS.NET.     3600000 IN      A       192.36.148.17\n"
 "I.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:7fe::53\n"
 "J.ROOT-SERVERS.NET.     3600000 IN      A       192.58.128.30\n"
@@ -79,7 +82,7 @@ static char root_ns[] =
 "K.ROOT-SERVERS.NET.     3600000 IN      A       193.0.14.129\n"
 "K.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:7FD::1\n"
 "L.ROOT-SERVERS.NET.     3600000 IN      A       199.7.83.42\n"
-"L.ROOT-SERVERS.NET.     604800  IN      AAAA    2001:500:3::42\n"
+"L.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:500:9f::42\n"
 "M.ROOT-SERVERS.NET.     3600000 IN      A       202.12.27.33\n"
 "M.ROOT-SERVERS.NET.     3600000 IN      AAAA    2001:DC3::35\n";
 
@@ -213,14 +216,12 @@ dns_rootns_create(isc_mem_t *mctx, dns_rdataclass_t rdclass,
 	if (result != ISC_R_SUCCESS)
 		goto failure;
 
-	dns_rdatacallbacks_init(&callbacks);
-
 	len = strlen(root_ns);
 	isc_buffer_init(&source, root_ns, len);
 	isc_buffer_add(&source, len);
 
-	result = dns_db_beginload(db, &callbacks.add,
-				  &callbacks.add_private);
+	dns_rdatacallbacks_init(&callbacks);
+	result = dns_db_beginload(db, &callbacks);
 	if (result != ISC_R_SUCCESS)
 		goto failure;
 	if (filename != NULL) {
@@ -241,7 +242,7 @@ dns_rootns_create(isc_mem_t *mctx, dns_rdataclass_t rdclass,
 					       &callbacks, db->mctx);
 	} else
 		result = ISC_R_NOTFOUND;
-	eresult = dns_db_endload(db, &callbacks.add_private);
+	eresult = dns_db_endload(db, &callbacks);
 	if (result == ISC_R_SUCCESS || result == DNS_R_SEENINCLUDE)
 		result = eresult;
 	if (result != ISC_R_SUCCESS && result != DNS_R_SEENINCLUDE)

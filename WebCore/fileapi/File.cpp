@@ -37,6 +37,13 @@
 
 namespace WebCore {
 
+Ref<File> File::createWithRelativePath(const String& path, const String& relativePath)
+{
+    auto file = File::create(path);
+    file->setRelativePath(relativePath);
+    return file;
+}
+
 File::File(const String& path)
     : Blob(uninitializedContructor)
     , m_path(path)
@@ -78,6 +85,23 @@ File::File(Vector<BlobPartVariant>&& blobPartVariants, const String& filename, c
 {
 }
 
+File::File(const Blob& blob, const String& name)
+    : Blob(referencingExistingBlobConstructor, blob)
+    , m_name(name)
+{
+    ASSERT(!blob.isFile());
+}
+
+File::File(const File& file, const String& name)
+    : Blob(referencingExistingBlobConstructor, file)
+    , m_path(file.path())
+    , m_relativePath(file.relativePath())
+    , m_name(!name.isNull() ? name : file.name())
+    , m_overrideLastModifiedDate(file.m_overrideLastModifiedDate)
+    , m_isDirectory(file.isDirectory())
+{
+}
+
 double File::lastModified() const
 {
     if (m_overrideLastModifiedDate)
@@ -89,7 +113,7 @@ double File::lastModified() const
     // The i/o should be performed on a background thread,
     // and the result should be cached along with an asynchronous monitor for changes to the file.
     time_t modificationTime;
-    if (getFileModificationTime(m_path, modificationTime) && isValidFileTime(modificationTime))
+    if (FileSystem::getFileModificationTime(m_path, modificationTime) && FileSystem::isValidFileTime(modificationTime))
         result = modificationTime * msPerSecond;
     else
         result = currentTime() * msPerSecond;
@@ -105,7 +129,7 @@ void File::computeNameAndContentType(const String& path, const String& nameOverr
         return;
     }
 #endif
-    effectiveName = nameOverride.isNull() ? pathGetFileName(path) : nameOverride;
+    effectiveName = nameOverride.isNull() ? FileSystem::pathGetFileName(path) : nameOverride;
     size_t index = effectiveName.reverseFind('.');
     if (index != notFound)
         effectiveContentType = MIMETypeRegistry::getMIMETypeForExtension(effectiveName.substring(index + 1));
@@ -118,6 +142,13 @@ String File::contentTypeForFile(const String& path)
     computeNameAndContentType(path, String(), name, type);
 
     return type;
+}
+
+bool File::isDirectory() const
+{
+    if (!m_isDirectory)
+        m_isDirectory = FileSystem::fileIsDirectory(m_path, FileSystem::ShouldFollowSymbolicLinks::Yes);
+    return *m_isDirectory;
 }
 
 } // namespace WebCore

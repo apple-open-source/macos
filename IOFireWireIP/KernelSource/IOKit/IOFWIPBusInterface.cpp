@@ -968,7 +968,7 @@ UInt32 IOFWIPBusInterface::getMTU()
 
 UInt32 IOFWIPBusInterface::outputPacket(mbuf_t pkt, void * param)
 {
-	register struct firewire_header *fwh;
+	struct firewire_header *fwh;
 	int	status = kIOReturnError;
 	
 	fwh = (struct firewire_header*)mbuf_data(pkt);

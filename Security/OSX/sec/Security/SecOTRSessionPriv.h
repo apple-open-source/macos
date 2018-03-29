@@ -113,7 +113,7 @@ struct _SecOTRSession {
 CFDataRef SecOTRCopyIncomingBytes(CFDataRef incomingMessage);
 void SecOTRPrepareOutgoingBytes(CFMutableDataRef destinationMessage, CFMutableDataRef protectedMessage);
 
-OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef initialKey);
+OSStatus SecOTRSetupInitialRemoteKey(SecOTRSessionRef session, SecOTRPublicDHKeyRef CF_CONSUMED initialKey);
 void SOSOTRSRoll(SecOTRSessionRef session);
 int SecOTRSGetKeyID(SecOTRSessionRef session);
 int SecOTRSGetTheirKeyID(SecOTRSessionRef session);

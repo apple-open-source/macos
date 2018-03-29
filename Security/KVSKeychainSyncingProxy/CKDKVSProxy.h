@@ -76,6 +76,9 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 @property (retain, nonatomic) NSMutableSet<NSString*>* shadowPendingSyncBackupPeerIDs;
 
 @property (atomic) bool ensurePeerRegistration;
+@property (atomic) bool ensurePeerRegistrationEnqueuedButNotStarted;
+
+// Another version of ensurePeerRegistration due to legacy code structure
 @property (atomic) bool shadowEnsurePeerRegistration;
 
 @property (atomic) bool inCallout;

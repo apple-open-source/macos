@@ -46,7 +46,7 @@
 #include "TextDecorationPainter.h"
 #include "TextPaintStyle.h"
 #include "TextPainter.h"
-#include "TextStream.h"
+#include <wtf/text/TextStream.h>
 
 #if ENABLE(TREE_DEBUGGING)
 #include <stdio.h>
@@ -81,12 +81,12 @@ void paintFlow(const RenderBlockFlow& flow, const Layout& layout, PaintInfo& pai
 
     TextPainter textPainter(paintInfo.context());
     textPainter.setFont(style.fontCascade());
-    textPainter.setTextPaintStyle(computeTextPaintStyle(flow.frame(), style, paintInfo));
+    textPainter.setStyle(computeTextPaintStyle(flow.frame(), style, paintInfo));
 
     std::unique_ptr<ShadowData> debugShadow = nullptr;
     if (flow.settings().simpleLineLayoutDebugBordersEnabled()) {
         debugShadow = std::make_unique<ShadowData>(IntPoint(0, 0), 10, 20, ShadowStyle::Normal, true, Color(0, 255, 0, 200));
-        textPainter.addTextShadow(debugShadow.get(), nullptr);
+        textPainter.setShadow(debugShadow.get());
     }
 
     std::optional<TextDecorationPainter> textDecorationPainter;
@@ -117,10 +117,10 @@ void paintFlow(const RenderBlockFlow& flow, const Layout& layout, PaintInfo& pai
         if (run.hasHyphen())
             textWithHyphen = run.textWithHyphen();
         // x position indicates the line offset from the rootbox. It's always 0 in case of simple line layout.
-        TextRun textRun(run.hasHyphen() ? textWithHyphen : run.text(), 0, run.expansion(), run.expansionBehavior());
+        TextRun textRun { run.hasHyphen() ? textWithHyphen : run.text(), 0, run.expansion(), run.expansionBehavior() };
         textRun.setTabSize(!style.collapseWhiteSpace(), style.tabSize());
-        FloatPoint textOrigin = FloatPoint(rect.x() + paintOffset.x(), roundToDevicePixel(run.baselinePosition() + paintOffset.y(), deviceScaleFactor));
-        textPainter.paintText(textRun, textRun.length(), rect, textOrigin);
+        FloatPoint textOrigin { rect.x() + paintOffset.x(), roundToDevicePixel(run.baselinePosition() + paintOffset.y(), deviceScaleFactor) };
+        textPainter.paint(textRun, rect, textOrigin);
         if (textDecorationPainter) {
             textDecorationPainter->setWidth(rect.width());
             textDecorationPainter->paintTextDecoration(textRun, textOrigin, rect.location() + paintOffset);
@@ -151,7 +151,7 @@ bool hitTestFlow(const RenderBlockFlow& flow, const Layout& layout, const HitTes
         if (!locationInContainer.intersects(lineRect))
             continue;
         renderer.updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
-        if (!result.addNodeToRectBasedTestResult(renderer.node(), request, locationInContainer, lineRect))
+        if (result.addNodeToListBasedTestResult(renderer.node(), request, locationInContainer, lineRect) == HitTestProgress::Stop)
             return true;
     }
     return false;
@@ -217,7 +217,7 @@ unsigned textOffsetForPoint(const LayoutPoint& point, const RenderText& renderer
     auto resolver = runResolver(flow, layout);
     auto it = resolver.runForPoint(point);
     if (it == resolver.end())
-        return renderer.textLength();
+        return renderer.text().length();
     auto run = *it;
     auto& style = flow.style();
     TextRun textRun(run.text(), run.logicalLeft(), run.expansion(), run.expansionBehavior());

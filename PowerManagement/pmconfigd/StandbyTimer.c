@@ -23,6 +23,11 @@
 
 
 #include <mach/mach_time.h>
+#include <msgtracer_client.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/pwr_mgt/powermanagement_mig.h>
+#include <Security/SecTask.h>
+#include <xpc/private.h>
 
 #include "SystemLoad.h"
 #include "PrivateLib.h"
@@ -32,4 +37,5 @@ __private_extern__ void setStandbyTimer() {}
 __private_extern__ void standbyTimer_prime( ) {}
 __private_extern__ CFAbsoluteTime getWakeFromStandbyTime() { return 0;}
 __private_extern__ void evaluateAdaptiveStandby() {}
+__private_extern__ void setInactivityWindow(xpc_object_t remoteConnection, xpc_object_t msg) {}
 

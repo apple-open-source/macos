@@ -32,11 +32,10 @@
 #include "WebCoreFullScreenWarningView.h"
 #include <wtf/text/WTFString.h>
 
+using WebCore::clickToExitFullScreenText;
 @interface CAFilter : NSObject
 + (CAFilter *)filterWithType:(NSString *)type;
 @end
-
-using namespace WebCore;
 
 @implementation WebCoreFullScreenPlaceholderView
 - (id)initWithFrame:(NSRect)frameRect
@@ -58,6 +57,7 @@ using namespace WebCore;
     _effectView.get().hidden = YES;
     _effectView.get().material = NSVisualEffectMaterialLight;
     _effectView.get().state = NSVisualEffectStateActive;
+    _effectView.get().appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantLight];
     [self addSubview:_effectView.get()];
 
     _exitWarning = adoptNS([[NSTextField alloc] initWithFrame:NSZeroRect]);

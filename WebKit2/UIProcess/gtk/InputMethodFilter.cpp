@@ -153,7 +153,7 @@ void InputMethodFilter::handleKeyboardEventWithCompositionResults(GdkEventKey* e
         m_page->confirmComposition(m_confirmedComposition, -1, 0);
 
     if (resultsToSend & Preedit && !m_preedit.isNull()) {
-        m_page->setComposition(m_preedit, Vector<CompositionUnderline>{ CompositionUnderline(0, m_preedit.length(), Color(1, 1, 1), false) },
+        m_page->setComposition(m_preedit, Vector<CompositionUnderline> { CompositionUnderline(0, m_preedit.length(), CompositionUnderlineColor::TextColor, Color(Color::black), false) },
             m_cursorOffset, m_cursorOffset, 0 /* replacement start */, 0 /* replacement end */);
     }
 }
@@ -260,7 +260,7 @@ void InputMethodFilter::updatePreedit()
     }
 #endif
     // FIXME: We should parse the PangoAttrList that we get from the IM context here.
-    m_page->setComposition(m_preedit, Vector<CompositionUnderline>{ CompositionUnderline(0, m_preedit.length(), Color(1, 1, 1), false) },
+    m_page->setComposition(m_preedit, Vector<CompositionUnderline> { CompositionUnderline(0, m_preedit.length(), CompositionUnderlineColor::TextColor, Color(Color::black), false) },
         m_cursorOffset, m_cursorOffset, 0 /* replacement start */, 0 /* replacement end */);
     m_preeditChanged = false;
 }
@@ -312,6 +312,14 @@ void InputMethodFilter::confirmCurrentComposition()
 {
     if (!m_composingTextCurrently)
         return;
+
+#if ENABLE(API_TESTS)
+    if (m_testingMode) {
+        m_composingTextCurrently = false;
+        return;
+    }
+#endif
+
     m_page->confirmComposition(String(), -1, 0);
     m_composingTextCurrently = false;
 }
@@ -431,7 +439,7 @@ void InputMethodFilter::logHandleKeyboardEventWithCompositionResultsForTesting(G
 {
     const char* eventType = event->type == GDK_KEY_RELEASE ? "release" : "press";
     const char* fakedString = faked == EventFaked ? " (faked)" : "";
-    m_events.append(String::format("sendKeyEventWithCompositionResults type=%s keycode=%u%s", eventType, event->keyval, fakedString));
+    m_events.append(String::format("sendKeyEventWithCompositionResults type=%s keycode=%x%s", eventType, event->keyval, fakedString));
 
     if (resultsToSend & Composition && !m_confirmedComposition.isNull())
         logConfirmCompositionForTesting();

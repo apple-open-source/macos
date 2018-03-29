@@ -184,13 +184,13 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
     
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched
@@ -205,13 +205,13 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
     
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched
@@ -251,13 +251,13 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
     
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched
@@ -293,7 +293,7 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
 
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
 
     // Allow event to be dispatched
@@ -308,7 +308,7 @@ static uint8_t descriptor[] = {
     
     
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched
@@ -323,7 +323,7 @@ static uint8_t descriptor[] = {
     });
 
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched
@@ -350,13 +350,13 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
     
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
   
      // Allow event to be dispatched
@@ -373,13 +373,13 @@ static uint8_t descriptor[] = {
     self.eventCount  = 0;
 
     report.VEN_VendorDefined0023 = 1;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 2;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     report.VEN_VendorDefined0023 = 3;
-    status = [self.sourceController handleReport: (uint8_t*)&report Length:1 andInterval:2000];
+    status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
     
     // Allow event to be dispatched

@@ -142,7 +142,7 @@ static void test_path_parse_failure(void) {
         require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:507200000.0]),
                              blockOut, fail("Unable to set verify date: %@", url));
         require_noerr_action(SecTrustEvaluate(trust, &trustResult), blockOut,
-                             fail("Failed ot evaluate trust with error: %@", url));
+                             fail("Failed to evaluate trust with error: %@", url));
         is(trustResult, kSecTrustResultRecoverableTrustFailure, "Got wrong trust result (%d) for %@", trustResult, url);
 
         require_action(cert, blockOut,

@@ -528,10 +528,46 @@ func Test_strridx()
   call assert_equal(-1, strridx('hello', 'hello world'))
 endfunc
 
+func Test_match_func()
+  call assert_equal(4,  match('testing', 'ing'))
+  call assert_equal(4,  match('testing', 'ing', 2))
+  call assert_equal(-1, match('testing', 'ing', 5))
+  call assert_equal(-1, match('testing', 'ing', 8))
+  call assert_equal(1, match(['vim', 'testing', 'execute'], 'ing'))
+  call assert_equal(-1, match(['vim', 'testing', 'execute'], 'img'))
+endfunc
+
 func Test_matchend()
   call assert_equal(7,  matchend('testing', 'ing'))
   call assert_equal(7,  matchend('testing', 'ing', 2))
   call assert_equal(-1, matchend('testing', 'ing', 5))
+  call assert_equal(-1, matchend('testing', 'ing', 8))
+  call assert_equal(match(['vim', 'testing', 'execute'], 'ing'), matchend(['vim', 'testing', 'execute'], 'ing'))
+  call assert_equal(match(['vim', 'testing', 'execute'], 'img'), matchend(['vim', 'testing', 'execute'], 'img'))
+endfunc
+
+func Test_matchlist()
+  call assert_equal(['acd', 'a', '', 'c', 'd', '', '', '', '', ''],  matchlist('acd', '\(a\)\?\(b\)\?\(c\)\?\(.*\)'))
+  call assert_equal(['d', '', '', '', 'd', '', '', '', '', ''],  matchlist('acd', '\(a\)\?\(b\)\?\(c\)\?\(.*\)', 2))
+  call assert_equal([],  matchlist('acd', '\(a\)\?\(b\)\?\(c\)\?\(.*\)', 4))
+endfunc
+
+func Test_matchstr()
+  call assert_equal('ing',  matchstr('testing', 'ing'))
+  call assert_equal('ing',  matchstr('testing', 'ing', 2))
+  call assert_equal('', matchstr('testing', 'ing', 5))
+  call assert_equal('', matchstr('testing', 'ing', 8))
+  call assert_equal('testing', matchstr(['vim', 'testing', 'execute'], 'ing'))
+  call assert_equal('', matchstr(['vim', 'testing', 'execute'], 'img'))
+endfunc
+
+func Test_matchstrpos()
+  call assert_equal(['ing', 4, 7], matchstrpos('testing', 'ing'))
+  call assert_equal(['ing', 4, 7], matchstrpos('testing', 'ing', 2))
+  call assert_equal(['', -1, -1], matchstrpos('testing', 'ing', 5))
+  call assert_equal(['', -1, -1], matchstrpos('testing', 'ing', 8))
+  call assert_equal(['ing', 1, 4, 7], matchstrpos(['vim', 'testing', 'execute'], 'ing'))
+  call assert_equal(['', -1, -1, -1], matchstrpos(['vim', 'testing', 'execute'], 'img'))
 endfunc
 
 func Test_nextnonblank_prevnonblank()
@@ -635,7 +671,13 @@ func Test_count()
   call assert_equal(0, count(d, 'c', 1))
 
   call assert_fails('call count(d, "a", 0, 1)', 'E474:')
-  call assert_fails('call count("a", "a")', 'E712:')
+
+  call assert_equal(0, count("foo", "bar"))
+  call assert_equal(1, count("foo", "oo"))
+  call assert_equal(2, count("foo", "o"))
+  call assert_equal(0, count("foo", "O"))
+  call assert_equal(2, count("foo", "O", 1))
+  call assert_equal(2, count("fooooo", "oo"))
 endfunc
 
 func Test_changenr()

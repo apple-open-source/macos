@@ -21,6 +21,11 @@ $SHELL clean.sh
 
 test -r $RANDFILE || $GENRANDOM 400 $RANDFILE
 
+cp ns1/named1.conf ns1/named.conf
+cp ns2/named1.conf ns2/named.conf
+cp ns3/named1.conf ns3/named.conf
+cp ns4/named1.conf ns4/named.conf
+
 if $SHELL ../testcrypto.sh -q
 then
 	(cd ns1 && $SHELL -e sign.sh)

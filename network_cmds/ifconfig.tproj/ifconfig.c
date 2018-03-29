@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1047,6 +1047,16 @@ setecnmode(const char *val, int dummy __unused, int s,
 		Perror("ioctl(SIOCSECNMODE)");
 }
 
+void
+setprobeconnectivity(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_ifru.ifru_probe_connectivity = value;
+
+	if (ioctl(s, SIOCSIFPROBECONNECTIVITY, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
 #if defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED)
 
 void
@@ -1185,7 +1195,7 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 "\20MULTICAST"
 
 #define	IFEFBITS \
-"\020\1AUTOCONFIGURING\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
+"\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
 "\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
 "\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
@@ -1918,6 +1928,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD_ARG2("fastlane",		setfastlane),
 	DEF_CMD_ARG2("qosmarking",		setqosmarking),
 	DEF_CMD_ARG("disable_output",		setdisableoutput),
+	DEF_CMD("probe_connectivity",	1,		setprobeconnectivity),
+	DEF_CMD("-probe_connectivity",	0,		setprobeconnectivity),
 };
 
 static __constructor void

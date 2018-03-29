@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE book [
+<!ENTITY mdash "&#8212;">
+<!ENTITY ouml "&#xf6;">]>
 <!--
- - Copyright (C) 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
+ - Copyright (C) 2014-2017  Internet Systems Consortium, Inc. ("ISC")
  -
  - Permission to use, copy, modify, and/or distribute this software for any
  - purpose with or without fee is hereby granted, provided that the above
@@ -15,118 +17,161 @@
  - PERFORMANCE OF THIS SOFTWARE.
 -->
 
-<sect1 xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="noteversion.xml"/>
-  <sect2 id="relnotes_intro">
-    <title>Introduction</title>
+<section xmlns:db="http://docbook.org/ns/docbook" version="5.0"><info/>
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="noteversion.xml"/>
+  <section xml:id="relnotes_intro"><info><title>Introduction</title></info>
     <para>
-      This document summarizes changes since BIND 9.9.7.
+      This document summarizes changes since the last production
+      release on the BIND 9.10 branch.
+      Please see the <filename>CHANGES</filename> file for a further
+      list of bug fixes and other changes.
     </para>
-    <para>
-      BIND 9.9.7-P2 addresses security issues described in
-      CVE-2015-5722 and CVE-2015-5986.
-    </para>
-    <para>
-      BIND 9.9.7-P2 addresses a security issue described in CVE-2015-5477.
-    </para>
-    <para>
-      BIND 9.9.7-P1 addresses a security issue described in CVE-2015-4620.
-    </para>
-  </sect2>
-  <sect2 id="relnotes_download">
-    <title>Download</title>
+  </section>
+
+  <section xml:id="relnotes_download"><info><title>Download</title></info>
     <para>
       The latest versions of BIND 9 software can always be found at
-      <ulink url="http://www.isc.org/downloads/"
-	>http://www.isc.org/downloads/</ulink>.
+      <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.isc.org/downloads/">http://www.isc.org/downloads/</link>.
       There you will find additional information about each release,
       source code, and pre-compiled versions for Microsoft Windows
       operating systems.
     </para>
-  </sect2>
-  <sect2 id="relnotes_security">
-    <title>Security Fixes</title>
-    <itemizedlist>
-      <listitem>
-	<para>
-	  An incorrect boundary check in the OPENPGPKEY rdatatype
-	  could trigger an assertion failure. This flaw is disclosed
-	  in CVE-2015-5986. [RT #40286]
-	</para>
-      </listitem>
-      <listitem>
-	<para>
-	  A buffer accounting error could trigger an assertion failure
-	  when parsing certain malformed DNSSEC keys.
-	</para>
-	<para>
-	  This flaw was discovered by Hanno B&#xc3b6;eck of the Fuzzing
-	  Project, and is disclosed in CVE-2015-5722. [RT #40212]
-	</para>
-      </listitem>
-      <listitem>
-	<para>
-	  A specially crafted query could trigger an assertion failure
-	  in message.c.
-	</para>
-	<para>
-	  This flaw was discovered by Jonathan Foote, and is disclosed
-	  in CVE-2015-5477. [RT #39795]
-	</para>
-      </listitem>
-      <listitem>
-	<para>
-	  On servers configured to perform DNSSEC validation, an
-	  assertion failure could be triggered on answers from
-	  a specially configured server.
-	</para>
-	<para>
-	  This flaw was discovered by Breno Silveira Soares, and is
-	  disclosed in CVE-2015-4620. [RT #39795]
-	</para>
-      </listitem>
-    </itemizedlist>
-  </sect2>
-  <sect2 id="relnotes_features">
-    <title>New Features</title>
-    <itemizedlist>
-      <listitem>
-	<para>None</para>
-      </listitem>
-    </itemizedlist>
-  </sect2>
-  <sect2 id="relnotes_changes">
-    <title>Feature Changes</title>
-    <itemizedlist>
-      <listitem>
-	<para>None</para>
-      </listitem>
-    </itemizedlist>
-  </sect2>
-  <sect2 id="relnotes_bugs">
-    <title>Bug Fixes</title>
-    <itemizedlist>
-      <listitem>
-	<para>None</para>
-      </listitem>
-    </itemizedlist>
-  </sect2>
-  <sect2 id="end_of_life">
-    <title>End of Life</title>
+  </section>
+
+  <section xml:id="root_key"><info><title>New DNSSEC Root Key</title></info>
     <para>
-      The BIND 9.9 (Extended Support Version) will be supported until June, 2017.
-      <ulink url="https://www.isc.org/downloads/software-support-policy/"
-	>https://www.isc.org/downloads/software-support-policy/</ulink>
+      ICANN is in the process of introducing a new Key Signing Key (KSK) for
+      the global root zone. BIND has multiple methods for managing DNSSEC
+      trust anchors, with somewhat different behaviors. If the root
+      key is configured using the <command>managed-keys</command>
+      statement, or if the pre-configured root key is enabled by using
+      <command>dnssec-validation auto</command>, then BIND can keep keys up
+      to date automatically. Servers configured in this way should have
+      begun the process of rolling to the new key when it was published in
+      the root zone in July 2017. However, keys configured using the
+      <command>trusted-keys</command> statement are not automatically
+      maintained. If your server is performing DNSSEC validation and is
+      configured using <command>trusted-keys</command>, you are advised to
+      change your configuration before the root zone begins signing with
+      the new KSK. This is currently scheduled for October 11, 2017.
     </para>
-  </sect2>
-  <sect2 id="relnotes_thanks">
-    <title>Thank You</title>
+    <para>
+      This release includes an updated version of the
+      <filename>bind.keys</filename> file containing the new root
+      key. This file can also be downloaded from
+      <link xmlns:xlink="http://www.w3.org/1999/xlink"
+	xlink:href="https://www.isc.org/bind-keys">
+	https://www.isc.org/bind-keys
+      </link>.
+    </para>
+  </section>
+
+  <section xml:id="win_support"><info><title>Windows XP No Longer Supported</title></info>
+    <para>
+      As of BIND 9.10.6, Windows XP is no longer a supported platform for
+      BIND, and Windows XP binaries are no longer available for download
+      from ISC.
+    </para>
+  </section>
+
+  <section xml:id="relnotes_security"><info><title>Security Fixes</title></info>
+    <itemizedlist>
+      <listitem>
+	<para>
+	  An error in TSIG handling could permit unauthorized zone
+	  transfers or zone updates. These flaws are disclosed in
+	  CVE-2017-3142 and CVE-2017-3143. [RT #45383]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  The BIND installer on Windows used an unquoted service path,
+	  which can enable privilege escalation. This flaw is disclosed
+	  in CVE-2017-3141. [RT #45229]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  With certain RPZ configurations, a response with TTL 0
+	  could cause <command>named</command> to go into an infinite
+	  query loop. This flaw is disclosed in CVE-2017-3140.
+	  [RT #45181]
+	</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="relnotes_changes"><info><title>Feature Changes</title></info>
+    <itemizedlist>
+      <listitem>
+	<para>
+	  <command>dig +ednsopt</command> now accepts the names
+	  for EDNS options in addition to numeric values. For example,
+	  an EDNS Client-Subnet option could be sent using
+	  <command>dig +ednsopt=ecs:...</command>. Thanks to
+	  John Worley of Secure64 for the contribution. [RT #44461]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  Threads in <command>named</command> are now set to human-readable
+	  names to assist debugging on operating systems that support that.
+	  Threads will have names such as "isc-timer", "isc-sockmgr",
+	  "isc-worker0001", and so on. This will affect the reporting of
+	  subsidiary thread names in <command>ps</command> and
+	  <command>top</command>, but not the main thread. [RT #43234]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  DiG now warns about .local queries which are reserved for
+	  Multicast DNS. [RT #44783]
+	</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="relnotes_bugs"><info><title>Bug Fixes</title></info>
+    <itemizedlist>
+      <listitem>
+	<para>
+	  Fixed a bug that was introduced in an earlier development
+	  release which caused multi-packet AXFR and IXFR messages to fail
+	  validation if not all packets contained TSIG records; this
+	  caused interoperability problems with some other DNS
+	  implementations. [RT #45509]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  Semicolons are no longer escaped when printing CAA and
+	  URI records.  This may break applications that depend on the
+	  presence of the backslash before the semicolon. [RT #45216]
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  AD could be set on truncated answer with no records present
+	  in the answer and authority sections. [RT #45140]
+	</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="end_of_life"><info><title>End of Life</title></info>
+    <para>
+      The end of life for BIND 9.10 is yet to be determined but
+      will not be before BIND 9.12.0 has been released for 6 months.
+      <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.isc.org/downloads/software-support-policy/">https://www.isc.org/downloads/software-support-policy/</link>
+    </para>
+  </section>
+
+  <section xml:id="relnotes_thanks"><info><title>Thank You</title></info>
     <para>
       Thank you to everyone who assisted us in making this release possible.
       If you would like to contribute to ISC to assist us in continuing to
       make quality open source software, please visit our donations page at
-      <ulink url="http://www.isc.org/donate/"
-	>http://www.isc.org/donate/</ulink>.
+      <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.isc.org/donate/">http://www.isc.org/donate/</link>.
     </para>
-  </sect2>
-</sect1>
+  </section>
+</section>

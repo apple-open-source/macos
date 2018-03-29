@@ -30,7 +30,6 @@
 #include "config.h"
 #include "ImageData.h"
 
-#include "ExceptionCode.h"
 #include <runtime/JSCInlines.h>
 #include <runtime/TypedArrayInlines.h>
 
@@ -39,13 +38,13 @@ namespace WebCore {
 ExceptionOr<Ref<ImageData>> ImageData::create(unsigned sw, unsigned sh)
 {
     if (!sw || !sh)
-        return Exception { INDEX_SIZE_ERR };
+        return Exception { IndexSizeError };
 
     Checked<int, RecordOverflow> dataSize = 4;
     dataSize *= sw;
     dataSize *= sh;
     if (dataSize.hasOverflowed())
-        return Exception { TypeError }; // FIXME: Seems a peculiar choice of exception here.
+        return Exception { RangeError, ASCIILiteral("Cannot allocate a buffer of this size") };
 
     IntSize size(sw, sh);
     auto data = adoptRef(*new ImageData(size));
@@ -78,22 +77,20 @@ RefPtr<ImageData> ImageData::create(const IntSize& size, Ref<Uint8ClampedArray>&
     return adoptRef(*new ImageData(size, WTFMove(byteArray)));
 }
 
-ExceptionOr<RefPtr<ImageData>> ImageData::create(Ref<Uint8ClampedArray>&& byteArray, unsigned sw, unsigned sh)
+ExceptionOr<RefPtr<ImageData>> ImageData::create(Ref<Uint8ClampedArray>&& byteArray, unsigned sw, std::optional<unsigned> sh)
 {
     unsigned length = byteArray->length();
-    if (!length || length % 4 != 0)
-        return Exception { INVALID_STATE_ERR };
+    if (!length || length % 4)
+        return Exception { InvalidStateError, ASCIILiteral("Length is not a non-zero multiple of 4") };
 
-    if (!sw)
-        return Exception { INDEX_SIZE_ERR };
-
+    ASSERT(length > 0);
     length /= 4;
-    if (length % sw != 0)
-        return Exception { INVALID_STATE_ERR };
+    if (!sw || length % sw)
+        return Exception { IndexSizeError, ASCIILiteral("Length is not a multiple of sw") };
 
     unsigned height = length / sw;
-    if (sh && sh != height)
-        return Exception { INDEX_SIZE_ERR };
+    if (sh && sh.value() != height)
+        return Exception { IndexSizeError, ASCIILiteral("sh value is not equal to height") };
 
     return create(IntSize(sw, height), WTFMove(byteArray));
 }

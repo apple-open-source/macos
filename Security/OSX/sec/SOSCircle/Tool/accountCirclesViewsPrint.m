@@ -85,6 +85,26 @@ static const char *getSOSCCStatusDescription(SOSCCStatus ccstatus)
     }
 }
 
+static const char *
+getSOSCCLastDepartureReasonDescription(enum DepartureReason reason)
+{
+    switch (reason) {
+#define CASE_REASON(x) case kSOS##x: return #x
+    CASE_REASON(DepartureReasonError);
+    CASE_REASON(NeverLeftCircle);
+    CASE_REASON(WithdrewMembership);
+    CASE_REASON(MembershipRevoked);
+    CASE_REASON(LeftUntrustedCircle);
+    CASE_REASON(NeverAppliedToCircle);
+    CASE_REASON(DiscoveredRetirement); // we should all be so lucky
+    CASE_REASON(LostPrivateKey);
+    CASE_REASON(PasswordChanged);
+#undef CASE_REASON
+    default:
+        return "Unknown";
+    }
+}
+
 static void printPeerInfos(char *label, CFArrayRef (^getArray)(CFErrorRef *error)) {
     CFErrorRef error = NULL;
     CFArrayRef ppi = getArray(&error);
@@ -104,7 +124,6 @@ static void printPeerInfos(char *label, CFArrayRef (^getArray)(CFErrorRef *error
             CFStringRef deviceID = CFSTR("");
             CFDictionaryRef gestalt = SOSPeerInfoCopyPeerGestalt(peer);
             CFStringRef osVersion = CFDictionaryGetValue(gestalt, CFSTR("OSVersion"));
-            CFReleaseNull(gestalt);
             
             
             if(version >= 2){
@@ -116,24 +135,31 @@ static void printPeerInfos(char *label, CFArrayRef (^getArray)(CFErrorRef *error
             char *dname = CFStringToCString(devtype);
             char *tname = CFStringToCString(transportType);
             char *iname = CFStringToCString(deviceID);
-            char *osname = CFStringToCString(osVersion);
             const char *me = CFEqualSafe(mypeerID, peerID) ? "me>" : "   ";
             
             
-            snprintf(buf, 160, "%s %s: %-16s %-16s %-16s %-16s", me, label, pname, dname, tname, iname);
+            snprintf(buf, 160, "%s %s: %-16s %-16s %-16s %-36s", me, label, pname, dname, tname, iname);
             
             free(pname);
             free(dname);
+            free(tname);
+            free(iname);
+
+            // %s in (Core)Foundation format strings treats the string as MacRoman, need to do this to guarantee UTF8 handling
+            CFStringRef bufstr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
             CFStringRef pid = SOSPeerInfoGetPeerID(peer);
             CFIndex vers = SOSPeerInfoGetVersion(peer);
-            printmsg(CFSTR("%s %@ V%d OS:%s\n"), buf, pid, vers, osname);
-            free(osname);
+            printmsg(CFSTR("%@ %@ V%d OS:%@\n"), bufstr, pid, vers, osVersion ?: CFSTR(""));
+            CFRelease(bufstr);
+
+            CFReleaseNull(gestalt);
         });
     } else {
         printmsg(CFSTR("No %s, error: %@\n"), label, error);
     }
     CFReleaseNull(ppi);
     CFReleaseNull(error);
+    CFReleaseNull(me);
 }
 
 void SOSCCDumpCircleInformation()
@@ -145,10 +171,21 @@ void SOSCCDumpCircleInformation()
     
     SOSCCStatus ccstatus = SOSCCThisDeviceIsInCircle(&error);
     printmsg(CFSTR("ccstatus: %s (%d)\n"), getSOSCCStatusDescription(ccstatus), ccstatus);
+    if (error != NULL) {
+        printmsg(CFSTR("Error checking circle status: %@\n"), error);
+    }
+    CFReleaseNull(error);
     
+    enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&error);
+    printmsg(CFSTR("LastDepartureReason: %s (%d)\n"), getSOSCCLastDepartureReasonDescription(departureReason), departureReason);
+    if (error != NULL) {
+        printmsg(CFSTR("Error checking last departure reason error: %@\n"), error);
+    }
+    CFReleaseNull(error);
+
     is_accountKeyIsTrusted = SOSCCValidateUserPublic(&error);
     if(is_accountKeyIsTrusted)
-        printmsg(CFSTR("Account user public is trusted%@"),CFSTR("\n"));
+        printmsg(CFSTR("Account user public is trusted\n"));
     else
         printmsg(CFSTR("Account user public is not trusted error:(%@)\n"), error);
     CFReleaseNull(error);
@@ -182,8 +219,25 @@ void SOSCCDumpCircleInformation()
     CFReleaseNull(error);
 }
 
+void
+SOSCCDumpEngineInformation(void)
+{
+    CFErrorRef error = NULL;
 
+    printmsg(CFSTR("Engine state:\n"));
+    if (!SOSCCForEachEngineStateAsString(&error, ^(CFStringRef oneStateString) {
+        printmsg(CFSTR("%@\n"), oneStateString);
+    })) {
+        printmsg(CFSTR("No engine state, got error: %@\n"), error);
+    }
+}
 
+// security sync -o
+void
+SOSCCDumpViewUnwarePeers(void)
+{
+    printPeerInfos("view-unaware", ^(CFErrorRef *error) { return SOSCCCopyViewUnawarePeerInfo(error); });
+}
 
 /* KVS Dumping Support for iCloud Keychain */
 

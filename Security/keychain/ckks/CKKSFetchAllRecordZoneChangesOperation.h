@@ -26,6 +26,7 @@
 #if OCTAGON
 @class CKKSKeychainView;
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSZoneChangeFetcher.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -38,13 +39,17 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, weak) CKKSKeychainView* ckks;
 @property CKRecordZoneID* zoneID;
 
+@property NSSet<CKKSFetchBecause*>* fetchReasons;
+
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* modifications;
 @property NSMutableDictionary<CKRecordID*, NSString*>* deletions;
 
 @property (nullable) CKServerChangeToken* serverChangeToken;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                            fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
+                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
 

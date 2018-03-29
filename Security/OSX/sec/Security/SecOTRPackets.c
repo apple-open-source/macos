@@ -75,7 +75,7 @@ static inline void AppendSHA256HMAC_160(CFMutableDataRef appendTo,
 static inline void DeriveAndAppendSHA256HMAC(CFMutableDataRef appendTo,
                                              cc_size sN,
                                              const cc_unit* s,
-                                             KeyType whichKey,
+                                             OTRKeyType whichKey,
                                              size_t howMuch,
                                              const uint8_t* from)
 {
@@ -92,7 +92,7 @@ static inline void DeriveAndAppendSHA256HMAC(CFMutableDataRef appendTo,
 static inline void DeriveAndAppendSHA256HMAC_160(CFMutableDataRef appendTo,
                                                  cc_size sN,
                                                  const cc_unit* s,
-                                                 KeyType whichKey,
+                                                 OTRKeyType whichKey,
                                                  size_t howMuch,
                                                  const uint8_t* from)
 {

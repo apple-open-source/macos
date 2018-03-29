@@ -282,7 +282,7 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
 			break;
 		case 'g':
             if (do_delete)
-                return 2;
+                return SHOW_USAGE_MESSAGE;
 			get_password = TRUE;
 			break;
         case 'p':
@@ -306,7 +306,7 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
 			break;
         case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -537,7 +537,7 @@ keychain_find_or_delete_generic_password(Boolean do_delete,
             break;
         case 'g':
             if (do_delete)
-                return 2;
+                return SHOW_USAGE_MESSAGE;
 			get_password = TRUE;
 			break;
 		case 's':
@@ -545,7 +545,7 @@ keychain_find_or_delete_generic_password(Boolean do_delete,
 			break;
         case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -608,7 +608,7 @@ keychain_roll_keys(int argc, char * const *argv) {
                 force = true;
                 break;
             default:
-                return 2;
+                return SHOW_USAGE_MESSAGE;
         }
     }
     // argc -= optind;

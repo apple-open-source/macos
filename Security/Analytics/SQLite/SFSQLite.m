@@ -21,11 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __OBJC2__
+
 #import "SFSQLite.h"
 #import "SFSQLiteStatement.h"
 #include <sqlite3.h>
 #include <CommonCrypto/CommonDigest.h>
 #import "debugging.h"
+#include <os/transaction_private.h>
 
 #define kSFSQLiteBusyTimeout       (5*60*1000)
 
@@ -292,11 +295,37 @@ allDone:
     // https://sqlite.org/pragma.html#pragma_auto_vacuum
     NSDate *lastVacuumDate = [NSDate dateWithTimeIntervalSinceReferenceDate:[[self propertyForKey:kSFSQLiteLastVacuumKey] floatValue]];
     if ([lastVacuumDate timeIntervalSinceNow] < -(kCKSQLVacuumInterval)) {
-        [self executeSQL:@"VACUUM"];
+        @autoreleasepool {
+            os_transaction_t transaction = os_transaction_create("SFSQLITE DB Vacuum");
+            secnotice("SFSQLITE", "performing periodic vacuum");
+            [self executeSQL:@"VACUUM"];
+            (void)transaction; // dead store
 
-        NSString *vacuumDateString = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSinceReferenceDate]];
-        [self setProperty:vacuumDateString forKey:kSFSQLiteLastVacuumKey];
+            NSString *vacuumDateString = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSinceReferenceDate]];
+            [self setProperty:vacuumDateString forKey:kSFSQLiteLastVacuumKey];
+        }
     }
+}
+
+/*
+ Best-effort attempts to set/correct filesystem permissions.
+ May fail when we don't own DB which means we must wait for them to update permissions,
+ or file does not exist yet which is okay because db will exist and the aux files inherit permissions
+*/
+- (void)attemptProperDatabasePermissions
+{
+#if TARGET_OS_IPHONE
+    NSFileManager* fm = [NSFileManager defaultManager];
+    [fm setAttributes:@{NSFilePosixPermissions : [NSNumber numberWithShort:0666]}
+         ofItemAtPath:_path
+                error:nil];
+    [fm setAttributes:@{NSFilePosixPermissions : [NSNumber numberWithShort:0666]}
+         ofItemAtPath:[NSString stringWithFormat:@"%@-wal",_path]
+                error:nil];
+    [fm setAttributes:@{NSFilePosixPermissions : [NSNumber numberWithShort:0666]}
+         ofItemAtPath:[NSString stringWithFormat:@"%@-shm",_path]
+                error:nil];
+#endif
 }
 
 - (BOOL)openWithError:(NSError **)error {
@@ -325,9 +354,13 @@ allDone:
 #endif
     int rc = sqlite3_open_v2([arcSafePath fileSystemRepresentation], &_db, flags, NULL);
     if (rc != SQLITE_OK) {
-        localError = [NSError errorWithDomain:NSCocoaErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, rc=%d(0x%x)", _path, rc, rc]}];
+        localError = [NSError errorWithDomain:NSCocoaErrorDomain code:rc userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, rc=%d(0x%x)", _path, rc, rc]}];
         goto done;
     }
+    
+    // Filesystem foo for multiple daemons from different users
+    [self attemptProperDatabasePermissions];
+
     sqlite3_extended_result_codes(_db, 1);
     rc = sqlite3_busy_timeout(_db, kSFSQLiteBusyTimeout);
     if (rc != SQLITE_OK) {
@@ -419,7 +452,7 @@ done:
     
     if (!success && error) {
         if (!localError) {
-            localError = [NSError errorWithDomain:NSCocoaErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, ", _path]}];
+            localError = [NSError errorWithDomain:NSCocoaErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@", _path]}];
         }
         *error = localError;
     }
@@ -428,7 +461,7 @@ done:
 
 - (void)open {
     NSError *error;
-    if (![self openWithError:&error]) {
+    if (![self openWithError:&error] && !(error && error.code == SQLITE_AUTH)) {
         secerror("sfsqlite: Error opening db at %@: %@", self.path, error);
         return;
     }
@@ -515,7 +548,9 @@ done:
     }
     int execRet = sqlite3_exec(_db, [SQL UTF8String], NULL, NULL, NULL);
     if (execRet != SQLITE_OK) {
-        secerror("sfsqlite: Error executing SQL: \"%@\" (%d)", SQL, execRet);
+        if (execRet != SQLITE_AUTH && execRet != SQLITE_READONLY) {
+            secerror("sfsqlite: Error executing SQL: \"%@\" (%d)", SQL, execRet);
+        }
         return NO;
     }
 
@@ -684,7 +719,7 @@ done:
             NSString *orderByString = [orderBy componentsJoinedByString:@", "];
             [SQL appendFormat:@" order by %@", orderByString];
         }
-        if (limit) {
+        if (limit != nil) {
             [SQL appendFormat:@" limit %ld", (long)limit.integerValue];
         }
 
@@ -721,7 +756,7 @@ done:
             NSString *orderByString = [orderBy componentsJoinedByString:@", "];
             [SQL appendFormat:@" order by %@", orderByString];
         }
-        if (limit) {
+        if (limit != nil) {
             [SQL appendFormat:@" limit %ld", (long)limit.integerValue];
         }
         
@@ -753,7 +788,7 @@ done:
     if (whereSQL.length) {
         [SQL appendFormat:@" where %@", whereSQL];
     }
-    if (limit) {
+    if (limit != nil) {
         [SQL appendFormat:@" limit %ld", (long)limit.integerValue];
     }
 
@@ -779,7 +814,7 @@ done:
     if (whereSQL.length) {
         [SQL appendFormat:@" where %@", whereSQL];
     }
-    if (limit) {
+    if (limit != nil) {
         [SQL appendFormat:@" limit %ld", (long)limit.integerValue];
     }
 
@@ -884,3 +919,5 @@ done:
 }
 
 @end
+
+#endif

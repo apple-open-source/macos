@@ -495,7 +495,7 @@ get_breakindent_win(
     static varnumber_T prev_tick = 0;   /* changedtick of cached value */
     int		    bri = 0;
     /* window width minus window margin space, i.e. what rests for text */
-    const int	    eff_wwidth = W_WIDTH(wp)
+    const int	    eff_wwidth = wp->w_width
 			    - ((wp->w_p_nu || wp->w_p_rnu)
 				&& (vim_strchr(p_cpo, CPO_NUMCOL) == NULL)
 						? number_width(wp) + 1 : 0);
@@ -626,6 +626,9 @@ open_line(
     int		do_si = (!p_paste && curbuf->b_p_si
 # ifdef FEAT_CINDENT
 					&& !curbuf->b_p_cin
+# endif
+# ifdef FEAT_EVAL
+					&& *curbuf->b_p_inde == NUL
 # endif
 			);
     int		no_si = FALSE;		/* reset did_si afterwards */
@@ -1586,8 +1589,7 @@ open_line(
 	    && curbuf->b_p_ai)
     {
 	fixthisline(get_lisp_indent);
-	p = ml_get_curline();
-	ai_col = (colnr_T)(skipwhite(p) - p);
+	ai_col = (colnr_T)getwhitecols_curline();
     }
 #endif
 #ifdef FEAT_CINDENT
@@ -1605,8 +1607,7 @@ open_line(
 		: KEY_OPEN_BACK, ' ', linewhite(curwin->w_cursor.lnum)))
     {
 	do_c_expr_indent();
-	p = ml_get_curline();
-	ai_col = (colnr_T)(skipwhite(p) - p);
+	ai_col = (colnr_T)getwhitecols_curline();
     }
 #endif
 #if defined(FEAT_VREPLACE) && (defined(FEAT_LISP) || defined(FEAT_CINDENT))
@@ -1983,10 +1984,8 @@ plines_win_nofill(
     if (!wp->w_p_wrap)
 	return 1;
 
-#ifdef FEAT_WINDOWS
     if (wp->w_width == 0)
 	return 1;
-#endif
 
 #ifdef FEAT_FOLDING
     /* A folded lines is handled just like an empty line. */
@@ -2027,7 +2026,7 @@ plines_win_nofold(win_T *wp, linenr_T lnum)
     /*
      * Add column offset for 'number', 'relativenumber' and 'foldcolumn'.
      */
-    width = W_WIDTH(wp) - win_col_off(wp);
+    width = wp->w_width - win_col_off(wp);
     if (width <= 0)
 	return 32000;
     if (col <= width)
@@ -2059,10 +2058,8 @@ plines_win_col(win_T *wp, linenr_T lnum, long column)
     if (!wp->w_p_wrap)
 	return lines + 1;
 
-#ifdef FEAT_WINDOWS
     if (wp->w_width == 0)
 	return lines + 1;
-#endif
 
     line = s = ml_get_buf(wp->w_buffer, lnum, FALSE);
 
@@ -2086,7 +2083,7 @@ plines_win_col(win_T *wp, linenr_T lnum, long column)
     /*
      * Add column offset for 'number', 'relativenumber', 'foldcolumn', etc.
      */
-    width = W_WIDTH(wp) - win_col_off(wp);
+    width = wp->w_width - win_col_off(wp);
     if (width <= 0)
 	return 9999;
 
@@ -2316,7 +2313,8 @@ ins_char_bytes(char_u *buf, int charlen)
 
     /* Copy bytes after the changed character(s). */
     p = newp + col;
-    mch_memmove(p + newlen, oldp + col + oldlen,
+    if (linelen > col + oldlen)
+	mch_memmove(p + newlen, oldp + col + oldlen,
 					    (size_t)(linelen - col - oldlen));
 
     /* Insert or overwrite the new character. */
@@ -2727,12 +2725,15 @@ skip_to_option_part(char_u *p)
 changed(void)
 {
 #if defined(FEAT_XIM) && defined(FEAT_GUI_GTK)
-    /* The text of the preediting area is inserted, but this doesn't
-     * mean a change of the buffer yet.  That is delayed until the
-     * text is committed. (this means preedit becomes empty) */
-    if (im_is_preediting() && !xim_changed_while_preediting)
-	return;
-    xim_changed_while_preediting = FALSE;
+    if (p_imst == IM_ON_THE_SPOT)
+    {
+	/* The text of the preediting area is inserted, but this doesn't
+	 * mean a change of the buffer yet.  That is delayed until the
+	 * text is committed. (this means preedit becomes empty) */
+	if (im_is_preediting() && !xim_changed_while_preediting)
+	    return;
+	xim_changed_while_preediting = FALSE;
+    }
 #endif
 
     if (!curbuf->b_changed)
@@ -2783,10 +2784,8 @@ changed_int(void)
 {
     curbuf->b_changed = TRUE;
     ml_setflags(curbuf);
-#ifdef FEAT_WINDOWS
     check_status(curbuf);
     redraw_tabline = TRUE;
-#endif
 #ifdef FEAT_TITLE
     need_maketitle = TRUE;	    /* set window title later */
 #endif
@@ -2991,9 +2990,7 @@ changed_common(
     long	xtra)
 {
     win_T	*wp;
-#ifdef FEAT_WINDOWS
     tabpage_T	*tp;
-#endif
     int		i;
 #ifdef FEAT_JUMPLIST
     int		cols;
@@ -3195,10 +3192,8 @@ unchanged(
 	ml_setflags(buf);
 	if (ff)
 	    save_file_ff(buf);
-#ifdef FEAT_WINDOWS
 	check_status(buf);
 	redraw_tabline = TRUE;
-#endif
 #ifdef FEAT_TITLE
 	need_maketitle = TRUE;	    /* set window title later */
 #endif
@@ -3209,7 +3204,6 @@ unchanged(
 #endif
 }
 
-#if defined(FEAT_WINDOWS) || defined(PROTO)
 /*
  * check_status: called when the status bars for the buffer 'buf'
  *		 need to be updated
@@ -3227,7 +3221,6 @@ check_status(buf_T *buf)
 		must_redraw = VALID;
 	}
 }
-#endif
 
 /*
  * If the file is readonly, give a warning message with the first change.
@@ -3592,7 +3585,7 @@ prompt_for_number(int *mouse_used)
     save_cmdline_row = cmdline_row;
     cmdline_row = 0;
     save_State = State;
-    State = CMDLINE;
+    State = ASKMORE;	/* prevents a screen update when using a timer */
 
     i = get_number(TRUE, mouse_used);
     if (KeyTyped)
@@ -3685,16 +3678,30 @@ vim_beep(
     {
 	if (!((bo_flags & val) || (bo_flags & BO_ALL)))
 	{
-	    if (p_vb
-#ifdef FEAT_GUI
-		    /* While the GUI is starting up the termcap is set for the
-		     * GUI but the output still goes to a terminal. */
-		    && !(gui.in_use && gui.starting)
+#ifdef ELAPSED_FUNC
+	    static int		did_init = FALSE;
+	    static ELAPSED_TYPE	start_tv;
+
+	    /* Only beep once per half a second, otherwise a sequence of beeps
+	     * would freeze Vim. */
+	    if (!did_init || ELAPSED_FUNC(start_tv) > 500)
+	    {
+		did_init = TRUE;
+		ELAPSED_INIT(start_tv);
 #endif
-		    )
-		out_str(T_VB);
-	    else
-		out_char(BELL);
+		if (p_vb
+#ifdef FEAT_GUI
+			/* While the GUI is starting up the termcap is set for
+			 * the GUI but the output still goes to a terminal. */
+			&& !(gui.in_use && gui.starting)
+#endif
+			)
+		    out_str_cf(T_VB);
+		else
+		    out_char(BELL);
+#ifdef ELAPSED_FUNC
+	    }
+#endif
 	}
 
 	/* When 'verbose' is set and we are sourcing a script or executing a
@@ -3733,10 +3740,33 @@ init_homedir(void)
     var = mch_getenv((char_u *)"HOME");
 #endif
 
-    if (var != NULL && *var == NUL)	/* empty is same as not set */
-	var = NULL;
-
 #ifdef WIN3264
+    /*
+     * Typically, $HOME is not defined on Windows, unless the user has
+     * specifically defined it for Vim's sake.  However, on Windows NT
+     * platforms, $HOMEDRIVE and $HOMEPATH are automatically defined for
+     * each user.  Try constructing $HOME from these.
+     */
+    if (var == NULL || *var == NUL)
+    {
+	char_u *homedrive, *homepath;
+
+	homedrive = mch_getenv((char_u *)"HOMEDRIVE");
+	homepath = mch_getenv((char_u *)"HOMEPATH");
+	if (homepath == NULL || *homepath == NUL)
+	    homepath = (char_u *)"\\";
+	if (homedrive != NULL
+			   && STRLEN(homedrive) + STRLEN(homepath) < MAXPATHL)
+	{
+	    sprintf((char *)NameBuff, "%s%s", homedrive, homepath);
+	    if (NameBuff[0] != NUL)
+		var = NameBuff;
+	}
+    }
+
+    if (var == NULL)
+	var = mch_getenv((char_u *)"USERPROFILE");
+
     /*
      * Weird but true: $HOME may contain an indirect reference to another
      * variable, esp. "%USERPROFILE%".  Happens when $USERPROFILE isn't set
@@ -3757,40 +3787,14 @@ init_homedir(void)
 	    {
 		vim_snprintf((char *)NameBuff, MAXPATHL, "%s%s", exp, p + 1);
 		var = NameBuff;
-		/* Also set $HOME, it's needed for _viminfo. */
-		vim_setenv((char_u *)"HOME", NameBuff);
 	    }
 	}
     }
 
-    /*
-     * Typically, $HOME is not defined on Windows, unless the user has
-     * specifically defined it for Vim's sake.  However, on Windows NT
-     * platforms, $HOMEDRIVE and $HOMEPATH are automatically defined for
-     * each user.  Try constructing $HOME from these.
-     */
-    if (var == NULL)
-    {
-	char_u *homedrive, *homepath;
+    if (var != NULL && *var == NUL)	/* empty is same as not set */
+	var = NULL;
 
-	homedrive = mch_getenv((char_u *)"HOMEDRIVE");
-	homepath = mch_getenv((char_u *)"HOMEPATH");
-	if (homepath == NULL || *homepath == NUL)
-	    homepath = (char_u *)"\\";
-	if (homedrive != NULL
-			   && STRLEN(homedrive) + STRLEN(homepath) < MAXPATHL)
-	{
-	    sprintf((char *)NameBuff, "%s%s", homedrive, homepath);
-	    if (NameBuff[0] != NUL)
-	    {
-		var = NameBuff;
-		/* Also set $HOME, it's needed for _viminfo. */
-		vim_setenv((char_u *)"HOME", NameBuff);
-	    }
-	}
-    }
-
-# if defined(FEAT_MBYTE)
+# ifdef FEAT_MBYTE
     if (enc_utf8 && var != NULL)
     {
 	int	len;
@@ -3806,9 +3810,7 @@ init_homedir(void)
 	}
     }
 # endif
-#endif
 
-#if defined(MSWIN)
     /*
      * Default home dir is C:/
      * Best assumption we can make in such a situation.
@@ -3816,6 +3818,7 @@ init_homedir(void)
     if (var == NULL)
 	var = (char_u *)"C:/";
 #endif
+
     if (var != NULL)
     {
 #ifdef UNIX
@@ -4163,13 +4166,18 @@ expand_env_esc(
 	    }
 	    else if ((src[0] == ' ' || src[0] == ',') && !one)
 		at_start = TRUE;
-	    *dst++ = *src++;
-	    --dstlen;
+	    if (dstlen > 0)
+	    {
+		*dst++ = *src++;
+		--dstlen;
 
-	    if (startstr != NULL && src - startstr_len >= srcp
-		    && STRNCMP(src - startstr_len, startstr, startstr_len) == 0)
-		at_start = TRUE;
+		if (startstr != NULL && src - startstr_len >= srcp
+			&& STRNCMP(src - startstr_len, startstr,
+							    startstr_len) == 0)
+		    at_start = TRUE;
+	    }
 	}
+
     }
     *dst = NUL;
 }
@@ -4326,12 +4334,8 @@ vim_getenv(char_u *name, int *mustfree)
 	    }
 
 	    /* remove trailing path separator */
-#ifndef MACOS_CLASSIC
-	    /* With MacOS path (with  colons) the final colon is required */
-	    /* to avoid confusion between absolute and relative path */
 	    if (pend > p && after_pathsep(p, pend))
 		--pend;
-#endif
 
 #ifdef MACOS_X
 	    if (p == exe_name || p == p_hf)
@@ -4491,9 +4495,9 @@ get_env_name(
     expand_T	*xp UNUSED,
     int		idx)
 {
-# if defined(AMIGA) || defined(__MRC__) || defined(__SC__)
+# if defined(AMIGA)
     /*
-     * No environ[] on the Amiga and on the Mac (using MPW).
+     * No environ[] on the Amiga.
      */
     return NULL;
 # else
@@ -4624,7 +4628,7 @@ home_replace(
      */
     if (buf != NULL && buf->b_help)
     {
-	STRCPY(dst, gettail(src));
+	vim_snprintf((char *)dst, dstlen, "%s", gettail(src));
 	return;
     }
 
@@ -4639,6 +4643,10 @@ home_replace(
     homedir_env_orig = homedir_env = mch_getenv((char_u *)"SYS$LOGIN");
 #else
     homedir_env_orig = homedir_env = mch_getenv((char_u *)"HOME");
+#endif
+#ifdef WIN3264
+    if (homedir_env == NULL)
+	homedir_env_orig = homedir_env = mch_getenv((char_u *)"USERPROFILE");
 #endif
     /* Empty is the same as not set. */
     if (homedir_env != NULL && *homedir_env == NUL)
@@ -5001,8 +5009,6 @@ vim_ispathlistsep(int c)
 }
 #endif
 
-#if defined(FEAT_GUI_TABLINE) || defined(FEAT_WINDOWS) \
-	|| defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Shorten the path of a file from "~/foo/../.bar/fname" to "~/f/../.b/fname"
  * It's done in-place.
@@ -5045,7 +5051,6 @@ shorten_dir(char_u *str)
 	}
     }
 }
-#endif
 
 /*
  * Return TRUE if the directory of "fname" exists, FALSE otherwise.
@@ -5199,7 +5204,7 @@ FullName_save(
 
 static char_u	*skip_string(char_u *p);
 static pos_T *ind_find_start_comment(void);
-static pos_T *ind_find_start_CORS(void);
+static pos_T *ind_find_start_CORS(linenr_T *is_raw);
 static pos_T *find_start_rawstring(int ind_maxcomment);
 
 /*
@@ -5250,11 +5255,12 @@ find_start_comment(int ind_maxcomment)	/* XXX */
  * Find the start of a comment or raw string, not knowing if we are in a
  * comment or raw string right now.
  * Search starts at w_cursor.lnum and goes backwards.
+ * If is_raw is given and returns start of raw_string, sets it to true.
  * Return NULL when not inside a comment or raw string.
  * "CORS" -> Comment Or Raw String
  */
     static pos_T *
-ind_find_start_CORS(void)	    /* XXX */
+ind_find_start_CORS(linenr_T *is_raw)	    /* XXX */
 {
     static pos_T comment_pos_copy;
     pos_T	*comment_pos;
@@ -5274,7 +5280,11 @@ ind_find_start_CORS(void)	    /* XXX */
      * If rs_pos is before comment_pos the comment is inside the raw string. */
     if (comment_pos == NULL || (rs_pos != NULL
 					     && LT_POS(*rs_pos, *comment_pos)))
+    {
+	if (is_raw != NULL && rs_pos != NULL)
+	    *is_raw = rs_pos->lnum;
 	return rs_pos;
+    }
     return comment_pos;
 }
 
@@ -5619,7 +5629,7 @@ cin_islabel(void)		/* XXX */
 	     * it.
 	     */
 	    curwin->w_cursor.col = 0;
-	    if ((trypos = ind_find_start_CORS()) != NULL) /* XXX */
+	    if ((trypos = ind_find_start_CORS(NULL)) != NULL) /* XXX */
 		curwin->w_cursor = *trypos;
 
 	    line = ml_get_curline();
@@ -6746,7 +6756,7 @@ find_start_brace(void)	    /* XXX */
 	pos = NULL;
 	/* ignore the { if it's in a // or / *  * / comment */
 	if ((colnr_T)cin_skip2pos(trypos) == trypos->col
-		       && (pos = ind_find_start_CORS()) == NULL) /* XXX */
+		       && (pos = ind_find_start_CORS(NULL)) == NULL) /* XXX */
 	    break;
 	if (pos != NULL)
 	    curwin->w_cursor.lnum = pos->lnum;
@@ -6797,7 +6807,7 @@ retry:
 	    pos_copy = *trypos;	    /* copy trypos, findmatch will change it */
 	    trypos = &pos_copy;
 	    curwin->w_cursor = *trypos;
-	    if ((trypos_wk = ind_find_start_CORS()) != NULL) /* XXX */
+	    if ((trypos_wk = ind_find_start_CORS(NULL)) != NULL) /* XXX */
 	    {
 		ind_maxp_wk = ind_maxparen - (int)(cursor_save.lnum
 			- trypos_wk->lnum);
@@ -7167,6 +7177,7 @@ get_c_indent(void)
     int		original_line_islabel;
     int		added_to_amount = 0;
     int		js_cur_has_key = 0;
+    linenr_T	raw_string_start = 0;
     cpp_baseclass_cache_T cache_cpp_baseclass = { FALSE, { MAXLNUM, 0 } };
 
     /* make a copy, value is changed below */
@@ -7469,7 +7480,7 @@ get_c_indent(void)
 		curwin->w_cursor.lnum = lnum;
 
 		/* Skip a comment or raw string. XXX */
-		if ((trypos = ind_find_start_CORS()) != NULL)
+		if ((trypos = ind_find_start_CORS(NULL)) != NULL)
 		{
 		    lnum = trypos->lnum + 1;
 		    continue;
@@ -7910,7 +7921,7 @@ get_c_indent(void)
 			 * If we're in a comment or raw string now, skip to
 			 * the start of it.
 			 */
-			trypos = ind_find_start_CORS();
+			trypos = ind_find_start_CORS(NULL);
 			if (trypos != NULL)
 			{
 			    curwin->w_cursor.lnum = trypos->lnum + 1;
@@ -8030,7 +8041,7 @@ get_c_indent(void)
 
 			    /* If we're in a comment or raw string now, skip
 			     * to the start of it. */
-			    trypos = ind_find_start_CORS();
+			    trypos = ind_find_start_CORS(NULL);
 			    if (trypos != NULL)
 			    {
 				curwin->w_cursor.lnum = trypos->lnum + 1;
@@ -8068,7 +8079,7 @@ get_c_indent(void)
 		 * If we're in a comment or raw string now, skip to the start
 		 * of it.
 		 */					    /* XXX */
-		if ((trypos = ind_find_start_CORS()) != NULL)
+		if ((trypos = ind_find_start_CORS(&raw_string_start)) != NULL)
 		{
 		    curwin->w_cursor.lnum = trypos->lnum + 1;
 		    curwin->w_cursor.col = 0;
@@ -8635,7 +8646,8 @@ get_c_indent(void)
 						       curwin->w_cursor.lnum);
 				if (lookfor != LOOKFOR_TERM
 						&& lookfor != LOOKFOR_JS_KEY
-						&& lookfor != LOOKFOR_COMMA)
+						&& lookfor != LOOKFOR_COMMA
+						&& raw_string_start != curwin->w_cursor.lnum)
 				    lookfor = LOOKFOR_UNTERM;
 			    }
 			}
@@ -8916,7 +8928,7 @@ term_again:
 	 * If we're in a comment or raw string now, skip to the start
 	 * of it.
 	 */						/* XXX */
-	if ((trypos = ind_find_start_CORS()) != NULL)
+	if ((trypos = ind_find_start_CORS(NULL)) != NULL)
 	{
 	    curwin->w_cursor.lnum = trypos->lnum + 1;
 	    curwin->w_cursor.col = 0;
@@ -10980,9 +10992,6 @@ gen_expand_wildcards(
 	{
 	    char_u	*t = backslash_halve_save(p);
 
-#if defined(MACOS_CLASSIC)
-	    slash_to_colon(t);
-#endif
 	    /* When EW_NOTFOUND is used, always add files and dirs.  Makes
 	     * "vim c:/" work. */
 	    if (flags & EW_NOTFOUND)

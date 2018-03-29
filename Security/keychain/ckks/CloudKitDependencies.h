@@ -41,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) NSArray<CKRecordZoneID*>* recordZoneIDsToDelete;
 @property NSOperationQueuePriority queuePriority;
 @property NSQualityOfService qualityOfService;
+@property (nonatomic, strong, nullable) CKOperationGroup* group;
 
 @property (nonatomic, copy, nullable) void (^modifyRecordZonesCompletionBlock)
     (NSArray<CKRecordZone*>* _Nullable savedRecordZones, NSArray<CKRecordZoneID*>* _Nullable deletedRecordZoneIDs, NSError* _Nullable operationError);
@@ -108,6 +109,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, copy, nullable) NSArray<CKRecordID*>* recordIDs;
 @property (nonatomic, copy, nullable) NSArray<NSString*>* desiredKeys;
+@property (nonatomic, copy, nullable) CKOperationConfiguration* configuration;
 @property (nonatomic, copy, nullable) void (^perRecordProgressBlock)(CKRecordID* recordID, double progress);
 @property (nonatomic, copy, nullable) void (^perRecordCompletionBlock)
     (CKRecord* _Nullable record, CKRecordID* _Nullable recordID, NSError* _Nullable error);

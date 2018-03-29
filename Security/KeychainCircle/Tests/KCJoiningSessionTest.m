@@ -82,6 +82,12 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
 
 @implementation KCJoiningRequestTestDelegate
 
+- (void)dealloc {
+    if(_peerInfo) {
+        CFRelease(_peerInfo);
+    }
+}
+
 + (id) requestDelegateWithSecret:(NSString*) secret {
     return [[KCJoiningRequestTestDelegate alloc] initWithSecret:secret
                                                 incorrectSecret:@""
@@ -106,10 +112,14 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     SecKeyRef octagonSigningKey = GenerateFullECKey(384, NULL);
     SecKeyRef octagonEncryptionKey = GenerateFullECKey(384, NULL);
 
-    self.peerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, octagonEncryptionKey, NULL);
+    SOSPeerInfoRef newPeerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, octagonEncryptionKey, NULL);
 
-    if (self.peerInfo == NULL)
+    if (newPeerInfo == NULL) {
         return nil;
+    }
+    self.peerInfo = newPeerInfo;
+    CFRelease(newPeerInfo);
+    newPeerInfo = NULL;
 
     self.sharedSecret = secret;
     self.incorrectSecret = incorrectSecret;
@@ -135,7 +145,11 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
 }
 
 - (SOSPeerInfoRef) copyPeerInfoError: (NSError**) error {
-    return self.peerInfo;
+    if(!self.peerInfo) {
+        return NULL;
+    }
+
+    return (SOSPeerInfoRef) CFRetain(self.peerInfo);
 }
 
 - (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion)version error: (NSError**)error {

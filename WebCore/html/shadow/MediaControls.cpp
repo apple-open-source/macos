@@ -360,10 +360,8 @@ bool MediaControls::containsRelatedTarget(Event& event)
 {
     if (!is<MouseEvent>(event))
         return false;
-    EventTarget* relatedTarget = downcast<MouseEvent>(event).relatedTarget();
-    if (!relatedTarget)
-        return false;
-    return contains(relatedTarget->toNode());
+    auto relatedTarget = downcast<MouseEvent>(event).relatedTarget();
+    return is<Node>(relatedTarget) && contains(&downcast<Node>(*relatedTarget));
 }
 
 #if ENABLE(VIDEO_TRACK)
@@ -410,6 +408,12 @@ void MediaControls::textTrackPreferencesChanged()
     closedCaptionTracksChanged();
     if (m_textDisplayContainer)
         m_textDisplayContainer->updateSizes(true);
+}
+
+void MediaControls::clearTextDisplayContainer()
+{
+    if (m_textDisplayContainer)
+        m_textDisplayContainer->removeChildren();
 }
 
 #endif

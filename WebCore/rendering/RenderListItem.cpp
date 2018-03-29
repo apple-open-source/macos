@@ -24,6 +24,7 @@
 #include "config.h"
 #include "RenderListItem.h"
 
+#include "CSSFontSelector.h"
 #include "ElementTraversal.h"
 #include "HTMLNames.h"
 #include "HTMLOListElement.h"
@@ -33,11 +34,9 @@
 #include "RenderChildIterator.h"
 #include "RenderInline.h"
 #include "RenderListMarker.h"
-#include "RenderMultiColumnFlowThread.h"
-#include "RenderRuby.h"
-#include "RenderTable.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
+#include <wtf/IsoMallocInlines.h>
 #if !ASSERT_DISABLED
 #include <wtf/SetForScope.h>
 #endif
@@ -48,9 +47,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderListItem);
+
 RenderListItem::RenderListItem(Element& element, RenderStyle&& style)
     : RenderBlockFlow(element, WTFMove(style))
-    , m_marker(nullptr)
     , m_hasExplicitValue(false)
     , m_isValueUpToDate(false)
     , m_notInList(false)
@@ -65,37 +65,32 @@ RenderListItem::~RenderListItem()
 
 void RenderListItem::willBeDestroyed()
 {
-    if (m_marker) {
-        m_marker->destroy();
-        ASSERT(!m_marker);
-    }
+    if (m_marker)
+        m_marker->removeFromParentAndDestroy();
     RenderBlockFlow::willBeDestroyed();
 }
 
-void RenderListItem::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+RenderStyle RenderListItem::computeMarkerStyle() const
 {
-    RenderBlockFlow::styleDidChange(diff, oldStyle);
-
-    if (style().listStyleType() == NoneListStyle && (!style().listStyleImage() || style().listStyleImage()->errorOccurred())) {
-        if (m_marker) {
-            m_marker->destroy();
-            ASSERT(!m_marker);
-        }
-        return;
-    }
-
-    auto newStyle = RenderStyle::create();
     // The marker always inherits from the list item, regardless of where it might end
     // up (e.g., in some deeply nested line box). See CSS3 spec.
-    newStyle.inheritFrom(style());
-    if (!m_marker) {
-        m_marker = createRenderer<RenderListMarker>(*this, WTFMove(newStyle)).leakPtr();
-        m_marker->initializeStyle();
-    } else {
-        // Do not alter our marker's style unless our style has actually changed.
-        if (diff != StyleDifferenceEqual)
-            m_marker->setStyle(WTFMove(newStyle));
-    }
+    // FIXME: The marker should only inherit all font properties and the color property
+    // according to the CSS Pseudo-Elements Module Level 4 spec.
+    //
+    // Although the CSS Pseudo-Elements Module Level 4 spec. saids to add ::marker to the UA sheet
+    // we apply it here as an optimization because it only applies to markers. That is, it does not
+    // apply to all elements.
+    RenderStyle parentStyle = RenderStyle::clone(style());
+    auto fontDescription = style().fontDescription();
+    fontDescription.setVariantNumericSpacing(FontVariantNumericSpacing::TabularNumbers);
+    parentStyle.setFontDescription(fontDescription);
+    parentStyle.fontCascade().update(&document().fontSelector());
+
+    if (auto markerStyle = getCachedPseudoStyle(MARKER, &parentStyle))
+        return RenderStyle::clone(*markerStyle);
+    auto markerStyle = RenderStyle::create();
+    markerStyle.inheritFrom(parentStyle);
+    return markerStyle;
 }
 
 void RenderListItem::insertedIntoTree()
@@ -112,7 +107,7 @@ void RenderListItem::willBeRemovedFromTree()
     updateListMarkerNumbers();
 }
 
-static inline bool isHTMLListElement(const Node& node)
+bool isHTMLListElement(const Node& node)
 {
     return is<HTMLUListElement>(node) || is<HTMLOListElement>(node);
 }
@@ -228,35 +223,6 @@ void RenderListItem::updateValueNow() const
     m_isValueUpToDate = true;
 }
 
-static RenderBlock* getParentOfFirstLineBox(RenderBlock& current, RenderObject& marker)
-{
-    bool inQuirksMode = current.document().inQuirksMode();
-    for (auto& child : childrenOfType<RenderObject>(current)) {
-        if (&child == &marker)
-            continue;
-
-        if (child.isInline() && (!is<RenderInline>(child) || current.generatesLineBoxesForInlineChild(&child)))
-            return &current;
-
-        if (child.isFloating() || child.isOutOfFlowPositioned())
-            continue;
-
-        if (!is<RenderBlock>(child) || is<RenderTable>(child) || is<RenderRubyAsBlock>(child))
-            break;
-
-        if (is<RenderBox>(child) && downcast<RenderBox>(child).isWritingModeRoot())
-            break;
-
-        if (is<RenderListItem>(current) && inQuirksMode && child.node() && isHTMLListElement(*child.node()))
-            break;
-
-        if (RenderBlock* lineBox = getParentOfFirstLineBox(downcast<RenderBlock>(child), marker))
-            return lineBox;
-    }
-
-    return nullptr;
-}
-
 void RenderListItem::updateValue()
 {
     if (!m_hasExplicitValue) {
@@ -266,68 +232,11 @@ void RenderListItem::updateValue()
     }
 }
 
-static RenderObject* firstNonMarkerChild(RenderBlock& parent)
-{
-    RenderObject* child = parent.firstChild();
-    while (is<RenderListMarker>(child))
-        child = child->nextSibling();
-    return child;
-}
-
-void RenderListItem::insertOrMoveMarkerRendererIfNeeded()
-{
-    // Sanity check the location of our marker.
-    if (!m_marker)
-        return;
-
-    // FIXME: Do not even try to reposition the marker when we are not in layout
-    // until after we fixed webkit.org/b/163789.
-    if (!view().frameView().isInRenderTreeLayout())
-        return;
-
-    RenderElement* currentParent = m_marker->parent();
-    RenderBlock* newParent = getParentOfFirstLineBox(*this, *m_marker);
-    if (!newParent) {
-        // If the marker is currently contained inside an anonymous box,
-        // then we are the only item in that anonymous box (since no line box
-        // parent was found). It's ok to just leave the marker where it is
-        // in this case.
-        if (currentParent && currentParent->isAnonymousBlock())
-            return;
-        if (multiColumnFlowThread())
-            newParent = multiColumnFlowThread();
-        else
-            newParent = this;
-    }
-
-    if (newParent != currentParent) {
-        // Removing and adding the marker can trigger repainting in
-        // containers other than ourselves, so we need to disable LayoutState.
-        LayoutStateDisabler layoutStateDisabler(view());
-        // Mark the parent dirty so that when the marker gets inserted into the tree
-        // and dirties ancestors, it stops at the parent.
-        newParent->setChildNeedsLayout(MarkOnlyThis);
-        m_marker->setNeedsLayout(MarkOnlyThis);
-
-        m_marker->removeFromParent();
-        newParent->addChild(m_marker, firstNonMarkerChild(*newParent));
-        m_marker->updateMarginsAndContent();
-        // If current parent is an anonymous block that has lost all its children, destroy it.
-        if (currentParent && currentParent->isAnonymousBlock() && !currentParent->firstChild() && !downcast<RenderBlock>(*currentParent).continuation())
-            currentParent->destroy();
-    }
-
-}
-
 void RenderListItem::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
-    ASSERT(needsLayout()); 
+    ASSERT(needsLayout());
 
-    insertOrMoveMarkerRendererIfNeeded();
-#if !ASSERT_DISABLED
-    SetForScope<bool> inListItemLayout(m_inLayout, true);
-#endif
     RenderBlockFlow::layout();
 }
 
@@ -339,14 +248,10 @@ void RenderListItem::addOverflowFromChildren()
 
 void RenderListItem::computePreferredLogicalWidths()
 {
-#ifndef NDEBUG
-    // FIXME: We shouldn't be modifying the tree in computePreferredLogicalWidths.
-    // Instead, we should insert the marker soon after the tree construction.
-    // This is similar case to RenderCounter::computePreferredLogicalWidths()
-    // See https://bugs.webkit.org/show_bug.cgi?id=104829
-    SetLayoutNeededForbiddenScope layoutForbiddenScope(this, false);
-#endif
-    insertOrMoveMarkerRendererIfNeeded();
+    // FIXME: RenderListMarker::updateMargins() mutates margin style which affects preferred widths.
+    if (m_marker && m_marker->preferredLogicalWidthsDirty())
+        m_marker->updateMarginsAndContent();
+
     RenderBlockFlow::computePreferredLogicalWidths();
 }
 
@@ -424,25 +329,25 @@ void RenderListItem::positionListMarker()
         LayoutRect markerRect(markerLogicalLeft + lineOffset, blockOffset, m_marker->width(), m_marker->height());
         if (!style().isHorizontalWritingMode())
             markerRect = markerRect.transposedRect();
-        RenderBox* o = m_marker;
+        RenderBox* markerAncestor = m_marker.get();
         bool propagateVisualOverflow = true;
         bool propagateLayoutOverflow = true;
         do {
-            o = o->parentBox();
-            if (o->hasOverflowClip())
+            markerAncestor = markerAncestor->parentBox();
+            if (markerAncestor->hasOverflowClip())
                 propagateVisualOverflow = false;
-            if (is<RenderBlock>(*o)) {
+            if (is<RenderBlock>(*markerAncestor)) {
                 if (propagateVisualOverflow)
-                    downcast<RenderBlock>(*o).addVisualOverflow(markerRect);
+                    downcast<RenderBlock>(*markerAncestor).addVisualOverflow(markerRect);
                 if (propagateLayoutOverflow)
-                    downcast<RenderBlock>(*o).addLayoutOverflow(markerRect);
+                    downcast<RenderBlock>(*markerAncestor).addLayoutOverflow(markerRect);
             }
-            if (o->hasOverflowClip())
+            if (markerAncestor->hasOverflowClip())
                 propagateLayoutOverflow = false;
-            if (o->hasSelfPaintingLayer())
+            if (markerAncestor->hasSelfPaintingLayer())
                 propagateVisualOverflow = false;
-            markerRect.moveBy(-o->location());
-        } while (o != this && propagateVisualOverflow && propagateLayoutOverflow);
+            markerRect.moveBy(-markerAncestor->location());
+        } while (markerAncestor != this && propagateVisualOverflow && propagateLayoutOverflow);
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2017-2018 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,12 +31,14 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 #include <CoreFoundation/CFStream.h>
+#include <os/assumes.h>
 
 #include <Security/SecuritydXPC.h>
 #include <Security/SecTrustStore.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecEntitlements.h>
 #include <Security/SecTrustInternal.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 
@@ -47,12 +49,14 @@
 #include <utilities/SecFileLocations.h>
 #include <utilities/debugging.h>
 #include <utilities/SecXPCError.h>
+#include <securityd/SecOCSPCache.h>
 #include <securityd/SecTrustStoreServer.h>
 #include <securityd/SecPinningDb.h>
 #include <securityd/SecPolicyServer.h>
 #include <securityd/SecRevocationDb.h>
 #include <securityd/SecTrustServer.h>
 #include <securityd/spi.h>
+#include <securityd/SecTrustLoggingServer.h>
 
 #if TARGET_OS_OSX
 #include <Security/SecTaskPriv.h>
@@ -69,17 +73,29 @@ static struct trustd trustd_spi = {
     .sec_trust_store_remove_certificate     = SecTrustStoreRemoveCertificateWithDigest,
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
-    .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
+    .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
     .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
     .sec_trust_store_copy_all               = _SecTrustStoreCopyAll,
     .sec_trust_store_copy_usage_constraints = _SecTrustStoreCopyUsageConstraints,
+    .sec_ocsp_cache_flush                   = SecOCSPCacheFlush,
+    .sec_tls_analytics_report               = SecTLSAnalyticsReport,
 };
 
-static bool SecXPCDictionarySetChainOptional(xpc_object_t message, const char *key, SecCertificatePathRef path, CFErrorRef *error) {
+static bool SecXPCDictionarySetChainOptional(xpc_object_t message, const char *key, CFArrayRef path, CFErrorRef *error) {
     if (!path)
         return true;
-    xpc_object_t xpc_chain = SecCertificatePathCopyXPCArray(path, error);
+    __block xpc_object_t xpc_chain = NULL;
+    require_action_quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
+    CFArrayForEach(path, ^(const void *value) {
+        SecCertificateRef cert = (SecCertificateRef)value;
+        if (xpc_chain && !SecCertificateAppendToXPCArray(cert, xpc_chain, error)) {
+            xpc_release(xpc_chain);
+            xpc_chain = NULL;
+        }
+    });
+
+exit:
     if (!xpc_chain)
         return false;
 
@@ -189,32 +205,30 @@ static bool SecXPCTrustStoreSetTrustSettings(xpc_object_t event, xpc_object_t re
 }
 
 static bool SecXPCTrustStoreRemoveCertificate(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
-    bool noError = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
         CFDataRef digest = SecXPCDictionaryCopyData(event, kSecXPCKeyDigest, error);
         if (digest) {
             bool result = SecTrustStoreRemoveCertificateWithDigest(ts, digest, error);
             xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
-            noError = true;
             CFReleaseNull(digest);
+            return true;
         }
     }
-    return noError;
+    return false;
 }
 
 static bool SecXPCTrustStoreCopyAll(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
-    bool result = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
         CFArrayRef trustStoreContents = NULL;
         if(_SecTrustStoreCopyAll(ts, &trustStoreContents, error) && trustStoreContents) {
             SecXPCDictionarySetPList(reply, kSecXPCKeyResult, trustStoreContents, error);
             CFReleaseNull(trustStoreContents);
-            result = true;
+            return true;
         }
     }
-    return result;
+    return false;
 }
 
 static bool SecXPCTrustStoreCopyUsageConstraints(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
@@ -235,8 +249,15 @@ static bool SecXPCTrustStoreCopyUsageConstraints(xpc_object_t event, xpc_object_
     return result;
 }
 
+static bool SecXPC_OCSPCacheFlush(xpc_object_t __unused event, xpc_object_t __unused reply, CFErrorRef *error) {
+    if(SecOCSPCacheFlush(error)) {
+        return true;
+    }
+    return false;
+}
+
 static bool SecXPC_OTAPKI_GetAssetVersion(xpc_object_t __unused event, xpc_object_t reply, CFErrorRef *error) {
-    xpc_dictionary_set_int64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentAssetVersion(error));
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentTrustStoreVersion(error));
     return true;
 }
 
@@ -255,8 +276,20 @@ static bool SecXPC_OTAPKI_GetEscrowCertificates(xpc_object_t event, xpc_object_t
 }
 
 static bool SecXPC_OTAPKI_GetNewAsset(xpc_object_t __unused event, xpc_object_t reply, CFErrorRef *error) {
-    xpc_dictionary_set_int64(reply, kSecXPCKeyResult, SecOTAPKISignalNewAsset(error));
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKISignalNewAsset(error));
     return true;
+}
+
+static bool SecXPC_TLS_AnalyticsReport(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+    xpc_object_t attributes = xpc_dictionary_get_dictionary(event, kSecTrustEventAttributesKey);
+    CFStringRef eventName = SecXPCDictionaryCopyString(event, kSecTrustEventNameKey, error);
+    bool result = false;
+    if (attributes && eventName) {
+        result = SecTLSAnalyticsReport(eventName, attributes, error);
+    }
+    xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
+    CFReleaseNull(eventName);
+    return result;
 }
 
 typedef bool(*SecXPCOperationHandler)(xpc_object_t event, xpc_object_t reply, CFErrorRef *error);
@@ -272,9 +305,11 @@ struct trustd_operations {
     SecXPCServerOperation trust_store_remove_certificate;
     SecXPCServerOperation trust_store_copy_all;
     SecXPCServerOperation trust_store_copy_usage_constraints;
-    SecXPCServerOperation ota_pki_asset_version;
+    SecXPCServerOperation ocsp_cache_flush;
+    SecXPCServerOperation ota_pki_trust_store_version;
     SecXPCServerOperation ota_pki_get_escrow_certs;
     SecXPCServerOperation ota_pki_get_new_asset;
+    SecXPCServerOperation tls_analytics_report;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -283,9 +318,11 @@ static struct trustd_operations trustd_ops = {
     .trust_store_remove_certificate = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreRemoveCertificate },
     .trust_store_copy_all = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyAll },
     .trust_store_copy_usage_constraints = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyUsageConstraints },
-    .ota_pki_asset_version = { NULL, SecXPC_OTAPKI_GetAssetVersion },
+    .ocsp_cache_flush = { NULL, SecXPC_OCSPCacheFlush },
+    .ota_pki_trust_store_version = { NULL, SecXPC_OTAPKI_GetAssetVersion },
     .ota_pki_get_escrow_certs = { NULL, SecXPC_OTAPKI_GetEscrowCertificates },
     .ota_pki_get_new_asset = { NULL, SecXPC_OTAPKI_GetNewAsset },
+    .tls_analytics_report = { NULL, SecXPC_TLS_AnalyticsReport },
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -350,7 +387,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
 
                 SecTrustServerEvaluateBlock(clientAuditToken, certificates, anchors, anchorsOnly, keychainsAllowed, policies,
                                             responses, scts, trustedLogs, verifyTime, client.accessGroups, exceptions,
-                                            ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain,
+                                            ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain,
                                               CFErrorRef replyError) {
                     // Send back reply now
                     if (replyError) {
@@ -372,7 +409,39 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     } else {
                         secdebug("ipc", "%@ %@ responding %@", client.task, SOSCCGetOperationDescription((enum SecXPCOperation)operation), asyncReply);
                     }
+#if TARGET_OS_IPHONE
+                    // Ensure that we remain dirty for two seconds after ending the client's transaction to avoid jetsam loops.
+                    // Refer to rdar://problem/38044831 for more details.
+                    static dispatch_queue_t dirty_timer_queue = NULL;
+                    static dispatch_source_t dirty_timer = NULL;
+                    static bool has_transcation = false;
+                    static dispatch_once_t onceToken;
+                    dispatch_once(&onceToken, ^{
+                        dirty_timer_queue = dispatch_queue_create("dirty timer queue", DISPATCH_QUEUE_SERIAL);
+                        dirty_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dirty_timer_queue);
+                        dispatch_source_set_event_handler(dirty_timer, ^{
+                            /* timer fired, end the transaction */
+                            os_assumes(has_transcation);
+                            xpc_transaction_end();
+                            has_transcation = false;
+                        });
+                    });
 
+                    dispatch_sync(dirty_timer_queue, ^{
+                        /* reset the timer for 2 seconds from now */
+                        dispatch_source_set_timer(dirty_timer, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC),
+                                                  DISPATCH_TIME_FOREVER, 100 * NSEC_PER_MSEC);
+                        if (!has_transcation) {
+                            /* timer is not running/not holding a transaction, start transaction */
+                            xpc_transaction_begin();
+                            has_transcation = true;
+                        }
+                        static dispatch_once_t onceToken2;
+                        dispatch_once(&onceToken2, ^{
+                            dispatch_resume(dirty_timer);
+                        });
+                    });
+#endif
                     xpc_connection_send_message(connection, asyncReply);
                     xpc_release(asyncReply);
                     xpc_release(connection);
@@ -405,8 +474,11 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 case sec_trust_store_copy_usage_constraints_id:
                     server_op = &trustd_ops.trust_store_copy_usage_constraints;
                     break;
-                case sec_ota_pki_asset_version_id:
-                    server_op = &trustd_ops.ota_pki_asset_version;
+                case sec_ocsp_cache_flush_id:
+                    server_op = &trustd_ops.ocsp_cache_flush;
+                    break;
+                case sec_ota_pki_trust_store_version_id:
+                    server_op = &trustd_ops.ota_pki_trust_store_version;
                     break;
                 case kSecXPCOpOTAGetEscrowCertificates:
                     server_op = &trustd_ops.ota_pki_get_escrow_certs;
@@ -414,6 +486,8 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 case kSecXPCOpOTAPKIGetNewAsset:
                     server_op = &trustd_ops.ota_pki_get_new_asset;
                     break;
+                case kSecXPCOpTLSAnaltyicsReport:
+                    server_op = &trustd_ops.tls_analytics_report;
                 default:
                     break;
             }
@@ -493,17 +567,51 @@ static void trustd_xpc_init(const char *service_name)
     xpc_connection_resume(listener);
 }
 
+static void trustd_delete_old_sqlite_keychain_files(CFStringRef baseFilename) {
+    WithPathInKeychainDirectory(baseFilename, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFStringRef shmFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-shm"), baseFilename);
+    WithPathInKeychainDirectory(shmFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(shmFile);
+    CFStringRef walFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-wal"), baseFilename);
+    WithPathInKeychainDirectory(walFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(walFile);
+    CFStringRef journalFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-journal"), baseFilename);
+    WithPathInKeychainDirectory(journalFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(journalFile);
+}
+
+#if TARGET_OS_OSX
+static void trustd_delete_old_sqlite_user_cache_files(CFStringRef baseFilename) {
+    WithPathInUserCacheDirectory(baseFilename, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFStringRef shmFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-shm"), baseFilename);
+    WithPathInUserCacheDirectory(shmFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(shmFile);
+    CFStringRef walFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-wal"), baseFilename);
+    WithPathInUserCacheDirectory(walFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(walFile);
+    CFStringRef journalFile = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-journal"), baseFilename);
+    WithPathInUserCacheDirectory(journalFile, ^(const char *utf8String) {
+        (void)remove(utf8String);
+    });
+    CFReleaseNull(journalFile);
+}
+#endif // TARGET_OS_OSX
+
 static void trustd_delete_old_files(void) {
-
-#if TARGET_OS_EMBEDDED
-    if (getuid() != 64) // _securityd
-#else
-    if (getuid() != 0)
-#endif
-    { return; }
-    /* If we get past this line, then we can attempt to delete old revocation files;
-       otherwise we won't have sufficient privilege. */
-
     /* We try to clean up after ourselves, but don't care if we succeed. */
     WithPathInRevocationInfoDirectory(CFSTR("update-current"), ^(const char *utf8String) {
         (void)remove(utf8String);
@@ -514,35 +622,22 @@ static void trustd_delete_old_files(void) {
     WithPathInRevocationInfoDirectory(CFSTR("update-full.gz"), ^(const char *utf8String) {
         (void)remove(utf8String);
     });
+#if TARGET_OS_IPHONE
+    trustd_delete_old_sqlite_keychain_files(CFSTR("trustd_health_analytics.db"));
+    trustd_delete_old_sqlite_keychain_files(CFSTR("trust_analytics.db"));
+    trustd_delete_old_sqlite_keychain_files(CFSTR("TLS_analytics.db"));
+#else
+    trustd_delete_old_sqlite_user_cache_files(CFSTR("trustd_health_analytics.db"));
+    trustd_delete_old_sqlite_user_cache_files(CFSTR("trust_analytics.db"));
+    trustd_delete_old_sqlite_user_cache_files(CFSTR("TLS_analytics.db"));
+#endif //TARGET_OS_IPHONE
 }
 
 #if TARGET_OS_OSX
 static void trustd_delete_old_caches(void) {
     /* We try to clean up after ourselves, but don't care if we succeed. */
-    WithPathInKeychainDirectory(CFSTR("ocspcache.sqlite3"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("ocspcache.sqlite3-wal"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("ocspcache.sqlite3-shm"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("ocspcache.sqlite3-journal"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("caissuercache.sqlite3"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("caissuercache.sqlite3-wal"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("caissuercache.sqlite3-shm"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
-    WithPathInKeychainDirectory(CFSTR("caissuercache.sqlite3-journal"), ^(const char *utf8String) {
-        (void)remove(utf8String);
-    });
+    trustd_delete_old_sqlite_keychain_files(CFSTR("ocspcache.sqlite3"));
+    trustd_delete_old_sqlite_keychain_files(CFSTR("caissuercache.sqlite3"));
 }
 
 static void trustd_sandbox(void) {
@@ -597,7 +692,6 @@ static void trustd_sandbox(void) {
 #endif
 
 static void trustd_cfstream_init() {
-    /* <rdar://problem/33635964> Force legacy CFStream run loop initialization before any NSURLSession usage */
     CFReadStreamRef rs = CFReadStreamCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8*) "", 0, kCFAllocatorNull);
     CFReadStreamSetDispatchQueue(rs, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     CFReadStreamSetDispatchQueue(rs, NULL);
@@ -636,10 +730,11 @@ int main(int argc, char *argv[])
      * After we enter the sandbox, we won't be able to access them. */
     trustd_delete_old_caches();
 #endif
-    /* Also clean up old files in /Library/Keychains/crls */
-    trustd_delete_old_files();
 
     trustd_sandbox();
+
+    /* Also clean up old files in our sandbox. After sandboxing, so that user dir suffix is set. */
+    trustd_delete_old_files();
 
     const char *serviceName = kTrustdXPCServiceName;
     if (argc > 1 && (!strcmp(argv[1], "--agent"))) {
@@ -649,17 +744,20 @@ int main(int argc, char *argv[])
     /* set up SQLite before some other component has a chance to create a database connection */
     _SecDbServerSetup();
 
-    /* set up revocation database if it doesn't already exist, or needs to be replaced */
-    SecRevocationDbInitialize();
+    /* <rdar://problem/33635964> Force legacy CFStream run loop initialization before any NSURLSession usage */
+    trustd_cfstream_init();
 
     gTrustd = &trustd_spi;
-    SecPolicyServerInitialize();
-    SecPinningDbInitialize();
-#if TARGET_OS_OSX
-    SecTrustLegacySourcesListenForKeychainEvents();
-#endif
-    trustd_cfstream_init();
-    trustd_xpc_init(serviceName);
 
+    /* Initialize static content */
+    SecPolicyServerInitialize();    // set up callbacks for policy checks
+    SecRevocationDbInitialize();    // set up revocation database if it doesn't already exist, or needs to be replaced
+    SecPinningDbInitialize();       // set up the pinning database
+#if TARGET_OS_OSX
+    SecTrustLegacySourcesListenForKeychainEvents(); // set up the legacy keychain event listeners (for cache invalidation)
+#endif
+
+    /* We're ready now. Go. */
+    trustd_xpc_init(serviceName);
     dispatch_main();
 }

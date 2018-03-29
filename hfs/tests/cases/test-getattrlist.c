@@ -30,9 +30,7 @@ int run_getattrlist(__unused test_ctx_t *ctx)
 	const char *tstdir;
 	bool hfs_root = true; //true until proven otherwise.
 
-#if TARGET_OS_EMBEDDED
 	struct statfs sfs;
-	
 	assert(statfs("/tmp", &sfs) == 0);
 	if (strcmp(sfs.f_fstypename, "hfs")) {
 		hfs_root = false;
@@ -41,10 +39,6 @@ int run_getattrlist(__unused test_ctx_t *ctx)
 	} else {
 		tstdir = "/tmp";
 	}
-#else // !TARGET_OS_EMBEDDED
-	di = disk_image_get();
-	tstdir = di->mount_point;
-#endif
 	
 	char *file;
 	asprintf(&file, "%s/getattrlist-test.file", tstdir);

@@ -58,7 +58,7 @@ macro(ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES _source _deps)
         list(APPEND _tmp "${DERIVED_SOURCES_WEBCORE_DIR}/${f}")
     endforeach ()
 
-    ADD_SOURCE_DEPENDENCIES(${_source} ${_tmp})
+    WEBKIT_ADD_SOURCE_DEPENDENCIES(${_source} ${_tmp})
     unset(_tmp)
 endmacro()
 
@@ -69,7 +69,7 @@ macro(MAKE_JS_FILE_ARRAYS _output_cpp _output_h _namespace _scripts _scripts_dep
         DEPENDS ${JavaScriptCore_SCRIPTS_DIR}/make-js-file-arrays.py ${${_scripts}}
         COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/make-js-file-arrays.py -n ${_namespace} ${_output_h} ${_output_cpp} ${${_scripts}}
         VERBATIM)
-    ADD_SOURCE_DEPENDENCIES(${${_scripts_dependencies}} ${_output_h} ${_output_cpp})
+    WEBKIT_ADD_SOURCE_DEPENDENCIES(${${_scripts_dependencies}} ${_output_h} ${_output_cpp})
 endmacro()
 
 
@@ -117,6 +117,7 @@ function(GENERATE_BINDINGS target)
     if (arg_SUPPLEMENTAL_DEPFILE)
         list(APPEND args --supplementalDependencyFile ${arg_SUPPLEMENTAL_DEPFILE})
     endif ()
+    ProcessorCount(PROCESSOR_COUNT)
     if (PROCESSOR_COUNT)
         list(APPEND args --numOfJobs ${PROCESSOR_COUNT})
     endif ()
@@ -201,35 +202,33 @@ macro(GENERATE_EVENT_FACTORY _infile _outfile)
 endmacro()
 
 
-macro(GENERATE_EXCEPTION_CODE_DESCRIPTION _infile _outfile)
-    set(NAMES_GENERATOR ${WEBCORE_DIR}/dom/make_dom_exceptions.pl)
-
-    add_custom_command(
-        OUTPUT  ${DERIVED_SOURCES_WEBCORE_DIR}/${_outfile}
-        MAIN_DEPENDENCY ${_infile}
-        DEPENDS ${NAMES_GENERATOR} ${SCRIPTS_BINDINGS}
-        COMMAND ${PERL_EXECUTABLE} ${NAMES_GENERATOR} --input ${_infile} --outputDir ${DERIVED_SOURCES_WEBCORE_DIR}
-        VERBATIM)
-endmacro()
-
-
 macro(GENERATE_SETTINGS_MACROS _infile _outfile)
-    set(NAMES_GENERATOR ${WEBCORE_DIR}/page/make_settings.pl)
+    set(NAMES_GENERATOR ${WEBCORE_DIR}/Scripts/GenerateSettings.rb)
 
     # Do not list the output in more than one independent target that may
     # build in parallel or the two instances of the rule may conflict.
     # <https://cmake.org/cmake/help/v3.0/command/add_custom_command.html>
     set(_extra_output
+        ${DERIVED_SOURCES_WEBCORE_DIR}/Settings.cpp
         ${DERIVED_SOURCES_WEBCORE_DIR}/InternalSettingsGenerated.h
         ${DERIVED_SOURCES_WEBCORE_DIR}/InternalSettingsGenerated.cpp
         ${DERIVED_SOURCES_WEBCORE_DIR}/InternalSettingsGenerated.idl
     )
+
+    set(GENERATE_SETTINGS_SCRIPTS
+        ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.cpp.erb
+        ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.idl.erb
+        ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.h.erb
+        ${WEBCORE_DIR}/Scripts/SettingsTemplates/Settings.cpp.erb
+        ${WEBCORE_DIR}/Scripts/SettingsTemplates/Settings.h.erb
+    )
+
     set(_args BYPRODUCTS ${_extra_output})
     add_custom_command(
         OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/${_outfile}
         MAIN_DEPENDENCY ${_infile}
-        DEPENDS ${NAMES_GENERATOR} ${SCRIPTS_BINDINGS}
-        COMMAND ${PERL_EXECUTABLE} ${NAMES_GENERATOR} --input ${_infile} --outputDir ${DERIVED_SOURCES_WEBCORE_DIR}
+        DEPENDS ${NAMES_GENERATOR} ${GENERATE_SETTINGS_SCRIPTS} ${SCRIPTS_BINDINGS}
+        COMMAND ${RUBY_EXECUTABLE} ${NAMES_GENERATOR} --input ${_infile} --outputDir ${DERIVED_SOURCES_WEBCORE_DIR}
         VERBATIM ${_args})
 endmacro()
 

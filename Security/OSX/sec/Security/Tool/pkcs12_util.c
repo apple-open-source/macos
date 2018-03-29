@@ -350,7 +350,7 @@ extern int pkcs12_util(int argc, char * const *argv)
             verbose = true;
             break;
         default:
-            return 2; /* Trigger usage message. */
+            return SHOW_USAGE_MESSAGE;
         }
     }
     
@@ -358,7 +358,7 @@ extern int pkcs12_util(int argc, char * const *argv)
 	argv += optind;
 
     if (argc != 1 || !passphrase)
-        return 2; /* Trigger usage message. */
+        return SHOW_USAGE_MESSAGE;
 
     filename = argv[0];
     array = PKCS12FileCreateArray(filename, passphrase);

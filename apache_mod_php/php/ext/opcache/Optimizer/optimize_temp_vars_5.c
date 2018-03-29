@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend OPcache                                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 The PHP Group                                |
+   | Copyright (c) 1998-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -109,6 +109,7 @@ void zend_optimize_temporary_variables(zend_op_array *op_array, zend_optimizer_c
 					 */
 					if ((op_array->fn_flags & ZEND_ACC_HAS_FINALLY_BLOCK) &&
 					    (opline->opcode == ZEND_RETURN ||
+					     opline->opcode == ZEND_GENERATOR_RETURN ||
 					     opline->opcode == ZEND_RETURN_BY_REF ||
 					     opline->opcode == ZEND_FREE ||
 					     opline->opcode == ZEND_FE_FREE)) {

@@ -30,7 +30,6 @@
 #include "IntSize.h"
 #include "NotImplemented.h"
 #include <wtf/MathExtras.h>
-#include <wtf/NeverDestroyed.h>
 #include <wtf/text/TextBreakIterator.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -626,6 +625,21 @@ String AXAutoFillContactsLabel()
     return WEB_UI_STRING("contact info auto fill", "Label for the auto fill contacts button inside a text field.");
 }
 
+String AXAutoFillStrongPasswordLabel()
+{
+    return WEB_UI_STRING("strong password auto fill", "Label for the strong password auto fill button inside a text field.");
+}
+
+String AXAutoFillStrongConfirmationPasswordLabel()
+{
+    return WEB_UI_STRING("strong confirmation password auto fill", "Label for the strong confirmation password auto fill button inside a text field.");
+}
+
+String autoFillStrongPasswordLabel()
+{
+    return WEB_UI_STRING("strong password", "Label for strong password.");
+}
+
 String missingPluginText()
 {
     return WEB_UI_STRING("Missing Plug-in", "Label text to be used when a plugin is missing");
@@ -1014,7 +1028,5 @@ String webCryptoMasterKeyKeychainComment()
 }
 
 #endif
-
-
 
 } // namespace WebCore

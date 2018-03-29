@@ -44,8 +44,8 @@
 #include "IgnoreOpensDuringUnloadCountIncrementer.h"
 #include "Logging.h"
 #include "MainFrame.h"
-#include "NoEventDispatchAssertion.h"
 #include "Page.h"
+#include "ScriptDisallowedScope.h"
 #include "Settings.h"
 #include "SubframeLoader.h"
 #include <wtf/MemoryPressureHandler.h>
@@ -53,10 +53,6 @@
 #include <wtf/SetForScope.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
-
-#if ENABLE(PROXIMITY_EVENTS)
-#include "DeviceProximityController.h"
-#endif
 
 namespace WebCore {
 
@@ -160,6 +156,13 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::cannotSuspendActiveDOMObjectsKey());
         isCacheable = false;
     }
+#if ENABLE(SERVICE_WORKER)
+    if (frame.document() && frame.document()->activeServiceWorker()) {
+        PCLOG("   -The document has an active service worker");
+        logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::serviceWorkerKey());
+        isCacheable = false;
+    }
+#endif
     // FIXME: We should investigating caching frames that have an associated
     // application cache. <rdar://problem/5917899> tracks that work.
     if (!documentLoader->applicationCacheHost().canCacheInPageCache()) {
@@ -186,12 +189,14 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
 
 static bool canCachePage(Page& page)
 {
+    RELEASE_ASSERT(!page.isRestoringCachedPage());
+
     unsigned indentLevel = 0;
     PCLOG("--------\n Determining if page can be cached:");
 
     DiagnosticLoggingClient& diagnosticLoggingClient = page.diagnosticLoggingClient();
     bool isCacheable = canCacheFrame(page.mainFrame(), diagnosticLoggingClient, indentLevel + 1);
-    
+
     if (!page.settings().usesPageCache() || page.isResourceCachingDisabled()) {
         PCLOG("   -Page settings says b/f cache disabled");
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::isDisabledKey());
@@ -209,13 +214,7 @@ static bool canCachePage(Page& page)
         isCacheable = false;
     }
 #endif
-#if ENABLE(PROXIMITY_EVENTS)
-    if (DeviceProximityController::isActiveAt(page)) {
-        PCLOG("   -Page is using DeviceProximity");
-        logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, deviceProximityKey);
-        isCacheable = false;
-    }
-#endif
+
     FrameLoadType loadType = page.mainFrame().loader().loadType();
     switch (loadType) {
     case FrameLoadType::Reload:
@@ -432,13 +431,14 @@ void PageCache::addIfCacheable(HistoryItem& item, Page* page)
 
     setPageCacheState(*page, Document::InPageCache);
 
-    // Make sure we no longer fire any JS events past this point.
-    NoEventDispatchAssertion assertNoEventDispatch;
+    {
+        // Make sure we don't fire any JS events in this scope.
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
-    item.m_cachedPage = std::make_unique<CachedPage>(*page);
-    item.m_pruningReason = PruningReason::None;
-    m_items.add(&item);
-    
+        item.m_cachedPage = std::make_unique<CachedPage>(*page);
+        item.m_pruningReason = PruningReason::None;
+        m_items.add(&item);
+    }
     prune(PruningReason::ReachedMaxSize);
 }
 

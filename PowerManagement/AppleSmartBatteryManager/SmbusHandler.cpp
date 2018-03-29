@@ -382,6 +382,32 @@ void SmbusHandler::smbusExternalTransactionCompletion(void *ref, IOSMBusTransact
     fMgr->fManagerGate->commandWakeup(ref, false);
 }
 
+IOReturn SmbusHandler::getErrorCode(IOSMBusStatus status)
+{
+    switch (status) {
+        case kIOSMBusStatusOK:
+            return kIOReturnSuccess;
+            break;
+        case kIOSMBusStatusUnknownFailure:
+        case kIOSMBusStatusDeviceAddressNotAcknowledged:
+        case kIOSMBusStatusDeviceError:
+        case kIOSMBusStatusDeviceCommandAccessDenied:
+        case kIOSMBusStatusUnknownHostError:
+            return kIOReturnNoDevice;
+            break;
+        case kIOSMBusStatusTimeout:
+        case kIOSMBusStatusBusy:
+            return kIOReturnTimeout;
+            break;
+        case kIOSMBusStatusHostUnsupportedProtocol:
+            return kIOReturnUnsupported;
+            break;
+        default:
+            return kIOReturnInternalError;
+            break;
+    }
+    return kIOReturnInternalError;
+}
 
 IOReturn SmbusHandler::smbusExternalTransaction(void *in, void *out, IOByteCount inSize, IOByteCount *outSize)
 {
@@ -517,28 +543,7 @@ IOReturn SmbusHandler::smbusExternalTransaction(void *in, void *out, IOByteCount
             return kIOReturnError;
         }
         
-        switch (fTransaction.status) {
-            case kIOSMBusStatusOK:
-                outSMBus->status = kIOReturnSuccess;
-                break;
-            case kIOSMBusStatusUnknownFailure:
-            case kIOSMBusStatusDeviceAddressNotAcknowledged:
-            case kIOSMBusStatusDeviceError:
-            case kIOSMBusStatusDeviceCommandAccessDenied:
-            case kIOSMBusStatusUnknownHostError:
-                outSMBus->status = kIOReturnNoDevice;
-                break;
-            case kIOSMBusStatusTimeout:
-            case kIOSMBusStatusBusy:
-                outSMBus->status = kIOReturnTimeout;
-                break;
-            case kIOSMBusStatusHostUnsupportedProtocol:
-                outSMBus->status = kIOReturnUnsupported;
-                break;
-            default:
-                outSMBus->status = kIOReturnInternalError;
-                break;
-        }
+        outSMBus->status = getErrorCode(fTransaction.status);
         
         if (fTransaction.status !=kIOSMBusStatusOK) {
             BM_ERRLOG("SMBus external transaction failed with error 0x%x\n", fTransaction.status);
@@ -682,29 +687,30 @@ IOReturn SmbusHandler::disableInflow(int level)
 {
     IOReturn  transactionSuccess;
 
+    IOSMBusTransaction  transaction;
     
-    fTransaction.address = kSMBusManagerAddr;
-    fTransaction.command = kMStateContCmd;
-    fTransaction.protocol = kIOSMBusProtocolWriteWord;
-    fTransaction.sendDataCount = 2;
+    transaction.address = kSMBusManagerAddr;
+    transaction.command = kMStateContCmd;
+    transaction.protocol = kIOSMBusProtocolWriteWord;
+    transaction.sendDataCount = 2;
     
     if (level != 0) {
-        fTransaction.sendData[0] = kMCalibrateBit;
+        transaction.sendData[0] = kMCalibrateBit;
     }
     else {
-        fTransaction.sendData[0] = 0x0;
+        transaction.sendData[0] = 0x0;
     }
-    transactionSuccess = fMgr->fProvider->performTransaction(&fTransaction,
-                                                             OSMemberFunctionCast(IOSMBusTransactionCompletion, this, &SmbusHandler::smbusExternalTransactionCompletion));
+    transactionSuccess = fMgr->fProvider->performTransaction(&transaction,
+                                 OSMemberFunctionCast(IOSMBusTransactionCompletion, this,
+                                     &SmbusHandler::smbusExternalTransactionCompletion), this, &transaction);
 
     /* Output: status */
     if (kIOReturnSuccess == transactionSuccess)
     {
         // Block here until the transaction is completed
-        assert_wait(&fExternalTransactionWait, THREAD_UNINT);
-        thread_block(THREAD_CONTINUE_NULL);
-        
-        return kIOReturnSuccess;
+        fMgr->fManagerGate->commandSleep(&transaction, THREAD_UNINT);
+        BM_LOG1("Disable inflow(%d) status:%d\n", level, transaction.status);
+        return getErrorCode(transaction.status);
     }
     else {
         BM_ERRLOG("SMBus transaction submit for external request failed with error 0x%x\n", transactionSuccess);
@@ -716,39 +722,39 @@ IOReturn SmbusHandler::disableInflow(int level)
 IOReturn SmbusHandler::inhibitCharging(int level)
 {
     IOReturn  transactionSuccess;
+    IOSMBusTransaction  transaction;
     
     
-    fTransaction.address = kSMBusChargerAddr;
-    fTransaction.command = kBChargingCurrentCmd;
-    fTransaction.protocol = kIOSMBusProtocolWriteWord;
-    fTransaction.sendDataCount = 2;
+    transaction.address = kSMBusChargerAddr;
+    transaction.command = kBChargingCurrentCmd;
+    transaction.protocol = kIOSMBusProtocolWriteWord;
+    transaction.sendDataCount = 2;
     
     if (level != 0) {
-        fTransaction.sendData[0] = 0x0;
+        transaction.sendData[0] = 0x0;
     }
     else {
         // We re-enable charging by setting it to 6000, a signifcantly
         // large number to ensure charging will resume.
-        fTransaction.sendData[0] = 0x70;
-        fTransaction.sendData[1] = 0x17;
+        transaction.sendData[0] = 0x70;
+        transaction.sendData[1] = 0x17;
     }
-    transactionSuccess = fMgr->fProvider->performTransaction(&fTransaction,
-                                                             OSMemberFunctionCast(IOSMBusTransactionCompletion, this, &SmbusHandler::smbusExternalTransactionCompletion));
+    transactionSuccess = fMgr->fProvider->performTransaction(&transaction,
+                                 OSMemberFunctionCast(IOSMBusTransactionCompletion, this,
+                                     &SmbusHandler::smbusExternalTransactionCompletion), this, &transaction);
     
     /* Output: status */
     if (kIOReturnSuccess == transactionSuccess)
     {
         // Block here until the transaction is completed
-        assert_wait(&fExternalTransactionWait, THREAD_UNINT);
-        thread_block(THREAD_CONTINUE_NULL);
+        fMgr->fManagerGate->commandSleep(&transaction, THREAD_UNINT);
+        BM_LOG1("Inhibit charging(%d) status:%d\n", level, transaction.status);
+        return getErrorCode(transaction.status);
         
-        return kIOReturnSuccess;
     }
     else {
         BM_ERRLOG("SMBus transaction submit for external request failed with error 0x%x\n", transactionSuccess);
         return kIOReturnError;
     }
-    
-    
     
 }

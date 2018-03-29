@@ -186,17 +186,31 @@ KN_DISABLED
 .It Sy s
 KN_STAYQUEUED (event is marked as always-enqueued on the active list)
 .Pp
-.It Sy o
+.It Sy d
 KN_DROPPING
-.It Sy u
+.It Sy w
 KN_USEWAIT
 .It Sy c
 KN_ATTACHING
-.It Sy f
-KN_DEFERDROP
+.It Sy a
+KN_ATTACHED
+.Pp
+.It Sy s
+KN_DISPATCH
+.It Sy u
+KN_UDATA_SPECIFIC
+.It Sy p
+KN_SUPPRESSED
 .It Sy t
-KN_TOUCH
+KN_STOLENDROP
+.Pp
+.It Sy v
+KN_REQVANISH
+.It Sy n
+KN_VANISHED
 .El
+.It qos
+The QoS requested for the knote.
 .It data
 Filter-specific data.
 .El

@@ -100,7 +100,7 @@ class IOFWUserPHYPacketListener : public IOFWPHYPacketListener
 		
 		// ctor/dtor
 		virtual bool	initWithUserClient( IOFireWireUserClient * inUserClient, UInt32 queue_count );
-		virtual void	free( void );	
+		virtual void	free( void ) APPLE_KEXT_OVERRIDE;
 	
 		static void		exporterCleanup( const OSObject * self );
 		
@@ -115,7 +115,7 @@ class IOFWUserPHYPacketListener : public IOFWPHYPacketListener
 		void		clientCommandIsComplete( FWClientCommandID commandID );
 
 	protected:
-		virtual		void processPHYPacket( UInt32 data1, UInt32 data2 );
+		virtual		void processPHYPacket( UInt32 data1, UInt32 data2 ) APPLE_KEXT_OVERRIDE;
 
 		void			sendPacketNotification( IOFWUserPHYPacketListener::PHYRxElement * element );
 

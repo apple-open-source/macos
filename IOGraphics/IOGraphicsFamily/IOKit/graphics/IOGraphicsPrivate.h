@@ -198,7 +198,9 @@ extern "C" ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
 
 extern "C" vm_map_t IOPageableMapForAddress( vm_address_t address );
 
-extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result );
+extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result )
+__OSX_DEPRECATED(10.0, 10.13, "Use IOFramebuffer::getAttribute(kIOClamshellStateAttribute)");
+
 
 extern bool                   gIOGraphicsSystemPower;
 extern bool                   gIOFBSystemPower;
@@ -210,21 +212,15 @@ extern int32_t                gIOFBHaveBacklight;
 extern const OSSymbol *       gIOFBPMSettingDisplaySleepUsesDimKey;
 extern bool                   gIOGFades;
 
-#if __ppc__
-extern "C" void bcopy_nc( void * from, void * to, UInt32 l );
-extern "C" void bzero_nc( void * p, UInt32 l );
-#else
 inline void bcopy_nc( void * from, void * to, UInt32 l) { bcopy( from, to, l ); }
 inline void bzero_nc( void * p, UInt32 l )              { bzero( p, l ); }
-#endif
 
 #if VERSION_MAJOR < 9
 #define getPowerState() pm_vars->myCurrentState
 #endif
 
 extern uint32_t gIOGDebugFlags;
-enum
-{
+enum {
 	kIOGDbgLidOpen                      = 0x00000001,
 	kIOGDbgVBLThrottle                  = 0x00000002,
 	kIOGDbgK59Mode                      = 0x00000004,
@@ -237,6 +233,16 @@ enum
     kIOGDbgNoClamshellOffline           = 0x00000200,
     kIOGDbgNoWaitQuietController        = 0x00000400,
     kIOGDbgRemoveShutdownProtection     = 0x00000800,
+
+    kIOGDbgEnableAutomatedTestSupport   = 0x00010000,
+    kIOGDbgEnableGMetrics               = 0x40000000,
+    kIOGDbgClamshellInjectionEnabled    = 0x80000000,
+};
+
+// FIXME: Move to common header to be shared via client/kernel
+extern uint64_t gIOGMetricsFlags;
+enum {
+    kIOGMetrics_Enabled                 = 0x00000000000000000001ULL,
 };
 
 #ifndef kIOScreenLockStateKey

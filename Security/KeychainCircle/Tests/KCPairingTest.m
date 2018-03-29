@@ -289,6 +289,10 @@
         abort();
 
     signature = SOSCircleCopyNextGenSignatureWithPeerAdded(prunedCircle, applicant, _deviceKey, &error);
+    if(applicant) {
+        CFRelease(applicant);
+        applicant = NULL;
+    }
 
     NSData *pbblob = CFBridgingRelease(SOSPiggyBackBlobCopyEncodedData(gencount, _deviceKey, signature, &error));
 
@@ -343,8 +347,6 @@
     // intentionally left blank
     // these are used by the security/2 tool and are only declared here to make the compiler happy about conforming the protocol we shoved the methods into
 }
-
-
 @end
 
 @implementation KCPairingTest

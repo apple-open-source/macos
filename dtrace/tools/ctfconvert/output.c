@@ -443,8 +443,8 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 #if !defined(__APPLE__)
 		terminate("%s: Can't open symbol table\n", file);
 #else
-        terminate(""); /* missing symbol table is most likely an empty binary,
-                        * produce no output, but also don't warn the user. */
+	return (iiburst_new(td, 0)); /* missing symbol table is most likely an empty binary,
+                                      * produce an empty output */
 #endif
 	scn = elf_getscn(elf, stidx);
 	data = elf_getdata(scn, NULL);

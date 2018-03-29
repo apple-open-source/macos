@@ -49,11 +49,12 @@
 
 #include <sys/stat.h>
 
-static CFDataRef client_data_data_to_data_error_request(enum SecXPCOperation op, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
+static CFDataRef client_data_data_bool_to_data_error_request(enum SecXPCOperation op, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error) {
     __block CFDataRef result = NULL;
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         return SecXPCDictionarySetDataOptional(message, kSecXPCKeyKeybag, keybag, error)
-        && SecXPCDictionarySetDataOptional(message, kSecXPCKeyUserPassword, passcode, error);
+        && SecXPCDictionarySetDataOptional(message, kSecXPCKeyUserPassword, passcode, error)
+        && SecXPCDictionarySetBool(message, kSecXPCKeyEMCSBackup, emcs, NULL);
     }, ^bool(xpc_object_t response, CFErrorRef *error) {
         return (result = SecXPCDictionaryCopyData(response, kSecXPCKeyResult, error));
     });
@@ -147,7 +148,7 @@ static int SecItemBackupHandoffFD(CFStringRef backupName, CFErrorRef *error) {
 CFDataRef _SecKeychainCopyOTABackup(void) {
     __block CFDataRef result;
     os_activity_initiate("_SecKeychainCopyOTABackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_to_data_error_request, SecSecurityClientGet(), NULL, NULL, NULL);
+        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_bool_to_data_error_request, SecSecurityClientGet(), NULL, NULL, false, NULL);
     });
     return result;
 }
@@ -155,7 +156,15 @@ CFDataRef _SecKeychainCopyOTABackup(void) {
 CFDataRef _SecKeychainCopyBackup(CFDataRef backupKeybag, CFDataRef password) {
     __block CFDataRef result;
     os_activity_initiate("_SecKeychainCopyBackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_to_data_error_request, SecSecurityClientGet(), backupKeybag, password, NULL);
+        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_bool_to_data_error_request, SecSecurityClientGet(), backupKeybag, password, false, NULL);
+    });
+    return result;
+}
+
+CFDataRef _SecKeychainCopyEMCSBackup(CFDataRef backupKeybag) {
+    __block CFDataRef result;
+    os_activity_initiate("_SecKeychainCopyEMCSBackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_bool_to_data_error_request, SecSecurityClientGet(), backupKeybag, NULL, true, NULL);
     });
     return result;
 }

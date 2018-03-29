@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WKPageUIClient_h
-#define WKPageUIClient_h
+#pragma once
 
 #include <WebKit/WKBase.h>
 #include <WebKit/WKEvent.h>
@@ -128,7 +127,7 @@ typedef void (*WKRequestPointerLockCallback)(WKPageRef page, const void* clientI
 typedef void (*WKDidLosePointerLockCallback)(WKPageRef page, const void* clientInfo);
 typedef void (*WKHasVideoInPictureInPictureDidChangeCallback)(WKPageRef page, bool hasVideoInPictureInPicture, const void* clientInfo);
 typedef void (*WKDidExceedBackgroundResourceLimitWhileInForegroundCallback)(WKPageRef page, WKResourceLimit limit, const void* clientInfo);
-    
+
 // Deprecated
 typedef WKPageRef (*WKPageCreateNewPageCallback_deprecatedForUseWithV0)(WKPageRef page, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void *clientInfo);
 typedef void      (*WKPageMouseDidMoveOverElementCallback_deprecatedForUseWithV0)(WKPageRef page, WKEventModifiers modifiers, WKTypeRef userData, const void *clientInfo);
@@ -931,12 +930,10 @@ typedef struct WKPageUIClientV10 {
     WKHandleAutoplayEventCallback                                       handleAutoplayEvent;
     
     // Version 10.
-    WKHasVideoInPictureInPictureDidChangeCallback                             hasVideoInPictureInPictureDidChange;
+    WKHasVideoInPictureInPictureDidChangeCallback                       hasVideoInPictureInPictureDidChange;
     WKDidExceedBackgroundResourceLimitWhileInForegroundCallback         didExceedBackgroundResourceLimitWhileInForeground;
 } WKPageUIClientV10;
-    
+
 #ifdef __cplusplus
 }
 #endif
-
-#endif // WKPageUIClient_h

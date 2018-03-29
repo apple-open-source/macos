@@ -31,7 +31,7 @@
 #include "GraphicsLayer.h"
 #include "Logging.h"
 #include "ScrollingStateTree.h"
-#include "TextStream.h"
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -51,9 +51,7 @@ ScrollingStateStickyNode::ScrollingStateStickyNode(const ScrollingStateStickyNod
 {
 }
 
-ScrollingStateStickyNode::~ScrollingStateStickyNode()
-{
-}
+ScrollingStateStickyNode::~ScrollingStateStickyNode() = default;
 
 Ref<ScrollingStateNode> ScrollingStateStickyNode::clone(ScrollingStateTree& adoptiveTree)
 {
@@ -75,7 +73,7 @@ void ScrollingStateStickyNode::reconcileLayerPositionForViewportRect(const Layou
 {
     FloatPoint position = m_constraints.layerPositionForConstrainingRect(viewportRect);
     if (layer().representsGraphicsLayer()) {
-        GraphicsLayer* graphicsLayer = static_cast<GraphicsLayer*>(layer());
+        auto* graphicsLayer = static_cast<GraphicsLayer*>(layer());
 
         LOG_WITH_STREAM(Compositing, stream << "ScrollingStateStickyNode " << scrollingNodeID() << " reconcileLayerPositionForViewportRect " << action << " position of layer " << graphicsLayer->primaryLayerID() << " to " << position << " sticky offset " << m_constraints.stickyOffsetAtLastLayout());
         

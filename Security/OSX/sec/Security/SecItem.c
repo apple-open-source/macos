@@ -434,11 +434,16 @@ SecItemCreateFromAttributeDictionary(CFDictionaryRef refAttributes) {
 	} else if (CFEqual(class, kSecClassIdentity)) {
 		CFDataRef data = CFDictionaryGetValue(refAttributes, kSecAttrIdentityCertificateData);
 		SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, data);
-		SecKeyRef key = SecKeyCreateFromAttributeDictionary(refAttributes);
-		if (key && cert)
-			ref = SecIdentityCreate(kCFAllocatorDefault, cert, key);
+        SecKeyRef key = SecKeyCreateFromAttributeDictionary(refAttributes);
+        if (key && cert) {
+            ref = SecIdentityCreate(kCFAllocatorDefault, cert, key);
+        }
+        else {
+            secerror("SecItem: failed to create identity");
+        }
+
+        CFReleaseSafe(key);
 		CFReleaseSafe(cert);
-		CFReleaseSafe(key);
 #ifdef SECITEM_SHIM_OSX
 	} else {
         ref = SecItemCreateFromAttributeDictionary_osx(refAttributes);
@@ -1691,11 +1696,10 @@ OSStatus SecItemCopyMatching(CFDictionaryRef inQuery, CFTypeRef *result) {
 
     bool wants_data = cf_bool_value(CFDictionaryGetValue(query.dictionary, kSecReturnData));
     bool wants_attributes = cf_bool_value(CFDictionaryGetValue(query.dictionary, kSecReturnAttributes));
-    if ((wants_data && !wants_attributes) || (!wants_data && wants_attributes)) {
+    if ((wants_data && !wants_attributes)) {
         // When either attributes or data are requested, we need to query both, because for token based items,
         // both are needed in order to generate proper data and/or attributes results.
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&query), kSecReturnAttributes, kCFBooleanTrue);
-        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&query), kSecReturnData, kCFBooleanTrue);
     }
 
     status = SecOSStatusWith(^bool(CFErrorRef *error) {

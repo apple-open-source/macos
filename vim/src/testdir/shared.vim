@@ -1,5 +1,10 @@
 " Functions shared by several tests.
 
+" Only load this script once.
+if exists('*WaitFor')
+  finish
+endif
+
 " Get the name of the Python executable.
 " Also keeps it in s:python.
 func PythonProg()
@@ -108,32 +113,37 @@ func s:kill_server(cmd)
   endif
 endfunc
 
-" Wait for up to a second for "expr" to become true.
+" Wait for up to a second for "expr" to become true.  "expr" can be a
+" stringified expression to evaluate, or a funcref without arguments.
+"
 " Return time slept in milliseconds.  With the +reltime feature this can be
 " more than the actual waiting time.  Without +reltime it can also be less.
-func WaitFor(expr)
+func WaitFor(expr, ...)
+  let timeout = get(a:000, 0, 1000)
   " using reltime() is more accurate, but not always available
   if has('reltime')
     let start = reltime()
   else
     let slept = 0
   endif
-  for i in range(100)
-    try
-      if eval(a:expr)
-	if has('reltime')
-	  return float2nr(reltimefloat(reltime(start)) * 1000)
-	endif
-	return slept
+  if type(a:expr) == v:t_func
+    let Test = a:expr
+  else
+    let Test = {-> eval(a:expr) }
+  endif
+  for i in range(timeout / 10)
+    if Test()
+      if has('reltime')
+	return float2nr(reltimefloat(reltime(start)) * 1000)
       endif
-    catch
-    endtry
+      return slept
+    endif
     if !has('reltime')
       let slept += 10
     endif
     sleep 10m
   endfor
-  return 1000
+  throw 'WaitFor() timed out after ' . timeout . ' msec'
 endfunc
 
 " Wait for up to a given milliseconds.
@@ -164,16 +174,36 @@ func s:feedkeys(timer)
   call feedkeys('x', 'nt')
 endfunc
 
-" Get the command to run Vim, with -u NONE and --not-a-term arguments.
-" Returns an empty string on error.
-func GetVimCommand()
+" Get $VIMPROG to run Vim executable.
+" The Makefile writes it as the first line in the "vimcmd" file.
+func GetVimProg()
   if !filereadable('vimcmd')
     return ''
   endif
-  let cmd = readfile('vimcmd')[0]
-  let cmd = substitute(cmd, '-u \f\+', '-u NONE', '')
-  if cmd !~ '-u NONE'
-    let cmd = cmd . ' -u NONE'
+  return readfile('vimcmd')[0]
+endfunc
+
+" Get the command to run Vim, with -u NONE and --not-a-term arguments.
+" If there is an argument use it instead of "NONE".
+" Returns an empty string on error.
+func GetVimCommand(...)
+  if !filereadable('vimcmd')
+    return ''
+  endif
+  if a:0 == 0
+    let name = 'NONE'
+  else
+    let name = a:1
+  endif
+  " For Unix Makefile writes the command to use in the second line of the
+  " "vimcmd" file, including environment options.
+  " Other Makefiles just write the executable in the first line, so fall back
+  " to that if there is no second line.
+  let lines = readfile('vimcmd')
+  let cmd = get(lines, 1, lines[0])
+  let cmd = substitute(cmd, '-u \f\+', '-u ' . name, '')
+  if cmd !~ '-u '. name
+    let cmd = cmd . ' -u ' . name
   endif
   let cmd .= ' --not-a-term'
   let cmd = substitute(cmd, 'VIMRUNTIME=.*VIMRUNTIME;', '', '')
@@ -213,4 +243,8 @@ func RunVimPiped(before, after, arguments, pipecmd)
     call delete('Xafter.vim')
   endif
   return 1
+endfunc
+
+func CanRunGui()
+  return has('gui') && ($DISPLAY != "" || has('gui_running'))
 endfunc

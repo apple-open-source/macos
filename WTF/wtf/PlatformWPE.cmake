@@ -1,5 +1,4 @@
 list(APPEND WTF_SOURCES
-    PlatformUserPreferredLanguagesUnix.cpp
     UniStdExtras.cpp
 
     generic/MainThreadGeneric.cpp
@@ -16,6 +15,7 @@ list(APPEND WTF_SOURCES
     text/unix/TextBreakIteratorInternalICUUnix.cpp
 
     unix/CPUTimeUnix.cpp
+    unix/LanguageUnix.cpp
 )
 
 list(APPEND WTF_LIBRARIES
@@ -26,6 +26,6 @@ list(APPEND WTF_LIBRARIES
     ${ZLIB_LIBRARIES}
 )
 
-list(APPEND WTF_INCLUDE_DIRECTORIES
+list(APPEND WTF_SYSTEM_INCLUDE_DIRECTORIES
     ${GLIB_INCLUDE_DIRS}
 )

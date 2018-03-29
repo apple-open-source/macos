@@ -601,6 +601,9 @@ show_devices_and_exit (void)
 #define OPTION_VERSION		128
 #define OPTION_TSTAMP_PRECISION	129
 #define OPTION_IMMEDIATE_MODE	130
+#ifdef __APPLE__
+#define OPTION_TIME_ZONE_OFFSET	131
+#endif /* __APPLE__ */
 
 static const struct option longopts[] = {
 #if defined(HAVE_PCAP_CREATE) || defined(_WIN32)
@@ -641,8 +644,17 @@ static const struct option longopts[] = {
 	{ "relinquish-privileges", required_argument, NULL, 'Z' },
 	{ "number", no_argument, NULL, '#' },
 	{ "version", no_argument, NULL, OPTION_VERSION },
+#ifdef __APPLE__
+	{ "time-zone-offset", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
+#endif /* __APPLE__ */
 	{ NULL, 0, NULL, 0 }
 };
+
+
+#ifdef __APPLE__
+int parse_time_zone_offset(const char *);
+#endif /* __APPLE__ */
+
 
 #ifndef _WIN32
 /* Drop root privileges and chroot if necessary */
@@ -1208,6 +1220,7 @@ main(int argc, char **argv)
 #ifdef __APPLE__
 	int on = 1;
 	int no_loopkupnet_warning = 0;
+	const char *timezone_offset_arg = NULL;
 #endif
 
 	/*
@@ -1735,6 +1748,12 @@ main(int argc, char **argv)
 			break;
 #endif
 
+#ifdef __APPLE__
+		case OPTION_TIME_ZONE_OFFSET:
+			timezone_offset_arg = optarg;
+			break;
+#endif /* __APPLE__ */
+
 		default:
 			print_usage();
 			exit_tcpdump(1);
@@ -1756,7 +1775,7 @@ main(int argc, char **argv)
 	case 1: /* No time stamp */
 	case 2: /* Unix timeval style */
 	case 3: /* Microseconds since previous packet */
-        case 5: /* Microseconds since first packet */
+	case 5: /* Microseconds since first packet */
 		break;
 
 	default: /* Not supported */
@@ -1765,8 +1784,13 @@ main(int argc, char **argv)
 	}
 
 #ifdef __APPLE__
-    if (ndo->ndo_t0flag || ndo->ndo_t4flag)
-        thiszone = gmt2local(0);
+	if (ndo->ndo_t0flag || ndo->ndo_t4flag || ndo->ndo_tflag == 0 || ndo->ndo_tflag == 4) {
+		if (timezone_offset_arg == NULL) {
+			timezone_offset = gmt2local(0);
+		} else {
+			timezone_offset = parse_time_zone_offset(timezone_offset_arg);
+		}
+	}
 #endif /* __APPLE__ */
 
 	if (ndo->ndo_fflag != 0 && (VFileName != NULL || RFileName != NULL))
@@ -3174,6 +3198,9 @@ print_usage(void)
 	(void)fprintf(stderr, "[ -T type ] [ --version ] [ -V file ]\n");
 	(void)fprintf(stderr,
 "\t\t[ -w file ] [ -W filecount ] [ -y datalinktype ] [ -z postrotate-command ]\n");
+#ifdef __APPLE__
+	(void)fprintf(stderr, "[ -g ] [ -k ] [ -o ] [ -P ] [ -Q met[ --time-zone-offset offset ]\n");
+#endif /* __APPLE__ */
 	(void)fprintf(stderr,
 "\t\t[ -Z user ] [ expression ]\n");
 }
@@ -3876,6 +3903,54 @@ done:
 		pcap_ng_free_block(block);
 }
 
+/*
+ * Returns the time zone offset in seconds
+ */
+int
+parse_time_zone_offset(const char *str)
+{
+	int tzo = 0;
+	size_t len = strlen(str);
+	char ch;
+	int consumed;
+
+	if (sscanf(str, "GMT+%d%n", &tzo, &consumed) == 1) {
+		tzo *= 3600;
+	} else if (sscanf(str, "GMT-%d%n", &tzo, &consumed) == 1) {
+		tzo *= -3600;
+	} else if (sscanf(str, "%d%c%n", &tzo, &ch, &consumed) == 2) {
+		switch (ch) {
+			case 'h':
+				tzo = tzo * 3660;
+				break;
+			case 'm':
+				tzo = tzo * 60;
+				break;
+			case 's':
+				break;
+			default:
+				error("malformed time zone offset argument \"%s\"", str);
+				print_usage();
+				exit_tcpdump(1);
+				break;
+		}
+	} else if (sscanf(str, "%d%n", &tzo, &consumed) == 1) {
+		/* Hours for a plain integer */
+		tzo *= 3600;
+	} else {
+		error("malformed time zone offset argument \"%s\"", str);
+		print_usage();
+		exit_tcpdump(1);
+	}
+
+	if (consumed != len) {
+		error("malformed time zone offset argument \"%s\"", str);
+		print_usage();
+		exit_tcpdump(1);
+	}
+
+	return (tzo);
+}
 
 #endif /* __APPLE__ */
 

@@ -461,7 +461,7 @@ void setAssessment(bool masterSwitch)
 {
 	MutableDictionary *prefsDict = MutableDictionary::CreateMutableDictionary(prefsFile);
 	if (prefsDict == NULL)
-		prefsDict = new MutableDictionary::MutableDictionary();
+		prefsDict = new MutableDictionary();
 	prefsDict->setValue(SP_ENABLE_KEY, masterSwitch ? SP_ENABLED : SP_DISABLED);
 	prefsDict->writePlistToFile(prefsFile);
 	delete prefsDict;

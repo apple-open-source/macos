@@ -136,7 +136,12 @@ IOHIDEvent * IOHIDEventFastPathDriver::copyEventForClient (OSObject * copySpec, 
                 copyCount = number->unsigned32BitValue ();
             }
         } else if (OSDynamicCast(OSData, copySpec)) {
-            copyCount = *((const uint32_t*)(const void *)((OSData*)copySpec)->getBytesNoCopy());
+            OSData *data = OSDynamicCast(OSData, copySpec);
+            unsigned int length = data->getLength();
+            
+            if (length) {
+                bcopy(data->getBytesNoCopy(), &copyCount, min(sizeof(copyCount), length));
+            }
         }
     }
 
@@ -210,8 +215,8 @@ IOReturn  IOHIDEventFastPathDriver::setPropertiesForClient (OSObject * propertie
 //====================================================================================================
 bool  IOHIDEventFastPathDriver::openForClient (IOService * client, IOOptionBits options, OSDictionary *property, void ** clientContext)
 {
-    bool                result;
-    IOHIDFastClientData *clientData;
+    bool                    result;
+    IOHIDFastClientData     * clientData = NULL;
     
     result = super::open(client, options, NULL, NULL);
     require (result, exit);

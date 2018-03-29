@@ -29,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 // There's terrible testing support for notify_post, but that's what our clients
 // are listening for. Use this structure to mock out notification sending for testing.
 
-@protocol CKKSNotifier
+@protocol CKKSNotifier <NSObject>
 + (void)post:(NSString*)notification;
 @end
 

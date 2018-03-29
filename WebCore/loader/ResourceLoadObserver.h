@@ -27,6 +27,7 @@
 
 #include "Timer.h"
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/WTFString.h>
 
@@ -63,6 +64,7 @@ public:
 
     WEBCORE_EXPORT void notifyObserver();
     WEBCORE_EXPORT void clearState();
+
 private:
     ResourceLoadObserver();
 
@@ -76,7 +78,6 @@ private:
     HashMap<String, WTF::WallTime> m_lastReportedUserInteractionMap;
     WTF::Function<void (Vector<ResourceLoadStatistics>&&)> m_notificationCallback;
     Timer m_notificationTimer;
-
     URL nonNullOwnerURL(const Document&) const;
 };
     

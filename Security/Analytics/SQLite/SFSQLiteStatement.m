@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __OBJC2__
+
+#import <Foundation/NSKeyedArchiver_Private.h>
 #import "SFSQLite.h"
 #import "SFSQLiteStatement.h"
 #import "SFObjCType.h"
@@ -199,12 +202,8 @@
             }
         } else {
             NSAssert(type.isFloatingPointNumber, @"Expected number type to be either integer or floating point");
-            if (type.code == SFObjCTypeFloat) {
-                [self bindInt:[value intValue] atIndex:index];
-            } else {
-                NSAssert(type.code == SFObjCTypeDouble, @"Unexpected floating point number type: %@", type);
-                [self bindInt64:[value longLongValue] atIndex:index];
-            }
+            NSAssert(type.code == SFObjCTypeDouble || type.code == SFObjCTypeFloat, @"Unexpected floating point number type: %@", type);
+            [self bindDouble:[value doubleValue] atIndex:index];
         }
     } else if ([value isKindOfClass:[NSData class]]) {
         [self bindBlob:value atIndex:index];
@@ -219,7 +218,7 @@
     } else if ([value isKindOfClass:[NSDate class]]) {
         [self bindDouble:[(NSDate *)value timeIntervalSinceReferenceDate] atIndex:index];
     } else if ([value isKindOfClass:[NSError class]]) {
-        [self bindBlob:[self retainedTemporaryBoundObject:[NSKeyedArchiver archivedDataWithRootObject:value]] atIndex:index];
+        [self bindBlob:[self retainedTemporaryBoundObject:[NSKeyedArchiver archivedDataWithRootObject:value requiringSecureCoding:YES error:nil]] atIndex:index];
     } else if ([value isKindOfClass:[NSURL class]]) {
         [self bindText:[self retainedTemporaryBoundObject:[value absoluteString]] atIndex:index];
     } else {
@@ -340,3 +339,5 @@
 }
 
 @end
+
+#endif

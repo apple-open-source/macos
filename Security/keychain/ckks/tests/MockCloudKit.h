@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
 
 #import <CloudKit/CloudKit.h>
 #import <Foundation/Foundation.h>
@@ -41,6 +42,7 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property (nonatomic, nullable) NSMutableArray<CKRecordZone*>* recordZonesSaved;
 @property (nonatomic, nullable) NSMutableArray<CKRecordZoneID*>* recordZoneIDsDeleted;
 + (FakeCKDatabase*)ckdb;
++(void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
 @end
 
 @interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation>
@@ -116,3 +118,5 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* OCTAGON */

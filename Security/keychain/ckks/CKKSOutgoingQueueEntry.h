@@ -73,7 +73,8 @@
                                          zoneID:(CKRecordZoneID*)zoneID
                                           error:(NSError* __autoreleasing*)error;
 
-+ (NSDictionary<NSString*, NSNumber*>*)countsByState:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
 
 @end
 

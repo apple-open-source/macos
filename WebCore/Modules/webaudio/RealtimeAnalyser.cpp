@@ -47,7 +47,7 @@ const double RealtimeAnalyser::DefaultMaxDecibels = -30;
 const unsigned RealtimeAnalyser::DefaultFFTSize = 2048;
 // All FFT implementations are expected to handle power-of-two sizes MinFFTSize <= size <= MaxFFTSize.
 const unsigned RealtimeAnalyser::MinFFTSize = 32;
-const unsigned RealtimeAnalyser::MaxFFTSize = 2048;
+const unsigned RealtimeAnalyser::MaxFFTSize = 32768;
 const unsigned RealtimeAnalyser::InputBufferSize = RealtimeAnalyser::MaxFFTSize * 2;
 
 RealtimeAnalyser::RealtimeAnalyser()
@@ -62,9 +62,7 @@ RealtimeAnalyser::RealtimeAnalyser()
     m_analysisFrame = std::make_unique<FFTFrame>(DefaultFFTSize);
 }
 
-RealtimeAnalyser::~RealtimeAnalyser()
-{
-}
+RealtimeAnalyser::~RealtimeAnalyser() = default;
 
 void RealtimeAnalyser::reset()
 {

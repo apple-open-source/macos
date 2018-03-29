@@ -15,7 +15,10 @@
 #include <SOSCloudKeychainClient.h>
 #include <securityd/SecItemServer.h> // TODO: Remove this layer violation.
 
-NSString* const SecSOSMessageRTT   = @"com.apple.security.sos.messagertt";
+static const CFStringRef kSecSOSMessageRTT                   = CFSTR("com.apple.security.sos.messagertt");
+static const CFStringRef kSecAccessGroupSecureBackupd        = CFSTR("com.apple.securebackupd");
+static const CFStringRef kSecAccessGroupSBD                  = CFSTR("com.apple.sbd");
+static const CFStringRef kSecAccessGroupCKKS                 = CFSTR("com.apple.security.ckks");
 
 @class SOSMessage;
 
@@ -171,7 +174,7 @@ bool SOSEngineHandleCodedMessage(SOSAccount* account, SOSEngineRef engine, CFStr
             secnotice("otrtimer", "rtt: %d", rtt);
             [self SOSTransportMessageCalculateNextTimer:account rtt:rtt peerid:peerid];
             
-            SecADClientPushValueForDistributionKey((__bridge CFStringRef) SecSOSMessageRTT, rtt);
+            SecADClientPushValueForDistributionKey(kSecSOSMessageRTT, rtt);
             [peerToTimeLastSentDict removeObjectForKey:peerid]; //remove last sent message date
             SOSAccountSetValue(account, kSOSAccountPeerLastSentTimestamp, (__bridge CFMutableDictionaryRef)peerToTimeLastSentDict, NULL);
         }
@@ -366,28 +369,38 @@ static void SOSTransportSendPendingMessage(CFArrayRef attributes, SOSMessage* tr
     ok &= SOSEngineWithPeerID((SOSEngineRef)transport.engine, peer_id, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
         // Now under engine lock do stuff
         CFDataRef message_to_send = NULL;
-        SOSEnginePeerMessageSentBlock sent = NULL;
+        SOSEnginePeerMessageSentCallback* sentCallback = NULL;
         CFMutableArrayRef attributes = NULL;
-        ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount],(SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peer_id, &attributes, &sent, error);
+        ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount],(SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peer_id, &attributes, &sentCallback, error);
         secnotice("ratelimit","attribute list: %@", attributes);
         bool shouldSend = true;
-        
+
         if(attributes == NULL){ //no attribute but still should be rate limited
             attributes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
             CFArrayAppendValue(attributes, CFSTR("NoAttribute"));
         }
+
         if(initialSync){
             secnotice("ratelimit","not going to rate limit, currently in initial sync");
         }
         if(!initialSync && message_to_send){ //need to judge the message if not in initial sync
             secnotice("ratelimit","not in initial sync!");
             shouldSend = SOSPeerShouldSend(attributes, peer, transport, message_to_send);
-            secnotice("ratelimit","should send? : %d", shouldSend);
+           CFRange range = CFRangeMake(0, CFArrayGetCount(attributes));
+            if(CFArrayContainsValue(attributes, range, kSecAccessGroupCKKS) ||
+               CFArrayContainsValue(attributes, range, kSecAccessGroupSBD) ||
+               CFArrayContainsValue(attributes, range, kSecAccessGroupSecureBackupd)){
+                shouldSend = true;
+            }
+
+            secnotice("ratelimit","should send? : %@", shouldSend ? @"YES" : @"NO");
         }
         if (shouldSend && message_to_send) {
             SOSTransportSendPendingMessage(attributes, transport, peer);
             ok = ok && [transport SOSTransportMessageSendMessage:transport id:peer_id messageToSend:message_to_send err:error];
-            SOSPeerCoderConsume(&sent, ok);
+
+            SOSEngineMessageCallCallback(sentCallback, ok);
+
             [transport SOSTransportMessageUpdateLastMessageSentTimetstamp:account peer:peer];
             
         }else if(!shouldSend){
@@ -395,8 +408,11 @@ static void SOSTransportSendPendingMessage(CFArrayRef attributes, SOSMessage* tr
         }else{
             secnotice("transport", "no message to send to peer: %@", peer_id);
         }
-        sent = NULL;
+
+        SOSEngineFreeMessageCallback(sentCallback);
+        sentCallback = NULL;
         CFReleaseSafe(message_to_send);
+        CFReleaseNull(attributes);
 
         *forceSaveState = ok;
     });

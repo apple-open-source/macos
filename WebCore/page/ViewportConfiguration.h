@@ -30,12 +30,14 @@
 #include "ViewportArguments.h"
 #include <wtf/Noncopyable.h>
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 static const double forceAlwaysUserScalableMaximumScale = 5.0;
 static const double forceAlwaysUserScalableMinimumScale = 1.0;
-
-class TextStream;
 
 class ViewportConfiguration {
     WTF_MAKE_NONCOPYABLE(ViewportConfiguration); WTF_MAKE_FAST_ALLOCATED;
@@ -54,6 +56,14 @@ public:
         bool widthIsSet { false };
         bool heightIsSet { false };
         bool initialScaleIsSet { false };
+
+        bool operator==(const Parameters& other) const
+        {
+            return width == other.width && height == other.height
+                && initialScale == other.initialScale && minimumScale == other.minimumScale && maximumScale == other.maximumScale
+                && allowsUserScaling == other.allowsUserScaling && allowsShrinkToFit == other.allowsShrinkToFit && avoidsUnsafeArea == other.avoidsUnsafeArea
+                && widthIsSet == other.widthIsSet && heightIsSet == other.heightIsSet && initialScaleIsSet == other.initialScaleIsSet;
+        }
     };
 
     WEBCORE_EXPORT ViewportConfiguration();
@@ -91,7 +101,7 @@ public:
     WEBCORE_EXPORT static Parameters testingParameters();
     
 #ifndef NDEBUG
-    WTF::CString description() const;
+    String description() const;
     WEBCORE_EXPORT void dump() const;
 #endif
 
@@ -116,6 +126,7 @@ private:
     bool m_forceAlwaysUserScalable;
 };
 
-TextStream& operator<<(TextStream&, const ViewportConfiguration::Parameters&);
+WTF::TextStream& operator<<(WTF::TextStream&, const ViewportConfiguration::Parameters&);
+WTF::TextStream& operator<<(WTF::TextStream&, const ViewportConfiguration&);
 
 } // namespace WebCore

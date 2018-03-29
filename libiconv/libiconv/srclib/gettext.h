@@ -142,8 +142,11 @@ npgettext_aux (const char *domain,
 
 #include <string.h>
 
-#define _LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS \
-  __GNUC__ >= 3 || defined __cplusplus
+#if __GNUC__ >= 3 || defined __cplusplus
+#define _LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS 1
+#else
+#define _LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS 0
+#endif
 
 #define pgettext_expr(Msgctxt, Msgid) \
   dcpgettext_expr (NULL, Msgctxt, Msgid, LC_MESSAGES)

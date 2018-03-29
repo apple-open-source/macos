@@ -1340,7 +1340,8 @@ void IODisplay::setDisplayPowerState(unsigned long state)
 
         IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
                    DBG_FUNC_NONE,
-                   0, DBG_IOG_SOURCE_IODISPLAY,
+                   kGMETRICS_DOMAIN_IODISPLAY | kGMETRICS_DOMAIN_POWER,
+                   DBG_IOG_SOURCE_IODISPLAY,
                    0, state,
                    0, 0,
                    0, 0);
@@ -1372,7 +1373,8 @@ IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDev
 {
     IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
                DBG_FUNC_NONE,
-               0, powerState,
+               kGMETRICS_DOMAIN_IODISPLAY | kGMETRICS_DOMAIN_POWER,
+               powerState,
                0, DBG_IOG_SOURCE_IODISPLAY,
                0, 0,
                0, 0);

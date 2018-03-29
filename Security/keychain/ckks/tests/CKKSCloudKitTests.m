@@ -65,6 +65,7 @@
 + (void)setUp {
     SecCKKSResetSyncing();
     SecCKKSTestsEnable();
+    SecCKKSSetReduceRateLimiting(true);
     [super setUp];
 
 #if NO_SERVER

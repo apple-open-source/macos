@@ -29,7 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Setting = class Setting extends WebInspector.Object
+WI.Setting = class Setting extends WI.Object
 {
     constructor(name, defaultValue)
     {
@@ -61,7 +61,7 @@ WebInspector.Setting = class Setting extends WebInspector.Object
         if (!window.InspectorTest && window.localStorage && this._localStorageKey in window.localStorage) {
             try {
                 this._value = JSON.parse(window.localStorage[this._localStorageKey]);
-            } catch (e) {
+            } catch {
                 delete window.localStorage[this._localStorageKey];
             }
         }
@@ -83,12 +83,12 @@ WebInspector.Setting = class Setting extends WebInspector.Object
                     delete window.localStorage[this._localStorageKey];
                 else
                     window.localStorage[this._localStorageKey] = JSON.stringify(this._value);
-            } catch (e) {
+            } catch {
                 console.error("Error saving setting with name: " + this._name);
             }
         }
 
-        this.dispatchEventToListeners(WebInspector.Setting.Event.Changed, this._value, {name: this._name});
+        this.dispatchEventToListeners(WI.Setting.Event.Changed, this._value, {name: this._name});
     }
 
     reset()
@@ -98,30 +98,32 @@ WebInspector.Setting = class Setting extends WebInspector.Object
     }
 };
 
-WebInspector.Setting.Event = {
+WI.Setting.Event = {
     Changed: "setting-changed"
 };
 
-WebInspector.settings = {
-    autoLogProtocolMessages: new WebInspector.Setting("auto-collect-protocol-messages", false),
-    autoLogTimeStats: new WebInspector.Setting("auto-collect-time-stats", false),
-    enableUncaughtExceptionReporter: new WebInspector.Setting("enable-uncaught-exception-reporter", true),
-    enableLineWrapping: new WebInspector.Setting("enable-line-wrapping", false),
-    indentUnit: new WebInspector.Setting("indent-unit", 4),
-    tabSize: new WebInspector.Setting("tab-size", 4),
-    indentWithTabs: new WebInspector.Setting("indent-with-tabs", false),
-    showWhitespaceCharacters: new WebInspector.Setting("show-whitespace-characters", false),
-    showInvalidCharacters: new WebInspector.Setting("show-invalid-characters", false),
-    clearLogOnNavigate: new WebInspector.Setting("clear-log-on-navigate", true),
-    clearNetworkOnNavigate: new WebInspector.Setting("clear-network-on-navigate", true),
-    zoomFactor: new WebInspector.Setting("zoom-factor", 1),
-    layoutDirection: new WebInspector.Setting("layout-direction-override", "system"),
-    stylesShowInlineWarnings: new WebInspector.Setting("styles-show-inline-warning", true),
-    stylesInsertNewline: new WebInspector.Setting("styles-insert-newline", true),
-    stylesSelectOnFirstClick: new WebInspector.Setting("styles-select-on-first-click", true),
-    showScopeChainOnPause: new WebInspector.Setting("show-scope-chain-sidebar", true),
-    showImageGrid: new WebInspector.Setting("show-image-grid", false),
+WI.settings = {
+    autoLogProtocolMessages: new WI.Setting("auto-collect-protocol-messages", false),
+    autoLogTimeStats: new WI.Setting("auto-collect-time-stats", false),
+    enableUncaughtExceptionReporter: new WI.Setting("enable-uncaught-exception-reporter", true),
+    enableLayoutFlashing: new WI.Setting("enable-layout-flashing", false),
+    enableLineWrapping: new WI.Setting("enable-line-wrapping", false),
+    indentUnit: new WI.Setting("indent-unit", 4),
+    tabSize: new WI.Setting("tab-size", 4),
+    indentWithTabs: new WI.Setting("indent-with-tabs", false),
+    showWhitespaceCharacters: new WI.Setting("show-whitespace-characters", false),
+    showInvalidCharacters: new WI.Setting("show-invalid-characters", false),
+    clearLogOnNavigate: new WI.Setting("clear-log-on-navigate", true),
+    clearNetworkOnNavigate: new WI.Setting("clear-network-on-navigate", true),
+    zoomFactor: new WI.Setting("zoom-factor", 1),
+    layoutDirection: new WI.Setting("layout-direction-override", "system"),
+    showScopeChainOnPause: new WI.Setting("show-scope-chain-sidebar", true),
+    showImageGrid: new WI.Setting("show-image-grid", false),
+    showCanvasPath: new WI.Setting("show-canvas-path", false),
+    selectedNetworkDetailContentViewIdentifier: new WI.Setting("network-detail-content-view-identifier", "preview"),
 
     // Experimental
-    experimentalShowCanvasContextsInResources: new WebInspector.Setting("experimental-show-canvas-contexts-in-resources", false),
+    experimentalEnableLayersTab: new WI.Setting("experimental-enable-layers-tab", false),
+    experimentalLegacyStyleEditor: new WI.Setting("experimental-legacy-style-editor", false),
+    experimentalLegacyVisualSidebar: new WI.Setting("experimental-legacy-visual-sidebar", false),
 };

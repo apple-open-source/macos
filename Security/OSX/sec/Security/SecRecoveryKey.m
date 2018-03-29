@@ -125,7 +125,7 @@ SecRKCreateRecoveryKeyWithError(NSString *masterKey, NSError **error)
         return NULL;
     }
 
-    return (__bridge SecRecoveryKey *)rk;
+    return (SecRecoveryKey *) CFBridgingRelease(rk);
 }
 
 static CFDataRef

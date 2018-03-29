@@ -116,6 +116,11 @@ const OSSymbol * gIONetworkFilterGroup;
 const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
 const OSSymbol * gIOEthernetDisabledWakeOnLANFilterGroup;
 uint32_t         gIONetworkDebugFlags = 0;
+#ifdef __x86_64__
+OSArray *        gIONetworkMbufCursorKexts;
+IOLock *         gIONetworkMbufCursorLock;
+IORegistryEntry *gIONetworkMbufCursorEntry;
+#endif
 
 // Constants for handleCommand().
 //
@@ -158,6 +163,12 @@ IONetworkControllerGlobals::IONetworkControllerGlobals()
     gIOControllerEnabledKey = 
         OSSymbol::withCStringNoCopy("IOControllerEnabled");
 
+#ifdef __x86_64__
+    gIONetworkMbufCursorKexts = OSArray::withCapacity(4);
+    gIONetworkMbufCursorLock  = IOLockAlloc();
+    gIONetworkMbufCursorEntry = 0;
+#endif
+
     uint32_t flags;
     if (PE_parse_boot_argn("ionetwork_debug", &flags, sizeof(flags)))
         gIONetworkDebugFlags |= flags;
@@ -175,6 +186,15 @@ IONetworkControllerGlobals::~IONetworkControllerGlobals()
     RELEASE( gIOEthernetWakeOnLANFilterGroup );
     RELEASE( gIOEthernetDisabledWakeOnLANFilterGroup );
     RELEASE( gIOControllerEnabledKey );
+
+#ifdef __x86_64__
+    RELEASE( gIONetworkMbufCursorKexts );
+    if (gIONetworkMbufCursorLock)
+    {
+        IOLockFree(gIONetworkMbufCursorLock);
+        gIONetworkMbufCursorLock = 0;
+    }
+#endif
 }
 
 bool IONetworkControllerGlobals::isValid() const

@@ -67,14 +67,13 @@ LIBXPC_LDFLAGS = -lxpc
 LIBPLATFORM_LDFLAGS = -lsystem$(SIM_SUFFIX)_platform
 LIBPTHREAD_LDFLAGS = -lsystem$(SIM_SUFFIX)_pthread
 LIBSYSCALL_LDFLAGS = -lsystem$(SIM_SUFFIX)_kernel
-LIBM_LDFLAGS = -lsystem$(SIM_SUFFIX)_m
+LIBM_LDFLAGS = -lsystem_m
 LIBDYLD_LDFLAGS = -ldyld
 LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order -Wl,-sectalign,__DATA,__data,1000 @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
 LIBSYSTEM_C_EXTRA_LDFLAGS_i386 = -Wl,-alias_list,$(SRCROOT)/xcodescripts/legacy_alias.list
 
 // TODO: Remove upward links - mostly <rdar://problem/13183469>, macho is for assumes.c
-UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-llaunch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto
-UPWARD_LDFLAGS[sdk=*simulator*] = -Wl,-upward-ldispatch -Wl,-upward-lmacho_sim -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_sim_blocks -Wl,-upward-lsystem_sim_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto
+UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto -Wl,-upward-lsystem_trace
 
 LIBSYSTEM_DARWIN_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS)
 

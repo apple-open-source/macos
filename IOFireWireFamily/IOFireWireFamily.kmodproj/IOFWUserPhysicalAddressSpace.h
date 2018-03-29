@@ -45,12 +45,12 @@ class IOFWUserPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 
 	public:
 	
-		virtual void		free() ;
+		virtual void		free(void) APPLE_KEXT_OVERRIDE;
 		static void			exporterCleanup( const OSObject * self );
 
 		virtual bool 		initWithDesc(
 									IOFireWireBus *			bus,
-									IOMemoryDescriptor*		mem);
+									IOMemoryDescriptor*		mem) APPLE_KEXT_OVERRIDE;
 	
 		// getters
 		IOReturn			getSegmentCount( UInt32* outSegmentCount ) ;

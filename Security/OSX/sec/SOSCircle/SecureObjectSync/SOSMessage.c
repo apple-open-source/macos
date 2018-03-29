@@ -409,8 +409,12 @@ bool SOSMessageSetManifests(SOSMessageRef message, SOSManifestRef sender,
     // TODO: Check at v2 encoding time
     // if (!sender) return (SOSMessageRef)SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("no sender manifest specified for SOSMessage"));
     message->baseDigest = CFRetainSafe(SOSManifestGetDigest(base, NULL));
+    secinfo("engine", "SOSMessageSetManifests: setting base digest to %@ %zu", message->baseDigest, SOSManifestGetCount(base));
     message->proposedDigest = CFRetainSafe(SOSManifestGetDigest(proposed, NULL));
+    secinfo("engine", "SOSMessageSetManifests: setting proposed digest to %@ %zu", message->proposedDigest, SOSManifestGetCount(proposed));
     message->senderDigest = CFRetainSafe(SOSManifestGetDigest(sender, NULL));
+    secinfo("engine", "SOSMessageSetManifests: setting sender digest to %@ %zu", message->senderDigest, SOSManifestGetCount(sender));
+
     if (includeManifestDeltas) {
         SOSManifestRef additions = NULL;
         ok = SOSManifestDiff(base, proposed, &message->removals, &additions, error);
@@ -641,6 +645,7 @@ static size_t der_sizeof_manifest_digest_message(SOSMessageRef message, CFErrorR
 }
 
 static uint8_t *der_encode_manifest_digest_message(SOSMessageRef message, CFErrorRef *error, const uint8_t *der, uint8_t *der_end) {
+    secinfo("engine", "der_encode_manifest_digest_message: encoded sender digest as %@", message->senderDigest);
     return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
            ccder_encode_uint64(SOSManifestDigestMessageType, der,
            ccder_encode_raw_octet_string(SOSDigestSize, CFDataGetBytePtr(message->senderDigest), der, der_end)));
@@ -658,6 +663,7 @@ static size_t der_sizeof_manifest_message(SOSMessageRef message, CFErrorRef *err
 }
 
 static uint8_t *der_encode_manifest_message(SOSMessageRef message, CFErrorRef *error, const uint8_t *der, uint8_t *der_end) {
+    secinfo("engine", "der_encode_manifest_message: encoded message additions as (%zu, %@)", SOSManifestGetCount(message->additions), SOSManifestGetDigest(message->additions, NULL));
     return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
                ccder_encode_uint64(SOSManifestMessageType, der,
                der_encode_implicit_data(CCDER_OCTET_STRING, SOSManifestGetData(message->additions), der, der_end)));
@@ -680,6 +686,7 @@ static size_t der_sizeof_manifest_and_objects_message(SOSMessageRef message, CFE
 }
 
 static uint8_t *der_encode_manifest_and_objects_message(SOSMessageRef message, CFErrorRef *error, const uint8_t *der, uint8_t *der_end) {
+    secinfo("engine", "der_encode_manifest_and_objects_message: encoded base digest as %@", message->baseDigest);
     return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
                ccder_encode_uint64(SOSManifestDeltaAndObjectsMessageType, der,
                ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
@@ -996,8 +1003,14 @@ static const uint8_t *der_decode_message_header(SOSMessageRef message, CFErrorRe
     message->flags = flags[0];
 
     der = der_decode_implicit_data(CCDER_OCTET_STRING, &message->senderDigest, der, der_end);
+    secinfo("engine", "der_decode_message_header: decoded sender digest as %@", message->senderDigest);
+
     der = der_decode_optional_implicit_data(0 | CCDER_CONTEXT_SPECIFIC, &message->baseDigest, der, der_end);
+    secinfo("engine", "der_decode_message_header: decoded base digest as %@", message->baseDigest);
+
     der = der_decode_optional_implicit_data(1 | CCDER_CONTEXT_SPECIFIC, &message->proposedDigest, der, der_end);
+    secinfo("engine", "der_decode_message_header: decoded proposed digest as %@", message->proposedDigest);
+
     return der;
 }
 
@@ -1013,6 +1026,8 @@ der_decode_manifest_and_objects_message(SOSMessageRef message,
         return NULL;
     }
     der = der_decode_implicit_data(CCDER_OCTET_STRING, &message->baseDigest, der, body_end);
+    secinfo("engine", "der_decode_manifest_and_objects_message: decoded base digest as %@", message->baseDigest);
+
     der = der_decode_deltas_body(message, error, der, body_end);
     // Remember a pointer into message->der where objects starts.
     der = message->objectsDer = ccder_decode_tl(CCDER_CONSTRUCTED_SEQUENCE, &objects_len, der, body_end);
@@ -1028,6 +1043,7 @@ static const uint8_t *der_decode_v0_message_body(SOSMessageRef message, CFErrorR
         case SOSManifestDigestMessageType:
         {
             der = der_decode_implicit_data(CCDER_OCTET_STRING, &message->senderDigest, der, der_end);
+            secinfo("engine", "der_decode_v0_message_body: received a DigestMessage with sender digest: %@", message->senderDigest);
             break;
         }
         case SOSManifestMessageType:
@@ -1039,6 +1055,7 @@ static const uint8_t *der_decode_v0_message_body(SOSMessageRef message, CFErrorR
                 secwarning("%td trailing bytes after deltas DER", der_end - der);
             }
             message->additions = SOSManifestCreateWithData(manifestBody, error);
+            secinfo("engine", "der_decode_v0_message_body: received a ManifestMessage with (%zu, %@)", SOSManifestGetCount(message->additions), SOSManifestGetDigest(message->additions, NULL));
             CFReleaseSafe(manifestBody);
             break;
         }

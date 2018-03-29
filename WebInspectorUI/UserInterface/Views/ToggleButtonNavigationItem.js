@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WebInspector.ButtonNavigationItem
+WI.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WI.ButtonNavigationItem
 {
     constructor(identifier, defaultToolTip, alternateToolTip, defaultImage, alternateImage, imageWidth, imageHeight)
     {
@@ -53,7 +53,7 @@ WebInspector.ToggleButtonNavigationItem = class ToggleButtonNavigationItem exten
         this._alternateToolTip = toolTip;
 
         if (this._toggled)
-            this.toolTip = this._alternateToolTip;
+            this.tooltip = this._alternateToolTip;
     }
 
     get defaultImage()
@@ -89,10 +89,10 @@ WebInspector.ToggleButtonNavigationItem = class ToggleButtonNavigationItem exten
         this._toggled = flag;
 
         if (this._toggled) {
-            this.toolTip = this._alternateToolTip;
+            this.tooltip = this._alternateToolTip;
             this.image = this._alternateImage;
         } else {
-            this.toolTip = this._defaultToolTip;
+            this.tooltip = this._defaultToolTip;
             this.image = this._defaultImage;
         }
     }

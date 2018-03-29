@@ -45,16 +45,14 @@
 
 namespace WebCore {
 
-CachedFont::CachedFont(CachedResourceRequest&& request, SessionID sessionID, Type type)
+CachedFont::CachedFont(CachedResourceRequest&& request, PAL::SessionID sessionID, Type type)
     : CachedResource(WTFMove(request), type, sessionID)
     , m_loadInitiated(false)
     , m_hasCreatedFontDataWrappingResource(false)
 {
 }
 
-CachedFont::~CachedFont()
-{
-}
+CachedFont::~CachedFont() = default;
 
 void CachedFont::load(CachedResourceLoader&)
 {

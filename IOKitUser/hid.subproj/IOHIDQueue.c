@@ -32,7 +32,8 @@
 static IOHIDQueueRef    __IOHIDQueueCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
-static void             __IOHIDQueueRelease( CFTypeRef object );
+static void             __IOHIDQueueExtRelease( CFTypeRef object );
+static void             __IOHIDQueueIntRelease( CFTypeRef object );
 static void             __IOHIDQueueValueAvailableCallback(
                                 void *                          context,
                                 IOReturn                        result,
@@ -41,7 +42,7 @@ static void             __IOHIDQueueValueAvailableCallback(
 
 typedef struct __IOHIDQueue
 {
-    CFRuntimeBase                   cfBase;   // base CFType information
+    IOHIDObjectBase                 hidBase;
 
     IOHIDDeviceQueueInterface**     queueInterface;
     
@@ -55,18 +56,22 @@ typedef struct __IOHIDQueue
     CFMutableSetRef                 elements;
 } __IOHIDQueue, *__IOHIDQueueRef;
 
-static const CFRuntimeClass __IOHIDQueueClass = {
-    0,                      // version
-    "IOHIDQueue",           // className
-    NULL,                   // init
-    NULL,                   // copy
-    __IOHIDQueueRelease,    // finalize
-    NULL,                   // equal
-    NULL,                   // hash
-    NULL,                   // copyFormattingDesc
-    NULL,
-    NULL,
-    NULL
+static const IOHIDObjectClass __IOHIDQueueClass = {
+    {
+        _kCFRuntimeCustomRefCount,  // version
+        "IOHIDQueue",               // className
+        NULL,                       // init
+        NULL,                       // copy
+        __IOHIDQueueExtRelease,     // finalize
+        NULL,                       // equal
+        NULL,                       // hash
+        NULL,                       // copyFormattingDesc
+        NULL,                       // copyDebugDesc
+        NULL,                       // reclaim
+        _IOHIDObjectExtRetainCount  // refcount
+    },
+    _IOHIDObjectIntRetainCount,
+    __IOHIDQueueIntRelease
 };
 
 static pthread_once_t __queueTypeInit = PTHREAD_ONCE_INIT;
@@ -77,7 +82,7 @@ static CFTypeID __kIOHIDQueueTypeID = _kCFRuntimeNotATypeID;
 //------------------------------------------------------------------------------
 void __IOHIDQueueRegister(void)
 {
-    __kIOHIDQueueTypeID = _CFRuntimeRegisterClass(&__IOHIDQueueClass);
+    __kIOHIDQueueTypeID = _CFRuntimeRegisterClass(&__IOHIDQueueClass.cfClass);
 }
 
 //------------------------------------------------------------------------------
@@ -87,27 +92,26 @@ IOHIDQueueRef __IOHIDQueueCreate(
                                 CFAllocatorRef              allocator, 
                                 CFAllocatorContext *        context __unused)
 {
-    IOHIDQueueRef   queue   = NULL;
-    void *          offset  = NULL;
-    uint32_t        size;
-
+    uint32_t    size;
+    
     /* allocate service */
     size  = sizeof(__IOHIDQueue) - sizeof(CFRuntimeBase);
-    queue = (IOHIDQueueRef)_CFRuntimeCreateInstance(allocator, IOHIDQueueGetTypeID(), size, NULL);
     
-    if (!queue)
-        return NULL;
-
-    offset = queue;
-    bzero(offset + sizeof(CFRuntimeBase), size);
-    
-    return queue;
+    return (IOHIDQueueRef)_IOHIDObjectCreateInstance(allocator, IOHIDQueueGetTypeID(), size, NULL);
 }
 
 //------------------------------------------------------------------------------
-// __IOHIDQueueRelease
+// __IOHIDQueueExtRelease
 //------------------------------------------------------------------------------
-void __IOHIDQueueRelease( CFTypeRef object )
+void __IOHIDQueueExtRelease( CFTypeRef object __unused )
+{
+    
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDQueueIntRelease
+//------------------------------------------------------------------------------
+void __IOHIDQueueIntRelease( CFTypeRef object )
 {
     IOHIDQueueRef queue = (IOHIDQueueRef)object;
     
@@ -129,7 +133,6 @@ void __IOHIDQueueRelease( CFTypeRef object )
         CFRelease(queue->callbackDictionary);
         queue->callbackDictionary = NULL;
     }
-    
 }
 
 //------------------------------------------------------------------------------
@@ -252,8 +255,9 @@ void IOHIDQueueAddElement(
 {
     (*queue->queueInterface)->addElement(queue->queueInterface, element, 0);
     
-    if ( !queue->elements )
+    if ( !queue->elements ) {
         queue->elements = CFSetCreateMutable(CFGetAllocator(queue), 0, &kCFTypeSetCallBacks);
+    }
         
     if ( queue->elements )
         CFSetAddValue(queue->elements, element);

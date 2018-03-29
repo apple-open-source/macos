@@ -34,9 +34,11 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFError.h>
 #include <securityd/SOSCloudCircleServer.h>
+#include <securityd/SecOCSPCache.h>
 #include <securityd/SecOTRRemote.h>
 #include <securityd/SecLogSettingsServer.h>
 #include <securityd/personalization.h>
+#include <securityd/SecTrustLoggingServer.h>
 
 #include <CoreFoundation/CFXPCBridge.h>
 #include "utilities/iOSforOSX.h"
@@ -153,11 +155,13 @@ static struct trustd trustd_spi = {
     .sec_trust_store_remove_certificate     = SecTrustStoreRemoveCertificateWithDigest,
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
-    .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
+    .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
     .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
     .sec_trust_store_copy_all               = _SecTrustStoreCopyAll,
     .sec_trust_store_copy_usage_constraints = _SecTrustStoreCopyUsageConstraints,
+    .sec_ocsp_cache_flush                   = SecOCSPCacheFlush,
+    .sec_tls_analytics_report               = SecTLSAnalyticsReport,
 };
 #endif
 

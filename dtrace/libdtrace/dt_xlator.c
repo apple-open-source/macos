@@ -19,12 +19,10 @@
  *
  * CDDL HEADER END
  */
-
 /*
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
 /*
  * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright (c) 2013 Joyent, Inc. All rights reserved.
@@ -324,7 +322,8 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 
 	for (dxp = dt_list_next(&dtp->dt_xlators); dxp != NULL;
 	    dxp = dt_list_next(dxp)) {
-		dt_node_type_assign(&xn, dxp->dx_src_ctfp, dxp->dx_src_type, B_FALSE);
+		dt_node_type_assign(&xn, dxp->dx_src_ctfp, dxp->dx_src_type,
+		    B_FALSE);
 		if (ctf_type_compat(dxp->dx_dst_ctfp, dxp->dx_dst_base,
 		    dst_ctfp, dst_base) && dt_node_is_argcompat(src, &xn))
 			goto out;

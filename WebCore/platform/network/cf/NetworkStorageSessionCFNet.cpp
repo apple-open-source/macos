@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #if PLATFORM(COCOA)
 #include "PublicSuffix.h"
 #include "ResourceRequest.h"
-#include "WebCoreSystemInterface.h"
 #else
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
@@ -41,6 +40,7 @@
 namespace WebCore {
 
 static bool cookieStoragePartitioningEnabled;
+static bool storageAccessAPIEnabled;
 
 static RetainPtr<CFURLStorageSessionRef> createCFStorageSessionForIdentifier(CFStringRef identifier)
 {
@@ -69,7 +69,7 @@ static RetainPtr<CFURLStorageSessionRef> createCFStorageSessionForIdentifier(CFS
     return storageSession;
 }
 
-NetworkStorageSession::NetworkStorageSession(SessionID sessionID, RetainPtr<CFURLStorageSessionRef>&& platformSession, RetainPtr<CFHTTPCookieStorageRef>&& platformCookieStorage)
+NetworkStorageSession::NetworkStorageSession(PAL::SessionID sessionID, RetainPtr<CFURLStorageSessionRef>&& platformSession, RetainPtr<CFHTTPCookieStorageRef>&& platformCookieStorage)
     : m_sessionID(sessionID)
     , m_platformSession(WTFMove(platformSession))
 {
@@ -90,7 +90,7 @@ void NetworkStorageSession::switchToNewTestingSession()
 
     RetainPtr<CFURLStorageSessionRef> session;
 #if PLATFORM(COCOA)
-    session = adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get()));
+    session = adoptCF(createPrivateStorageSession(sessionName.createCFString().get()));
 #else
     session = adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get(), defaultStorageSession().platformSession()));
 #endif
@@ -99,23 +99,17 @@ void NetworkStorageSession::switchToNewTestingSession()
     if (session)
         cookieStorage = adoptCF(_CFURLStorageSessionCopyCookieStorage(kCFAllocatorDefault, session.get()));
 
-    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), WTFMove(session), WTFMove(cookieStorage));
+    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(PAL::SessionID::defaultSessionID(), WTFMove(session), WTFMove(cookieStorage));
 }
 
 NetworkStorageSession& NetworkStorageSession::defaultStorageSession()
 {
     if (!defaultNetworkStorageSession())
-        defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), nullptr, nullptr);
+        defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(PAL::SessionID::defaultSessionID(), nullptr, nullptr);
     return *defaultNetworkStorageSession();
 }
 
-void NetworkStorageSession::ensurePrivateBrowsingSession(SessionID sessionID, const String& identifierBase)
-{
-    ASSERT(sessionID.isEphemeral());
-    ensureSession(sessionID, identifierBase);
-}
-
-void NetworkStorageSession::ensureSession(SessionID sessionID, const String& identifierBase, RetainPtr<CFHTTPCookieStorageRef>&& cookieStorage)
+void NetworkStorageSession::ensureSession(PAL::SessionID sessionID, const String& identifierBase, RetainPtr<CFHTTPCookieStorageRef>&& cookieStorage)
 {
     auto addResult = globalSessionMap().add(sessionID, nullptr);
     if (!addResult.isNewEntry)
@@ -126,7 +120,7 @@ void NetworkStorageSession::ensureSession(SessionID sessionID, const String& ide
     RetainPtr<CFURLStorageSessionRef> storageSession;
     if (sessionID.isEphemeral()) {
 #if PLATFORM(COCOA)
-        storageSession = adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get()));
+        storageSession = adoptCF(createPrivateStorageSession(cfIdentifier.get()));
 #else
         storageSession = adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get(), defaultNetworkStorageSession()->platformSession()));
 #endif
@@ -139,7 +133,7 @@ void NetworkStorageSession::ensureSession(SessionID sessionID, const String& ide
     addResult.iterator->value = std::make_unique<NetworkStorageSession>(sessionID, WTFMove(storageSession), WTFMove(cookieStorage));
 }
 
-void NetworkStorageSession::ensureSession(SessionID sessionID, const String& identifierBase)
+void NetworkStorageSession::ensureSession(PAL::SessionID sessionID, const String& identifierBase)
 {
     ensureSession(sessionID, identifierBase, nullptr);
 }
@@ -165,11 +159,16 @@ void NetworkStorageSession::setCookieStoragePartitioningEnabled(bool enabled)
     cookieStoragePartitioningEnabled = enabled;
 }
 
+void NetworkStorageSession::setStorageAccessAPIEnabled(bool enabled)
+{
+    storageAccessAPIEnabled = enabled;
+}
+
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
 
-String NetworkStorageSession::cookieStoragePartition(const ResourceRequest& request) const
+String NetworkStorageSession::cookieStoragePartition(const ResourceRequest& request, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) const
 {
-    return cookieStoragePartition(request.firstPartyForCookies(), request.url());
+    return cookieStoragePartition(request.firstPartyForCookies(), request.url(), frameID, pageID);
 }
 
 static inline String getPartitioningDomain(const URL& url) 
@@ -184,7 +183,7 @@ static inline String getPartitioningDomain(const URL& url)
     return domain;
 }
 
-String NetworkStorageSession::cookieStoragePartition(const URL& firstPartyForCookies, const URL& resource) const
+String NetworkStorageSession::cookieStoragePartition(const URL& firstPartyForCookies, const URL& resource, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) const
 {
     if (!cookieStoragePartitioningEnabled)
         return emptyString();
@@ -197,6 +196,9 @@ String NetworkStorageSession::cookieStoragePartition(const URL& firstPartyForCoo
     if (firstPartyDomain == resourceDomain)
         return emptyString();
 
+    if (frameID && pageID && hasStorageAccessForFrame(resourceDomain, firstPartyDomain, frameID.value(), pageID.value()))
+        return emptyString();
+
     return firstPartyDomain;
 }
 
@@ -205,21 +207,130 @@ bool NetworkStorageSession::shouldPartitionCookies(const String& topPrivatelyCon
     if (topPrivatelyControlledDomain.isEmpty())
         return false;
 
-    return m_topPrivatelyControlledDomainsForCookiePartitioning.contains(topPrivatelyControlledDomain);
+    return m_topPrivatelyControlledDomainsToPartition.contains(topPrivatelyControlledDomain);
 }
 
-void NetworkStorageSession::setShouldPartitionCookiesForHosts(const Vector<String>& domainsToRemove, const Vector<String>& domainsToAdd, bool clearFirst)
+bool NetworkStorageSession::shouldBlockThirdPartyCookies(const String& topPrivatelyControlledDomain) const
 {
-    if (clearFirst)
-        m_topPrivatelyControlledDomainsForCookiePartitioning.clear();
+    if (topPrivatelyControlledDomain.isEmpty())
+        return false;
 
-    if (!domainsToRemove.isEmpty()) {
-        for (auto& domain : domainsToRemove)
-            m_topPrivatelyControlledDomainsForCookiePartitioning.remove(domain);
+    return m_topPrivatelyControlledDomainsToBlock.contains(topPrivatelyControlledDomain);
+}
+
+bool NetworkStorageSession::shouldBlockCookies(const ResourceRequest& request) const
+{
+    if (!cookieStoragePartitioningEnabled)
+        return false;
+
+    return shouldBlockCookies(request.firstPartyForCookies(), request.url());
+}
+    
+bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource) const
+{
+    if (!cookieStoragePartitioningEnabled)
+        return false;
+    
+    auto firstPartyDomain = getPartitioningDomain(firstPartyForCookies);
+    if (firstPartyDomain.isEmpty())
+        return false;
+
+    auto resourceDomain = getPartitioningDomain(resource);
+    if (resourceDomain.isEmpty())
+        return false;
+
+    if (firstPartyDomain == resourceDomain)
+        return false;
+
+    return shouldBlockThirdPartyCookies(resourceDomain);
+}
+
+void NetworkStorageSession::setPrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, bool clearFirst)
+{
+    if (clearFirst) {
+        m_topPrivatelyControlledDomainsToPartition.clear();
+        m_topPrivatelyControlledDomainsToBlock.clear();
+        m_framesGrantedStorageAccess.clear();
     }
-        
-    if (!domainsToAdd.isEmpty())
-        m_topPrivatelyControlledDomainsForCookiePartitioning.add(domainsToAdd.begin(), domainsToAdd.end());
+
+    for (auto& domain : domainsToPartition) {
+        m_topPrivatelyControlledDomainsToPartition.add(domain);
+        if (!clearFirst)
+            m_topPrivatelyControlledDomainsToBlock.remove(domain);
+    }
+
+    for (auto& domain : domainsToBlock) {
+        m_topPrivatelyControlledDomainsToBlock.add(domain);
+        if (!clearFirst)
+            m_topPrivatelyControlledDomainsToPartition.remove(domain);
+    }
+    
+    if (!clearFirst) {
+        for (auto& domain : domainsToNeitherPartitionNorBlock) {
+            m_topPrivatelyControlledDomainsToPartition.remove(domain);
+            m_topPrivatelyControlledDomainsToBlock.remove(domain);
+        }
+    }
+}
+
+void NetworkStorageSession::removePrevalentDomains(const Vector<String>& domains)
+{
+    for (auto& domain : domains) {
+        m_topPrivatelyControlledDomainsToPartition.remove(domain);
+        m_topPrivatelyControlledDomainsToBlock.remove(domain);
+    }
+}
+
+bool NetworkStorageSession::hasStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID) const
+{
+    UNUSED_PARAM(firstPartyDomain);
+
+    auto it1 = m_framesGrantedStorageAccess.find(pageID);
+    if (it1 == m_framesGrantedStorageAccess.end())
+        return false;
+
+    auto it2 = it1->value.find(frameID);
+    if (it2 == it1->value.end())
+        return false;
+    
+    return it2->value == resourceDomain;
+}
+
+bool NetworkStorageSession::hasStorageAccessForFrame(const ResourceRequest& request, uint64_t frameID, uint64_t pageID) const
+{
+    if (!cookieStoragePartitioningEnabled)
+        return false;
+
+    return hasStorageAccessForFrame(getPartitioningDomain(request.url()), getPartitioningDomain(request.firstPartyForCookies()), frameID, pageID);
+}
+
+void NetworkStorageSession::grantStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID)
+{
+    UNUSED_PARAM(firstPartyDomain);
+
+    auto it1 = m_framesGrantedStorageAccess.find(pageID);
+    if (it1 == m_framesGrantedStorageAccess.end()) {
+        HashMap<uint64_t, String, DefaultHash<uint64_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> entry;
+        entry.add(frameID, resourceDomain);
+        m_framesGrantedStorageAccess.add(pageID, entry);
+    } else {
+        auto it2 = it1->value.find(frameID);
+        it2->value = resourceDomain;
+    }
+}
+
+void NetworkStorageSession::removeStorageAccessForFrame(uint64_t frameID, uint64_t pageID)
+{
+    auto iteration = m_framesGrantedStorageAccess.find(pageID);
+    if (iteration == m_framesGrantedStorageAccess.end())
+        return;
+
+    iteration->value.remove(frameID);
+}
+
+void NetworkStorageSession::removeStorageAccessForAllFramesOnPage(uint64_t pageID)
+{
+    m_framesGrantedStorageAccess.remove(pageID);
 }
 
 #endif // HAVE(CFNETWORK_STORAGE_PARTITIONING)

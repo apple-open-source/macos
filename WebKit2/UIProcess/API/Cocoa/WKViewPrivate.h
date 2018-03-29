@@ -26,7 +26,6 @@
 #if !TARGET_OS_IPHONE
 
 #import <WebKit/WKBase.h>
-#import <WebKit/WKImmediateActionTypes.h>
 #import <WebKit/WKLayoutMode.h>
 #import <WebKit/WKView.h>
 #import <WebKit/_WKOverlayScrollbarStyle.h>
@@ -132,10 +131,14 @@
 
 - (void)_gestureEventWasNotHandledByWebCore:(NSEvent *)event;
 
+- (void)_setShouldSuppressFirstResponderChanges:(BOOL)shouldSuppress WK_API_AVAILABLE(macosx(WK_MAC_TBA));
+
 @property (nonatomic, readwrite, setter=_setWantsMediaPlaybackControlsView:) BOOL _wantsMediaPlaybackControlsView;
 @property (nonatomic, readonly)  id _mediaPlaybackControlsView;
 - (void)_addMediaPlaybackControlsView:(id)mediaPlaybackControlsView;
 - (void)_removeMediaPlaybackControlsView;
+
+- (void)_doAfterNextPresentationUpdate:(void (^)(void))updateBlock WK_API_AVAILABLE(macosx(WK_MAC_TBA));
 
 @end
 

@@ -38,9 +38,7 @@
 #ifndef _SECURITY_UTILITIES_DEBUGGING_H_
 #define _SECURITY_UTILITIES_DEBUGGING_H_
 
-#if TARGET_OS_OSX
-#include <security_utilities/debugging_internal.h>
-#endif
+#include <TargetConditionals.h>
 
 #ifdef KERNEL
         #include <libkern/libkern.h>
@@ -60,7 +58,6 @@
     #endif // NDEBUG
 #else // !KERNEL
 
-#include <TargetConditionals.h>
 #include <CoreFoundation/CFString.h>
 #include <asl.h>
 

@@ -2366,7 +2366,7 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>4</integer>
+		<integer>6</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
@@ -2422,7 +2422,7 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>4</integer>
+		<integer>6</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
@@ -2478,7 +2478,7 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>4</integer>
+		<integer>6</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
@@ -2536,7 +2536,7 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>4</integer>
+		<integer>6</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>

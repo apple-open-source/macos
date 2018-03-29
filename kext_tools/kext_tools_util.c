@@ -24,6 +24,7 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
     #include <bless.h>
+    #include <libgen.h>
     #include "bootcaches.h"
 #endif  // !TARGET_OS_EMBEDDED
 
@@ -1566,6 +1567,55 @@ finish:
     SAFE_FREE(myCString);
 
     return(myBootCachesPlist);
+}
+
+bool
+translatePrelinkedToImmutablePath(const char *prelinked_path, char *imk_path, size_t imk_len)
+{
+    char plk_name[PATH_MAX] = {};
+    char plk_path[PATH_MAX] = {};
+
+    if (!prelinked_path || !imk_path || imk_len < strlen(_kOSKextPrelinkedKernelFileName))
+        return false;
+
+    if (!basename_r(prelinked_path, plk_name))
+        return false;
+    if (!dirname_r(prelinked_path, plk_path))
+        return false;
+    /*
+     * If dirname_r() doesn't find any path component in 'prelinked_path'
+     * either because the path is NULL, or because it's a simple filename,
+     * then it will copy "." into plk_path. We want to translate a simple
+     * filename, e.g. "prelinkedkernel.kasan", into "immutablekernel.kasan",
+     * so we look for a return value of "." and simply clear the path
+     * component of the name.
+     */
+    if (strncmp(plk_path, ".", 2) == 0)
+        plk_path[0] = 0;
+
+    // validate the prelinkedkernel name
+    size_t plk_nm_len = strnlen(plk_name, sizeof(plk_name));
+    size_t plk_pfx_len = strlen(_kOSKextPrelinkedKernelFileName);
+    if (plk_nm_len < plk_pfx_len ||
+        strncmp(plk_name, _kOSKextPrelinkedKernelFileName, plk_pfx_len) != 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                  "Cannot build immutable kernel using \"%s\": the filename must begin with \"%s\"",
+                  prelinked_path, _kOSKextPrelinkedKernelFileName);
+        return false;
+    }
+
+    // build the immutable kernel file name
+    // note 'plk_path' contains the directory name from dirname_r above
+    // (or NULL for filename only conversion)
+    const char *plk_suffix = (const char *)((uintptr_t)plk_name + plk_pfx_len);
+    if (strlcpy(imk_path, plk_path, imk_len) > imk_len ||
+        strlcat(imk_path, kImmutableKernelFileName, imk_len) > imk_len ||
+        strlcat(imk_path, plk_suffix, imk_len) > imk_len) {
+        return false;
+    }
+
+    return true;
 }
 #endif   // !TARGET_OS_EMBEDDED
 

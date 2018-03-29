@@ -113,7 +113,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
     
-    virtual void		free();
+    virtual void		free(void) APPLE_KEXT_OVERRIDE;
 
 private:
 /*!	function getReceiver

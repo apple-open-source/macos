@@ -5,14 +5,14 @@
 
 #import "CKDLockMonitor.h"
 
-@protocol CKDLockListener
+@protocol CKDLockListener <NSObject>
 
 - (void) unlocked;
 - (void) locked;
 
 @end
 
-@protocol CKDLockMonitor
+@protocol CKDLockMonitor <NSObject>
 
 @property (readonly) BOOL unlockedSinceBoot;
 @property (readonly) BOOL locked;

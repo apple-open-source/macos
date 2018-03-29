@@ -449,8 +449,9 @@ errOut:
 static bool SOSCircleGenerationSign_Internal(SOSCircleRef circle, SecKeyRef userKey, SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     // require_quiet(SOSCircleEnsureRingConsistency(circle, error), fail); Placeholder - this was never implemented
     bool retval = false;
+    SecKeyRef ourKey = NULL;
     if (SOSCircleCountPeers(circle) != 0) {
-        SecKeyRef ourKey = SOSFullPeerInfoCopyDeviceKey(fpi, error);
+        ourKey = SOSFullPeerInfoCopyDeviceKey(fpi, error);
         require_quiet(ourKey, errOut);
         
         // Check if we're using an invalid peerinfo for this op.  There are cases where we might not be "upgraded".
@@ -463,6 +464,7 @@ static bool SOSCircleGenerationSign_Internal(SOSCircleRef circle, SecKeyRef user
     retval = true;
     
 errOut:
+    CFReleaseNull(ourKey);
     return retval;
 }
 
@@ -1260,7 +1262,7 @@ void SOSCircleForEachiCloudIdentityPeer(SOSCircleRef circle, void (^action)(SOSP
     SOSCircleForEachPeerMatching(circle, action, ^bool(SOSPeerInfoRef peer) {
         return SOSPeerInfoIsCloudIdentity(peer);
     });
-}
+} 
 
 
 void SOSCircleForEachActivePeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer)) {
@@ -1433,20 +1435,20 @@ bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenC
     // Gen sign first, then add signature from our approver - remember gensign removes all existing sigs.
     res = SOSCircleGenerationSignWithGenCount(circle, userKey, fpi, gencount, error);
     if (!res) {
-        secnotice("circleJoin", "Failed to regenerate circle with new gen count: %@", error ? *error : NULL);
+        secnotice("circleOps", "Failed to regenerate circle with new gen count: %@", error ? *error : NULL);
         return res;
     }
     res = SOSCircleSetSignature(circle, pPubKey, signature, error);
     if (!res) {
-        secnotice("circleJoin", "Failed to set signature: %@", error ? *error : NULL);
+        secnotice("circleOps", "Failed to set signature: %@", error ? *error : NULL);
         return res;
     }
     res = SOSCircleVerify(circle, pPubKey, error);
     if (!res) {
-        secnotice("circleJoin", "Circle failed to validate after peer signature: %@", error ? *error : NULL);
+        secnotice("circleOps", "Circle failed to validate after peer signature: %@", error ? *error : NULL);
         return res;
     }
-    secnotice("circleJoin", "Circle accepted successfullyed");
+    secnotice("circleOps", "Circle accepted successfully");
 
     return true;
 }

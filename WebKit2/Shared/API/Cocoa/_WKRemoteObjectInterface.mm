@@ -65,13 +65,9 @@ struct MethodInfo {
 static bool isContainerClass(Class objectClass)
 {
     // FIXME: Add more classes here if needed.
-    static LazyNeverDestroyed<HashSet<Class>> containerClasses;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        containerClasses.construct(std::initializer_list<Class> { [NSArray class], [NSDictionary class] });
-    });
-
-    return containerClasses->contains(objectClass);
+    static Class arrayClass = [NSArray class];
+    static Class dictionaryClass = [NSDictionary class];
+    return objectClass == arrayClass || objectClass == dictionaryClass;
 }
 
 static HashSet<Class>& propertyListClasses()
@@ -217,9 +213,7 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
         auto descriptionForArgument = [](auto& allowedArgumentClasses) {
             auto result = adoptNS([[NSMutableString alloc] initWithString:@"{"]);
 
-            Vector<Class> orderedArgumentClasses;
-            copyToVector(allowedArgumentClasses, orderedArgumentClasses);
-
+            auto orderedArgumentClasses = copyToVector(allowedArgumentClasses);
             std::sort(orderedArgumentClasses.begin(), orderedArgumentClasses.end(), [](Class a, Class b) {
                 return CString(class_getName(a)) < CString(class_getName(b));
             });

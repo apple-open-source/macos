@@ -33,6 +33,7 @@
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "RenderElement.h"
+#include "StyleCachedImage.h"
 #include "StyleResolver.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -94,7 +95,7 @@ void CSSFilterImageValue::loadSubimages(CachedResourceLoader& cachedResourceLoad
     }
 
     for (auto& filterOperation : m_filterOperations.operations()) {
-        if (!is<ReferenceFilterOperation>(filterOperation.get()))
+        if (!is<ReferenceFilterOperation>(filterOperation))
             continue;
         auto& referenceFilterOperation = downcast<ReferenceFilterOperation>(*filterOperation);
         referenceFilterOperation.loadExternalDocumentIfNeeded(cachedResourceLoader, options);

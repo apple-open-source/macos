@@ -23,6 +23,8 @@
 
 #if OCTAGON
 
+#import <Foundation/NSKeyedArchiver_Private.h>
+
 #import "keychain/ckks/CKKSTLKShare.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CloudKitCategories.h"
@@ -95,7 +97,7 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSTLKShare(%@): recv:%@ send:%@>", self.tlkUUID, self.receiver.peerID, self.senderPeerID];
+    return [NSString stringWithFormat:@"<CKKSTLKShare(%@): recv:%@ send:%@>", self.tlkUUID, self.receiver, self.senderPeerID];
 }
 
 - (NSData*)wrap:(CKKSKey*)key publicKey:(SFECPublicKey*)receiverPublicKey error:(NSError* __autoreleasing *)error {
@@ -108,18 +110,15 @@
     SFIESCiphertext* ciphertext = [sfieso encrypt:plaintext withKey:receiverPublicKey error:error];
 
     // Now use NSCoding to turn the ciphertext into something transportable
-    NSMutableData* data = [NSMutableData data];
-    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [ciphertext encodeWithCoder:archiver];
-    [archiver finishEncoding];
 
-    return data;
+    return archiver.encodedData;
 }
 
 - (CKKSKey*)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError * __autoreleasing *)error {
     // Unwrap the ciphertext using NSSecureCoding
-    NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingWithData:self.wrappedTLK];
-    coder.requiresSecureCoding = YES;
+    NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:self.wrappedTLK error:nil];
     SFIESCiphertext* ciphertext = [[SFIESCiphertext alloc] initWithCoder:coder];
     [coder finishDecoding];
 
@@ -229,6 +228,16 @@
 }
 
 - (bool)verifySignature:(NSData*)signature verifyingPeer:(id<CKKSPeer>)peer error:(NSError* __autoreleasing *)error {
+    if(!peer.publicSigningKey) {
+        secerror("ckksshare: no signing key for peer: %@", peer);
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNoSigningKey
+                                  description:[NSString stringWithFormat:@"Peer(%@) has no signing key", peer]];
+        }
+        return false;
+    }
+
     // TODO: the digest operation can't be changed, as we don't have a good way of communicating it, like self.curve
     SFEC_X962SigningOperation* xso = [[SFEC_X962SigningOperation alloc] initWithKeySpecifier:[[SFECKeySpecifier alloc] initWithCurve:self.curve]
                                                                              digestOperation:[[SFSHA256DigestOperation alloc] init]];
@@ -236,6 +245,35 @@
 
     bool ret = [xso verify:signedData withKey:peer.publicSigningKey error:error];
     return ret;
+}
+
+- (bool)signatureVerifiesWithPeerSet:(NSSet<id<CKKSPeer>>*)peerSet error:(NSError**)error {
+    NSError* lastVerificationError = nil;
+    for(id<CKKSPeer> peer in peerSet) {
+        if([peer.peerID isEqualToString: self.senderPeerID]) {
+            // Does the signature verify using this peer?
+            NSError* localerror = nil;
+            bool isSigned = [self verifySignature:self.signature verifyingPeer:peer error:&localerror];
+            if(localerror) {
+                secerror("ckksshare: signature didn't verify for %@ %@: %@", self, peer, localerror);
+                lastVerificationError = localerror;
+            }
+            if(isSigned) {
+                return true;
+            }
+        }
+    }
+
+    if(error) {
+        if(lastVerificationError) {
+            *error = lastVerificationError;
+        } else {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNoTrustedTLKShares
+                                  description:[NSString stringWithFormat:@"No TLK share from %@", self.senderPeerID]];
+        }
+    }
+    return false;
 }
 
 - (instancetype)copyWithZone:(NSZone *)zone {

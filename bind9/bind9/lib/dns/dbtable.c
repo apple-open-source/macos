@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2013, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -176,16 +176,16 @@ dns_dbtable_detach(dns_dbtable_t **dbtablep) {
 isc_result_t
 dns_dbtable_add(dns_dbtable_t *dbtable, dns_db_t *db) {
 	isc_result_t result;
-	dns_db_t *clone;
+	dns_db_t *dbclone;
 
 	REQUIRE(VALID_DBTABLE(dbtable));
 	REQUIRE(dns_db_class(db) == dbtable->rdclass);
 
-	clone = NULL;
-	dns_db_attach(db, &clone);
+	dbclone = NULL;
+	dns_db_attach(db, &dbclone);
 
 	RWLOCK(&dbtable->tree_lock, isc_rwlocktype_write);
-	result = dns_rbt_addname(dbtable->rbt, dns_db_origin(clone), clone);
+	result = dns_rbt_addname(dbtable->rbt, dns_db_origin(dbclone), dbclone);
 	RWUNLOCK(&dbtable->tree_lock, isc_rwlocktype_write);
 
 	return (result);

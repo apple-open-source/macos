@@ -43,6 +43,7 @@ class RenderSVGResource;
 class SVGGraphicsElement;
 
 class RenderSVGShape : public RenderSVGModelObject {
+    WTF_MAKE_ISO_ALLOCATED(RenderSVGShape);
 public:
     RenderSVGShape(SVGGraphicsElement&, RenderStyle&&);
     virtual ~RenderSVGShape();
@@ -63,6 +64,7 @@ public:
         ASSERT(m_path);
         return *m_path;
     }
+    void clearPath() { m_path = nullptr; }
 
 protected:
     void element() const = delete;

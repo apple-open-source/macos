@@ -54,14 +54,14 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameTree.h>
-#import <WebCore/URL.h>
+#import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/ProxyServer.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/URL.h>
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/npruntime_impl.h>
 #import <WebCore/runtime_object.h>
-#import <WebKitSystemInterface.h>
 #import <bindings/ScriptValue.h>
 #import <mach/mach.h>
 #import <utility>
@@ -293,10 +293,8 @@ void NetscapePluginInstanceProxy::layerHostingModeChanged(bool hostsLayersInWind
 
 void NetscapePluginInstanceProxy::stopAllStreams()
 {
-    Vector<RefPtr<HostedNetscapePluginStream>> streamsCopy;
-    copyValuesToVector(m_streams, streamsCopy);
-    for (size_t i = 0; i < streamsCopy.size(); i++)
-        streamsCopy[i]->stop();
+    for (auto& stream : copyToVector(m_streams.values()))
+        stream->stop();
 }
 
 void NetscapePluginInstanceProxy::cleanup()
@@ -459,7 +457,7 @@ void NetscapePluginInstanceProxy::keyEvent(NSView *pluginView, NSEvent *event, N
                                      type, [event modifierFlags], 
                                      const_cast<char*>(reinterpret_cast<const char*>([charactersData bytes])), [charactersData length], 
                                      const_cast<char*>(reinterpret_cast<const char*>([charactersIgnoringModifiersData bytes])), [charactersIgnoringModifiersData length], 
-                                     [event isARepeat], [event keyCode], WKGetNSEventKeyChar(event));
+                                     [event isARepeat], [event keyCode], keyCharForEvent(event));
 }
 
 void NetscapePluginInstanceProxy::syntheticKeyDownWithCommandModifier(int keyCode, char character)
@@ -930,6 +928,7 @@ bool NetscapePluginInstanceProxy::invoke(uint32_t objectID, const Identifier& me
 
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
+    RELEASE_ASSERT(!argList.hasOverflowed());
 
     JSValue value = call(exec, function, callType, callData, object, argList);
         
@@ -959,12 +958,13 @@ bool NetscapePluginInstanceProxy::invokeDefault(uint32_t objectID, data_t argume
 
     ExecState* exec = frame->script().globalObject(pluginWorld())->globalExec();
     CallData callData;
-    CallType callType = object->methodTable()->getCallData(object, callData);
+    CallType callType = object->methodTable(vm)->getCallData(object, callData);
     if (callType == CallType::None)
         return false;
 
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
+    RELEASE_ASSERT(!argList.hasOverflowed());
 
     JSValue value = call(exec, object, callType, callData, object, argList);
     
@@ -995,12 +995,13 @@ bool NetscapePluginInstanceProxy::construct(uint32_t objectID, data_t argumentsD
     ExecState* exec = frame->script().globalObject(pluginWorld())->globalExec();
 
     ConstructData constructData;
-    ConstructType constructType = object->methodTable()->getConstructData(object, constructData);
+    ConstructType constructType = object->methodTable(vm)->getConstructData(object, constructData);
     if (constructType == ConstructType::None)
         return false;
 
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
+    RELEASE_ASSERT(!argList.hasOverflowed());
 
     JSValue value = JSC::construct(exec, object, constructType, constructData, argList);
     
@@ -1083,7 +1084,7 @@ bool NetscapePluginInstanceProxy::setProperty(uint32_t objectID, const Identifie
 
     JSValue value = demarshalValue(exec, valueData, valueLength);
     PutPropertySlot slot(object);
-    object->methodTable()->put(object, exec, propertyName, value, slot);
+    object->methodTable(vm)->put(object, exec, propertyName, value, slot);
     
     scope.clearException();
     return true;
@@ -1111,7 +1112,7 @@ bool NetscapePluginInstanceProxy::setProperty(uint32_t objectID, unsigned proper
     ExecState* exec = frame->script().globalObject(pluginWorld())->globalExec();
     
     JSValue value = demarshalValue(exec, valueData, valueLength);
-    object->methodTable()->putByIndex(object, exec, propertyName, value, false);
+    object->methodTable(vm)->putByIndex(object, exec, propertyName, value, false);
     
     scope.clearException();
     return true;
@@ -1142,7 +1143,7 @@ bool NetscapePluginInstanceProxy::removeProperty(uint32_t objectID, const Identi
         return false;
     }
     
-    object->methodTable()->deleteProperty(object, exec, propertyName);
+    object->methodTable(vm)->deleteProperty(object, exec, propertyName);
     scope.clearException();
     return true;
 }
@@ -1172,7 +1173,7 @@ bool NetscapePluginInstanceProxy::removeProperty(uint32_t objectID, unsigned pro
         return false;
     }
     
-    object->methodTable()->deletePropertyByIndex(object, exec, propertyName);
+    object->methodTable(vm)->deletePropertyByIndex(object, exec, propertyName);
     scope.clearException();
     return true;
 }
@@ -1275,8 +1276,8 @@ bool NetscapePluginInstanceProxy::enumerate(uint32_t objectID, data_t& resultDat
 
     ExecState* exec = frame->script().globalObject(pluginWorld())->globalExec();
  
-    PropertyNameArray propertyNames(exec, PropertyNameMode::Strings);
-    object->methodTable()->getPropertyNames(object, exec, propertyNames, EnumerationMode());
+    PropertyNameArray propertyNames(&vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
+    object->methodTable(vm)->getPropertyNames(object, exec, propertyNames, EnumerationMode());
 
     RetainPtr<NSMutableArray*> array = adoptNS([[NSMutableArray alloc] init]);
     for (unsigned i = 0; i < propertyNames.size(); i++) {

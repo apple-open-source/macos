@@ -274,6 +274,8 @@
     // Very simple test: can these objects roundtrip through the db?
     NSString* testUUID = @"157A3171-0677-451B-9EAE-0DDC4D4315B0";
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:testUUID
+                                                                   osVersion:@"faux-version"
+                                                              lastUnlockTime:nil
                                                                 circlePeerID:@"asdf"
                                                                 circleStatus:kSOSCCInCircle
                                                                     keyState:SecCKKSZoneKeyStateReady

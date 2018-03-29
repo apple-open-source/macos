@@ -776,17 +776,15 @@ cheatsheet(void)
 {
 	fprintf(stderr, "\nFilter-independent flags:\n\n\
 \033[1m\
-command                pid                 kq kqst              ident filter    fdtype   fflags      flags          evst\033[0m\n\
-\033[1m\
--------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- -----------------\033[0m\n\
+command                pid                 kq kqst               knid filter    fdtype   fflags       flags             evst       qos\033[0m\n\033[1m\
+-------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- ----------------- ---\033[0m\n\
                                                                                                            ┌ EV_UDATA_SPECIFIC\n\
                                                                                              EV_DISPATCH ┐ │┌ EV_FLAG0 (EV_POLL)\n\
                                                                                                EV_CLEAR ┐│ ││┌ EV_FLAG1 (EV_OOBAND)\n\
                                                                                             EV_ONESHOT ┐││ │││┌ EV_EOF\n\
                                                                                            EV_RECEIPT ┐│││ ││││┌ EV_ERROR\n\
-                                                                                                      ││││ │││││\n\
-\033[1m\
-launchd                  1                  4  ks- netbiosd       250 PROC               ------- andx r1cs upboe aqds dwca supt vn\033[0m \n\
+                                                                                                      ││││ │││││\n\033[1m\
+launchd                  1                  4  ks- netbiosd       250 PROC               ------- andx r1cs upboe aqds dwca supt vn  IN\033[0m \n\
                                             │  │││                                               ││││            ││││ ││││ ││││ ││\n\
           kqueue file descriptor/dynamic ID ┘  │││                                        EV_ADD ┘│││  KN_ACTIVE ┘│││ ││││ ││││ ││\n\
                                       KQ_SLEEP ┘││                                      EV_ENABLE ┘││   KN_QUEUED ┘││ ││││ ││││ ││\n\

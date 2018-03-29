@@ -27,13 +27,23 @@
 #include "RenderTreePosition.h"
 
 #include "ComposedTreeIterator.h"
-#include "FlowThreadController.h"
 #include "PseudoElement.h"
-#include "RenderNamedFlowThread.h"
+#include "RenderInline.h"
 #include "RenderObject.h"
 #include "ShadowRoot.h"
 
 namespace WebCore {
+
+void RenderTreePosition::insert(RenderPtr<RenderObject> renderer)
+{
+    ASSERT(m_hasValidNextSibling);
+    auto* insertBefore = m_nextSibling.get();
+    if (is<RenderText>(insertBefore)) {
+        if (auto* wrapperInline = downcast<RenderText>(*insertBefore).inlineWrapperForDisplayContents())
+            insertBefore = wrapperInline;
+    }
+    m_parent.addChild(WTFMove(renderer), insertBefore);
+}
 
 void RenderTreePosition::computeNextSibling(const Node& node)
 {
@@ -46,7 +56,7 @@ void RenderTreePosition::computeNextSibling(const Node& node)
 #endif
         return;
     }
-    m_nextSibling = nextSiblingRenderer(node);
+    m_nextSibling = makeWeakPtr(nextSiblingRenderer(node));
     m_hasValidNextSibling = true;
 }
 
@@ -58,105 +68,94 @@ void RenderTreePosition::invalidateNextSibling(const RenderObject& siblingRender
         m_hasValidNextSibling = false;
 }
 
-RenderObject* RenderTreePosition::previousSiblingRenderer(const Text& textNode) const
-{
-    if (textNode.renderer())
-        return textNode.renderer()->previousSibling();
-
-    auto* parentElement = m_parent.element();
-
-    auto composedChildren = composedTreeChildren(*parentElement);
-    for (auto it = composedChildren.at(textNode), end = composedChildren.end(); it != end; --it) {
-        RenderObject* renderer = it->renderer();
-        if (renderer && !isRendererReparented(*renderer))
-            return renderer;
-    }
-    if (auto* before = parentElement->beforePseudoElement())
-        return before->renderer();
-    return nullptr;
-}
-
 RenderObject* RenderTreePosition::nextSiblingRenderer(const Node& node) const
 {
+    ASSERT(!node.renderer());
+
     auto* parentElement = m_parent.element();
     if (!parentElement)
         return nullptr;
-    if (node.isAfterPseudoElement())
+    // FIXME: PlugingReplacement shadow trees are very wrong.
+    if (parentElement == &node)
         return nullptr;
 
+    Vector<Element*, 30> elementStack;
+
+    // In the common case ancestor == parentElement immediately and this just pushes parentElement into stack.
+    auto* ancestor = is<PseudoElement>(node) ? downcast<PseudoElement>(node).hostElement() : node.parentElementInComposedTree();
+    while (true) {
+        elementStack.append(ancestor);
+        if (ancestor == parentElement)
+            break;
+        ancestor = ancestor->parentElementInComposedTree();
+        ASSERT(ancestor);
+    }
+    elementStack.reverse();
+
     auto composedDescendants = composedTreeDescendants(*parentElement);
-    auto it = node.isBeforePseudoElement() ? composedDescendants.begin() : composedDescendants.at(node);
+
+    auto initializeIteratorConsideringPseudoElements = [&] {
+        if (is<PseudoElement>(node)) {
+            auto* host = downcast<PseudoElement>(node).hostElement();
+            if (node.isBeforePseudoElement()) {
+                if (host != parentElement)
+                    return composedDescendants.at(*host).traverseNext();
+                return composedDescendants.begin();
+            }
+            ASSERT(node.isAfterPseudoElement());
+            elementStack.removeLast();
+            if (host != parentElement)
+                return composedDescendants.at(*host).traverseNextSkippingChildren();
+            return composedDescendants.end();
+        }
+        return composedDescendants.at(node).traverseNextSkippingChildren();
+    };
+
+    auto pushCheckingForAfterPseudoElementRenderer = [&] (Element& element) -> RenderElement* {
+        ASSERT(!element.isPseudoElement());
+        if (auto* before = element.beforePseudoElement()) {
+            if (auto* renderer = before->renderer())
+                return renderer;
+        }
+        elementStack.append(&element);
+        return nullptr;
+    };
+
+    auto popCheckingForAfterPseudoElementRenderers = [&] (unsigned iteratorDepthToMatch) -> RenderElement* {
+        while (elementStack.size() > iteratorDepthToMatch) {
+            auto& element = *elementStack.takeLast();
+            if (auto* after = element.afterPseudoElement()) {
+                if (auto* renderer = after->renderer())
+                    return renderer;
+            }
+        }
+        return nullptr;
+    };
+
+    auto it = initializeIteratorConsideringPseudoElements();
     auto end = composedDescendants.end();
 
     while (it != end) {
-        auto& node = *it;
-        bool hasDisplayContents = is<Element>(node) && downcast<Element>(node).hasDisplayContents();
-        if (hasDisplayContents) {
-            it.traverseNext();
-            continue;
-        }
-        RenderObject* renderer = node.renderer();
-        if (renderer && !isRendererReparented(*renderer))
+        if (auto* renderer = popCheckingForAfterPseudoElementRenderers(it.depth()))
             return renderer;
-        
+
+        if (auto* renderer = it->renderer())
+            return renderer;
+
+        if (is<Element>(*it)) {
+            auto& element = downcast<Element>(*it);
+            if (element.hasDisplayContents()) {
+                if (auto* renderer = pushCheckingForAfterPseudoElementRenderer(element))
+                    return renderer;
+                it.traverseNext();
+                continue;
+            }
+        }
+
         it.traverseNextSkippingChildren();
     }
-    if (PseudoElement* after = parentElement->afterPseudoElement())
-        return after->renderer();
-    return nullptr;
-}
 
-#if ENABLE(CSS_REGIONS)
-RenderTreePosition RenderTreePosition::insertionPositionForFlowThread(Element* insertionParent, Element& element, const RenderStyle& style)
-{
-    ASSERT(element.shouldMoveToFlowThread(style));
-    auto& parentFlowThread = element.document().renderView()->flowThreadController().ensureRenderFlowThreadWithName(style.flowThread());
-
-    if (!insertionParent)
-        return { parentFlowThread, nullptr };
-
-    auto composedDescendants = composedTreeDescendants(*insertionParent);
-    auto it = element.isBeforePseudoElement() ? composedDescendants.begin() : composedDescendants.at(element);
-    auto end = composedDescendants.end();
-    while (it != end) {
-        auto& currentNode = *it;
-        bool hasDisplayContents = is<Element>(currentNode) && downcast<Element>(currentNode).hasDisplayContents();
-        if (hasDisplayContents) {
-            it.traverseNext();
-            continue;
-        }
-
-        auto* renderer = currentNode.renderer();
-        if (!renderer) {
-            it.traverseNextSkippingChildren();
-            continue;
-        }
-
-        if (!is<RenderElement>(*renderer)) {
-            it.traverseNext();
-            continue;
-        }
-
-        // We are the last child in this flow.
-        if (!isRendererReparented(*renderer))
-            return { parentFlowThread, nullptr };
-
-        if (renderer->style().hasFlowInto() && style.flowThread() == renderer->style().flowThread())
-            return { parentFlowThread, downcast<RenderElement>(renderer) };
-        // Nested flows, skip.
-        it.traverseNextSkippingChildren();
-    }
-    return { parentFlowThread, nullptr };
-}
-#endif
-    
-bool RenderTreePosition::isRendererReparented(const RenderObject& renderer)
-{
-    if (!renderer.node()->isElementNode())
-        return false;
-    if (renderer.style().hasFlowInto())
-        return true;
-    return false;
+    return popCheckingForAfterPseudoElementRenderers(0);
 }
 
 }

@@ -26,11 +26,12 @@
 #include "config.h"
 #include "WKFramePolicyListener.h"
 
+#include "APIWebsiteDataStore.h"
 #include "APIWebsitePolicies.h"
 #include "WKAPICast.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebFrameProxy.h"
-#include "WebsitePolicies.h"
+#include "WebsitePoliciesData.h"
 
 using namespace WebKit;
 
@@ -41,12 +42,22 @@ WKTypeID WKFramePolicyListenerGetTypeID()
 
 void WKFramePolicyListenerUse(WKFramePolicyListenerRef policyListenerRef)
 {
-    toImpl(policyListenerRef)->use({ });
+    toImpl(policyListenerRef)->use(std::nullopt);
 }
 
 void WKFramePolicyListenerUseWithPolicies(WKFramePolicyListenerRef policyListenerRef, WKWebsitePoliciesRef websitePolicies)
 {
-    toImpl(policyListenerRef)->use(toImpl(websitePolicies)->websitePolicies());
+    auto data = toImpl(websitePolicies)->data();
+
+    if (data.websiteDataStoreParameters) {
+        auto& sessionID = data.websiteDataStoreParameters->networkSessionParameters.sessionID;
+        RELEASE_ASSERT_WITH_MESSAGE(sessionID.isEphemeral() || sessionID == PAL::SessionID::defaultSessionID(), "If WebsitePolicies specifies a WebsiteDataStore, the data store's session must be default or non-persistent.");
+        RELEASE_ASSERT_WITH_MESSAGE(toImpl(policyListenerRef)->isMainFrame(), "WebsitePolicies cannot specify a WebsiteDataStore for subframe navigations.");
+
+        toImpl(policyListenerRef)->changeWebsiteDataStore(toImpl(websitePolicies)->websiteDataStore()->websiteDataStore());
+    }
+
+    toImpl(policyListenerRef)->use(WTFMove(data));
 }
 
 void WKFramePolicyListenerDownload(WKFramePolicyListenerRef policyListenerRef)

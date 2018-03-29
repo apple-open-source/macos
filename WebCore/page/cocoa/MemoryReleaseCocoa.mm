@@ -27,10 +27,10 @@
 #include "MemoryRelease.h"
 
 #import "GCController.h"
-#import "GraphicsServicesSPI.h"
 #import "IOSurfacePool.h"
 #import "LayerPool.h"
 #import <notify.h>
+#import <pal/spi/ios/GraphicsServicesSPI.h>
 
 #if PLATFORM(IOS)
 #import "LegacyTileCache.h"
@@ -64,13 +64,11 @@ void platformReleaseMemory(Critical)
 void jettisonExpensiveObjectsOnTopLevelNavigation()
 {
 #if PLATFORM(IOS)
-    using namespace std::literals::chrono_literals;
-
     // Protect against doing excessive jettisoning during repeated navigations.
-    const auto minimumTimeSinceNavigation = 2s;
+    const auto minimumTimeSinceNavigation = 2_s;
 
-    static auto timeOfLastNavigation = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
+    static auto timeOfLastNavigation = MonotonicTime::now();
+    auto now = MonotonicTime::now();
     bool shouldJettison = now - timeOfLastNavigation >= minimumTimeSinceNavigation;
     timeOfLastNavigation = now;
 

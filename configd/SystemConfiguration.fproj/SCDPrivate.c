@@ -365,6 +365,31 @@ _SC_hw_model(Boolean trim)
 #pragma mark Serialization
 
 
+static kern_return_t
+__CFDataCopyVMData(CFDataRef data, void **dataRef, CFIndex *dataLen)
+{
+	kern_return_t		kr;
+
+	vm_address_t	vm_address;
+	vm_size_t	vm_size;
+
+	vm_address = (vm_address_t)CFDataGetBytePtr(data);
+	vm_size    = (vm_size_t)CFDataGetLength(data);
+	kr = vm_allocate(mach_task_self(), &vm_address, vm_size, VM_FLAGS_ANYWHERE);
+	if (kr != KERN_SUCCESS) {
+		*dataRef = NULL;
+		*dataLen = 0;
+		return kr;
+	}
+
+	bcopy((char *)CFDataGetBytePtr(data), (void *)vm_address, vm_size);
+	*dataRef = (void *)vm_address;
+	*dataLen = vm_size;
+
+	return kr;
+}
+
+
 Boolean
 _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
 {
@@ -399,24 +424,14 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 			*dataLen = CFDataGetLength(myXml);
 		}
 	} else {
-		mach_msg_type_number_t	len;
-		kern_return_t		status;
+		kern_return_t	kr;
 
-		status = vm_read(mach_task_self(),
-				 (vm_address_t)CFDataGetBytePtr(myXml),	// address
-				 (vm_size_t)   CFDataGetLength(myXml),	// size
-				 (void *)dataRef,
-				 &len);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
-			CFRelease(myXml);
-			*dataRef = NULL;
-			*dataLen = 0;
+		kr = __CFDataCopyVMData(myXml, dataRef, dataLen);
+		CFRelease(myXml);
+		if (kr != KERN_SUCCESS) {
+			SC_log(LOG_NOTICE, "__CFDataCreateVMData() failed: %s", mach_error_string(kr));
 			return FALSE;
 		}
-
-		*dataLen = len;
-		CFRelease(myXml);
 	}
 
 	return TRUE;
@@ -446,7 +461,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 	if (*obj == NULL) {
 		if (error != NULL) {
-			SC_log(LOG_NOTICE, "CFPropertyListCreateWithData() faled: %@", error);
+			SC_log(LOG_NOTICE, "CFPropertyListCreateWithData() failed: %@", error);
 			CFRelease(error);
 		}
 		_SCErrorSet(kSCStatusFailed);
@@ -492,25 +507,14 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 			*dataLen = CFDataGetLength(myData);
 		}
 	} else {
-		mach_msg_type_number_t	len;
-		kern_return_t		status;
+		kern_return_t	kr;
 
-		*dataLen = CFDataGetLength(myData);
-		status = vm_read(mach_task_self(),
-				 (vm_address_t)CFDataGetBytePtr(myData),	// address
-				 *dataLen,					// size
-				 (void *)dataRef,
-				 &len);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
-			CFRelease(myData);
-			*dataRef = NULL;
-			*dataLen = 0;
+		kr = __CFDataCopyVMData(myData, dataRef, dataLen);
+		CFRelease(myData);
+		if (kr != KERN_SUCCESS) {
+			SC_log(LOG_NOTICE, "__CFDataCreateVMData() failed: %s", mach_error_string(kr));
 			return FALSE;
 		}
-
-		*dataLen = len;
-		CFRelease(myData);
 	}
 
 	return TRUE;
@@ -548,28 +552,18 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 Boolean
 _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 {
-	mach_msg_type_number_t	len;
-	kern_return_t		status;
+	kern_return_t	kr;
 
 	if (!isA_CFData(data)) {
 		/* if not a CFData */
 		return FALSE;
 	}
 
-	*dataLen = CFDataGetLength(data);
-	status = vm_read(mach_task_self(),
-			 (vm_address_t)CFDataGetBytePtr(data),	// address
-			 *dataLen,				// size
-			 (void *)dataRef,
-			 &len);
-	if (status != KERN_SUCCESS) {
-		SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
-		*dataRef = NULL;
-		*dataLen = 0;
+	kr = __CFDataCopyVMData(data, dataRef, dataLen);
+	if (kr != KERN_SUCCESS) {
+		SC_log(LOG_NOTICE, "__CFDataCreateVMData() failed: %s", mach_error_string(kr));
 		return FALSE;
 	}
-
-	*dataLen = len;
 
 	return TRUE;
 }

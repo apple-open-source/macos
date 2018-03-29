@@ -17,6 +17,8 @@
 #import "SyncedDefaults/SYDConstants.h"
 #include <os/activity.h>
 
+#import "Analytics/Clients/SOSAnalytics.h"
+
 struct CKDKVSCounters {
     uint64_t synchronize;
     uint64_t synchronizeWithCompletionHandler;
@@ -32,7 +34,7 @@ struct CKDKVSCounters {
 @interface CKDKVSStore ()
 @property (readwrite, weak) UbiqitousKVSProxy* proxy;
 @property (readwrite) NSUbiquitousKeyValueStore* cloudStore;
-@property (assign,readwrite) struct CKDKVSCounters *perfCounters;
+@property (assign,readwrite) struct CKDKVSCounters* perfCounters;
 @property dispatch_queue_t perfQueue;
 @end
 
@@ -55,6 +57,7 @@ struct CKDKVSCounters {
     self.perfQueue = dispatch_queue_create("CKDKVSStorePerfQueue", NULL);
     self.perfCounters = calloc(1, sizeof(struct CKDKVSCounters));
     
+    [self setupSamplers];
 
     return self;
 }
@@ -232,16 +235,40 @@ struct CKDKVSCounters {
 {
     dispatch_async(self.perfQueue, ^{
         callback(@{
-            @"CKDKVS-synchronize" : @(self.perfCounters->synchronize),
-            @"CKDKVS-synchronizeWithCompletionHandler" : @(self.perfCounters->synchronizeWithCompletionHandler),
-            @"CKDKVS-incomingMessages" : @(self.perfCounters->incomingMessages),
-            @"CKDKVS-outgoingMessages" : @(self.perfCounters->outgoingMessages),
-            @"CKDKVS-totalWaittimeSynchronize" : @(self.perfCounters->totalWaittimeSynchronize),
-            @"CKDKVS-longestWaittimeSynchronize" : @(self.perfCounters->longestWaittimeSynchronize),
-            @"CKDKVS-synchronizeFailures" : @(self.perfCounters->synchronizeFailures),
+            CKDKVSPerfCounterSynchronize : @(self.perfCounters->synchronize),
+            CKDKVSPerfCounterSynchronizeWithCompletionHandler : @(self.perfCounters->synchronizeWithCompletionHandler),
+            CKDKVSPerfCounterIncomingMessages : @(self.perfCounters->incomingMessages),
+            CKDKVSPerfCounterOutgoingMessages : @(self.perfCounters->outgoingMessages),
+            CKDKVSPerfCounterTotalWaitTimeSynchronize : @(self.perfCounters->totalWaittimeSynchronize),
+            CKDKVSPerfCounterLongestWaitTimeSynchronize : @(self.perfCounters->longestWaittimeSynchronize),
+            CKDKVSPerfCounterSynchronizeFailures : @(self.perfCounters->synchronizeFailures),
         });
  });
 }
+
+#if __OBJC2__
+- (void)setupSamplers
+{
+    [[SOSAnalytics logger] AddMultiSamplerForName:CKDKVSPerformanceCountersSampler
+                                 withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport
+                                            block:^NSDictionary<NSString *,NSNumber *> *{
+                                                __block NSDictionary<NSString *,NSNumber *>* data;
+                                                [self perfCounters:^(NSDictionary *counters) {
+                                                    data = counters;
+                                                }];
+
+                                                dispatch_sync(self.perfQueue, ^{
+                                                    memset(self.perfCounters, 0, sizeof(struct CKDKVSCounters));
+                                                });
+                                                return data;
+    }];
+}
+#else
+- (void)setupSamplers
+{
+    // SFA is only for 64 bit cool kids
+}
+#endif
 
 - (void)addOneToOutGoing
 {

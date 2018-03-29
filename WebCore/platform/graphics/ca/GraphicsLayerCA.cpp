@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-
 #include "GraphicsLayerCA.h"
 
 #if USE(CA)
@@ -42,17 +41,18 @@
 #include "PlatformScreen.h"
 #include "RotateTransformOperation.h"
 #include "ScaleTransformOperation.h"
-#include "TextStream.h"
 #include "TiledBacking.h"
 #include "TransformState.h"
 #include "TranslateTransformOperation.h"
 #include <QuartzCore/CATransform3D.h>
 #include <limits.h>
+#include <pal/spi/cf/CFUtilitiesSPI.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/text/TextStream.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(IOS)
@@ -63,7 +63,6 @@
 #if PLATFORM(COCOA)
 #include "PlatformCAAnimationCocoa.h"
 #include "PlatformCALayerCocoa.h"
-#include "WebCoreSystemInterface.h"
 #endif
 
 #if PLATFORM(WIN)
@@ -1028,14 +1027,8 @@ void GraphicsLayerCA::pauseAnimation(const String& animationName, double timeOff
     if (!animationIsRunning(animationName))
         return;
 
-    AnimationsToProcessMap::iterator it = m_animationsToProcess.find(animationName);
-    if (it != m_animationsToProcess.end()) {
-        AnimationProcessingAction& processingInfo = it->value;
-        // If an animation is scheduled to be removed, don't change the remove to a pause.
-        if (processingInfo.action != Remove)
-            processingInfo.action = Pause;
-    } else
-        m_animationsToProcess.add(animationName, AnimationProcessingAction(Pause, timeOffset));
+    // Call add since if there is already a Remove in there, we don't want to overwrite it with a Pause.
+    m_animationsToProcess.add(animationName, AnimationProcessingAction { Pause, timeOffset });
 
     noteLayerPropertyChanged(AnimationChanged);
 }
@@ -1236,14 +1229,22 @@ static inline bool accumulatesTransform(const GraphicsLayerCA& layer)
     return !layer.masksToBounds() && (layer.preserves3D() || (layer.parent() && layer.parent()->preserves3D()));
 }
 
-bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const TransformState& state) const
+bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const CommitState& commitState, const TransformState& state) const
 {
     TransformState localState = state;
-    
+    CommitState childCommitState = commitState;
+
     // This may be called at times when layout has not been updated, so we want to avoid calling out to the client
     // for animating transforms.
     VisibleAndCoverageRects rects = computeVisibleAndCoverageRect(localState, accumulatesTransform(*this), 0);
     adjustCoverageRect(rects, m_visibleRect);
+
+    auto bounds = FloatRect(m_boundsOrigin, size());
+
+    bool isViewportConstrained = m_isViewportConstrained || commitState.ancestorIsViewportConstrained;
+    bool intersectsCoverageRect = isViewportConstrained || rects.coverageRect.intersects(bounds);
+    if (intersectsCoverageRect != m_intersectsCoverageRect)
+        return true;
 
     if (rects.coverageRect != m_coverageRect) {
         if (TiledBacking* tiledBacking = this->tiledBacking()) {
@@ -1252,9 +1253,11 @@ bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const TransformSta
         }
     }
 
+    childCommitState.ancestorIsViewportConstrained |= m_isViewportConstrained;
+
     if (m_maskLayer) {
         GraphicsLayerCA& maskLayerCA = downcast<GraphicsLayerCA>(*m_maskLayer);
-        if (maskLayerCA.recursiveVisibleRectChangeRequiresFlush(localState))
+        if (maskLayerCA.recursiveVisibleRectChangeRequiresFlush(childCommitState, localState))
             return true;
     }
 
@@ -1263,12 +1266,12 @@ bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const TransformSta
     
     for (size_t i = 0; i < numChildren; ++i) {
         GraphicsLayerCA& currentChild = downcast<GraphicsLayerCA>(*childLayers[i]);
-        if (currentChild.recursiveVisibleRectChangeRequiresFlush(localState))
+        if (currentChild.recursiveVisibleRectChangeRequiresFlush(childCommitState, localState))
             return true;
     }
 
     if (m_replicaLayer)
-        if (downcast<GraphicsLayerCA>(*m_replicaLayer).recursiveVisibleRectChangeRequiresFlush(localState))
+        if (downcast<GraphicsLayerCA>(*m_replicaLayer).recursiveVisibleRectChangeRequiresFlush(childCommitState, localState))
             return true;
     
     return false;
@@ -1277,7 +1280,8 @@ bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const TransformSta
 bool GraphicsLayerCA::visibleRectChangeRequiresFlush(const FloatRect& clipRect) const
 {
     TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(clipRect));
-    return recursiveVisibleRectChangeRequiresFlush(state);
+    CommitState commitState;
+    return recursiveVisibleRectChangeRequiresFlush(commitState, state);
 }
 
 TiledBacking* GraphicsLayerCA::tiledBacking() const
@@ -1458,6 +1462,9 @@ void GraphicsLayerCA::recursiveCommitChanges(const CommitState& commitState, con
     }
     setVisibleAndCoverageRects(rects, m_isViewportConstrained || commitState.ancestorIsViewportConstrained);
 
+    if (commitState.ancestorStartedOrEndedTransformAnimation)
+        addUncommittedChanges(CoverageRectChanged);
+
 #ifdef VISIBLE_TILE_WASH
     // Use having a transform as a key to making the tile wash layer. If every layer gets a wash,
     // they start to obscure useful information.
@@ -1497,9 +1504,18 @@ void GraphicsLayerCA::recursiveCommitChanges(const CommitState& commitState, con
     if (affectedByPageScale)
         baseRelativePosition += m_position;
 
+    bool wasRunningTransformAnimation = isRunningTransformAnimation();
+
     commitLayerChangesBeforeSublayers(childCommitState, pageScaleFactor, baseRelativePosition);
 
-    if (isRunningTransformAnimation()) {
+    bool nowRunningTransformAnimation = wasRunningTransformAnimation;
+    if (m_uncommittedChanges & AnimationChanged)
+        nowRunningTransformAnimation = isRunningTransformAnimation();
+
+    if (wasRunningTransformAnimation != nowRunningTransformAnimation)
+        childCommitState.ancestorStartedOrEndedTransformAnimation = true;
+
+    if (nowRunningTransformAnimation) {
         childCommitState.ancestorHasTransformAnimation = true;
         if (m_intersectsCoverageRect)
             childCommitState.ancestorWithTransformAnimationIntersectsCoverageRect = true;
@@ -1545,22 +1561,16 @@ void GraphicsLayerCA::recursiveCommitChanges(const CommitState& commitState, con
         client().didCommitChangesForLayer(this);
 
     if (usesDisplayListDrawing() && m_drawsContent && (!m_hasEverPainted || hadDirtyRects)) {
-#ifdef LOG_RECORDING_TIME
-        double startTime = currentTime();
-#endif
+        TraceScope tracingScope(DisplayListRecordStart, DisplayListRecordEnd);
+
         m_displayList = std::make_unique<DisplayList::DisplayList>();
         
         FloatRect initialClip(boundsOrigin(), size());
 
-        GraphicsContext context;
-        // The Recorder is large, so heap-allocate.
-        std::unique_ptr<DisplayList::Recorder> recorder = std::make_unique<DisplayList::Recorder>(context, *m_displayList, initialClip, AffineTransform());
+        GraphicsContext context([&](GraphicsContext& context) {
+            return std::make_unique<DisplayList::Recorder>(context, *m_displayList, initialClip, AffineTransform());
+        });
         paintGraphicsLayerContents(context, FloatRect(FloatPoint(), size()));
-
-#ifdef LOG_RECORDING_TIME
-        double duration = currentTime() - startTime;
-        WTFLogAlways("Recording took %.5fms", duration * 1000.0);
-#endif
     }
 }
 
@@ -1754,6 +1764,9 @@ void GraphicsLayerCA::commitLayerChangesBeforeSublayers(CommitState& commitState
     if (m_uncommittedChanges & CoverageRectChanged)
         updateCoverage(commitState);
 
+    if (m_uncommittedChanges & AcceleratesDrawingChanged) // Needs to happen before TilingAreaChanged.
+        updateAcceleratesDrawing();
+
     if (m_uncommittedChanges & TilingAreaChanged) // Needs to happen after CoverageRectChanged, ContentsScaleChanged
         updateTiles();
 
@@ -1776,14 +1789,11 @@ void GraphicsLayerCA::commitLayerChangesBeforeSublayers(CommitState& commitState
     if (m_uncommittedChanges & ContentsNeedsDisplay)
         updateContentsNeedsDisplay();
     
-    if (m_uncommittedChanges & AcceleratesDrawingChanged)
-        updateAcceleratesDrawing();
-
     if (m_uncommittedChanges & SupportsSubpixelAntialiasedTextChanged)
         updateSupportsSubpixelAntialiasedText();
 
     if (m_uncommittedChanges & DebugIndicatorsChanged)
-        updateDebugBorder();
+        updateDebugIndicators();
 
     if (m_uncommittedChanges & CustomAppearanceChanged)
         updateCustomAppearance();
@@ -2341,7 +2351,7 @@ static Color cloneLayerDebugBorderColor(bool showingBorders)
     return showingBorders ? Color(255, 122, 251) : Color();
 }
 
-void GraphicsLayerCA::updateDebugBorder()
+void GraphicsLayerCA::updateDebugIndicators()
 {
     Color borderColor;
     float width = 0;
@@ -2349,6 +2359,9 @@ void GraphicsLayerCA::updateDebugBorder()
     bool showDebugBorders = isShowingDebugBorder();
     if (showDebugBorders)
         getDebugBorderInfo(borderColor, width);
+
+    // Paint repaint counter.
+    m_layer->setNeedsDisplay();
 
     setLayerDebugBorder(*m_layer, borderColor, width);
     if (m_contentsLayer)
@@ -2698,7 +2711,7 @@ GraphicsLayerCA::CloneID GraphicsLayerCA::ReplicaState::cloneID() const
     const size_t bitsPerUChar = sizeof(UChar) * 8;
     size_t vectorSize = (depth + bitsPerUChar - 1) / bitsPerUChar;
     
-    Vector<UChar> result(vectorSize);
+    StringVector<UChar> result(vectorSize);
     result.fill(0);
 
     // Create a string from the bit sequence which we can use to identify the clone.
@@ -2988,7 +3001,7 @@ bool GraphicsLayerCA::createTransformAnimationsFromKeyframes(const KeyframeValue
         // on or before Snow Leopard.
         // FIXME: This fix has not been added to QuartzCore on Windows yet (<rdar://problem/9112233>) so we expect the
         // reversed animation behavior
-        static bool executableWasLinkedOnOrBeforeSnowLeopard = wkExecutableWasLinkedOnOrBeforeSnowLeopard();
+        static bool executableWasLinkedOnOrBeforeSnowLeopard = !_CFExecutableLinkedOnOrAfter(CFSystemVersionLion);
         if (!executableWasLinkedOnOrBeforeSnowLeopard)
             reverseAnimationList = false;
 #endif
@@ -3572,80 +3585,62 @@ void GraphicsLayerCA::getDebugBorderInfo(Color& color, float& width) const
     GraphicsLayer::getDebugBorderInfo(color, width);
 }
 
-static void dumpInnerLayer(TextStream& textStream, String label, PlatformCALayer* layer, int indent, LayerTreeAsTextBehavior behavior)
+static void dumpInnerLayer(TextStream& textStream, String label, PlatformCALayer* layer, LayerTreeAsTextBehavior behavior)
 {
     if (!layer)
         return;
 
-    writeIndent(textStream, indent + 1);
-    textStream << "(" << label << " ";
+    textStream << indent << "(" << label << " ";
     if (behavior & LayerTreeAsTextDebug)
         textStream << "id=" << layer->layerID() << " ";
-    textStream << layer->position().x() << ", " << layer->position().y()
-        << " " << layer->bounds().width() << " x " << layer->bounds().height();
+    textStream << layer->position().x() << ", " << layer->position().y() << " " << layer->bounds().width() << " x " << layer->bounds().height();
     if (layer->isHidden())
         textStream << " hidden";
     textStream << ")\n";
 }
 
-void GraphicsLayerCA::dumpAdditionalProperties(TextStream& textStream, int indent, LayerTreeAsTextBehavior behavior) const
+void GraphicsLayerCA::dumpAdditionalProperties(TextStream& textStream, LayerTreeAsTextBehavior behavior) const
 {
     if (behavior & LayerTreeAsTextIncludeVisibleRects) {
-        writeIndent(textStream, indent + 1);
-        textStream << "(visible rect " << m_visibleRect.x() << ", " << m_visibleRect.y() << " " << m_visibleRect.width() << " x " << m_visibleRect.height() << ")\n";
-
-        writeIndent(textStream, indent + 1);
-        textStream << "(coverage rect " << m_coverageRect.x() << ", " << m_coverageRect.y() << " " << m_coverageRect.width() << " x " << m_coverageRect.height() << ")\n";
-
-        writeIndent(textStream, indent + 1);
-        textStream << "(intersects coverage rect " << m_intersectsCoverageRect << ")\n";
-
-        writeIndent(textStream, indent + 1);
-        textStream << "(contentsScale " << m_layer->contentsScale() << ")\n";
+        textStream << indent << "(visible rect " << m_visibleRect.x() << ", " << m_visibleRect.y() << " " << m_visibleRect.width() << " x " << m_visibleRect.height() << ")\n";
+        textStream << indent << "(coverage rect " << m_coverageRect.x() << ", " << m_coverageRect.y() << " " << m_coverageRect.width() << " x " << m_coverageRect.height() << ")\n";
+        textStream << indent << "(intersects coverage rect " << m_intersectsCoverageRect << ")\n";
+        textStream << indent << "(contentsScale " << m_layer->contentsScale() << ")\n";
     }
 
     if (tiledBacking() && (behavior & LayerTreeAsTextIncludeTileCaches)) {
-        if (behavior & LayerTreeAsTextDebug) {
-            writeIndent(textStream, indent + 1);
-            textStream << "(tiled backing " << tiledBacking() << ")\n";
-        }
+        if (behavior & LayerTreeAsTextDebug)
+            textStream << indent << "(tiled backing " << tiledBacking() << ")\n";
 
         IntRect tileCoverageRect = tiledBacking()->tileCoverageRect();
-        writeIndent(textStream, indent + 1);
-        textStream << "(tile cache coverage " << tileCoverageRect.x() << ", " << tileCoverageRect.y() << " " << tileCoverageRect.width() << " x " << tileCoverageRect.height() << ")\n";
+        textStream << indent << "(tile cache coverage " << tileCoverageRect.x() << ", " << tileCoverageRect.y() << " " << tileCoverageRect.width() << " x " << tileCoverageRect.height() << ")\n";
 
         IntSize tileSize = tiledBacking()->tileSize();
-        writeIndent(textStream, indent + 1);
-        textStream << "(tile size " << tileSize.width() << " x " << tileSize.height() << ")\n";
+        textStream << indent << "(tile size " << tileSize.width() << " x " << tileSize.height() << ")\n";
         
         IntRect gridExtent = tiledBacking()->tileGridExtent();
-        writeIndent(textStream, indent + 1);
-        textStream << "(top left tile " << gridExtent.x() << ", " << gridExtent.y() << " tiles grid " << gridExtent.width() << " x " << gridExtent.height() << ")\n";
+        textStream << indent << "(top left tile " << gridExtent.x() << ", " << gridExtent.y() << " tiles grid " << gridExtent.width() << " x " << gridExtent.height() << ")\n";
 
-        writeIndent(textStream, indent + 1);
-        textStream << "(in window " << tiledBacking()->isInWindow() << ")\n";
+        textStream << indent << "(in window " << tiledBacking()->isInWindow() << ")\n";
     }
     
-    if (m_layer->wantsDeepColorBackingStore()) {
-        writeIndent(textStream, indent + 1);
-        textStream << "(deep color 1)\n";
-    }
-    
+    if (m_layer->wantsDeepColorBackingStore())
+        textStream << indent << "(deep color 1)\n";
+
+
     if (behavior & LayerTreeAsTextIncludeContentLayers) {
-        dumpInnerLayer(textStream, "structural layer", m_structuralLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "contents clipping layer", m_contentsClippingLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "shape mask layer", m_shapeMaskLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "backdrop clipping layer", m_backdropClippingLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "contents layer", m_contentsLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "contents shape mask layer", m_contentsShapeMaskLayer.get(), indent, behavior);
-        dumpInnerLayer(textStream, "backdrop layer", m_backdropLayer.get(), indent, behavior);
+        dumpInnerLayer(textStream, "structural layer", m_structuralLayer.get(), behavior);
+        dumpInnerLayer(textStream, "contents clipping layer", m_contentsClippingLayer.get(), behavior);
+        dumpInnerLayer(textStream, "shape mask layer", m_shapeMaskLayer.get(), behavior);
+        dumpInnerLayer(textStream, "backdrop clipping layer", m_backdropClippingLayer.get(), behavior);
+        dumpInnerLayer(textStream, "contents layer", m_contentsLayer.get(), behavior);
+        dumpInnerLayer(textStream, "contents shape mask layer", m_contentsShapeMaskLayer.get(), behavior);
+        dumpInnerLayer(textStream, "backdrop layer", m_backdropLayer.get(), behavior);
     }
 
     if (behavior & LayerTreeAsTextDebug) {
-        writeIndent(textStream, indent + 1);
-        textStream << "(accelerates drawing " << m_acceleratesDrawing << ")\n";
-        writeIndent(textStream, indent + 1);
-        textStream << "(uses display-list drawing " << m_usesDisplayListDrawing << ")\n";
+        textStream << indent << "(accelerates drawing " << m_acceleratesDrawing << ")\n";
+        textStream << indent << "(uses display-list drawing " << m_usesDisplayListDrawing << ")\n";
     }
 }
 

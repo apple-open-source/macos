@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -170,8 +170,9 @@ struct dns_validator {
 /*%
  * dns_validator_create() options.
  */
-#define DNS_VALIDATOR_DLV 1U
-#define DNS_VALIDATOR_DEFER 2U
+#define DNS_VALIDATOR_DLV		0x0001U
+#define DNS_VALIDATOR_DEFER		0x0002U
+#define DNS_VALIDATOR_NOCDFLAG		0x0004U
 
 ISC_LANG_BEGINDECLS
 

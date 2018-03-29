@@ -83,6 +83,9 @@ bool ks_delete_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data,
 const void* ks_ref_key_get_external_data(keybag_handle_t keybag, CFDataRef key_data,
                                          aks_ref_key_t *ref_key, size_t *external_data_len, CFErrorRef *error);
 bool ks_separate_data_and_key(CFDictionaryRef blob_dict, CFDataRef *ed_data, CFDataRef *key_data);
+
+bool ks_access_control_needed_error(CFErrorRef *error, CFDataRef access_control_data, CFTypeRef operation);
+bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_t keybag, keyclass_t keyclass, CFDataRef access_control_data, CFDataRef acm_context_data, CFErrorRef *error);
 #endif
 bool ks_open_keybag(CFDataRef keybag, CFDataRef password, keybag_handle_t *handle, CFErrorRef *error);
 bool ks_close_keybag(keybag_handle_t keybag, CFErrorRef *error);

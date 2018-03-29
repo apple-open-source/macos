@@ -23,6 +23,7 @@
 
 #include <dispatch/dispatch.h>
 #import <Foundation/Foundation.h>
+#include <sys/sysctl.h>
 #if OCTAGON
 #import <CloudKit/CloudKit.h>
 #endif
@@ -37,6 +38,7 @@
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSKey.h"
 
+#import "keychain/ot/OTManager.h"
 const SecCKKSItemEncryptionVersion currentCKKSItemEncryptionVersion = CKKSItemEncryptionVersion2;
 
 NSString* const SecCKKSActionAdd = @"add";
@@ -101,6 +103,8 @@ NSString* const SecCKRecordKeyState = @"keystate";
 NSString* const SecCKRecordCurrentTLK = @"currentTLK";
 NSString* const SecCKRecordCurrentClassA = @"currentClassA";
 NSString* const SecCKRecordCurrentClassC = @"currentClassC";
+NSString* const SecCKSRecordLastUnlockTime = @"lastunlock";
+NSString* const SecCKSRecordOSVersionKey = @"osver";
 
 NSString* const SecCKRecordManifestType = @"manifest";
 NSString* const SecCKRecordManifestDigestValueKey = @"digest_value";
@@ -123,6 +127,7 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateCancelled = (CKKSZoneKeyState*) @"can
 
 CKKSZoneKeyState* const SecCKKSZoneKeyStateInitializing = (CKKSZoneKeyState*) @"initializing";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateInitialized = (CKKSZoneKeyState*) @"initialized";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateFetch = (CKKSZoneKeyState*) @"fetching";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateFetchComplete = (CKKSZoneKeyState*) @"fetchcomplete";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateNeedFullRefetch = (CKKSZoneKeyState*) @"needrefetch";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLK = (CKKSZoneKeyState*) @"waitfortlk";
@@ -133,6 +138,10 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateNewTLKsFailed = (CKKSZoneKeyState*) @
 CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares = (CKKSZoneKeyState*) @"healtlkshares";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed = (CKKSZoneKeyState*) @"healtlksharesfailed";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation = (CKKSZoneKeyState*) @"waitforfixupoperation";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone = (CKKSZoneKeyState*) @"resetzone";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData = (CKKSZoneKeyState*) @"resetlocal";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateLoggedOut = (CKKSZoneKeyState*) @"loggedout";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateZoneCreationFailed = (CKKSZoneKeyState*) @"zonecreationfailed";
 
 NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
     static NSDictionary<CKKSZoneKeyState*, NSNumber*>* map = nil;
@@ -156,6 +165,11 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
           SecCKKSZoneKeyStateHealTLKSharesFailed:@13U,
           SecCKKSZoneKeyStateWaitForFixupOperation:@14U,
           SecCKKSZoneKeyStateReadyPendingUnlock: @15U,
+          SecCKKSZoneKeyStateFetch:              @16U,
+          SecCKKSZoneKeyStateResettingZone:      @17U,
+          SecCKKSZoneKeyStateResettingLocalData: @18U,
+          SecCKKSZoneKeyStateLoggedOut:          @19U,
+          SecCKKSZoneKeyStateZoneCreationFailed: @20U,
         };
     });
     return map;
@@ -190,6 +204,17 @@ CKKSZoneKeyState* CKKSZoneKeyRecover(NSNumber* stateNumber) {
         return result;
     }
     return SecCKKSZoneKeyStateError;
+}
+
+bool CKKSKeyStateTransient(CKKSZoneKeyState* state) {
+    // Easier to compare against a blacklist of end states
+    bool nontransient = [state isEqualToString:SecCKKSZoneKeyStateReady] ||
+        [state isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock] ||
+        [state isEqualToString:SecCKKSZoneKeyStateWaitForTLK] ||
+        [state isEqualToString:SecCKKSZoneKeyStateWaitForUnlock] ||
+        [state isEqualToString:SecCKKSZoneKeyStateError] ||
+        [state isEqualToString:SecCKKSZoneKeyStateCancelled];
+    return !nontransient;
 }
 
 const NSUInteger SecCKKSItemPaddingBlockSize = 20;
@@ -281,6 +306,30 @@ bool SecCKKSSetEnforceManifests(bool value) {
     return CKKSEnforceManifests;
 }
 
+// defaults write com.apple.security.ckks reduce-rate-limiting YES
+static bool CKKSReduceRateLimiting = false;
+bool SecCKKSReduceRateLimiting(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // Use the default value as above, or apply the preferences value if it exists
+        NSUserDefaults* defaults = [[NSUserDefaults alloc] initWithSuiteName:SecCKKSUserDefaultsSuite];
+        NSString* key = @"reduce-rate-limiting";
+        [defaults registerDefaults: @{key: CKKSReduceRateLimiting ? @YES : @NO}];
+
+        CKKSReduceRateLimiting = !![defaults boolForKey:@"reduce-rate-limiting"];
+        secnotice("ckks", "reduce-rate-limiting is %@", CKKSReduceRateLimiting ? @"on" : @"off");
+    });
+
+    return CKKSReduceRateLimiting;
+}
+
+bool SecCKKSSetReduceRateLimiting(bool value) {
+    (void) SecCKKSReduceRateLimiting(); // Call this once to read the defaults write
+    CKKSReduceRateLimiting = value;
+    secnotice("ckks", "reduce-rate-limiting is now %@", CKKSReduceRateLimiting ? @"on" : @"off");
+    return CKKSReduceRateLimiting;
+}
+
 // Here's a mechanism for CKKS feature flags with default values from NSUserDefaults:
 /*static bool CKKSShareTLKs = true;
 bool SecCKKSShareTLKs(void) {
@@ -342,16 +391,6 @@ void SecCKKSTestResetFlags(void) {
     SecCKKSTestSetDisableKeyNotifications(false);
 }
 
-XPC_RETURNS_RETAINED xpc_endpoint_t
-SecServerCreateCKKSEndpoint(void)
-{
-    if (SecCKKSIsEnabled()) {
-        return [[CKKSViewManager manager] xpcControlEndpoint];
-    } else {
-        return NULL;
-    }
-}
-
 #else /* NO OCTAGON */
 
 bool SecCKKSIsEnabled(void) {
@@ -371,25 +410,22 @@ bool SecCKKSResetSyncing(void) {
     return SecCKKSIsEnabled();
 }
 
-XPC_RETURNS_RETAINED xpc_endpoint_t
-SecServerCreateCKKSEndpoint(void)
-{
-    return NULL;
-}
 #endif /* OCTAGON */
 
 
 
 void SecCKKSInitialize(SecDbRef db) {
 #if OCTAGON
-    CKKSViewManager* manager = [CKKSViewManager manager];
-    [manager initializeZones];
+    @autoreleasepool {
+        CKKSViewManager* manager = [CKKSViewManager manager];
+        [manager initializeZones];
 
-    SecDbAddNotifyPhaseBlock(db, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, CFArrayRef changes) {
-        SecCKKSNotifyBlock(dbconn, phase, source, changes);
-    });
+        SecDbAddNotifyPhaseBlock(db, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, CFArrayRef changes) {
+            SecCKKSNotifyBlock(dbconn, phase, source, changes);
+        });
 
-    [manager.completedSecCKKSInitialize fulfill];
+        [manager.completedSecCKKSInitialize fulfill];
+    }
 #endif
 }
 
@@ -451,4 +487,48 @@ void SecCKKSPerformLocalResync() {
         }
     }];
 #endif
+}
+
+NSString* SecCKKSHostOSVersion()
+{
+#ifdef PLATFORM
+    // Use complicated macro magic to get the string value passed in as preprocessor define PLATFORM.
+#define PLATFORM_VALUE(f) #f
+#define PLATFORM_OBJCSTR(f) @PLATFORM_VALUE(f)
+    NSString* platform = (PLATFORM_OBJCSTR(PLATFORM));
+#undef PLATFORM_OBJCSTR
+#undef PLATFORM_VALUE
+#else
+    NSString* platform = "unknown";
+#warning No PLATFORM defined; why?
+#endif
+
+    NSString* osversion = nil;
+
+    // If we can get the build information from sysctl, use it.
+    char release[256];
+    size_t releasesize = sizeof(release);
+    bool haveSysctlInfo = true;
+    haveSysctlInfo &= (0 == sysctlbyname("kern.osrelease", release, &releasesize, NULL, 0));
+
+    char version[256];
+    size_t versionsize = sizeof(version);
+    haveSysctlInfo &= (0 == sysctlbyname("kern.osversion", version, &versionsize, NULL, 0));
+
+    if(haveSysctlInfo) {
+        // Null-terminate for extra safety
+        release[sizeof(release)-1] = '\0';
+        version[sizeof(version)-1] = '\0';
+        osversion = [NSString stringWithFormat:@"%s (%s)", release, version];
+    }
+
+    if(!osversion) {
+        //  Otherwise, use the not-really-supported fallback.
+        osversion = [[NSProcessInfo processInfo] operatingSystemVersionString];
+
+        // subtly improve osversion (but it's okay if that does nothing)
+        osversion = [osversion stringByReplacingOccurrencesOfString:@"Version" withString:@""];
+    }
+
+    return [NSString stringWithFormat:@"%@ %@", platform, osversion];
 }

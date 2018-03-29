@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Company 100 Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,6 @@
 
 #import "ArgumentCodersCF.h"
 #import "DataReference.h"
-#import "WebKitSystemInterface.h"
 #import <WebCore/CertificateInfo.h>
 #import <WebCore/ContentFilterUnblockHandler.h>
 #import <WebCore/Credential.h>
@@ -38,15 +37,13 @@
 #import <WebCore/ProtectionSpace.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/ResourceRequest.h>
-
-#if USE(CFURLCONNECTION)
-#import <CFNetwork/CFURLRequest.h>
-#endif
+#import <pal/spi/cf/CFNetworkSPI.h>
+#import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#import <WebCore/AVFoundationSPI.h>
 #import <WebCore/MediaPlaybackTargetContext.h>
 #import <objc/runtime.h>
+#import <pal/spi/mac/AVFoundationSPI.h>
 #import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
@@ -57,37 +54,136 @@ using namespace WebCore;
 
 namespace IPC {
 
-#if USE(CFURLCONNECTION)
-void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const ResourceRequest& resourceRequest)
+static RetainPtr<CFMutableDictionaryRef> createSerializableRepresentation(CFIndex version, CFTypeRef* objects, CFIndex objectCount, CFDictionaryRef protocolProperties, CFNumberRef expectedContentLength, CFStringRef mimeType, CFTypeRef tokenNull)
 {
-    RetainPtr<CFURLRequestRef> requestToSerialize = resourceRequest.cfURLRequest(DoNotUpdateHTTPBody);
+    auto archiveListArray = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks));
 
-    bool requestIsPresent = requestToSerialize;
-    encoder << requestIsPresent;
-
-    if (!requestIsPresent)
-        return;
-
-    // We don't send HTTP body over IPC for better performance.
-    // Also, it's not always possible to do, as streams can only be created in process that does networking.
-    RetainPtr<CFDataRef> requestHTTPBody = adoptCF(CFURLRequestCopyHTTPRequestBody(requestToSerialize.get()));
-    RetainPtr<CFReadStreamRef> requestHTTPBodyStream = adoptCF(CFURLRequestCopyHTTPRequestBodyStream(requestToSerialize.get()));
-    if (requestHTTPBody || requestHTTPBodyStream) {
-        CFMutableURLRequestRef mutableRequest = CFURLRequestCreateMutableCopy(0, requestToSerialize.get());
-        requestToSerialize = adoptCF(mutableRequest);
-        CFURLRequestSetHTTPRequestBody(mutableRequest, nil);
-        CFURLRequestSetHTTPRequestBodyStream(mutableRequest, nil);
+    for (CFIndex i = 0; i < objectCount; ++i) {
+        CFTypeRef object = objects[i];
+        if (object) {
+            CFArrayAppendValue(archiveListArray.get(), object);
+            CFRelease(object);
+        } else {
+            // Append our token null representation.
+            CFArrayAppendValue(archiveListArray.get(), tokenNull);
+        }
     }
 
-    RetainPtr<CFDictionaryRef> dictionary = adoptCF(WKCFURLRequestCreateSerializableRepresentation(requestToSerialize.get(), IPC::tokenNullTypeRef()));
-    IPC::encode(encoder, dictionary.get());
+    auto dictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    // The fallback array is part of CFURLRequest, but it is not encoded by WKCFURLRequestCreateSerializableRepresentation.
-    encoder << resourceRequest.responseContentDispositionEncodingFallbackArray();
-    encoder.encodeEnum(resourceRequest.requester());
-    encoder.encodeEnum(resourceRequest.cachePolicy());
+    auto versionNumber = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &version));
+    CFDictionarySetValue(dictionary.get(), CFSTR("version"), versionNumber.get());
+    CFDictionarySetValue(dictionary.get(), CFSTR("archiveList"), archiveListArray.get());
+
+    if (protocolProperties) {
+        CFDictionarySetValue(dictionary.get(), CFSTR("protocolProperties"), protocolProperties);
+        CFRelease(protocolProperties);
+    }
+
+    if (expectedContentLength) {
+        CFDictionarySetValue(dictionary.get(), CFSTR("expectedContentLength"), expectedContentLength);
+        CFRelease(expectedContentLength);
+    }
+
+    if (mimeType) {
+        CFDictionarySetValue(dictionary.get(), CFSTR("mimeType"), mimeType);
+        CFRelease(mimeType);
+    }
+
+    CFAllocatorDeallocate(kCFAllocatorDefault, objects);
+
+    return dictionary;
 }
-#else
+
+static CFTypeRef dictionaryValueOfType(CFDictionaryRef dictionary, CFStringRef key, CFTypeID type)
+{
+    CFTypeRef value = CFDictionaryGetValue(dictionary, key);
+    if (value && CFGetTypeID(value) == type)
+        return value;
+    return nullptr;
+}
+
+static bool createArchiveList(CFDictionaryRef representation, CFTypeRef tokenNull, CFIndex* version, CFTypeRef** objects, CFIndex* objectCount, CFDictionaryRef* protocolProperties, CFNumberRef* expectedContentLength, CFStringRef* mimeType)
+{
+    CFNumberRef versionNumber = (CFNumberRef)dictionaryValueOfType(representation, CFSTR("version"), CFNumberGetTypeID());
+    if (!versionNumber)
+        return false;
+
+    if (!CFNumberGetValue(versionNumber, kCFNumberCFIndexType, version))
+        return false;
+
+    CFArrayRef archiveListArray = (CFArrayRef)dictionaryValueOfType(representation, CFSTR("archiveList"), CFArrayGetTypeID());
+    if (!archiveListArray)
+        return false;
+
+    *objectCount = CFArrayGetCount(archiveListArray);
+    *objects = (CFTypeRef*)malloc(sizeof(CFTypeRef) * *objectCount);
+    for (CFIndex i = 0; i < *objectCount; ++i) {
+        CFTypeRef object = CFArrayGetValueAtIndex(archiveListArray, i);
+        if (object == tokenNull)
+            (*objects)[i] = nullptr;
+        else
+            (*objects)[i] = object;
+    }
+
+    if (protocolProperties)
+        *protocolProperties = (CFDictionaryRef)dictionaryValueOfType(representation, CFSTR("protocolProperties"), CFDictionaryGetTypeID());
+
+    if (expectedContentLength)
+        *expectedContentLength = (CFNumberRef)dictionaryValueOfType(representation, CFSTR("expectedContentLength"), CFNumberGetTypeID());
+
+    if (mimeType)
+        *mimeType = (CFStringRef)dictionaryValueOfType(representation, CFSTR("mimeType"), CFStringGetTypeID());
+
+    return true;
+}
+
+static RetainPtr<CFDictionaryRef> createSerializableRepresentation(CFURLRequestRef cfRequest, CFTypeRef tokenNull)
+{
+    CFIndex version;
+    CFTypeRef* objects;
+    CFIndex objectCount;
+    CFDictionaryRef protocolProperties;
+
+    // FIXME (12889518): Do not serialize HTTP message body.
+    // 1. It can be large and thus costly to send across.
+    // 2. It is misleading to provide a body with some requests, while others use body streams, which cannot be serialized at all.
+
+    _CFURLRequestCreateArchiveList(kCFAllocatorDefault, cfRequest, &version, &objects, &objectCount, &protocolProperties);
+
+    // This will deallocate the passed in arguments.
+    return createSerializableRepresentation(version, objects, objectCount, protocolProperties, nullptr, nullptr, tokenNull);
+}
+
+static RetainPtr<CFURLRequestRef> createCFURLRequestFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull)
+{
+    CFIndex version;
+    CFTypeRef* objects;
+    CFIndex objectCount;
+    CFDictionaryRef protocolProperties;
+
+    if (!createArchiveList(representation, tokenNull, &version, &objects, &objectCount, &protocolProperties, nullptr, nullptr))
+        return nullptr;
+
+    auto cfRequest = adoptCF(_CFURLRequestCreateFromArchiveList(kCFAllocatorDefault, version, objects, objectCount, protocolProperties));
+    free(objects);
+    return WTFMove(cfRequest);
+}
+
+static RetainPtr<CFDictionaryRef> createSerializableRepresentation(NSURLRequest *request, CFTypeRef tokenNull)
+{
+    return createSerializableRepresentation([request _CFURLRequest], tokenNull);
+}
+
+static RetainPtr<NSURLRequest> createNSURLRequestFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull)
+{
+    auto cfRequest = createCFURLRequestFromSerializableRepresentation(representation, tokenNull);
+    if (!cfRequest)
+        return nullptr;
+    
+    return adoptNS([[NSURLRequest alloc] _initWithCFURLRequest:cfRequest.get()]);
+}
+    
 void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const ResourceRequest& resourceRequest)
 {
     RetainPtr<NSURLRequest> requestToSerialize = resourceRequest.nsURLRequest(DoNotUpdateHTTPBody);
@@ -106,7 +202,7 @@ void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const 
         [(NSMutableURLRequest *)requestToSerialize setHTTPBodyStream:nil];
     }
 
-    RetainPtr<CFDictionaryRef> dictionary = adoptCF(WKNSURLRequestCreateSerializableRepresentation(requestToSerialize.get(), IPC::tokenNullTypeRef()));
+    RetainPtr<CFDictionaryRef> dictionary = createSerializableRepresentation(requestToSerialize.get(), IPC::tokenNullTypeRef());
     IPC::encode(encoder, dictionary.get());
 
     // The fallback array is part of NSURLRequest, but it is not encoded by WKNSURLRequestCreateSerializableRepresentation.
@@ -114,7 +210,6 @@ void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const 
     encoder.encodeEnum(resourceRequest.requester());
     encoder.encodeEnum(resourceRequest.cachePolicy());
 }
-#endif
 
 bool ArgumentCoder<ResourceRequest>::decodePlatformData(Decoder& decoder, ResourceRequest& resourceRequest)
 {
@@ -131,19 +226,11 @@ bool ArgumentCoder<ResourceRequest>::decodePlatformData(Decoder& decoder, Resour
     if (!IPC::decode(decoder, dictionary))
         return false;
 
-#if USE(CFURLCONNECTION)
-    RetainPtr<CFURLRequestRef> cfURLRequest = adoptCF(WKCreateCFURLRequestFromSerializableRepresentation(dictionary.get(), IPC::tokenNullTypeRef()));
-    if (!cfURLRequest)
-        return false;
-
-    resourceRequest = ResourceRequest(cfURLRequest.get());
-#else
-    RetainPtr<NSURLRequest> nsURLRequest = WKNSURLRequestFromSerializableRepresentation(dictionary.get(), IPC::tokenNullTypeRef());
+    RetainPtr<NSURLRequest> nsURLRequest = createNSURLRequestFromSerializableRepresentation(dictionary.get(), IPC::tokenNullTypeRef());
     if (!nsURLRequest)
         return false;
 
     resourceRequest = ResourceRequest(nsURLRequest.get());
-#endif
     
     Vector<String> responseContentDispositionEncodingFallbackArray;
     if (!decoder.decode(responseContentDispositionEncodingFallbackArray))
@@ -313,8 +400,9 @@ static bool decodeNSError(Decoder& decoder, RetainPtr<NSError>& nsError)
         if (!decodeNSError(decoder, underlyingNSError))
             return false;
 
-        userInfo = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(userInfo.get()) + 1, userInfo.get()));
-        CFDictionarySetValue((CFMutableDictionaryRef)userInfo.get(), NSUnderlyingErrorKey, underlyingNSError.get());
+        auto mutableUserInfo = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(userInfo.get()) + 1, userInfo.get()));
+        CFDictionarySetValue(mutableUserInfo.get(), NSUnderlyingErrorKey, underlyingNSError.get());
+        userInfo = WTFMove(mutableUserInfo);
     }
 
     nsError = adoptNS([[NSError alloc] initWithDomain:domain code:code userInfo:(NSDictionary *)userInfo.get()]);
@@ -342,12 +430,18 @@ bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, Resource
 
 void ArgumentCoder<ProtectionSpace>::encodePlatformData(Encoder& encoder, const ProtectionSpace& space)
 {
-    RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
-    RetainPtr<NSKeyedArchiver> archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+    auto data = adoptNS([[NSMutableData alloc] init]);
+    auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
     [archiver setRequiresSecureCoding:YES];
     [archiver encodeObject:space.nsSpace() forKey:@"protectionSpace"];
     [archiver finishEncoding];
     IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
+#else
+    auto archiver = secureArchiver();
+    [archiver encodeObject:space.nsSpace() forKey:@"protectionSpace"];
+    IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
+#endif
 }
 
 bool ArgumentCoder<ProtectionSpace>::decodePlatformData(Decoder& decoder, ProtectionSpace& space)
@@ -356,8 +450,7 @@ bool ArgumentCoder<ProtectionSpace>::decodePlatformData(Decoder& decoder, Protec
     if (!IPC::decode(decoder, data))
         return false;
 
-    RetainPtr<NSKeyedUnarchiver> unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:(NSData *)data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData((NSData *)data.get());
     @try {
         if (RetainPtr<NSURLProtectionSpace> nsSpace = [unarchiver decodeObjectOfClass:[NSURLProtectionSpace class] forKey:@"protectionSpace"])
             space = ProtectionSpace(nsSpace.get());
@@ -389,12 +482,19 @@ void ArgumentCoder<Credential>::encodePlatformData(Encoder& encoder, const Crede
     }
 
     encoder << false;
-    RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
-    RetainPtr<NSKeyedArchiver> archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+    auto data = adoptNS([[NSMutableData alloc] init]);
+    auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
     [archiver setRequiresSecureCoding:YES];
     [archiver encodeObject:nsCredential forKey:@"credential"];
     [archiver finishEncoding];
     IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
+#else
+    auto archiver = secureArchiver();
+    [archiver encodeObject:nsCredential forKey:@"credential"];
+    IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
+#endif
 }
 
 bool ArgumentCoder<Credential>::decodePlatformData(Decoder& decoder, Credential& credential)
@@ -430,8 +530,7 @@ bool ArgumentCoder<Credential>::decodePlatformData(Decoder& decoder, Credential&
     if (!IPC::decode(decoder, data))
         return false;
 
-    RetainPtr<NSKeyedUnarchiver> unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:(NSData *)data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData((NSData *)data.get());
     @try {
         if (RetainPtr<NSURLCredential> nsCredential = [unarchiver decodeObjectOfClass:[NSURLCredential class] forKey:@"credential"])
             credential = Credential(nsCredential.get());
@@ -471,26 +570,39 @@ void ArgumentCoder<KeypressCommand>::encode(Encoder& encoder, const KeypressComm
     encoder << keypressCommand.commandName << keypressCommand.text;
 }
     
-bool ArgumentCoder<KeypressCommand>::decode(Decoder& decoder, KeypressCommand& keypressCommand)
+std::optional<KeypressCommand> ArgumentCoder<KeypressCommand>::decode(Decoder& decoder)
 {
-    if (!decoder.decode(keypressCommand.commandName))
-        return false;
-
-    if (!decoder.decode(keypressCommand.text))
-        return false;
-
-    return true;
+    std::optional<String> commandName;
+    decoder >> commandName;
+    if (!commandName)
+        return std::nullopt;
+    
+    std::optional<String> text;
+    decoder >> text;
+    if (!text)
+        return std::nullopt;
+    
+    KeypressCommand command;
+    command.commandName = WTFMove(*commandName);
+    command.text = WTFMove(*text);
+    return WTFMove(command);
 }
 
 #if ENABLE(CONTENT_FILTERING)
 void ArgumentCoder<ContentFilterUnblockHandler>::encode(Encoder& encoder, const ContentFilterUnblockHandler& contentFilterUnblockHandler)
 {
-    RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
-    RetainPtr<NSKeyedArchiver> archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+    auto data = adoptNS([[NSMutableData alloc] init]);
+    auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
     [archiver setRequiresSecureCoding:YES];
     contentFilterUnblockHandler.encode(archiver.get());
     [archiver finishEncoding];
     IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
+#else
+    auto archiver = secureArchiver();
+    contentFilterUnblockHandler.encode(archiver.get());
+    IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
+#endif
 }
 
 bool ArgumentCoder<ContentFilterUnblockHandler>::decode(Decoder& decoder, ContentFilterUnblockHandler& contentFilterUnblockHandler)
@@ -499,8 +611,7 @@ bool ArgumentCoder<ContentFilterUnblockHandler>::decode(Decoder& decoder, Conten
     if (!IPC::decode(decoder, data))
         return false;
 
-    RetainPtr<NSKeyedUnarchiver> unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:(NSData *)data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData((NSData *)data.get());
     if (!ContentFilterUnblockHandler::decode(unarchiver.get(), contentFilterUnblockHandler))
         return false;
 
@@ -519,8 +630,9 @@ static NSString *deviceContextKey()
 
 void ArgumentCoder<MediaPlaybackTargetContext>::encodePlatformData(Encoder& encoder, const MediaPlaybackTargetContext& target)
 {
-    RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
-    RetainPtr<NSKeyedArchiver> archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+    auto data = adoptNS([[NSMutableData alloc] init]);
+    auto archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
     [archiver setRequiresSecureCoding:YES];
 
     if ([getAVOutputContextClass() conformsToProtocol:@protocol(NSSecureCoding)])
@@ -528,7 +640,14 @@ void ArgumentCoder<MediaPlaybackTargetContext>::encodePlatformData(Encoder& enco
 
     [archiver finishEncoding];
     IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
+#else
+    auto archiver = secureArchiver();
 
+    if ([getAVOutputContextClass() conformsToProtocol:@protocol(NSSecureCoding)])
+        [archiver encodeObject:target.avOutputContext() forKey:deviceContextKey()];
+
+    IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
+#endif
 }
 
 bool ArgumentCoder<MediaPlaybackTargetContext>::decodePlatformData(Decoder& decoder, MediaPlaybackTargetContext& target)
@@ -540,8 +659,7 @@ bool ArgumentCoder<MediaPlaybackTargetContext>::decodePlatformData(Decoder& deco
     if (!IPC::decode(decoder, data))
         return false;
 
-    RetainPtr<NSKeyedUnarchiver> unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:(NSData *)data.get()]);
-    [unarchiver setRequiresSecureCoding:YES];
+    auto unarchiver = secureUnarchiverFromData((NSData *)data.get());
 
     AVOutputContext *context = nil;
     @try {

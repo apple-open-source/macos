@@ -56,6 +56,8 @@ static NSString *kExportUnhandledMessages = @"UnhandledMessages";
 static NSString *kMessagesInFlight = @"MessagesInFlight";
 static const char *kStreamName = "com.apple.notifyd.matching";
 static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
+static NSString *const kIDSNumberOfFragments = @"NumberOfIDSMessageFragments";
+static NSString *const kIDSFragmentIndex = @"kFragmentIndex";
 
 static NSString *const kOutgoingMessages = @"IDS Outgoing Messages";
 static NSString *const kIncomingMessages = @"IDS Incoming Messages";
@@ -169,7 +171,7 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
 
             NSString *peerID = (NSString*)[idsMessage objectForKey:(__bridge NSString*)kIDSMessageRecipientPeerID];
             NSString *ID = (NSString*)[idsMessage objectForKey:(__bridge NSString*)kIDSMessageRecipientDeviceID];
-            
+            NSString *senderDeviceID = (NSString*)[idsMessage objectForKey:(__bridge NSString*)kIDSMessageSenderDeviceID];
             dispatch_sync(self.dataQueue, ^{
                 [self.messagesInFlight removeObjectForKey:key];
             });
@@ -177,10 +179,11 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
             if (!peerID || !ID) {
                 return;
             }
-            secnotice("IDS Transport", "sending this message: %@", idsMessage);
-            if([self sendIDSMessage:idsMessage name:ID peer:peerID]){
+            [self printMessage:idsMessage state:@"sending persisted message"];
+
+            if([self sendIDSMessage:idsMessage name:ID peer:peerID senderDeviceID:senderDeviceID]){
                 NSString *useAckModel = [idsMessage objectForKey:kIDSMessageUseACKModel];
-                if([useAckModel compare:@"YES"] == NSOrderedSame){
+                if([useAckModel compare:@"YES"] == NSOrderedSame && [KeychainSyncingOverIDSProxy idsProxy].allowKVSFallBack){
                     secnotice("IDS Transport", "setting timer!");
                     [self setMessageTimer:uniqueMessageID deviceID:ID message:idsMessage];
                 }
@@ -204,11 +207,11 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
         deviceIDFromAuthToken = [[NSMutableDictionary alloc] init];
         _peerNextSendCache = [[NSMutableDictionary alloc] init];
         _counterValues = [[NSMutableDictionary alloc] init];
-        _listOfDevices = [[NSMutableArray alloc] init];
         _outgoingMessages = 0;
         _incomingMessages = 0;
         _isSecDRunningAsRoot = false;
         _doesSecDHavePeer = true;
+        _allowKVSFallBack = true;
         secdebug(IDSPROXYSCOPE, "%@ done", self);
         
         [self doIDSInitialization];
@@ -388,15 +391,6 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
             self->_isIDSInitDone = true;
             if(self->_isSecDRunningAsRoot == false)
                 [self doSetIDSDeviceID];
-            
-            NSArray *ListOfIDSDevices = [self->_service devices];
-            self.listOfDevices = ListOfIDSDevices;
-            
-            for(NSUInteger i = 0; i < [ self.listOfDevices count ]; i++){
-                IDSDevice *device = self.listOfDevices[i];
-                NSString *authToken = IDSCopyIDForDevice(device);
-                [self.deviceIDFromAuthToken setObject:device.uniqueID forKey:authToken];
-            }
         }
     });
 }
@@ -554,5 +548,16 @@ NSString* createErrorString(NSString* format, ...)
     return _counterValues;
 }
 
+-(void) printMessage:(NSDictionary*) message state:(NSString*)state
+{
+    secnotice("IDS Transport", "message state: %@", state);
+    secnotice("IDS Transport", "msg id: %@", message[(__bridge NSString*)kIDSMessageUniqueID]);
+    secnotice("IDS Transport", "receiver ids device id: %@", message[(__bridge NSString*)kIDSMessageRecipientDeviceID]);
+    secnotice("IDS Transport", "sender device id: %@", message[(__bridge NSString*)kIDSMessageSenderDeviceID]);
+    secnotice("IDS Transport", "receiver peer id: %@", message[(__bridge NSString*)kIDSMessageRecipientPeerID]);
+    secnotice("IDS Transport", "fragment index: %@", (NSNumber*)message[kIDSFragmentIndex]);
+    secnotice("IDS Transport", "total number of fragments: %@", (NSNumber*)message[kIDSNumberOfFragments]);
+    secnotice("IDS Transport", "%@ data: %@", state, message[(__bridge NSString*)kIDSMessageToSendKey]);
+}
 
 @end

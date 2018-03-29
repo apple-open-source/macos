@@ -132,6 +132,7 @@ enum SecDbItemState {
     kSecDbItemDecrypting,     // Temporary state while we are decrypting so set knows not to blow away the edata.
     kSecDbItemEncrypting,     // Temporary state while we are encrypting so set knows to move to clean.
     kSecDbItemAlwaysEncrypted, // As kSecDbItemEncrypted, but decryption is never attempted
+    kSecDbItemSecretEncrypted, // Metadata is clean, but the secret data remains encrypted
 };
 
 struct SecDbItem {
@@ -147,7 +148,7 @@ struct SecDbItem {
 };
 
 // TODO: Make this a callback to client
-bool SecDbItemDecrypt(SecDbItemRef item, CFDataRef edata, CFErrorRef *error);
+bool SecDbItemDecrypt(SecDbItemRef item, bool decryptSecretData, CFDataRef edata, CFErrorRef *error);
 
 CFTypeID SecDbItemGetTypeID(void);
 
@@ -204,7 +205,7 @@ SecDbItemRef SecDbItemCreateWithPrimaryKey(CFAllocatorRef allocator, const SecDb
 SecDbItemRef SecDbItemCreateWithRowId(CFAllocatorRef allocator, const SecDbClass *class, sqlite_int64 row_id, keybag_handle_t keybag, CFErrorRef *error);
 #endif
 
-bool SecDbItemEnsureDecrypted(SecDbItemRef item, CFErrorRef *error);
+bool SecDbItemEnsureDecrypted(SecDbItemRef item, bool decryptSecretData, CFErrorRef *error);
 
 SecDbItemRef SecDbItemCopyWithUpdates(SecDbItemRef item, CFDictionaryRef updates, CFErrorRef *error);
 

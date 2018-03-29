@@ -95,6 +95,18 @@ enum {
  */
 #define kIOPMReservePwrCtrlEntitlement      CFSTR("com.apple.private.iokit.reservepower-control")
 
+/*! @define     kIOPMAssertOnBatteryEntitlement
+ *  @abstract   Apple internal entitlement for processes that creates assertion with
+ *              kIOPMAssertionAppliesToLimitedPowerKey property set to true.
+ */
+#define kIOPMAssertOnBatteryEntitlement     CFSTR("com.apple.private.iokit.assertonbattery")
+
+/*! @define     kIOPMAssertOnLidCloseEntitlement
+ *  @abstract   Apple internal entitlement for processes that creates assertion with
+ *              kIOPMAssertionAppliesOnLidClose property set to true.
+ */
+#define kIOPMAssertOnLidCloseEntitlement    CFSTR("com.apple.private.iokit.assertonlidclose")
+
 /*! @define     kIOPMWakeRequestEntitlement
  *  @abstract   Apple internal entitlement to allow non-root processes to schedules wakes.
 */
@@ -603,6 +615,9 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *                  This property is valid only for assertion <code>@link kIOPMAssertionTypePreventSystemSleep @/link</code>. 
  *                  By default, this assertion is applied only when system is running on unlimited
  *                  power source. This behavior can be changed using this property.
+ *
+ *                  Process creating assertion with this property must have kIOPMAssertOnBatteryEntitlement
+ *                  entitlement.
  */
 
 #define kIOPMAssertionAppliesToLimitedPowerKey              CFSTR("AppliesToLimitedPower")
@@ -621,6 +636,9 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *                  By default, this assertion is applied only when lid is open and setting this assertion property
  *                  changes that default behavior. This assertion property has no meaning on systems with no lid 
  *                  and it is treated as no-op.
+ *
+ *                  Process creating assertion with this property must have kIOPMAssertOnLidCloseEntitlement
+ *                  entitlement.
  */
 
 #define kIOPMAssertionAppliesOnLidClose                     CFSTR("AppliesOnLidClose")
@@ -2954,10 +2972,11 @@ typedef enum {
  *                              Upon that system wakeup, the policy mechanism will try its
  *                              best to remain awake in a usable state until
  *                              <code>@link IOPMAssertionRelease@/link</code> gets called on the
- *                              AssertionID. In this case, client need to wait for the message
- *                              kIOMessageSystemHasPoweredOn before proceeding with the work that need to be
- *                              done with assertion. See documentation for IORegisterForSystemPower for details
- *                              about message kIOMessageSystemHasPoweredOn.
+ *                              AssertionID. In this case, client has to wait until it receives
+ *                              kIOMessageSystemWillNotSleep message or kIOMessageSystemHasPoweredOn message
+ *                              before proceeding with the work that needs to be done with assertion.
+ *                              See documentation for IORegisterForSystemPower for details
+ *                              about messages kIOMessageSystemHasPoweredOn and kIOMessageSystemWillNotSleep.
  *                              If the sleep transition is a force sleep, IOKit will not attempt to 
  *                              immediately re-awaken the system. 
  *

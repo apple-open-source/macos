@@ -6565,6 +6565,9 @@ static const char* localesAndAppleParent[] = {
     "en",               "root",
     "en-US",            "en",
     "en-CA",            "en_001",
+    "en-CN",            "en",
+    "en-JP",            "en",
+    "en-TW",            "en",
     "en-001",           "en",
     "en_001",           "en",
     "en-150",           "en_GB",
@@ -6601,6 +6604,7 @@ static const char* localesAndAppleParent[] = {
     "es-BZ",            "es_419",
     "es-AG",            "es_419",
     "es-AW",            "es_419",
+    "es-CA",            "es_419",
     "es-CW",            "es_419",
     "es-SX",            "es_419",
     "es-TT",            "es_419",
@@ -7021,7 +7025,9 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "en",                 { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
     { "en_US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en-CN",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-JP",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-TW",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-TR",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-001",             { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
     { "en-CA",              { l1_Eng,         l1_en,          l2_en_CA_,      l2_en_CA_,      l2_en_001_,     l2_en_001_     } },
@@ -7062,6 +7068,7 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "es-BZ",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-AG",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-AW",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-CA",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-CW",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-SX",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-TT",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
@@ -7365,6 +7372,14 @@ static const char * prefLangsMN2[]  = { "en-SA" };
 static const char * prefLangsMN3[]  = { "en-TW" };
 static const char * prefLangsMN4[]  = { "en-JP" };
 static const char * locsToUseMN_U[] = { "en-US" };
+// Per <rdar://problem/36010857>
+static const char * appleLocsMO[]   = { "Dutch", "French", "German", "Italian", "Japanese", "Spanish",
+                                        "ar", "ca", "cs", "da", "el", "en_AU", "en_GB", "en_IN",
+                                        "es_419", "fi", "fr_CA", "he", "hi", "hr", "hu", "id", "ko",
+                                        "ms", "no", "pl", "pt", "pt_PT", "ro", "ru", "sk", "sv",
+                                        "th", "tr", "uk", "vi", "zh_CN", "zh_HK", "zh_TW" };
+static const char * prefLangsMO1[]  = { "en-US" };
+static const char * locsToUseMO1[]  = { "en_GB" };
 
 typedef struct {
     const char *  name;
@@ -7440,6 +7455,7 @@ static const MultiPrefTest multiTestSets[] = {
     { "MN2",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN2, UPRV_LENGTHOF(prefLangsMN2), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
     { "MN3",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN3, UPRV_LENGTHOF(prefLangsMN3), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
     { "MN4",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN4, UPRV_LENGTHOF(prefLangsMN4), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
+    { "MO",   appleLocsMO,   UPRV_LENGTHOF(appleLocsMO),  prefLangsMO1, UPRV_LENGTHOF(prefLangsMO1), locsToUseMO1,   UPRV_LENGTHOF(locsToUseMO1) },
 
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };

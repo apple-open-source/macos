@@ -80,7 +80,9 @@ int otr_otrdh(int argc, char *const * argv)
     ok(0 == memcmp(aliceMacKeys[0], bobMacKeys[1], sizeof(aliceMacKeys[0])), "Mac Keys don't match!!");
     ok(0 == memcmp(aliceMacKeys[1], bobMacKeys[0], sizeof(aliceMacKeys[1])), "Mac Keys don't match!!");
     CFReleaseNull(aliceCompactSerialized);
+    CFReleaseNull(aliceCompactDeserialized);
     CFReleaseNull(aliceSerialized);
+    CFReleaseNull(aliceDeserialized);
     CFReleaseNull(aliceFull);
     CFReleaseNull(alicePublic);
     CFReleaseNull(bobFull);

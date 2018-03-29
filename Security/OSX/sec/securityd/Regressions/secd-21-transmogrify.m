@@ -79,6 +79,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     res = SecItemAdd((CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
+        (id)kSecValueData : [NSData dataWithBytes:"password" length:8]
     }, NULL);
     is(res, 0, "SecItemAdd(user)");
 
@@ -108,6 +109,7 @@ secd_21_transmogrify(int argc, char *const *argv)
         (id)kSecAttrAccount :  @"user-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
+        (id)kSecReturnData : @(YES)
     }, (CFTypeRef *)&result);
     is(res, 0, "SecItemCopyMatching(system)");
 
@@ -115,6 +117,9 @@ secd_21_transmogrify(int argc, char *const *argv)
     if (isDictionary(result)) {
         NSData *data = ((__bridge NSDictionary *)result)[@"musr"];
         ok([data isEqual:(__bridge id)SecMUSRGetSystemKeychainUUID()], "item is system keychain");
+
+        NSData* passwordData = [(__bridge NSDictionary*)result valueForKey:(id)kSecValueData];
+        ok([passwordData isEqual:[NSData dataWithBytes:"password" length:8]], "no data found in transmogrified item");
     } else {
         ok(0, "returned item is: %@", result);
     }
@@ -129,6 +134,7 @@ secd_21_transmogrify(int argc, char *const *argv)
         (id)kSecAttrAccessGroup : @"com.apple.ProtectedCloudStorage",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecAttrAccount :  @"pcs-label-me",
+        (id)kSecValueData : [NSData dataWithBytes:"some data" length:9],
     }, &client, NULL, NULL);
     is(res, true, "SecItemAdd(user)");
 
@@ -136,10 +142,12 @@ secd_21_transmogrify(int argc, char *const *argv)
          (id)kSecClass :  (id)kSecClassGenericPassword,
          (id)kSecAttrAccount :  @"pcs-label-me",
          (id)kSecReturnAttributes : (id)kCFBooleanTrue,
+         (id)kSecReturnData : @(YES),
      }, &client, (CFTypeRef *)&result, &error);
     is(res, true, "SecItemCopyMatching(system): %@", error);
 
     ok(isDictionary(result), "result is dictionary");
+    ok([[(__bridge NSDictionary*)result valueForKey:(__bridge id)kSecValueData] isEqual:[NSData dataWithBytes:"some data" length:9]], "retrieved data matches stored data");
 
     /* Check that data are in 502 active user keychain */
     ok (CFEqualSafe(((__bridge CFDataRef)((__bridge NSDictionary *)result)[@"musr"]), musr), "not in msr 502");

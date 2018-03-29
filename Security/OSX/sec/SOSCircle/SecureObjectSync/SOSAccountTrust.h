@@ -28,6 +28,9 @@ typedef void (^SOSModifyPeersInCircleBlock)(SOSCircleRef circle, CFMutableArrayR
     SOSCircleRef            trustedCircle;
     NSMutableSet *          retirees;
     enum DepartureReason    departureCode;
+
+    SecKeyRef               _cachedOctagonSigningKey;
+    SecKeyRef               _cachedOctagonEncryptionKey;
 }
 @property (strong, nonatomic)   NSMutableDictionary *   expansion;
 
@@ -41,6 +44,9 @@ typedef void (^SOSModifyPeersInCircleBlock)(SOSCircleRef circle, CFMutableArrayR
 @property (nonatomic)           SOSCircleRef            trustedCircle;
 @property (strong, nonatomic)   NSMutableSet *          retirees;
 @property (nonatomic)           enum DepartureReason    departureCode;
+
+@property (assign)              SecKeyRef               cachedOctagonSigningKey;
+@property (assign)              SecKeyRef               cachedOctagonEncryptionKey;
 
 +(instancetype)trust;
 

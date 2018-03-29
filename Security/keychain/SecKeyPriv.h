@@ -38,11 +38,6 @@
 #include <Security/SecAsn1Types.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#if SEC_OS_IOS
-#include <CoreFoundation/CoreFoundation.h>
-#include <CoreFoundation/CFDictionary.h>
-#endif
-
 #if SEC_OS_OSX
 #include <Security/SecKey.h>
 #include <Security/x509defs.h>
@@ -270,30 +265,32 @@ SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
 
 /* Create public key from private key */
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
+#endif // SEC_OS_IPHONE
 
 /* Get Private Key (if present) by publicKey. */
 SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error);
-OSStatus SecKeyGetMatchingPrivateKeyStatus(SecKeyRef publicKey, CFErrorRef *error);
 
+OSStatus SecKeyGetMatchingPrivateKeyStatus(SecKeyRef publicKey, CFErrorRef *error);
 CFDataRef SecKeyCreatePersistentRefToMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error);
 
 /* Return an attribute dictionary used to find a private key by public key hash */
 CFDictionaryRef CreatePrivateKeyMatchingQuery(SecKeyRef publicKey, bool returnPersistentRef);
 
-/* Return an attribute dictionary used to store this item in a keychain. */
-CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key);
-
 /* Return a key from an attribute dictionary that was used to store this item
-   in a keychain. */
+ in a keychain. */
 SecKeyRef SecKeyCreateFromAttributeDictionary(CFDictionaryRef refAttributes);
 
 OSStatus SecKeyDigestAndVerify(
-    SecKeyRef           key,            /* Public key */
-     const SecAsn1AlgId  *algId,         /* algorithm oid/params */
-     const uint8_t       *dataToDigest,     /* signature over this data */
-     size_t              dataToDigestLen,/* length of dataToDigest */
-     const uint8_t       *sig,               /* signature to verify */
-     size_t              sigLen);           /* length of sig */
+                               SecKeyRef           key,            /* Public key */
+                               const SecAsn1AlgId  *algId,         /* algorithm oid/params */
+                               const uint8_t       *dataToDigest,     /* signature over this data */
+                               size_t              dataToDigestLen,/* length of dataToDigest */
+                               const uint8_t       *sig,               /* signature to verify */
+                               size_t              sigLen);           /* length of sig */
+
+#if SEC_OS_IPHONE
+/* Return an attribute dictionary used to store this item in a keychain. */
+CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key);
 
 OSStatus SecKeyDigestAndSign(
     SecKeyRef           key,            /* Private key */
@@ -389,6 +386,9 @@ typedef enum {
 size_t SecKeyGetSize(SecKeyRef key, SecKeySize whichSize)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
+#endif
+
+#if SEC_OS_IPHONE
 
 /*!
  @function SecKeyLookupPersistentRef
@@ -399,6 +399,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
  */
 OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedUpData)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+#endif // SEC_OS_IPHONE
 
 /*!
  @function SecKeyCopyPersistentRef
@@ -410,6 +411,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
+#if SEC_OS_IPHONE
 
 /*
  *

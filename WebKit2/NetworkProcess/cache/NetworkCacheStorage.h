@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,10 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkCacheStorage_h
-#define NetworkCacheStorage_h
-
-#if ENABLE(NETWORK_CACHE)
+#pragma once
 
 #include "NetworkCacheBlobStorage.h"
 #include "NetworkCacheData.h"
@@ -37,6 +34,7 @@
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Optional.h>
+#include <wtf/WallTime.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/WTFString.h>
 
@@ -45,17 +43,16 @@ namespace NetworkCache {
 
 class IOChannel;
 
-class Storage {
-    WTF_MAKE_NONCOPYABLE(Storage);
+class Storage : public ThreadSafeRefCounted<Storage> {
 public:
     enum class Mode { Normal, Testing };
-    static std::unique_ptr<Storage> open(const String& cachePath, Mode);
+    static RefPtr<Storage> open(const String& cachePath, Mode);
 
     struct Record {
         WTF_MAKE_FAST_ALLOCATED;
     public:
         Key key;
-        std::chrono::system_clock::time_point timeStamp;
+        WallTime timeStamp;
         Data header;
         Data body;
         std::optional<SHA1::Digest> bodyHash;
@@ -69,7 +66,7 @@ public:
 
     void remove(const Key&);
     void remove(const Vector<Key>&, Function<void ()>&&);
-    void clear(const String& type, std::chrono::system_clock::time_point modifiedSinceTime, Function<void ()>&& completionHandler);
+    void clear(const String& type, WallTime modifiedSinceTime, Function<void ()>&& completionHandler);
 
     struct RecordInfo {
         size_t bodySize;
@@ -90,10 +87,11 @@ public:
     size_t capacity() const { return m_capacity; }
     size_t approximateSize() const;
 
-    static const unsigned version = 11;
+    // Incrementing this number will delete all existing cache content for everyone. Do you really need to do it?
+    static const unsigned version = 12;
 #if PLATFORM(MAC)
     /// Allow the last stable version of the cache to co-exist with the latest development one.
-    static const unsigned lastStableVersion = 11;
+    static const unsigned lastStableVersion = 12;
 #endif
 
     String basePath() const;
@@ -105,6 +103,8 @@ public:
     bool canUseSharedMemoryForBodyData() const { return m_canUseSharedMemoryForBodyData; }
 
     ~Storage();
+
+    void writeWithoutWaiting() { m_initialWriteDelay = 0_s; };
 
 private:
     Storage(const String& directoryPath, Mode, Salt);
@@ -184,6 +184,10 @@ private:
     Ref<WorkQueue> m_serialBackgroundIOQueue;
 
     BlobStorage m_blobStorage;
+
+    // By default, delay the start of writes a bit to avoid affecting early page load.
+    // Completing writes will dispatch more writes without delay.
+    Seconds m_initialWriteDelay { 1_s };
 };
 
 // FIXME: Remove, used by NetworkCacheStatistics only.
@@ -192,5 +196,3 @@ void traverseRecordsFiles(const String& recordsPath, const String& type, const R
 
 }
 }
-#endif
-#endif

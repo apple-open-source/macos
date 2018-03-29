@@ -29,7 +29,7 @@
 #include "DisplayListItems.h"
 #include "GraphicsContext.h"
 #include "Logging.h"
-#include "TextStream.h"
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 namespace DisplayList {
@@ -40,9 +40,7 @@ Replayer::Replayer(GraphicsContext& context, const DisplayList& displayList)
 {
 }
 
-Replayer::~Replayer()
-{
-}
+Replayer::~Replayer() = default;
 
 std::unique_ptr<DisplayList> Replayer::replay(const FloatRect& initialClip, bool trackReplayList)
 {

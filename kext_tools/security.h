@@ -72,6 +72,8 @@ int callSecKeychainMDSInstall( void );
 
 void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer, CFDictionaryRef codesignAttributes);
 
+Boolean isNetBooted(void);
+
 // A set of authentication options for use with the global authentication function.
 typedef struct AuthOptions {
     Boolean allowNetwork;

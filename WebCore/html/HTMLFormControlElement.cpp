@@ -120,8 +120,8 @@ void HTMLFormControlElement::setFormAction(const AtomicString& value)
 
 bool HTMLFormControlElement::computeIsDisabledByFieldsetAncestor() const
 {
-    Element* previousAncestor = nullptr;
-    for (Element* ancestor = parentElement(); ancestor; ancestor = ancestor->parentElement()) {
+    RefPtr<Element> previousAncestor;
+    for (RefPtr<Element> ancestor = parentElement(); ancestor; ancestor = ancestor->parentElement()) {
         if (is<HTMLFieldSetElement>(*ancestor) && ancestor->hasAttributeWithoutSynchronization(disabledAttr)) {
             HTMLFieldSetElement& fieldSetAncestor = downcast<HTMLFieldSetElement>(*ancestor);
             bool isInFirstLegend = is<HTMLLegendElement>(previousAncestor) && previousAncestor == fieldSetAncestor.legend();
@@ -237,8 +237,8 @@ void HTMLFormControlElement::didAttachRenderers()
         setAutofocused();
 
         RefPtr<HTMLFormControlElement> element = this;
-        auto* frameView = document().view();
-        if (frameView && frameView->isInLayout()) {
+        auto frameView = makeRefPtr(document().view());
+        if (frameView && frameView->layoutContext().isInLayout()) {
             frameView->queuePostLayoutCallback([element] {
                 element->focus();
             });
@@ -274,25 +274,25 @@ static void removeInvalidElementToAncestorFromInsertionPoint(const HTMLFormContr
         ancestor.removeInvalidDescendant(element);
 }
 
-Node::InsertionNotificationRequest HTMLFormControlElement::insertedInto(ContainerNode& insertionPoint)
+Node::InsertedIntoAncestorResult HTMLFormControlElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
     m_dataListAncestorState = Unknown;
     setNeedsWillValidateCheck();
     if (willValidate() && !isValidFormControlElement())
-        addInvalidElementToAncestorFromInsertionPoint(*this, &insertionPoint);
+        addInvalidElementToAncestorFromInsertionPoint(*this, &parentOfInsertedTree);
     if (document().hasDisabledFieldsetElement())
         setAncestorDisabled(computeIsDisabledByFieldsetAncestor());
-    HTMLElement::insertedInto(insertionPoint);
-    FormAssociatedElement::insertedInto(insertionPoint);
-    return InsertionShouldCallFinishedInsertingSubtree;
+    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    FormAssociatedElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
 }
 
-void HTMLFormControlElement::finishedInsertingSubtree()
+void HTMLFormControlElement::didFinishInsertingNode()
 {
     resetFormOwner();
 }
 
-void HTMLFormControlElement::removedFrom(ContainerNode& insertionPoint)
+void HTMLFormControlElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
 {
     bool wasMatchingInvalidPseudoClass = willValidate() && !isValidFormControlElement();
 
@@ -300,11 +300,11 @@ void HTMLFormControlElement::removedFrom(ContainerNode& insertionPoint)
     if (m_disabledByAncestorFieldset)
         setAncestorDisabled(computeIsDisabledByFieldsetAncestor());
     m_dataListAncestorState = Unknown;
-    HTMLElement::removedFrom(insertionPoint);
-    FormAssociatedElement::removedFrom(insertionPoint);
+    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
+    FormAssociatedElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
 
     if (wasMatchingInvalidPseudoClass)
-        removeInvalidElementToAncestorFromInsertionPoint(*this, &insertionPoint);
+        removeInvalidElementToAncestorFromInsertionPoint(*this, &oldParentOfRemovedTree);
 }
 
 void HTMLFormControlElement::setChangedSinceLastFormControlChangeEvent(bool changed)
@@ -448,7 +448,7 @@ void HTMLFormControlElement::setNeedsWillValidateCheck()
 
     if (!m_willValidate && !wasValid) {
         removeInvalidElementToAncestorFromInsertionPoint(*this, parentNode());
-        if (HTMLFormElement* form = this->form())
+        if (RefPtr<HTMLFormElement> form = this->form())
             form->removeInvalidAssociatedFormControlIfNeeded(*this);
     }
 
@@ -482,8 +482,9 @@ bool HTMLFormControlElement::checkValidity(Vector<RefPtr<HTMLFormControlElement>
     // An event handler can deref this object.
     Ref<HTMLFormControlElement> protectedThis(*this);
     Ref<Document> originalDocument(document());
-    bool needsDefaultAction = dispatchEvent(Event::create(eventNames().invalidEvent, false, true));
-    if (needsDefaultAction && unhandledInvalidControls && isConnected() && originalDocument.ptr() == &document())
+    auto event = Event::create(eventNames().invalidEvent, false, true);
+    dispatchEvent(event);
+    if (!event->defaultPrevented() && unhandledInvalidControls && isConnected() && originalDocument.ptr() == &document())
         unhandledInvalidControls->append(this);
     return false;
 }
@@ -544,7 +545,7 @@ void HTMLFormControlElement::willChangeForm()
 void HTMLFormControlElement::didChangeForm()
 {
     FormAssociatedElement::didChangeForm();
-    if (HTMLFormElement* form = this->form()) {
+    if (RefPtr<HTMLFormElement> form = this->form()) {
         if (m_willValidateInitialized && m_willValidate && !isValidFormControlElement())
             form->registerInvalidAssociatedFormControl(*this);
     }
@@ -606,7 +607,7 @@ bool HTMLFormControlElement::shouldAutocorrect() const
     const AtomicString& autocorrectValue = attributeWithoutSynchronization(autocorrectAttr);
     if (!autocorrectValue.isEmpty())
         return !equalLettersIgnoringASCIICase(autocorrectValue, "off");
-    if (HTMLFormElement* form = this->form())
+    if (RefPtr<HTMLFormElement> form = this->form())
         return form->shouldAutocorrect();
     return true;
 }
@@ -615,7 +616,7 @@ AutocapitalizeType HTMLFormControlElement::autocapitalizeType() const
 {
     AutocapitalizeType type = HTMLElement::autocapitalizeType();
     if (type == AutocapitalizeTypeDefault) {
-        if (HTMLFormElement* form = this->form())
+        if (RefPtr<HTMLFormElement> form = this->form())
             return form->autocapitalizeType();
     }
     return type;

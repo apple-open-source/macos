@@ -129,7 +129,9 @@ In the event of an error,
 .Va errno
 may be set to any of the values documented for the
 .Xr getdirentries 2
-system call.
+system call.  Note that the order of the directory entries vended by 
+.Fn readdir
+is not specified. Some filesystems may return entries in lexicographic sort order and others may not.
 .Pp
 The
 .Fn readdir_r

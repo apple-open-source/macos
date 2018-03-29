@@ -211,9 +211,9 @@ RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& pag
     return WebPopupMenuProxyGtk::create(m_viewWidget, page);
 }
 
-RefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, const ContextMenuContextData& context, const UserData& userData)
+Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
 {
-    return WebContextMenuProxyGtk::create(m_viewWidget, page, context, userData);
+    return WebContextMenuProxyGtk::create(m_viewWidget, page, WTFMove(context), userData);
 }
 
 RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, const WebCore::Color& color, const WebCore::IntRect& rect)
@@ -342,18 +342,21 @@ void PageClientImpl::beganExitFullScreen(const IntRect& /* initialFrame */, cons
 #if ENABLE(TOUCH_EVENTS)
 void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
 {
-    if (wasEventHandled)
-        return;
+    const GdkEvent* touchEvent = event.nativeEvent();
 
 #if HAVE(GTK_GESTURES)
     GestureController& gestureController = webkitWebViewBaseGestureController(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
-    if (gestureController.handleEvent(event.nativeEvent()))
+    if (wasEventHandled) {
+        gestureController.reset();
         return;
+    }
+    wasEventHandled = gestureController.handleEvent(event.nativeEvent());
 #endif
 
-    // Emulate pointer events if unhandled.
-    const GdkEvent* touchEvent = event.nativeEvent();
+    if (wasEventHandled)
+        return;
 
+    // Emulate pointer events if unhandled.
     if (!touchEvent->touch.emulating_pointer)
         return;
 

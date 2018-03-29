@@ -23,8 +23,8 @@
 #ifndef __HID_MACTYPES__
 #define __HID_MACTYPES__
 
-#include <IOKit/IOTypes.h>
-#include <IOKit/hidsystem/IOHIDDescriptorParser.h>
+
+#include "IOHIDDescriptorParser.h"
 
 extern void *PoolAllocateResident(vm_size_t size, unsigned char clear);
 extern OSStatus PoolDeallocate(void *ptr, vm_size_t size);

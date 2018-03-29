@@ -258,10 +258,9 @@ dt_module_symgelf32(const Elf32_Sym *src, GElf_Sym *dst)
 static GElf_Sym *
 dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 {
-	if (dst != NULL) {
+	if (dst != NULL)
 		bcopy(src, dst, sizeof (GElf_Sym));
-        }
-        
+
 	return (dst);
 }
 
@@ -301,7 +300,7 @@ dt_module_symname64(dt_module_t *dmp, const char *name,
 {
 	const Elf64_Sym *symtab = dmp->dm_symtab.cts_data;
 	const char *strtab = dmp->dm_strtab.cts_data;
-        
+
 	const Elf64_Sym *sym;
 	const dt_sym_t *dsp;
 	uint_t i, h;
@@ -510,20 +509,20 @@ dt_module_slide()
         static bool initialized = FALSE;
         static pthread_mutex_t guard = PTHREAD_MUTEX_INITIALIZER;
         static uint64_t kernel_slide = 0;
-        
+
         if (!initialized) {
                 pthread_mutex_lock(&guard);
                 if (!initialized) {
                         initialized = TRUE;
-                        
+
                         size_t size = sizeof(kernel_slide);
-                        
+
                         if (kas_info(KAS_INFO_KERNEL_TEXT_SLIDE_SELECTOR, &kernel_slide, &size) != KERN_SUCCESS)
                                 kernel_slide = 0;
                 }
                 pthread_mutex_unlock(&guard);
         }
-        
+
         return kernel_slide;
 }
 
@@ -1584,7 +1583,6 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 			return (-1); /* dt_errno is set for us */
 		n = 1;
 		justone = 1;
-
 	} else {
 		if (object == DTRACE_OBJ_KMODS)
 			mask = bits = DT_DM_KERNEL;

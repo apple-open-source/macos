@@ -21,21 +21,28 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "keychain/ckks/CKKSGroupOperation.h"
-#import "keychain/ckks/CKKSKeychainView.h"
-
 #if OCTAGON
 
+#import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSKeychainView.h"
+NS_ASSUME_NONNULL_BEGIN
+
+
 @interface CKKSUpdateCurrentItemPointerOperation : CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
+@property (weak,nullable) CKKSKeychainView* ckks;
+
+@property NSString* currentPointerIdentifier;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
-                          currentPointer:(NSString*)identifier
-                             oldItemUUID:(NSString*)oldItemUUID
-                             oldItemHash:(NSData*)oldItemHash
-                             newItemUUID:(NSString*)newItemUUID
-                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView* _Nonnull)ckks
+                                 newItem:(NSData* _Nonnull)newItemPersistentRef
+                                    hash:(NSData* _Nonnull)newItemSHA1
+                             accessGroup:(NSString* _Nonnull)accessGroup
+                              identifier:(NSString* _Nonnull)identifier
+                               replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
+                                    hash:(NSData* _Nullable)oldItemSHA1
+                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

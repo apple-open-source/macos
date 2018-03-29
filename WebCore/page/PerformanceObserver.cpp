@@ -26,11 +26,8 @@
 #include "config.h"
 #include "PerformanceObserver.h"
 
-#if ENABLE(WEB_TIMING)
-
 #include "DOMWindow.h"
 #include "Document.h"
-#include "ExceptionCode.h"
 #include "Performance.h"
 #include "PerformanceObserverEntryList.h"
 #include "WorkerGlobalScope.h"
@@ -49,6 +46,11 @@ PerformanceObserver::PerformanceObserver(ScriptExecutionContext& scriptExecution
         m_performance = &workerGlobalScope.performance();
     } else
         ASSERT_NOT_REACHED();
+}
+
+void PerformanceObserver::disassociate()
+{
+    m_performance = nullptr;
 }
 
 ExceptionOr<void> PerformanceObserver::observe(Init&& init)
@@ -103,5 +105,3 @@ void PerformanceObserver::deliver()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_TIMING)

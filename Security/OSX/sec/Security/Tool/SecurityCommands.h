@@ -183,11 +183,16 @@ SECURITY_COMMAND_IOS("verify-cert", verify_cert,
                  "Verify certificate(s).")
 
 SECURITY_COMMAND_IOS("trust-store", trust_store_show_certificates,
-                     "[-p][-f][-s][-v][-t][-k]\n"
-                     "    -p Output cert in PEM format.\n"
-                     "    -f Show fingerprint (SHA1 digest certificate.)\n"
-                     "    -s Show subject.\n"
-                     "    -v Show entire certificate in text form.\n"
-                     "    -t Show trust settings for certificates.\n"
-                     "    -k Show keyid (SHA1 digest of public key)",
-                     "Display user trust store certificates and trust settings.")
+                 "[-p][-f][-s][-v][-t][-k]\n"
+                 "    -p Output cert in PEM format.\n"
+                 "    -f Show fingerprint (SHA1 digest certificate.)\n"
+                 "    -s Show subject.\n"
+                 "    -v Show entire certificate in text form.\n"
+                 "    -t Show trust settings for certificates.\n"
+                 "    -k Show keyid (SHA1 digest of public key)",
+                 "Display user trust store certificates and trust settings.")
+
+SECURITY_COMMAND("check-trust-update", check_trust_update,
+                 "[-s]\n"
+                 "    -s Check for Supplementals (Pinning DB and Trusted CT Logs) update\n",
+                 "Check for data updates for trust and return current version.")

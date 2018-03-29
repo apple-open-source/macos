@@ -68,14 +68,14 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 	public:
 
 		// OSObject
-		virtual void				free () ;
+		virtual void				free (void) APPLE_KEXT_OVERRIDE;
 #if IOFIREWIREDEBUG > 0
-		virtual bool				serialize( OSSerialize * s ) const ;
+		virtual bool				serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 #endif
 
 		// IOFWLocalIsochPort
-		virtual IOReturn			start () ;
-		virtual IOReturn			stop () ;
+		virtual IOReturn			start (void) APPLE_KEXT_OVERRIDE;
+		virtual IOReturn			stop (void) APPLE_KEXT_OVERRIDE;
 
 		// me
 		bool						initWithUserDCLProgram (	

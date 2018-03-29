@@ -171,7 +171,7 @@ static inline void encodeFrameState(GVariantBuilder* sessionBuilder, const Frame
     g_variant_builder_add(sessionBuilder, "x", frameState.documentSequenceNumber);
     g_variant_builder_add(sessionBuilder, "x", frameState.itemSequenceNumber);
     g_variant_builder_add(sessionBuilder, "(ii)", frameState.scrollPosition.x(), frameState.scrollPosition.y());
-    g_variant_builder_add(sessionBuilder, "d", frameState.pageScaleFactor);
+    g_variant_builder_add(sessionBuilder, "d", static_cast<gdouble>(frameState.pageScaleFactor));
     if (!frameState.httpBody)
         g_variant_builder_add(sessionBuilder, HTTP_BODY_TYPE_STRING_V1, FALSE);
     else {
@@ -369,7 +369,7 @@ static bool decodeSessionState(GBytes* data, SessionState& sessionState)
     decodeBackForwardListItemState(backForwardListStateIter.get(), sessionState.backForwardListState);
 
     if (hasCurrentIndex)
-        sessionState.backForwardListState.currentIndex = currentIndex;
+        sessionState.backForwardListState.currentIndex = std::min<uint32_t>(currentIndex, sessionState.backForwardListState.items.size() - 1);
     return true;
 }
 

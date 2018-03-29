@@ -353,7 +353,7 @@ keychain_export(int argc, char * const *argv)
 				itemSpec = IS_All;
 			}
 			else {
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 			}
 			break;
 		case 'f':
@@ -391,7 +391,7 @@ keychain_export(int argc, char * const *argv)
 				externFormat = kSecFormatPEMSequence;
 			}
 			else {
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 			}
 			break;
 		case 'w':
@@ -405,7 +405,7 @@ keychain_export(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -427,7 +427,7 @@ keychain_export(int argc, char * const *argv)
 				break;
 			default:
 				sec_error("Don't know how to wrap in specified format/type");
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -716,7 +716,7 @@ ctk_export(int argc, char * const *argv)
                     itemSpec = IS_All;
                 }
                 else {
-                    return 2; /* @@@ Return 2 triggers usage message. */
+                    return SHOW_USAGE_MESSAGE;
                 }
                 break;
             case 'i':
@@ -725,7 +725,7 @@ ctk_export(int argc, char * const *argv)
 
             case '?':
             default:
-                return 2; /* @@@ Return 2 triggers usage message. */
+                return SHOW_USAGE_MESSAGE;
         }
     }
 

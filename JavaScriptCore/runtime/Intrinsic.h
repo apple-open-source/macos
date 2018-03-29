@@ -68,9 +68,12 @@ enum Intrinsic {
     RegExpExecIntrinsic,
     RegExpTestIntrinsic,
     RegExpTestFastIntrinsic,
+    ObjectGetPrototypeOfIntrinsic,
+    ReflectGetPrototypeOfIntrinsic,
     StringPrototypeValueOfIntrinsic,
     StringPrototypeReplaceIntrinsic,
     StringPrototypeReplaceRegExpIntrinsic,
+    StringPrototypeSliceIntrinsic,
     StringPrototypeToLowerCaseIntrinsic,
     NumberPrototypeToStringIntrinsic,
     IMulIntrinsic,
@@ -81,7 +84,19 @@ enum Intrinsic {
     BoundThisNoArgsFunctionCallIntrinsic,
     JSMapGetIntrinsic,
     JSMapHasIntrinsic,
+    JSMapSetIntrinsic,
+    JSMapBucketHeadIntrinsic,
+    JSMapBucketNextIntrinsic,
+    JSMapBucketKeyIntrinsic,
+    JSMapBucketValueIntrinsic,
     JSSetHasIntrinsic,
+    JSSetAddIntrinsic,
+    JSSetBucketHeadIntrinsic,
+    JSSetBucketNextIntrinsic,
+    JSSetBucketKeyIntrinsic,
+    JSWeakMapGetIntrinsic,
+    JSWeakMapHasIntrinsic,
+    JSWeakSetHasIntrinsic,
     HasOwnPropertyIntrinsic,
     AtomicsAddIntrinsic,
     AtomicsAndIntrinsic,
@@ -101,6 +116,7 @@ enum Intrinsic {
     TypedArrayLengthIntrinsic,
     TypedArrayByteLengthIntrinsic,
     TypedArrayByteOffsetIntrinsic,
+    UnderscoreProtoIntrinsic,
 
     // Debugging intrinsics. These are meant to be used as testing hacks within
     // jsc.cpp and should never be exposed to users.
@@ -110,6 +126,12 @@ enum Intrinsic {
     SetInt32HeapPredictionIntrinsic,
     CheckInt32Intrinsic,
     FiatInt52Intrinsic,
+
+    // These are used for $vm performance debugging features.
+    CPUMfenceIntrinsic,
+    CPURdtscIntrinsic,
+    CPUCpuidIntrinsic,
+    CPUPauseIntrinsic,
 };
 
 const char* intrinsicName(Intrinsic);

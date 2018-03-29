@@ -43,3 +43,5 @@ GameCenterUI.xcodeproj/project.xcworkspace/xcshareddata/GameCenterUI.xccheckout
 # Carthage & OCMOCK frameworks for XCTest unit tests
 Frameworks/GameCenterFoundation/gamecenterctl Tests/Carthage
 project.xcworkspace
+nbook.db
+zbook.db

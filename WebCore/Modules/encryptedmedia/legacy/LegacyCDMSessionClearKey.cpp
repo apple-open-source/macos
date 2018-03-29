@@ -34,34 +34,28 @@
 #include <runtime/JSLock.h>
 #include <runtime/JSONObject.h>
 #include <runtime/VM.h>
-#include <wtf/NeverDestroyed.h>
 #include <wtf/UUID.h>
 #include <wtf/text/Base64.h>
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 static VM& clearKeyVM()
 {
-    static NeverDestroyed<RefPtr<VM>> vm;
-    if (!vm.get())
-        vm.get() = VM::create();
-
-    return *vm.get();
+    static VM& vm = VM::create().leakRef();
+    return vm;
 }
 
-CDMSessionClearKey::CDMSessionClearKey(CDMSessionClient* client)
+CDMSessionClearKey::CDMSessionClearKey(LegacyCDMSessionClient* client)
     : m_client(client)
     , m_sessionId(createCanonicalUUIDString())
 {
 }
 
-CDMSessionClearKey::~CDMSessionClearKey()
-{
-}
+CDMSessionClearKey::~CDMSessionClearKey() = default;
 
 RefPtr<Uint8Array> CDMSessionClearKey::generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode)
 {

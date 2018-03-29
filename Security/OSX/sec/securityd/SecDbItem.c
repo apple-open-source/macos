@@ -367,24 +367,25 @@ CFDataRef SecDbItemCopyEncryptedDataToBackup(SecDbItemRef item, uint64_t handle,
     if (attributes || auth_attributes) {
         SecAccessControlRef access_control = SecDbItemCopyAccessControl(item, error);
         if (access_control) {
-            if (ks_encrypt_data(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, false, error)) {
+            if (ks_encrypt_data_legacy(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, false, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));
             }
             CFRelease(access_control);
         }
-        CFReleaseSafe(attributes);
-        CFReleaseSafe(auth_attributes);
+        CFReleaseNull(attributes);
+        CFReleaseNull(auth_attributes);
     }
+
     return edata;
 }
 
-bool SecDbItemEnsureDecrypted(SecDbItemRef item, CFErrorRef *error) {
+bool SecDbItemEnsureDecrypted(SecDbItemRef item, bool decryptSecretData, CFErrorRef *error) {
 
     // If we haven't yet decrypted the item, make sure we do so now
     bool result = true;
-    if (item->_edataState == kSecDbItemEncrypted) {
+    if (item->_edataState == kSecDbItemEncrypted || (decryptSecretData && item->_edataState == kSecDbItemSecretEncrypted)) {
         const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbEncryptedDataAttr, error);
         if (attr) {
             CFDataRef edata = SecDbItemGetCachedValue(item, attr);
@@ -392,9 +393,9 @@ bool SecDbItemEnsureDecrypted(SecDbItemRef item, CFErrorRef *error) {
                 return SecError(errSecInternal, error, CFSTR("state= encrypted but edata is NULL"));
             // Decrypt calls set value a bunch of times which clears our edata and changes our state.
             item->_edataState = kSecDbItemDecrypting;
-            result = SecDbItemDecrypt(item, edata, error);
+            result = SecDbItemDecrypt(item, decryptSecretData, edata, error);
             if (result)
-                item->_edataState = kSecDbItemClean;
+                item->_edataState = decryptSecretData ? kSecDbItemClean : kSecDbItemSecretEncrypted;
             else
                 item->_edataState = kSecDbItemEncrypted;
         }
@@ -484,8 +485,8 @@ CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef
     if (!desc)
         return NULL;
 
-    if (desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag) {
-        if (!SecDbItemEnsureDecrypted(item, error))
+    if (desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag || desc->flags & kSecDbReturnDataFlag) {
+        if (!SecDbItemEnsureDecrypted(item, desc->flags & kSecDbReturnDataFlag, error))
             return NULL;
     }
 
@@ -754,7 +755,7 @@ keybag_handle_t SecDbItemGetKeybag(SecDbItemRef item) {
 }
 
 bool SecDbItemSetKeybag(SecDbItemRef item, keybag_handle_t keybag, CFErrorRef *error) {
-    if (!SecDbItemEnsureDecrypted(item, error))
+    if (!SecDbItemEnsureDecrypted(item, true, error))
         return false;
     if (item->keybag != keybag) {
         item->keybag = keybag;
@@ -777,9 +778,11 @@ bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value
     if (desc->setValue)
         return desc->setValue(item, desc, value, error);
 
-    if (desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag)
-        if (!SecDbItemEnsureDecrypted(item, error))
+    if (desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag) {
+        if (!SecDbItemEnsureDecrypted(item, true, error)) {
             return false;
+        }
+    }
 
     bool changed = false;
     CFTypeRef attr = NULL;
@@ -849,7 +852,7 @@ bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value
             SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL), kCFNull, NULL);
         if (desc->flags & kSecDbPrimaryKeyFlag)
             SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbPrimaryKeyAttr, NULL), kCFNull, NULL);
-        if ((desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag) && item->_edataState == kSecDbItemClean)
+        if ((desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag) && (item->_edataState == kSecDbItemClean || (item->_edataState == kSecDbItemSecretEncrypted && (desc->flags & kSecDbReturnDataFlag) == 0)))
             SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbEncryptedDataAttr, NULL), kCFNull, NULL);
         if (desc->flags & kSecDbSHA1ValueInFlag)
             CFDictionaryRemoveValue(item->attributes, SecDbAttrGetHashName(desc));
@@ -1304,7 +1307,7 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
     CFDataRef storedSHA1 = CFRetainSafe(SecDbItemGetValue(item, sha1attr, &localError));
     bool akpu = false;
     
-    if (localError || !SecDbItemEnsureDecrypted(item, &localError)) {
+    if (localError || !SecDbItemEnsureDecrypted(item, true, &localError)) {
         if (SecErrorGetOSStatus(localError) == errSecDecode) {
             // We failed to decrypt the item
             const SecDbAttr *desc = SecDbClassAttrWithKind(item->class, kSecDbAccessControlAttr, &localError);
@@ -1380,6 +1383,11 @@ static bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
     bool (^use_attr)(const SecDbAttr *attr) = ^bool(const SecDbAttr *attr) {
         return (attr->flags & kSecDbInFlag);
     };
+
+    if (!SecDbItemEnsureDecrypted(item, true, error)) {
+        return false;
+    }
+
     CFStringRef sql = SecDbItemCopyInsertSQL(item, use_attr);
     __block bool ok = sql;
     if (sql) {

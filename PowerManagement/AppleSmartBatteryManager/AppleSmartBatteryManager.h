@@ -113,8 +113,8 @@ public:
 
     // transactionCompletion is the guts of the state machine
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
-    IOReturn inhibitChargingGated(int level);
-    IOReturn disableInflowGated(int level);
+    IOReturn inhibitChargingGated(uint64_t level);
+    IOReturn disableInflowGated(uint64_t level);
     
 private:
     // Called by AppleSmartBatteryManagerUserClient
@@ -157,6 +157,7 @@ private:
     bool                        fSystemSleeping;
     bool                        fInacessible;
     IOWorkLoop                  *fWorkLoop;
+
 };
 
 #endif

@@ -38,7 +38,11 @@ INSTHDRS=(
 )
 
 INC_INSTHDRS=(
+	__wctype.h
+	_ctype.h
 	_locale.h
+	_regex.h
+	_stdio.h
 	_types.h
 	_wctype.h
 	_xlocale.h

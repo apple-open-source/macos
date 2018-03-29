@@ -1878,11 +1878,13 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 	// Calls _pthread_set_self() to prepare the main thread for execution.
 	_pthread_main_thread_init(thread);
 
+	struct _pthread_registration_data registration_data;
 	// Set up kernel entry points with __bsdthread_register.
-	_pthread_bsdthread_init();
+	_pthread_bsdthread_init(&registration_data);
 
-	// Have pthread_key do its init envvar checks.
+	// Have pthread_key and pthread_mutex do their init envvar checks.
 	_pthread_key_global_init(envp);
+	_pthread_mutex_global_init(envp, &registration_data);
 
 #if PTHREAD_DEBUG_LOG
 	_SIMPLE_STRING path = _simple_salloc();
@@ -2000,19 +2002,19 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 /***** pthread workqueue support routines *****/
 
 PTHREAD_NOEXPORT void
-_pthread_bsdthread_init(void)
+_pthread_bsdthread_init(struct _pthread_registration_data *data)
 {
-	struct _pthread_registration_data data = {};
-	data.version = sizeof(struct _pthread_registration_data);
-	data.dispatch_queue_offset = __PTK_LIBDISPATCH_KEY0 * sizeof(void *);
-	data.return_to_kernel_offset = __TSD_RETURN_TO_KERNEL * sizeof(void *);
-	data.tsd_offset = offsetof(struct _pthread, tsd);
-	data.mach_thread_self_offset = __TSD_MACH_THREAD_SELF * sizeof(void *);
+	bzero(data, sizeof(*data));
+	data->version = sizeof(struct _pthread_registration_data);
+	data->dispatch_queue_offset = __PTK_LIBDISPATCH_KEY0 * sizeof(void *);
+	data->return_to_kernel_offset = __TSD_RETURN_TO_KERNEL * sizeof(void *);
+	data->tsd_offset = offsetof(struct _pthread, tsd);
+	data->mach_thread_self_offset = __TSD_MACH_THREAD_SELF * sizeof(void *);
 
 	int rv = __bsdthread_register(thread_start,
 			start_wqthread, (int)PTHREAD_SIZE,
-			(void*)&data, (uintptr_t)sizeof(data),
-			data.dispatch_queue_offset);
+			(void*)data, (uintptr_t)sizeof(*data),
+			data->dispatch_queue_offset);
 
 	if (rv > 0) {
 		if ((rv & PTHREAD_FEATURE_QOS_DEFAULT) == 0) {
@@ -2026,7 +2028,16 @@ _pthread_bsdthread_init(void)
 		__pthread_supported_features = rv;
 	}
 
-	pthread_priority_t main_qos = (pthread_priority_t)data.main_qos;
+	/*
+	 * TODO: differentiate between (-1, EINVAL) after fork (which has the side
+	 * effect of resetting the child's stack_addr_hint before bailing out) and
+	 * (-1, EINVAL) because of invalid arguments.  We'd probably like to treat
+	 * the latter as fatal.
+	 *
+	 * <rdar://problem/36451838>
+	 */
+
+	pthread_priority_t main_qos = (pthread_priority_t)data->main_qos;
 
 	if (_pthread_priority_get_qos_newest(main_qos) != QOS_CLASS_UNSPECIFIED) {
 		_pthread_set_main_qos(main_qos);

@@ -28,7 +28,7 @@
 
 #include "APIObject.h"
 #include "WebPreferencesStore.h"
-#include <WebCore/SessionID.h>
+#include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
 
@@ -43,6 +43,7 @@ class WebUserContentControllerProxy;
 
 namespace API {
 
+class ApplicationManifest;
 class WebsiteDataStore;
 
 class PageConfiguration : public ObjectImpl<Object::Type::PageConfiguration> {
@@ -81,8 +82,8 @@ public:
     void setWebsiteDataStore(WebsiteDataStore*);
 
     // FIXME: Once PageConfigurations *always* have a data store, get rid of the separate sessionID.
-    WebCore::SessionID sessionID();
-    void setSessionID(WebCore::SessionID);
+    PAL::SessionID sessionID();
+    void setSessionID(PAL::SessionID);
 
     bool treatsSHA1SignedCertificatesAsInsecure() { return m_treatsSHA1SignedCertificatesAsInsecure; }
     void setTreatsSHA1SignedCertificatesAsInsecure(bool treatsSHA1SignedCertificatesAsInsecure) { m_treatsSHA1SignedCertificatesAsInsecure = treatsSHA1SignedCertificatesAsInsecure; } 
@@ -106,6 +107,11 @@ public:
     const WTF::String& overrideContentSecurityPolicy() const { return m_overrideContentSecurityPolicy; }
     void setOverrideContentSecurityPolicy(const WTF::String& overrideContentSecurityPolicy) { m_overrideContentSecurityPolicy = overrideContentSecurityPolicy; }
 
+#if ENABLE(APPLICATION_MANIFEST)
+    const ApplicationManifest* applicationManifest() const;
+    void setApplicationManifest(ApplicationManifest*);
+#endif
+
 private:
 
     RefPtr<WebKit::WebProcessPool> m_processPool;
@@ -119,7 +125,7 @@ private:
     RefPtr<WebsiteDataStore> m_websiteDataStore;
     // FIXME: We currently have to pass the session ID separately here to support the legacy private browsing session.
     // Once we get rid of it we should get rid of this configuration parameter as well.
-    WebCore::SessionID m_sessionID;
+    PAL::SessionID m_sessionID;
 
     bool m_treatsSHA1SignedCertificatesAsInsecure = true;
 #if PLATFORM(IOS)
@@ -131,6 +137,10 @@ private:
     std::optional<double> m_cpuLimit;
 
     WTF::String m_overrideContentSecurityPolicy;
+
+#if ENABLE(APPLICATION_MANIFEST)
+    RefPtr<ApplicationManifest> m_applicationManifest;
+#endif
 };
 
 } // namespace API

@@ -28,6 +28,7 @@
 
 #include <memory>
 #include <stdarg.h>
+#include <tuple>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Optional.h>
@@ -43,6 +44,11 @@ class String;
 class StringImpl;
 class StringView;
 class UniquedStringImpl;
+
+inline const char* boolForPrinting(bool value)
+{
+    return value ? "true" : "false";
+}
 
 class PrintStream {
     WTF_MAKE_FAST_ALLOCATED; WTF_MAKE_NONCOPYABLE(PrintStream);
@@ -337,6 +343,7 @@ void printInternal(PrintStream& out, const std::optional<T>& value)
 
 } // namespace WTF
 
+using WTF::boolForPrinting;
 using WTF::CharacterDump;
 using WTF::PointerDump;
 using WTF::PrintStream;

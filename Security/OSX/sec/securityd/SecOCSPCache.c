@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009-2010,2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
 #include <CoreFoundation/CFUtilities.h>
 #include <CoreFoundation/CFString.h>
 #include <securityd/SecOCSPCache.h>
+#include <securityd/SecTrustLoggingServer.h>
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
@@ -37,6 +38,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <asl.h>
+#include "utilities/SecCFWrappers.h"
 #include "utilities/SecDb.h"
 #include "utilities/SecFileLocations.h"
 #include "utilities/iOSforOSX.h"
@@ -44,6 +46,7 @@
 /* Note that lastUsed is actually time of insert because we don't
    refresh lastUsed on each SELECT. */
 
+#define flushSQL  CFSTR("DELETE FROM responses")
 #define expireSQL  CFSTR("DELETE FROM responses WHERE expires<?")
 #define insertResponseSQL  CFSTR("INSERT INTO responses " \
     "(ocspResponse,responderURI,expires,lastUsed) VALUES (?,?,?,?)")
@@ -72,7 +75,7 @@ static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
         if (ok && !SecDbWithSQL(dbconn, selectHashAlgorithmSQL /* expireSQL */, &localError, NULL) && CFErrorGetCode(localError) == SQLITE_ERROR) {
             /* SecDbWithSQL returns SQLITE_ERROR if the table we are preparing the above statement for doesn't exist. */
             ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
-                ok = SecDbExec(dbconn,
+                ok &= SecDbExec(dbconn,
                     CFSTR("CREATE TABLE ocsp("
                           "issuerNameHash BLOB NOT NULL,"
                           "issuerPubKeyHash BLOB NOT NULL,"
@@ -99,8 +102,16 @@ static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
             });
         }
         CFReleaseSafe(localError);
-        if (!ok)
+        if (!ok) {
             secerror("%s failed: %@", didCreate ? "Create" : "Open", error ? *error : NULL);
+            CFIndex errCode = errSecInternalComponent;
+            if (error && *error) {
+                errCode = CFErrorGetCode(*error);
+            }
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache,
+                                                         didCreate ? TAOperationCreate : TAOperationOpen,
+                                                         TAFatalError, errCode);
+        }
         return ok;
     });
 }
@@ -196,21 +207,19 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
         ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, &localError, ^(bool *commit) {
             __block sqlite3_int64 responseId;
             if (oldResponse && (responseId = SecOCSPResponseGetID(oldResponse)) >= 0) {
-                ok = SecDbWithSQL(dbconn, deleteResponseSQL, &localError, ^bool(sqlite3_stmt *deleteResponse) {
-                    ok = SecDbBindInt64(deleteResponse, 1, responseId, &localError);
+                ok &= SecDbWithSQL(dbconn, deleteResponseSQL, &localError, ^bool(sqlite3_stmt *deleteResponse) {
+                    ok &= SecDbBindInt64(deleteResponse, 1, responseId, &localError);
                     /* Execute the delete statement. */
-                    if (ok)
-                        ok = SecDbStep(dbconn, deleteResponse, &localError, NULL);
+                    ok &= SecDbStep(dbconn, deleteResponse, &localError, NULL);
                     return ok;
                 });
             }
 
-            if (ok) ok = SecDbWithSQL(dbconn, insertResponseSQL, &localError, ^bool(sqlite3_stmt *insertResponse) {
-                if (ok)
-                    ok = SecDbBindBlob(insertResponse, 1,
-                                       CFDataGetBytePtr(responseData),
-                                       CFDataGetLength(responseData),
-                                       SQLITE_TRANSIENT, &localError);
+            ok &= SecDbWithSQL(dbconn, insertResponseSQL, &localError, ^bool(sqlite3_stmt *insertResponse) {
+                ok &= SecDbBindBlob(insertResponse, 1,
+                                    CFDataGetBytePtr(responseData),
+                                    CFDataGetLength(responseData),
+                                    SQLITE_TRANSIENT, &localError);
 
                 /* responses.responderURI */
                 if (ok) {
@@ -231,72 +240,73 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                     }
                 }
                 /* responses.expires */
-                if (ok)
-                    ok = SecDbBindDouble(insertResponse, 3,
-                                         SecOCSPResponseGetExpirationTime(ocspResponse),
-                                         &localError);
+                ok &= SecDbBindDouble(insertResponse, 3,
+                                      SecOCSPResponseGetExpirationTime(ocspResponse),
+                                      &localError);
                 /* responses.lastUsed */
-                if (ok)
-                    ok = SecDbBindDouble(insertResponse, 4,
-                                         verifyTime,
-                                         &localError);
+                ok &= SecDbBindDouble(insertResponse, 4,
+                                      verifyTime,
+                                      &localError);
 
                 /* Execute the insert statement. */
-                if (ok)
-                    ok = SecDbStep(dbconn, insertResponse, &localError, NULL);
+                ok &= SecDbStep(dbconn, insertResponse, &localError, NULL);
 
                 responseId = sqlite3_last_insert_rowid(SecDbHandle(dbconn));
                 return ok;
             });
 
             /* Now add a link record for every singleResponse in the ocspResponse. */
-            if (ok) ok = SecDbWithSQL(dbconn, insertLinkSQL, &localError, ^bool(sqlite3_stmt *insertLink) {
+            ok &= SecDbWithSQL(dbconn, insertLinkSQL, &localError, ^bool(sqlite3_stmt *insertLink) {
                 SecAsn1OCSPSingleResponse **responses;
                 for (responses = ocspResponse->responseData.responses;
                      *responses; ++responses) {
                     SecAsn1OCSPSingleResponse *resp = *responses;
                     SecAsn1OCSPCertID *certId = &resp->certID;
-                    if (ok) ok = SecDbBindBlob(insertLink, 1,
-                                               certId->algId.algorithm.Data,
-                                               certId->algId.algorithm.Length,
-                                               SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(insertLink, 2,
-                                               certId->issuerNameHash.Data,
-                                               certId->issuerNameHash.Length,
-                                               SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(insertLink, 3,
-                                               certId->issuerPubKeyHash.Data,
-                                               certId->issuerPubKeyHash.Length,
-                                               SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(insertLink, 4,
-                                               certId->serialNumber.Data,
-                                               certId->serialNumber.Length,
-                                               SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindInt64(insertLink, 5, responseId, &localError);
+                    ok &= SecDbBindBlob(insertLink, 1,
+                                        certId->algId.algorithm.Data,
+                                        certId->algId.algorithm.Length,
+                                        SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(insertLink, 2,
+                                        certId->issuerNameHash.Data,
+                                        certId->issuerNameHash.Length,
+                                        SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(insertLink, 3,
+                                        certId->issuerPubKeyHash.Data,
+                                        certId->issuerPubKeyHash.Length,
+                                        SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(insertLink, 4,
+                                        certId->serialNumber.Data,
+                                        certId->serialNumber.Length,
+                                        SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindInt64(insertLink, 5, responseId, &localError);
 
                     /* Execute the insert statement. */
-                    if (ok) ok = SecDbStep(dbconn, insertLink, &localError, NULL);
-                    if (ok) ok = SecDbReset(insertLink, &localError);
+                    ok &= SecDbStep(dbconn, insertLink, &localError, NULL);
+                    ok &= SecDbReset(insertLink, &localError);
                 }
                 return ok;
             });
 
             // Remove expired entries here.
             // TODO: Consider only doing this once per 24 hours or something.
-            if (ok) ok = _SecOCSPCacheExpireWithTransaction(dbconn, verifyTime, &localError);
+            ok &= _SecOCSPCacheExpireWithTransaction(dbconn, verifyTime, &localError);
             if (!ok)
                 *commit = false;
         });
     });
     if (!ok) {
         secerror("_SecOCSPCacheAddResponse failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
         CFReleaseNull(localError);
     } else {
         // force a vacuum when we modify the database
         ok &= SecDbPerformWrite(this->db, &localError, ^(SecDbConnectionRef dbconn) {
-            ok = SecDbExec(dbconn, CFSTR("VACUUM"), &localError);
+            ok &= SecDbExec(dbconn, CFSTR("VACUUM"), &localError);
             if (!ok) {
                 secerror("_SecOCSPCacheAddResponse VACUUM failed: %@", localError);
+                TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
+                                                             localError ? CFErrorGetCode(localError) : errSecInternalComponent);
             }
         });
     }
@@ -338,16 +348,16 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
                 if (issuerNameHash && issuerPubKeyHash && ok) ok &= SecDbWithSQL(dbconn, selectResponseSQL, &localError, ^bool(sqlite3_stmt *selectResponse) {
                     /* Now we have the serial, algorithm, issuerNameHash and
                      issuerPubKeyHash so let's lookup the db entry. */
-                    if (ok) ok = SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
-                                               CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
-                                               CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
-                                               CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 5, algorithm.Data,
-                                               algorithm.Length, SQLITE_TRANSIENT, &localError);
-                    if (ok) ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {
+                    ok &= SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
+                    ok &= SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
+                                        CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
+                                        CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
+                                        CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbBindBlob(selectResponse, 5, algorithm.Data,
+                                        algorithm.Length, SQLITE_TRANSIENT, &localError);
+                    ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {
                         /* Found an entry! */
                         secdebug("ocspcache", "found cached response");
                         CFDataRef resp = CFDataCreate(kCFAllocatorDefault,
@@ -383,18 +393,36 @@ errOut:
     CFReleaseSafe(serial);
     CFReleaseSafe(issuer);
 
-    if (!ok) {
+    if (!ok || localError) {
         secerror("ocsp cache lookup failed: %@", localError);
         if (response) {
             SecOCSPResponseFinalize(response);
             response = NULL;
         }
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationRead, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
     }
     CFReleaseSafe(localError);
 
     secdebug("ocspcache", "returning %s", (response ? "cached response" : "NULL"));
 
     return response;
+}
+
+static bool _SecOCSPCacheFlush(SecOCSPCacheRef cache, CFErrorRef *error) {
+    __block CFErrorRef localError = NULL;
+    __block bool ok = true;
+
+    ok &= SecDbPerformWrite(cache->db, &localError, ^(SecDbConnectionRef dbconn) {
+        ok &= SecDbExec(dbconn, flushSQL, &localError);
+    });
+    if (!ok || localError) {
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+
+    return ok;
 }
 
 
@@ -423,4 +451,12 @@ SecOCSPResponseRef SecOCSPCacheCopyMatchingWithMinInsertTime(SecOCSPRequestRef r
         response = _SecOCSPCacheCopyMatching(cache, request, localResponderURI, minInsertTime);
     });
     return response;
+}
+
+bool SecOCSPCacheFlush(CFErrorRef *error) {
+    __block bool result = false;
+    SecOCSPCacheWith(^(SecOCSPCacheRef cache) {
+        result = _SecOCSPCacheFlush(cache, error);
+    });
+    return result;
 }

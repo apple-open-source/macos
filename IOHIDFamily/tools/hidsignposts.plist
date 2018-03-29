@@ -4,21 +4,58 @@
 <array>
 	<dict>
 		<key>Name</key>
-		<string>HIDEventSystem</string>
-		<key>ChildrenGroupedBy</key>
-		<string>Arg1</string>
+		<string>HID Event System (Intervals)</string>
 		<key>Children</key>
 		<array>
 			<dict>
 				<key>Name</key>
-				<string>HID User Space Processing</string>
+				<string>HID Event Dispatch Total</string>
 				<key>Type</key>
 				<string>Interval</string>
 				<key>KTraceCodeBegin</key>
 				<string>0x5238100</string>
 				<key>KTraceCodeEnd</key>
-				<string>0x523804c</string>
+				<string>0x523804e</string>
 			</dict>
+			<dict>
+				<key>Name</key>
+				<string>HID Event Dispatch Service Filters</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x523810d</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523810e</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>HID Event Dispatch Session Filters</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x5238149</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523814a</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>HID Event Dispatch Client Enqueue</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x523804d</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523804e</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>Name</key>
+		<string>HID Event System</string>
+		<key>ChildrenGroupedBy</key>
+		<string>Arg1</string>
+		<key>Children</key>
+		<array>
 			<dict>
 				<key>Name</key>
 				<string>kHID_ES_FiltersClientsDone</string>
@@ -41,11 +78,21 @@
 			</dict>
 			<dict>
 				<key>Name</key>
-				<string>kHID_ES_ClientsDone</string>
+				<string>kHID_ES_ClientsEnqueue (Start)</string>
 				<key>Type</key>
 				<string>Impulse</string>
 				<key>KTraceCode</key>
-				<string>0x523804c</string>
+				<string>0x523804d</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kHID_ES_ClientsEnqueue (End)</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523804e</string>
 				<key>EventsMatchedBy</key>
 				<string>Arg1</string>
 			</dict>
@@ -101,11 +148,21 @@
 			</dict>
 			<dict>
 				<key>Name</key>
-				<string>kHID_ES_Service_FiltersDone</string>
+				<string>kHID_ES_Service_Filters (Start)</string>
 				<key>Type</key>
 				<string>Impulse</string>
 				<key>KTraceCode</key>
-				<string>0x523810c</string>
+				<string>0x523810d</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kHID_ES_Service_Filters (End)</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523810e</string>
 				<key>EventsMatchedBy</key>
 				<string>Arg1</string>
 			</dict>
@@ -131,11 +188,21 @@
 			</dict>
 			<dict>
 				<key>Name</key>
-				<string>kHID_ES_Session_FiltersDone</string>
+				<string>kHID_ES_Session_Filters (Start)</string>
 				<key>Type</key>
 				<string>Impulse</string>
 				<key>KTraceCode</key>
-				<string>0x5238148</string>
+				<string>0x5238149</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kHID_ES_Session_Filters (End)</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523814a</string>
 				<key>EventsMatchedBy</key>
 				<string>Arg1</string>
 			</dict>

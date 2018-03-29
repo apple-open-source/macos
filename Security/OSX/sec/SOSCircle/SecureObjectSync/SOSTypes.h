@@ -126,7 +126,7 @@ typedef int SOSSecurityPropertyActionCode;
 #define SOSControlInitialSyncFlagPCSNonCurrent        (1 << 2)
 #define SOSControlInitialSyncFlagBluetoothMigration   (1 << 3)
 
-@protocol SOSControlProtocol
+@protocol SOSControlProtocol <NSObject>
 - (void)userPublicKey:(void ((^))(BOOL trusted, NSData *spki, NSError *error))complete;
 - (void)kvsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
 - (void)idsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
@@ -147,7 +147,6 @@ typedef int SOSSecurityPropertyActionCode;
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete;
 - (void)setWatchdogParmeters:(NSDictionary*)parameters complete:(void (^)(NSError* error))complete;
-
 @end
 #endif
 

@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 156
+Submission	= 159
 
 
 #
@@ -36,7 +36,6 @@ GENERATE_TEXT_BASED_STUBS_UPPER := $(shell echo $(GENERATE_TEXT_BASED_STUBS) | t
  
 STUBIFY = $(if $(filter 1 TRUE ON YES,$(GENERATE_TEXT_BASED_STUBS_UPPER)),YES,NO)
 $(info GENERATE_TEXT_BASED_STUBS=$(STUBIFY))
-
 
 ########################
 # Allow selecting the compiler to be used
@@ -158,7 +157,8 @@ AEP_Version	= 5.6.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch 10268440.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
-			lmsensors.patch darwin-sensors.patch \
+			lmsensors.patch darwin-sensors.patch sanitize.patch 34748495.patch 34782045.patch 34782700.patch \
+			34806284.patch warnings1.patch \
 			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
@@ -179,6 +179,22 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
 ifndef MACOSX_DEPLOYMENT_TARGET
 	MACOSX_DEPLOYMENT_TARGET = $(shell sw_vers -productVersion | cut -d. -f1-2)
 endif
+
+###
+# Enable ASAN for debugging
+#     must then run the perl executables with a special dylib using DYLD_INSERT_LIBRARIES with the path from
+#     echo $(xcrun -sdk iphoneos clang -print-file-name=lib)/darwin/libclang_rt.asan_osx_dynamic.dylib
+#
+
+# build using buildit with the  -useAddressSanitization  flag
+#
+ifdef RC_ENABLE_ADDRESS_SANITIZATION
+LD_FLAGS += -fsanitize=address
+CLFLAGS += -fsanitize=address
+CFLAGS += -fsanitize=address
+LTCFLAGS = -fsanitize=address
+endif
+
 DESTDIR	= $(DSTROOT)
 
 # This project must be built in the source directory because the real

@@ -137,6 +137,15 @@
 			<key>EligibleResource</key>
 			<string>NOT (cpuArchitecture BEGINSWITH &apos;arm&apos;)</string>
 		</dict>
+        <dict>
+            <key>TestName</key>
+            <string>KeychainAnalytics</string>
+            <key>Command</key>
+            <array>
+                <string>BATS_XCTEST_CMD</string>
+                <string>/AppleInternal/XCTests/com.apple.security/KeychainAnalyticsTests.xctest</string>
+            </array>
+        </dict>
 	</array>
 </dict>
 </plist>

@@ -25,6 +25,7 @@
 
 #import <Foundation/Foundation.h>
 #import <SecurityFoundation/SFKey.h>
+#import <SecurityFoundation/SFKey_Private.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -70,6 +71,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)trustedPeerSetChanged;
 @end
 
+extern NSString* const CKKSSOSPeerPrefix;
+
 // These should be replaced by Octagon peers, when those exist
 @interface CKKSSOSPeer : NSObject <CKKSPeer>
 @property (readonly) NSString* peerID;
@@ -86,8 +89,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) SFECPublicKey* publicEncryptionKey;
 @property (readonly) SFECPublicKey* publicSigningKey;
 
-@property (readonly) SFECKeyPair* encryptionKey;
-@property (readonly) SFECKeyPair* signingKey;
+@property SFECKeyPair* encryptionKey;
+@property SFECKeyPair* signingKey;
 
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
                     encryptionKey:(SFECKeyPair*)encryptionKey

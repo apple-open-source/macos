@@ -26,7 +26,6 @@
 #include "config.h"
 #include "DOMTokenList.h"
 
-#include "ExceptionCode.h"
 #include "HTMLParserIdioms.h"
 #include "SpaceSplitString.h"
 #include <wtf/HashSet.h>
@@ -36,7 +35,7 @@
 
 namespace WebCore {
 
-DOMTokenList::DOMTokenList(Element& element, const QualifiedName& attributeName, WTF::Function<bool(StringView)>&& isSupportedToken)
+DOMTokenList::DOMTokenList(Element& element, const QualifiedName& attributeName, IsSupportedTokenFunction&& isSupportedToken)
     : m_element(element)
     , m_attributeName(attributeName)
     , m_isSupportedToken(WTFMove(isSupportedToken))
@@ -51,10 +50,10 @@ static inline bool tokenContainsHTMLSpace(const String& token)
 ExceptionOr<void> DOMTokenList::validateToken(const String& token)
 {
     if (token.isEmpty())
-        return Exception { SYNTAX_ERR };
+        return Exception { SyntaxError };
 
     if (tokenContainsHTMLSpace(token))
-        return Exception { INVALID_CHARACTER_ERR };
+        return Exception { InvalidCharacterError };
 
     return { };
 }
@@ -162,10 +161,10 @@ ExceptionOr<bool> DOMTokenList::toggle(const AtomicString& token, std::optional<
 ExceptionOr<void> DOMTokenList::replace(const AtomicString& item, const AtomicString& replacement)
 {
     if (item.isEmpty() || replacement.isEmpty())
-        return Exception { SYNTAX_ERR };
+        return Exception { SyntaxError };
 
     if (tokenContainsHTMLSpace(item) || tokenContainsHTMLSpace(replacement))
-        return Exception { INVALID_CHARACTER_ERR };
+        return Exception { InvalidCharacterError };
 
     auto& tokens = this->tokens();
 
@@ -192,7 +191,7 @@ ExceptionOr<bool> DOMTokenList::supports(StringView token)
 {
     if (!m_isSupportedToken)
         return Exception { TypeError };
-    return m_isSupportedToken(token);
+    return m_isSupportedToken(m_element.document(), token);
 }
 
 // https://dom.spec.whatwg.org/#dom-domtokenlist-value
@@ -248,6 +247,9 @@ void DOMTokenList::associatedAttributeValueChanged(const AtomicString&)
 void DOMTokenList::updateAssociatedAttributeFromTokens()
 {
     ASSERT(!m_tokensNeedUpdating);
+
+    if (m_tokens.isEmpty() && !m_element.hasAttribute(m_attributeName))
+        return;
 
     // https://dom.spec.whatwg.org/#concept-ordered-set-serializer
     StringBuilder builder;

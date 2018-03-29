@@ -11937,11 +11937,11 @@ xmlXPathCompOpEvalPositionalPredicate(xmlXPathParserContextPtr ctxt,
 		}
 	    }
 
-            frame = xmlXPathSetFrame(ctxt);
 	    valuePush(ctxt, contextObj);
+            frame = xmlXPathSetFrame(ctxt);
 	    res = xmlXPathCompOpEvalToBoolean(ctxt, exprOp, 1);
-            tmp = valuePop(ctxt);
             xmlXPathPopFrame(ctxt, frame);
+            tmp = valuePop(ctxt);
 
 	    if ((ctxt->error != XPATH_EXPRESSION_OK) || (res == -1)) {
                 while (tmp != contextObj) {

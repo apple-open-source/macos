@@ -57,7 +57,7 @@
 
 
 
-static int kTestTestCount = 90;
+static int kTestTestCount = 73;
 
 static void tests()
 {

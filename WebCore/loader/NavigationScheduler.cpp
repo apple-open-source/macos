@@ -50,6 +50,7 @@
 #include "Logging.h"
 #include "NavigationDisabler.h"
 #include "Page.h"
+#include "PolicyChecker.h"
 #include "ScriptController.h"
 #include "UserGestureIndicator.h"
 #include <wtf/CurrentTime.h>
@@ -85,7 +86,7 @@ public:
                 m_initiatedByMainFrame = InitiatedByMainFrame::Yes;
         }
     }
-    virtual ~ScheduledNavigation() { }
+    virtual ~ScheduledNavigation() = default;
 
     virtual void fire(Frame&) = 0;
 
@@ -335,9 +336,7 @@ NavigationScheduler::NavigationScheduler(Frame& frame)
 {
 }
 
-NavigationScheduler::~NavigationScheduler()
-{
-}
+NavigationScheduler::~NavigationScheduler() = default;
 
 bool NavigationScheduler::redirectScheduledDuringLoad()
 {
@@ -522,6 +521,7 @@ void NavigationScheduler::schedule(std::unique_ptr<ScheduledNavigation> redirect
     if (redirect->wasDuringLoad()) {
         if (DocumentLoader* provisionalDocumentLoader = m_frame.loader().provisionalDocumentLoader())
             provisionalDocumentLoader->stopLoading();
+        m_frame.loader().policyChecker().stopCheck();
         m_frame.loader().stopLoading(UnloadEventPolicyUnloadAndPageHide);
     }
 

@@ -229,6 +229,11 @@ uint32_t pthread_debug_tracing = 1;
 SYSCTL_INT(_kern, OID_AUTO, pthread_debug_tracing, CTLFLAG_RW | CTLFLAG_LOCKED,
 		   &pthread_debug_tracing, 0, "")
 
+static uint32_t pthread_mutex_default_policy;
+
+SYSCTL_INT(_kern, OID_AUTO, pthread_mutex_default_policy, CTLFLAG_RW | CTLFLAG_LOCKED,
+	   &pthread_mutex_default_policy, 0, "");
+
 /*
  *       +-----+-----+-----+-----+-----+-----+-----+
  *       | MT  | BG  | UT  | DE  | IN  | UN  | mgr |
@@ -890,6 +895,8 @@ _bsdthread_register(struct proc *p,
 		} else {
 			data.main_qos = _pthread_priority_make_newest(QOS_CLASS_UNSPECIFIED, 0, 0);
 		}
+
+		data.mutex_default_policy = pthread_mutex_default_policy;
 
 		kr = copyout(&data, pthread_init_data, pthread_init_sz);
 		if (kr != KERN_SUCCESS) {
@@ -4090,6 +4097,11 @@ _pthread_init(void)
 	pthread_zone_threadreq = zinit(sizeof(struct threadreq),
 			1024 * sizeof(struct threadreq), 8192, "pthread.threadreq");
 
+	int policy_bootarg;
+	if (PE_parse_boot_argn("pthread_mutex_default_policy", &policy_bootarg, sizeof(policy_bootarg))) {
+		pthread_mutex_default_policy = policy_bootarg;
+	}
+
 	/*
 	 * register sysctls
 	 */
@@ -4099,6 +4111,7 @@ _pthread_init(void)
 	sysctl_register_oid(&sysctl__kern_wq_max_threads);
 	sysctl_register_oid(&sysctl__kern_wq_max_constrained_threads);
 	sysctl_register_oid(&sysctl__kern_pthread_debug_tracing);
+	sysctl_register_oid(&sysctl__kern_pthread_mutex_default_policy);
 
 #if DEBUG
 	sysctl_register_oid(&sysctl__debug_wq_kevent_test);

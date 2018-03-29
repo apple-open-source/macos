@@ -68,9 +68,6 @@ struct IOI2CRequest_10_5_0
     uint32_t            replyBuffer;
     uint32_t            replyBytes;
     uint32_t            __reservedD[16];
-#ifdef __ppc__
-    uint32_t            __reservedE;
-#endif
 };
 
 #pragma pack(pop)

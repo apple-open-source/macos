@@ -308,6 +308,10 @@ static const uint64_t KCProtocolVersion = kPiggyV1;
     if (us == NULL) return nil;
     CFErrorRef cfError = NULL;
     NSData* piEncoded = (__bridge_transfer NSData*) SOSPeerInfoCopyEncodedData(us, NULL, &cfError);
+    if(us) {
+        CFRelease(us);
+        us = NULL;
+    }
 
     if (piEncoded == nil) {
         if (error != nil) {

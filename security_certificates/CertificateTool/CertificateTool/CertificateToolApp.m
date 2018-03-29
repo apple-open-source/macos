@@ -440,7 +440,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
         //NSString* oid_str = [items objectAtIndex:0];
         NSUInteger iCnt = 0;
 
-		NSMutableArray* cert_digests = [NSMutableArray array];
+		NSMutableSet* cert_digests = [NSMutableSet set];
         // loop through the names of all of the cert files
         for (iCnt = 1; iCnt < num_items; iCnt++)
         {
@@ -463,13 +463,23 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 			}
 		}
 
-        NSMutableArray* exisiting_certs = [_EVRootsData objectForKey:oid_str];
-        if (nil != exisiting_certs)
+        // Add certificates for current vendor-specific OID
+        NSMutableArray* existing_certs = [_EVRootsData objectForKey:oid_str];
+        if (nil != existing_certs)
         {
-            [cert_digests addObjectsFromArray:exisiting_certs];
+            [cert_digests addObjectsFromArray:existing_certs];
         }
 
-		[_EVRootsData setObject:cert_digests forKey:oid_str];
+		[_EVRootsData setObject:[cert_digests allObjects] forKey:oid_str];
+
+        // Add (all) certificates for generic CAB Forum OID
+        existing_certs = [_EVRootsData objectForKey:@"2.23.140.1.1"];
+        if ( nil != existing_certs)
+        {
+            [cert_digests addObjectsFromArray:existing_certs];
+        }
+
+        [_EVRootsData setObject:[cert_digests allObjects] forKey:@"2.23.140.1.1"];
     }
 
     result = YES;

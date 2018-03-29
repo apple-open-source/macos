@@ -1,4 +1,4 @@
-# Copyright (C) 2004-2009, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004-2009, 2011-2017  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 1998-2003  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -12,8 +12,6 @@
 # LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
-
-# $Id$
 
 ###
 ### Common Makefile rules for BIND 9.
@@ -35,8 +33,6 @@ sysconfdir =	@sysconfdir@
 localstatedir =	@localstatedir@
 mandir =	@mandir@
 datarootdir =   @datarootdir@
-export_libdir =	@export_libdir@
-export_includedir = @export_includedir@
 
 DESTDIR =
 
@@ -48,15 +44,17 @@ top_builddir =	@BIND9_TOP_BUILDDIR@
 ### All
 ###
 ### Makefile may define:
+###	PREREQS
 ###	TARGETS
 
-all: subdirs ${TARGETS} testdirs
+all: ${PREREQS} subdirs ${TARGETS} testdirs
 
 ###
 ### Subdirectories
 ###
 ### Makefile may define:
 ###	SUBDIRS
+###	DEPDIRS
 
 ALL_SUBDIRS = ${SUBDIRS} nulldir
 ALL_TESTDIRS = ${TESTDIRS} nulldir
@@ -87,7 +85,7 @@ testdirs:
 
 install:: all
 
-install clean distclean maintainer-clean doc docclean man manclean::
+install uninstall clean distclean maintainer-clean doc docclean man manclean::
 	@for i in ${ALL_SUBDIRS} ${ALL_TESTDIRS}; do \
 		if [ "$$i" != "nulldir" -a -d $$i ]; then \
 			echo "making $@ in `pwd`/$$i"; \
@@ -125,7 +123,7 @@ BUILD_LIBS = @BUILD_LIBS@
 .SUFFIXES:
 .SUFFIXES: .c .@O@
 
-ALWAYS_INCLUDES = -I${top_builddir}
+ALWAYS_INCLUDES = -I${top_builddir} -I${top_srcdir}
 ALWAYS_DEFINES = @ALWAYS_DEFINES@
 ALWAYS_WARNINGS =
 
@@ -144,6 +142,7 @@ LIBTOOL = @LIBTOOL@
 LIBTOOL_MODE_COMPILE = ${LIBTOOL} @LIBTOOL_MODE_COMPILE@
 LIBTOOL_MODE_INSTALL = ${LIBTOOL} @LIBTOOL_MODE_INSTALL@
 LIBTOOL_MODE_LINK = ${LIBTOOL} @LIBTOOL_MODE_LINK@
+LIBTOOL_MODE_UNINSTALL = ${LIBTOOL} @LIBTOOL_MODE_UNINSTALL@
 PURIFY = @PURIFY@
 
 MKDEP = ${SHELL} ${top_builddir}/make/mkdep
@@ -244,7 +243,7 @@ distclean maintainer-clean::
 	rm -f Makefile
 
 depend:
-	@for i in ${ALL_SUBDIRS}; do \
+	@for i in ${ALL_SUBDIRS} ${ALL_TESTDIRS}; do \
 		if [ "$$i" != "nulldir" -a -d $$i ]; then \
 			echo "making depend in `pwd`/$$i"; \
 			(cd $$i; ${MAKE} ${MAKEDEFS} DESTDIR="${DESTDIR}" $@) || exit 1; \
@@ -311,10 +310,13 @@ INSTALL_LIBRARY =	@INSTALL_LIBRARY@
 ###
 
 XSLTPROC =		@XSLTPROC@ --novalid --xinclude --nonet
+XMLLINT =		@XMLLINT@
 PERL =			@PERL@
 LATEX =			@LATEX@
 PDFLATEX =		@PDFLATEX@
+DBLATEX =		@DBLATEX@
 W3M =			@W3M@
+PANDOC =		@PANDOC@
 
 ###
 ### Script language program used to create internal symbol tables

@@ -43,30 +43,6 @@
 // Random Number Generation
 //
 
-OSStatus GetRandomBytesInLSBs(size_t bytesOfRandomness, size_t n, cc_unit* place)
-{
-    OSStatus result = errSecParam;
-    require(bytesOfRandomness * 8 <= ccn_bitsof_n(n), fail);
-    {
-        uint8_t randomBytes[bytesOfRandomness];
-        
-        result = SecRandomCopyBytes(kSecRandomDefault, sizeof(randomBytes), randomBytes);
-        
-        require_noerr(result, fail);
-        
-        ccn_read_uint(n, place, sizeof(randomBytes), randomBytes);
-        
-        bzero(randomBytes, bytesOfRandomness);
-    }
-fail:
-    return result;
-}
-
-OSStatus FillWithRandomBytes(size_t n, cc_unit* place)
-{
-    return GetRandomBytesInLSBs(ccn_sizeof(n), n, place);
-}
-
 
 static const uint8_t kIVZero[16] = { };
 
@@ -122,12 +98,12 @@ static void HashMPIWithPrefix(uint8_t byte, cc_size sN, const cc_unit* s, uint8_
     CFReleaseNull(dataToHash);
 }
 
-void DeriveOTR256BitsFromS(KeyType whichKey, cc_size sN, const cc_unit* s, size_t keySize, uint8_t* key)
+void DeriveOTR256BitsFromS(OTRKeyType whichKey, cc_size sN, const cc_unit* s, size_t keySize, uint8_t* key)
 {
     HashMPIWithPrefix(whichKey, sN, s, key);
 }
 
-void DeriveOTR128BitPairFromS(KeyType whichKey, size_t sSize, const cc_unit* s,
+void DeriveOTR128BitPairFromS(OTRKeyType whichKey, size_t sSize, const cc_unit* s,
                               size_t firstKeySize, uint8_t* firstKey,
                               size_t secondKeySize, uint8_t* secondKey)
 {
@@ -148,7 +124,7 @@ void DeriveOTR128BitPairFromS(KeyType whichKey, size_t sSize, const cc_unit* s,
 
 }
 
-void DeriveOTR64BitsFromS(KeyType whichKey, size_t sn, const cc_unit* s,
+void DeriveOTR64BitsFromS(OTRKeyType whichKey, size_t sn, const cc_unit* s,
                           size_t topKeySize, uint8_t* topKey)
 {
     uint8_t hashBuffer[CCSHA256_OUTPUT_SIZE];

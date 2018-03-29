@@ -833,7 +833,9 @@ no_attach:
     keyboardNub = NULL;
 
 no_nub:
-
+#else
+    (void)supportedModifiers;
+    (void)options;
 #endif // } TARGET_OS_EMBEDDED
     return NULL;
 }
@@ -865,7 +867,8 @@ no_attach:
     consumerNub = NULL;
 
 no_nub:
-
+#else
+    (void)options;
 #endif // } TARGET_OS_EMBEDDED
     return NULL;
 }
@@ -1227,7 +1230,7 @@ UInt32 IOHIDEventService::getElementValue (
 //==============================================================================
 // IOHIDEventService::debuggerTimerCallback
 //==============================================================================
-void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender)
+void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender __unused)
 {
     if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask && _keyboard.debug.mask == _keyboard.debug.nmiHoldMask) {
         triggerDebugger();
@@ -1247,7 +1250,7 @@ void IOHIDEventService::triggerDebugger()
 //==============================================================================
 // IOHIDEventService::stackshotTimerCallback
 //==============================================================================
-void IOHIDEventService::stackshotTimerCallback(IOTimerEventSource *sender)
+void IOHIDEventService::stackshotTimerCallback(IOTimerEventSource *sender __unused)
 {
     if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask ) {
         _keyboard.debug.stackshotHeld = 1;
@@ -1668,7 +1671,8 @@ void IOHIDEventService::dispatchAbsolutePointerEvent(
 #if TARGET_OS_EMBEDDED
 
     dispatchDigitizerEvent(timeStamp, 0, kDigitizerTransducerTypeStylus, inRange, buttonState, __ScaleToFixed(x, bounds->minx, bounds->maxx), __ScaleToFixed(y, bounds->miny, bounds->maxy), __ScaleToFixed(tipPressure, tipPressureMin, tipPressureMax));
-
+    
+    (void)options;
 #else
     IOHID_DEBUG(kIOHIDDebugCode_DispatchAbsolutePointer, x, y, buttonState, options);
 
@@ -2179,9 +2183,9 @@ exit:
 
     if ( childEvent )
         childEvent->release();
-
+    
+    (void) orientationType;
 #else
-
     bool invert = options & kDigitizerInvert;
 
     // Entering proximity

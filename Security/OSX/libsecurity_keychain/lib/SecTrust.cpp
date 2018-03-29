@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <libDER/oids.h>
+#include <Security/oidscert.h>
+
 #include "SecTrust.h"
 #include "SecTrustPriv.h"
 #include "Trust.h"
@@ -189,8 +192,6 @@ static uint8_t convertCssmResultToPriority(CSSM_RETURN resultCode) {
     }
 }
 
-#include <libDER/oidsPriv.h>
-#include <Security/oidscert.h>
 static bool isSoftwareUpdateDevelopment(SecTrustRef trust) {
     bool isPolicy = false, isEKU = false;
     CFArrayRef policies = NULL;

@@ -1394,7 +1394,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
             SOSPeerInfoRef peerInfo = (SOSPeerInfoRef)peerInfoPtr;
             CFErrorRef blockError = NULL;
             SecKeyRef secPublicKey = SOSPeerInfoCopyOctagonSigningPublicKey(peerInfo, &blockError);
-            if (!secPublicKey || error) {
+            if (!secPublicKey || blockError) {
+                CFReleaseNull(secPublicKey);
                 CFReleaseNull(blockError);
                 return;
             }

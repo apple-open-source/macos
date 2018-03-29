@@ -28,6 +28,7 @@
 
 #include <Security/SecTranslocate.h>
 
+#include "security_tool.h"
 #include "translocate.h"
 
 static CFURLRef CFURLfromPath(const char * path, Boolean isDir)
@@ -91,7 +92,7 @@ int translocate_create(int argc, char * const *argv)
 
     if (argc != 2)
     {
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     CFURLRef inUrl = CFURLfromPath(argv[1], PathIsDir(argv[1]));
@@ -141,7 +142,7 @@ int translocate_policy(int argc, char * const *argv)
 
     if (argc != 2)
     {
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     CFURLRef inUrl = CFURLfromPath(argv[1], PathIsDir(argv[1]));
@@ -178,7 +179,7 @@ int translocate_check(int argc, char * const *argv)
 
     if (argc != 2)
     {
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     CFURLRef inUrl = CFURLfromPath(argv[1], PathIsDir(argv[1]));
@@ -215,7 +216,7 @@ int translocate_original_path(int argc, char * const * argv)
 
     if (argc != 2)
     {
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     CFURLRef inUrl = CFURLfromPath(argv[1], PathIsDir(argv[1]));

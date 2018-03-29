@@ -17,15 +17,10 @@ def do_output_str(str, header = false)
     puts str if !str.nil?
 end
 
-build_dir = ENV["BUILT_PRODUCTS_DIR"]
-top_level_directory = ENV["PROJECT_DIR"]
-
-src_file = File.join(top_level_directory, "../certificate_transparency/log_list.json")
-dst_file = File.join(build_dir, "BuiltAssets/TrustedCTLogs.plist")
+src_file = ARGV[0]
+dst_file = ARGV[1]
 
 do_output_str(nil, true)
-do_output_str "build_dir = #{build_dir}"
-do_output_str "top_level_directory = #{top_level_directory}"
 do_output_str "src_file = #{src_file}"
 do_output_str "dst_file = #{dst_file}"
 do_output_str(nil, true)
@@ -44,13 +39,21 @@ end
 
 A = Array.new
 
+STATE_INCLUDED = 0
+STATE_FROZEN = 1
+STATE_PENDING = 2
+STATE_DISQUALIFIED = 3
+
 parsed["logs"].each do |log|
-    if log["state"] == 0 || log["state"] == 1 then # Included or Frozen logs
+    if log["state"] != STATE_PENDING then # Skip pending logs
         logEntry = Hash.new;
         logEntry["key"] = CFPropertyList::Blob.new(Base64.decode64(log["key"]))
         logEntry["operator"] = operators[log["operated_by"][0]]
-        if log["final_sth"] then
+        if log["state"] == STATE_FROZEN then
             logEntry["expiry"] = Time.at(log["final_sth"]["timestamp"]/1000)
+        end
+        if log["state"] == STATE_DISQUALIFIED then
+            logEntry["expiry"] = Time.at(log["disqualified_at"]/1000)
         end
         A.push(logEntry)
     end

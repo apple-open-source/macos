@@ -10,6 +10,7 @@ accesskey
 action
 align
 alink
+allow
 allowfullscreen
 alt
 archive
@@ -35,6 +36,7 @@ aria-haspopup
 aria-help
 aria-hidden
 aria-invalid
+aria-keyshortcuts
 aria-label
 aria-labeledby
 aria-labelledby
@@ -104,6 +106,7 @@ crossorigin
 data
 datetime
 declare
+decoding
 default
 defer
 dir
@@ -380,7 +383,10 @@ version
 vlink
 vspace
 webkitallowfullscreen
+webkitattachmentid
 webkitattachmentpath
+webkitattachmentbloburl
+webkitdirectory
 width
 wrap
 

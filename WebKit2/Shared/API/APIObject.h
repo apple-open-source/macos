@@ -97,6 +97,10 @@ public:
         
         // UIProcess types
         ApplicationCacheManager,
+#if ENABLE(APPLICATION_MANIFEST)
+        ApplicationManifest,
+#endif
+        Attachment,
         AutomationSession,
         BackForwardList,
         BackForwardListItem,
@@ -218,6 +222,10 @@ public:
 
     static void* wrap(API::Object*);
     static API::Object* unwrap(void*);
+
+#if PLATFORM(COCOA) && WK_API_ENABLED && defined(__OBJC__)
+    static API::Object& fromWKObjectExtraSpace(id <WKObject>);
+#endif
 
 protected:
     Object();

@@ -31,7 +31,7 @@
 #include "CachedSVGDocumentReference.h"
 #include "FilterEffect.h"
 #include "SVGURIReference.h"
-#include "TextStream.h"
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
     
@@ -50,9 +50,7 @@ ReferenceFilterOperation::ReferenceFilterOperation(const String& url, const Stri
 {
 }
 
-ReferenceFilterOperation::~ReferenceFilterOperation()
-{
-}
+ReferenceFilterOperation::~ReferenceFilterOperation() = default;
     
 bool ReferenceFilterOperation::operator==(const FilterOperation& operation) const
 {

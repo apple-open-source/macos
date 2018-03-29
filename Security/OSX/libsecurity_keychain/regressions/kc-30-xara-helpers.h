@@ -37,7 +37,7 @@
 #pragma clang diagnostic ignored "-Wunused-function"
 
 /* name is the name of the test, not the name of the keychain */
-static SecKeychainRef newKeychain(const char * name) {
+static CF_RETURNS_RETAINED SecKeychainRef newKeychain(const char * name) {
     SecKeychainRef kc = NULL;
     char* password = "password";
 
@@ -74,7 +74,7 @@ static SecKeychainRef newCustomKeychain(const char * name, const char * path, co
 }
 #define newCustomKeychainTests 1
 
-static SecKeychainRef openCustomKeychain(const char * name, const char * path, const char * password) {
+static CF_RETURNS_RETAINED SecKeychainRef openCustomKeychain(const char * name, const char * path, const char * password) {
     SecKeychainRef kc = NULL;
     ok_status(SecKeychainOpen(path, &kc), "%s: SecKeychainOpen", name);
 
@@ -88,7 +88,7 @@ static SecKeychainRef openCustomKeychain(const char * name, const char * path, c
 }
 #define openCustomKeychainTests 2
 
-static SecKeychainRef openKeychain(const char * name) {
+static CF_RETURNS_RETAINED SecKeychainRef openKeychain(const char * name) {
     return openCustomKeychain(name, keychainName, NULL);
 }
 #define openKeychainTests (openCustomKeychainTests)

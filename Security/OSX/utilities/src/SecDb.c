@@ -95,6 +95,7 @@ struct __OpaqueSecDb {
     bool readWrite; /* open database read-write, default true */
     bool allowRepair; /* allow database repair, default true */
     bool useWAL; /* use WAL mode, default true */
+    void (^corruptionReset)(void);
 };
 
 // MARK: Error domains and error helper functions
@@ -262,6 +263,7 @@ SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool all
     db->readWrite = readWrite;
     db->allowRepair = allowRepair;
     db->useWAL = useWAL;
+    db->corruptionReset = NULL;
 
 done:
     return db;
@@ -406,17 +408,7 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
 
 void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
 {
-    CFStringRef str = CFStringCreateWithFormat(NULL, NULL, CFSTR("SecDBCorrupt: %@"), error);
-    if (str) {
-        char buffer[1000] = "?";
-        uint32_t errorCode = 0;
-        CFStringGetCString(str, buffer, sizeof(buffer), kCFStringEncodingUTF8);
-        os_log_fault(secLogObjForScope("SecEmergency"), "%s", buffer);
-        if (error)
-            errorCode = (uint32_t)CFErrorGetCode(error);
-        __security_simulatecrash(str, __sec_exception_code_CorruptDb(errorCode));
-        CFRelease(str);
-    }
+    os_log_fault(secLogObjForScope("SecEmergency"), "SecDBCorrupt: %@", error);
     dbconn->isCorrupted = true;
     CFRetainAssign(dbconn->corruptionError, error);
 }
@@ -873,7 +865,23 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
         ok = dbconn->db->opened(dbconn->db, dbconn, true, &dbconn->db->callOpenedHandlerForNextConnection, error);
     }
 
+    if (dbconn->db->corruptionReset) {
+        dbconn->db->corruptionReset();
+    }
+
     return ok;
+}
+
+void
+SecDbSetCorruptionReset(SecDbRef db, void (^corruptionReset)(void))
+{
+    if (db->corruptionReset) {
+        Block_release(db->corruptionReset);
+        db->corruptionReset = NULL;
+    }
+    if (corruptionReset) {
+        db->corruptionReset = Block_copy(corruptionReset);
+    }
 }
 
 static bool SecDbLoggingEnabled(CFStringRef type)
@@ -1027,16 +1035,33 @@ static void SecDbConectionSetReadOnly(SecDbConnectionRef dbconn, bool readOnly) 
 /* Read only connections go to the end of the queue, writeable connections
  go to the start of the queue. */
 SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
+    SecDbConnectionRef dbconn = NULL;
+    SecDbConnectionAcquireRefMigrationSafe(db, readOnly, &dbconn, error);
+    return dbconn;
+}
+
+bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error)
+{
     CFRetain(db);
     secinfo("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
     dispatch_semaphore_wait(readOnly ? db->read_semaphore : db->write_semaphore, DISPATCH_TIME_FOREVER);
     __block SecDbConnectionRef dbconn = NULL;
     __block bool ok = true;
     __block bool ranOpenedHandler = false;
+
+    bool (^assignDbConn)(SecDbConnectionRef) = ^bool(SecDbConnectionRef connection) {
+        dbconn = connection;
+        if (dbconnRef) {
+            *dbconnRef = connection;
+        }
+
+        return dbconn != NULL;
+    };
+
     dispatch_sync(db->queue, ^{
         if (!db->didFirstOpen) {
             bool didCreate = false;
-            ok = dbconn = SecDbConnectionCreate(db, false, error);
+            ok = assignDbConn(SecDbConnectionCreate(db, false, error));
             CFErrorRef localError = NULL;
             if (ok && !SecDbOpenHandle(dbconn, &didCreate, &localError)) {
                 secerror("Unable to create database: %@", localError);
@@ -1064,9 +1089,8 @@ SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef
             CFIndex count = CFArrayGetCount(db->connections);
             while (count && !dbconn) {
                 CFIndex ix = readOnly ? count - 1 : 0;
-                dbconn = (SecDbConnectionRef)CFArrayGetValueAtIndex(db->connections, ix);
-                if (dbconn)
-                    CFRetain(dbconn);
+                if (assignDbConn((SecDbConnectionRef)CFArrayGetValueAtIndex(db->connections, ix)))
+                    CFRetainSafe(dbconn);
                 else
                     secerror("got NULL dbconn at index: %" PRIdCFIndex " skipping", ix);
                 CFArrayRemoveValueAtIndex(db->connections, ix);
@@ -1082,11 +1106,11 @@ SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef
     } else if (ok) {
         /* Nothing found in cache, create a new connection */
         bool created = false;
-        dbconn = SecDbConnectionCreate(db, readOnly, error);
-        if (dbconn && !SecDbOpenHandle(dbconn, &created, error)) {
+        if (assignDbConn(SecDbConnectionCreate(db, readOnly, error)) && !SecDbOpenHandle(dbconn, &created, error)) {
             CFReleaseNull(dbconn);
         }
     }
+
 
     if (dbconn && !ranOpenedHandler && dbconn->db->opened) {
         dispatch_sync(db->queue, ^{
@@ -1101,13 +1125,17 @@ SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef
         });
     }
 
+    if (dbconnRef) {
+        *dbconnRef = dbconn;
+    }
+
     if (!dbconn) {
         // If acquire fails we need to signal the semaphore again.
         dispatch_semaphore_signal(readOnly ? db->read_semaphore : db->write_semaphore);
         CFRelease(db);
     }
 
-    return dbconn;
+    return dbconn ? true : false;
 }
 
 void SecDbConnectionRelease(SecDbConnectionRef dbconn) {

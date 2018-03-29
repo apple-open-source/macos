@@ -51,6 +51,7 @@
 #include "StyleTreeResolver.h"
 #include "SubframeLoader.h"
 #include "TypedElementDescendantIterator.h"
+#include "UserGestureIndicator.h"
 #include <runtime/CatchScope.h>
 
 namespace WebCore {
@@ -92,14 +93,18 @@ static const String subtitleText(Page& page, const String& mimeType)
     }).iterator->value;
 };
 
-HTMLPlugInImageElement::HTMLPlugInImageElement(const QualifiedName& tagName, Document& document, bool createdByParser)
+HTMLPlugInImageElement::HTMLPlugInImageElement(const QualifiedName& tagName, Document& document)
     : HTMLPlugInElement(tagName, document)
-    , m_needsWidgetUpdate(!createdByParser) // Set true in finishParsingChildren.
     , m_simulatedMouseClickTimer(*this, &HTMLPlugInImageElement::simulatedMouseClickTimerFired, simulatedMouseClickTimerDelay)
     , m_removeSnapshotTimer(*this, &HTMLPlugInImageElement::removeSnapshotTimerFired)
-    , m_createdDuringUserGesture(ScriptController::processingUserGesture())
+    , m_createdDuringUserGesture(UserGestureIndicator::processingUserGesture())
 {
     setHasCustomStyleResolveCallbacks();
+}
+
+void HTMLPlugInImageElement::finishCreating()
+{
+    scheduleUpdateForAfterStyleResolution();
 }
 
 HTMLPlugInImageElement::~HTMLPlugInImageElement()
@@ -134,7 +139,7 @@ bool HTMLPlugInImageElement::isImageType()
     if (m_serviceType.isEmpty() && protocolIs(m_url, "data"))
         m_serviceType = mimeTypeFromDataURL(m_url);
 
-    if (auto* frame = document().frame())
+    if (auto frame = makeRefPtr(document().frame()))
         return frame->loader().client().objectContentType(document().completeURL(m_url), m_serviceType) == ObjectContentType::Image;
 
     return Image::supportsType(m_serviceType);
@@ -205,70 +210,75 @@ void HTMLPlugInImageElement::willRecalcStyle(Style::Change change)
 
     // FIXME: There shoudn't be need to force render tree reconstruction here.
     // It is only done because loading and load event dispatching is tied to render tree construction.
-    if (!useFallbackContent() && needsWidgetUpdate() && renderer() && !isImageType() && (displayState() != DisplayingSnapshot))
+    if (!useFallbackContent() && needsWidgetUpdate() && renderer() && !isImageType() && displayState() != DisplayingSnapshot)
         invalidateStyleAndRenderersForSubtree();
+}
+
+void HTMLPlugInImageElement::didRecalcStyle(Style::Change styleChange)
+{
+    scheduleUpdateForAfterStyleResolution();
+
+    HTMLPlugInElement::didRecalcStyle(styleChange);
 }
 
 void HTMLPlugInImageElement::didAttachRenderers()
 {
-    if (!isImageType()) {
-        RefPtr<HTMLPlugInImageElement> element = this;
-        Style::queuePostResolutionCallback([element]{
-            element->updateWidgetIfNecessary();
-        });
-        return;
-    }
-    if (!renderer() || useFallbackContent())
-        return;
+    m_needsWidgetUpdate = true;
+    scheduleUpdateForAfterStyleResolution();
 
-    // Image load might complete synchronously and cause us to re-enter.
-    RefPtr<HTMLPlugInImageElement> element = this;
-    Style::queuePostResolutionCallback([element]{
-        element->startLoadingImage();
-    });
+    HTMLPlugInElement::didAttachRenderers();
 }
 
 void HTMLPlugInImageElement::willDetachRenderers()
 {
-    // FIXME: Because of the insanity that is HTMLPlugInImageElement::willRecalcStyle,
-    // we can end up detaching during an attach() call, before we even have a
-    // renderer. In that case, don't mark the widget for update.
-    if (renderer() && !useFallbackContent()) {
-        // Update the widget the next time we attach (detaching destroys the plugin).
-        setNeedsWidgetUpdate(true);
-    }
-
-    auto* widget = pluginWidget(PluginLoadingPolicy::DoNotLoad);
+    auto widget = makeRefPtr(pluginWidget(PluginLoadingPolicy::DoNotLoad));
     if (is<PluginViewBase>(widget))
         downcast<PluginViewBase>(*widget).willDetatchRenderer();
 
     HTMLPlugInElement::willDetachRenderers();
 }
 
-void HTMLPlugInImageElement::updateWidgetIfNecessary()
+void HTMLPlugInImageElement::scheduleUpdateForAfterStyleResolution()
 {
-    document().updateStyleIfNeeded();
-
-    if (!needsWidgetUpdate() || useFallbackContent() || isImageType())
+    if (m_hasUpdateScheduledForAfterStyleResolution)
         return;
 
-    if (!renderEmbeddedObject() || renderEmbeddedObject()->isPluginUnavailable())
-        return;
+    document().incrementLoadEventDelayCount();
 
-    updateWidget(CreatePlugins::No);
+    m_hasUpdateScheduledForAfterStyleResolution = true;
+
+    Style::queuePostResolutionCallback([protectedThis = makeRef(*this)] {
+        protectedThis->updateAfterStyleResolution();
+    });
 }
 
-void HTMLPlugInImageElement::finishParsingChildren()
+void HTMLPlugInImageElement::updateAfterStyleResolution()
 {
-    HTMLPlugInElement::finishParsingChildren();
-    if (useFallbackContent())
-        return;
+    m_hasUpdateScheduledForAfterStyleResolution = false;
 
-    // HTMLObjectElement needs to delay widget updates until after all children are parsed,
-    // For HTMLEmbedElement this delay is unnecessary, but there is no harm in doing the same.
-    setNeedsWidgetUpdate(true);
-    if (isConnected())
-        invalidateStyleForSubtree();
+    // Do this after style resolution, since the image or widget load might complete synchronously
+    // and cause us to re-enter otherwise. Also, we can't really answer the question "do I have a renderer"
+    // accurately until after style resolution.
+
+    if (renderer() && !useFallbackContent()) {
+        if (isImageType()) {
+            if (!m_imageLoader)
+                m_imageLoader = std::make_unique<HTMLImageLoader>(*this);
+            if (m_needsImageReload)
+                m_imageLoader->updateFromElementIgnoringPreviousError();
+            else
+                m_imageLoader->updateFromElement();
+        } else {
+            if (needsWidgetUpdate() && renderEmbeddedObject() && !renderEmbeddedObject()->isPluginUnavailable())
+                updateWidget(CreatePlugins::No);
+        }
+    }
+
+    // Either we reloaded the image just now, or we had some reason not to.
+    // Either way, clear the flag now, since we don't need to remember to try again.
+    m_needsImageReload = false;
+
+    document().decrementLoadEventDelayCount();
 }
 
 void HTMLPlugInImageElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
@@ -281,6 +291,11 @@ void HTMLPlugInImageElement::didMoveToNewDocument(Document& oldDocument, Documen
 
     if (m_imageLoader)
         m_imageLoader->elementDidMoveToNewDocument();
+
+    if (m_hasUpdateScheduledForAfterStyleResolution) {
+        oldDocument.decrementLoadEventDelayCount();
+        newDocument.incrementLoadEventDelayCount();
+    }
 
     HTMLPlugInElement::didMoveToNewDocument(oldDocument, newDocument);
 }
@@ -295,16 +310,10 @@ void HTMLPlugInImageElement::prepareForDocumentSuspension()
 
 void HTMLPlugInImageElement::resumeFromDocumentSuspension()
 {
+    scheduleUpdateForAfterStyleResolution();
     invalidateStyleAndRenderersForSubtree();
 
     HTMLPlugInElement::resumeFromDocumentSuspension();
-}
-
-void HTMLPlugInImageElement::startLoadingImage()
-{
-    if (!m_imageLoader)
-        m_imageLoader = std::make_unique<HTMLImageLoader>(*this);
-    m_imageLoader->updateFromElement();
 }
 
 void HTMLPlugInImageElement::updateSnapshot(Image* image)
@@ -333,7 +342,7 @@ static DOMWrapperWorld& plugInImageElementIsolatedWorld()
     return isolatedWorld;
 }
 
-void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
+void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 {
     HTMLPlugInElement::didAddUserAgentShadowRoot(root);
     if (displayState() >= PreparingPluginReplacement)
@@ -346,9 +355,9 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     // Reset any author styles that may apply as we only want explicit
     // styles defined in the injected user agents stylesheets to specify
     // the look-and-feel of the snapshotted plug-in overlay. 
-    root->setResetStyleInheritance(true);
+    root.setResetStyleInheritance(true);
     
-    String mimeType = loadedMimeType();
+    String mimeType = serviceType();
 
     auto& isolatedWorld = plugInImageElementIsolatedWorld();
     document().ensurePlugInsInjectedScript(isolatedWorld);
@@ -369,6 +378,7 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     // This parameter determines whether or not the snapshot overlay should always be visible over the plugin snapshot.
     // If no snapshot was found then we want the overlay to be visible.
     argList.append(toJS<IDLBoolean>(!m_snapshotImage));
+    ASSERT(!argList.hasOverflowed());
 
     // It is expected the JS file provides a createOverlay(shadowRoot, title, subtitle) function.
     auto* overlay = globalObject.get(&state, JSC::Identifier::fromString(&state, "createOverlay")).toObject(&state);
@@ -378,7 +388,7 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
         return;
     }
     JSC::CallData callData;
-    auto callType = overlay->methodTable()->getCallData(overlay, callData);
+    auto callType = overlay->methodTable(vm)->getCallData(overlay, callData);
     if (callType == JSC::CallType::None)
         return;
 
@@ -386,19 +396,19 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     scope.clearException();
 }
 
-bool HTMLPlugInImageElement::partOfSnapshotOverlay(const Node* node) const
+bool HTMLPlugInImageElement::partOfSnapshotOverlay(const EventTarget* target) const
 {
     static NeverDestroyed<AtomicString> selector(".snapshot-overlay", AtomicString::ConstructFromLiteral);
-    auto* shadow = userAgentShadowRoot();
+    auto shadow = userAgentShadowRoot();
     if (!shadow)
         return false;
-    if (!node)
+    if (!is<Node>(target))
         return false;
     auto queryResult = shadow->querySelector(selector.get());
     if (queryResult.hasException())
         return false;
-    auto* snapshotLabel = queryResult.releaseReturnValue();
-    return snapshotLabel && snapshotLabel->contains(node);
+    auto snapshotLabel = makeRefPtr(queryResult.releaseReturnValue());
+    return snapshotLabel && snapshotLabel->contains(downcast<Node>(target));
 }
 
 void HTMLPlugInImageElement::removeSnapshotTimerFired()
@@ -416,13 +426,13 @@ void HTMLPlugInImageElement::restartSimilarPlugIns()
     // may be in different frames, so traverse from the top of the document.
 
     String plugInOrigin = m_loadedUrl.host();
-    String mimeType = loadedMimeType();
+    String mimeType = serviceType();
     Vector<Ref<HTMLPlugInImageElement>> similarPlugins;
 
     if (!document().page())
         return;
 
-    for (Frame* frame = &document().page()->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+    for (RefPtr<Frame> frame = &document().page()->mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (!frame->loader().subframeLoader().containsPlugins())
             continue;
         
@@ -430,7 +440,7 @@ void HTMLPlugInImageElement::restartSimilarPlugIns()
             continue;
 
         for (auto& element : descendantsOfType<HTMLPlugInImageElement>(*frame->document())) {
-            if (plugInOrigin == element.loadedUrl().host() && mimeType == element.loadedMimeType())
+            if (plugInOrigin == element.loadedUrl().host() && mimeType == element.serviceType())
                 similarPlugins.append(element);
         }
     }
@@ -451,7 +461,7 @@ void HTMLPlugInImageElement::userDidClickSnapshot(MouseEvent& event, bool forwar
 
     String plugInOrigin = m_loadedUrl.host();
     if (document().page() && !SchemeRegistry::shouldTreatURLSchemeAsLocal(document().page()->mainFrame().document()->baseURL().protocol().toStringWithoutCopying()) && document().page()->settings().autostartOriginPlugInSnapshottingEnabled())
-        document().page()->plugInClient()->didStartFromOrigin(document().page()->mainFrame().document()->baseURL().host(), plugInOrigin, loadedMimeType(), document().page()->sessionID());
+        document().page()->plugInClient()->didStartFromOrigin(document().page()->mainFrame().document()->baseURL().host(), plugInOrigin, serviceType(), document().page()->sessionID());
 
     LOG(Plugins, "%p User clicked on snapshotted plug-in. Restart.", this);
     restartSnapshottedPlugIn();
@@ -529,7 +539,7 @@ void HTMLPlugInImageElement::checkSizeChangeForSnapshotting()
     LOG(Plugins, "%p Plug-in originally avoided snapshotting because it was sized %dx%d. Now it is %dx%d. Tell it to snapshot.\n", this, m_sizeWhenSnapshotted.width(), m_sizeWhenSnapshotted.height(), contentWidth, contentHeight);
     setDisplayState(WaitingForSnapshot);
     m_snapshotDecision = Snapshotted;
-    auto* widget = pluginWidget();
+    auto widget = makeRefPtr(pluginWidget());
     if (is<PluginViewBase>(widget))
         downcast<PluginViewBase>(*widget).beginSnapshottingRunningPlugin();
 }
@@ -593,7 +603,7 @@ void HTMLPlugInImageElement::subframeLoaderWillCreatePlugIn(const URL& url)
 {
     LOG(Plugins, "%p Plug-in URL: %s", this, m_url.utf8().data());
     LOG(Plugins, "   Actual URL: %s", url.string().utf8().data());
-    LOG(Plugins, "   MIME type: %s", loadedMimeType().utf8().data());
+    LOG(Plugins, "   MIME type: %s", serviceType().utf8().data());
 
     m_loadedUrl = url;
     m_plugInWasCreated = false;
@@ -630,7 +640,7 @@ void HTMLPlugInImageElement::subframeLoaderWillCreatePlugIn(const URL& url)
         return;
     }
 
-    if (ScriptController::processingUserGesture()) {
+    if (UserGestureIndicator::processingUserGesture()) {
         LOG(Plugins, "%p Script is currently processing user gesture, set to play", this);
         m_snapshotDecision = NeverSnapshot;
         return;
@@ -655,14 +665,14 @@ void HTMLPlugInImageElement::subframeLoaderWillCreatePlugIn(const URL& url)
         return;
     }
 
-    if (document().page()->settings().autostartOriginPlugInSnapshottingEnabled() && document().page()->plugInClient() && document().page()->plugInClient()->shouldAutoStartFromOrigin(document().page()->mainFrame().document()->baseURL().host(), url.host(), loadedMimeType())) {
+    if (document().page()->settings().autostartOriginPlugInSnapshottingEnabled() && document().page()->plugInClient() && document().page()->plugInClient()->shouldAutoStartFromOrigin(document().page()->mainFrame().document()->baseURL().host(), url.host(), serviceType())) {
         LOG(Plugins, "%p Plug-in from (%s, %s) is marked to auto-start, set to play", this, document().page()->mainFrame().document()->baseURL().host().utf8().data(), url.host().utf8().data());
         m_snapshotDecision = NeverSnapshot;
         return;
     }
 
-    if (m_loadedUrl.isEmpty() && !loadedMimeType().isEmpty()) {
-        LOG(Plugins, "%p Plug-in has no src URL but does have a valid mime type %s, set to play", this, loadedMimeType().utf8().data());
+    if (m_loadedUrl.isEmpty() && !serviceType().isEmpty()) {
+        LOG(Plugins, "%p Plug-in has no src URL but does have a valid mime type %s, set to play", this, serviceType().utf8().data());
         m_snapshotDecision = MaySnapshotWhenContentIsSet;
         return;
     }
@@ -775,6 +785,16 @@ bool HTMLPlugInImageElement::requestObject(const String& url, const String& mime
         return true;
     
     return document().frame()->loader().subframeLoader().requestObject(*this, url, getNameAttribute(), mimeType, paramNames, paramValues);
+}
+
+void HTMLPlugInImageElement::updateImageLoaderWithNewURLSoon()
+{
+    if (m_needsImageReload)
+        return;
+
+    m_needsImageReload = true;
+    scheduleUpdateForAfterStyleResolution();
+    invalidateStyle();
 }
 
 } // namespace WebCore

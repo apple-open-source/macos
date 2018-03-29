@@ -63,6 +63,8 @@ AcceleratedDrawingArea::AcceleratedDrawingArea(WebPage& webPage, const WebPageCr
 #endif
     if (!m_webPage.isVisible())
         suspendPainting();
+
+    m_webPage.corePage()->setDeviceScaleFactor(parameters.deviceScaleFactor);
 }
 
 void AcceleratedDrawingArea::setNeedsDisplay()
@@ -246,6 +248,7 @@ void AcceleratedDrawingArea::updateBackingStoreState(uint64_t stateID, bool resp
         m_webPage.setDeviceScaleFactor(deviceScaleFactor);
         m_webPage.setSize(size);
         m_webPage.layoutIfNeeded();
+        m_webPage.flushPendingEditorStateUpdate();
         m_webPage.scrollMainFrameIfNotAtMaxScrollPosition(scrollOffset);
 
         if (m_layerTreeHost)
@@ -474,6 +477,8 @@ void AcceleratedDrawingArea::attachViewOverlayGraphicsLayer(Frame* frame, Graphi
 
     if (m_layerTreeHost)
         m_layerTreeHost->setViewOverlayRootLayer(viewOverlayRootLayer);
+    else if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->setViewOverlayRootLayer(viewOverlayRootLayer);
 }
 
 } // namespace WebKit

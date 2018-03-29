@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,8 @@
 #if ENABLE(DFG_JIT)
 
 #include "CCallHelpers.h"
-#include "DFGOSRExitCompiler.h"
 #include "DFGJITCode.h"
+#include "DFGOSRExit.h"
 #include "FPRInfo.h"
 #include "GPRInfo.h"
 #include "LinkBuffer.h"
@@ -39,6 +39,14 @@
 #include "DFGOSRExitCompilerCommon.h"
 
 namespace JSC { namespace DFG {
+
+MacroAssemblerCodeRef osrExitThunkGenerator(VM* vm)
+{
+    MacroAssembler jit;
+    jit.probe(OSRExit::executeOSRExit, vm);
+    LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID);
+    return FINALIZE_CODE(patchBuffer, ("DFG OSR exit thunk"));
+}
 
 MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
 {
@@ -64,7 +72,7 @@ MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
     }
     
     // Tell GC mark phase how much of the scratch buffer is active during call.
-    jit.move(MacroAssembler::TrustedImmPtr(scratchBuffer->activeLengthPtr()), GPRInfo::regT0);
+    jit.move(MacroAssembler::TrustedImmPtr(scratchBuffer->addressOfActiveLength()), GPRInfo::regT0);
     jit.storePtr(MacroAssembler::TrustedImmPtr(scratchSize), MacroAssembler::Address(GPRInfo::regT0));
 
     // Set up one argument.
@@ -76,7 +84,7 @@ MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
 
     MacroAssembler::Call functionCall = jit.call();
 
-    jit.move(MacroAssembler::TrustedImmPtr(scratchBuffer->activeLengthPtr()), GPRInfo::regT0);
+    jit.move(MacroAssembler::TrustedImmPtr(scratchBuffer->addressOfActiveLength()), GPRInfo::regT0);
     jit.storePtr(MacroAssembler::TrustedImmPtr(0), MacroAssembler::Address(GPRInfo::regT0));
 
     for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
@@ -95,7 +103,7 @@ MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
     
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID);
     
-    patchBuffer.link(functionCall, compileOSRExit);
+    patchBuffer.link(functionCall, OSRExit::compileOSRExit);
     
     return FINALIZE_CODE(patchBuffer, ("DFG OSR exit generation thunk"));
 }
@@ -115,15 +123,12 @@ MacroAssemblerCodeRef osrEntryThunkGenerator(VM* vm)
     
     jit.move(GPRInfo::returnValueGPR2, GPRInfo::regT0);
     jit.loadPtr(MacroAssembler::Address(GPRInfo::regT0, offsetOfFrameSize), GPRInfo::regT1); // Load the frame size.
-    jit.move(GPRInfo::regT1, GPRInfo::regT2);
-    jit.lshiftPtr(MacroAssembler::Imm32(3), GPRInfo::regT2);
-    jit.move(GPRInfo::callFrameRegister, MacroAssembler::stackPointerRegister);
-    jit.subPtr(GPRInfo::regT2, MacroAssembler::stackPointerRegister);
+    jit.negPtr(GPRInfo::regT1, GPRInfo::regT2);
+    jit.getEffectiveAddress(MacroAssembler::BaseIndex(GPRInfo::callFrameRegister, GPRInfo::regT2, MacroAssembler::TimesEight), MacroAssembler::stackPointerRegister);
     
     MacroAssembler::Label loop = jit.label();
     jit.subPtr(MacroAssembler::TrustedImm32(1), GPRInfo::regT1);
-    jit.move(GPRInfo::regT1, GPRInfo::regT4);
-    jit.negPtr(GPRInfo::regT4);
+    jit.negPtr(GPRInfo::regT1, GPRInfo::regT4);
     jit.load32(MacroAssembler::BaseIndex(GPRInfo::regT0, GPRInfo::regT1, MacroAssembler::TimesEight, offsetOfLocals), GPRInfo::regT2);
     jit.load32(MacroAssembler::BaseIndex(GPRInfo::regT0, GPRInfo::regT1, MacroAssembler::TimesEight, offsetOfLocals + sizeof(int32_t)), GPRInfo::regT3);
     jit.store32(GPRInfo::regT2, MacroAssembler::BaseIndex(GPRInfo::callFrameRegister, GPRInfo::regT4, MacroAssembler::TimesEight, -static_cast<intptr_t>(sizeof(Register))));
@@ -135,7 +140,7 @@ MacroAssemblerCodeRef osrEntryThunkGenerator(VM* vm)
     jit.abortWithReason(DFGUnreasonableOSREntryJumpDestination);
 
     ok.link(&jit);
-    jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(*vm);
+    jit.restoreCalleeSavesFromEntryFrameCalleeSavesBuffer(vm->topEntryFrame);
     jit.emitMaterializeTagCheckRegisters();
 
     jit.jump(GPRInfo::regT1);

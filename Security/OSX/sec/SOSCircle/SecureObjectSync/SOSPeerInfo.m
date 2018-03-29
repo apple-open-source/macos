@@ -311,10 +311,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
 
     description_modifier(pi->description);
     
-    
     pi->peerID = SOSCopyIDOfKey(publicKey, error);
-
-    CFReleaseNull(publicKey);
 
     require_quiet(pi->peerID, exit);
     
@@ -343,6 +340,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
 
 exit:
     CFReleaseNull(versionNumber);
+    CFReleaseNull(publicKey);
     CFReleaseNull(publicBytes);
     CFReleaseNull(octagonPeerSigningPublicBytes);
     CFReleaseNull(octagonPeerEncryptionPublicBytes);
@@ -797,16 +795,28 @@ bool SOSPeerInfoUpdateDigestWithDescription(SOSPeerInfoRef peer, const struct cc
                                             ccdigest_ctx_t ctx, CFErrorRef *error) {
     if(SOSPeerInfoVersionHasV2Data(peer)) SOSPeerInfoPackV2Data(peer);
     size_t description_size = der_sizeof_plist(peer->description, error);
-    uint8_t data_begin[description_size];
-    uint8_t *data_end = data_begin + description_size;
-    uint8_t *encoded = der_encode_plist(peer->description, error, data_begin, data_end);
+    if (description_size == 0) {
+        SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, NULL, error, NULL, CFSTR("Description length failed"));
+        return false;
+    }
+
+    uint8_t * data = malloc(description_size);
+    if (data == NULL) {
+        SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, NULL, error, NULL, CFSTR("Description alloc failed"));
+        return false;
+    }
+    uint8_t *data_end = data + description_size;
+    uint8_t *encoded = der_encode_plist(peer->description, error, data, data_end);
     
     if(!encoded) {
+        free(data);
         SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, NULL, error, NULL, CFSTR("Description encode failed"));
         return false;
     }
     
-    ccdigest_update(di, ctx, description_size, data_begin);
+    ccdigest_update(di, ctx, description_size, data);
+
+    free(data);
     
     return true;
 }
@@ -1025,7 +1035,7 @@ CFBooleanRef SOSPeerInfoCopyIDSACKModelPreference(SOSPeerInfoRef peer){
     return (preference ? preference : CFRetain(kCFBooleanFalse));
 }
 
-SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error){
+SOSPeerInfoRef CF_RETURNS_RETAINED SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error){
     return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                            ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
                                                SOSPeerInfoV2DictionarySetValue(peerToModify, sPreferIDSFragmentation, preference);
@@ -1033,7 +1043,7 @@ SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator
                                            });
 }
 
-SOSPeerInfoRef SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error){
+SOSPeerInfoRef CF_RETURNS_RETAINED SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error){
     return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                            ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
                                                SOSPeerInfoV2DictionarySetValue(peerToModify, sPreferIDSACKModel, preference);

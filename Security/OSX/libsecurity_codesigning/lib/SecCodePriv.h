@@ -126,6 +126,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementTyp
 	SecCSFlags flags, SecRequirementRef *requirement);
 
 
+#if TARGET_OS_OSX
 /*!
 	@function SecCodeCreateWithPID
 	Asks the kernel to return a SecCode object for a process identified
@@ -144,6 +145,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementTyp
 */
 OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)
 	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
+#endif
 
 
 /*

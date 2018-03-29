@@ -27,6 +27,7 @@
  */
 
 #include <securityd/SecCAIssuerCache.h>
+#include <securityd/SecTrustLoggingServer.h>
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
@@ -186,7 +187,7 @@ static int SecCAIssuerCacheCommitTxn(SecCAIssuerCacheRef this) {
 
 static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 	SecCAIssuerCacheRef this;
-	int s3e;
+	int s3e = SQLITE_OK;
     bool create = true;
 
     require(this = (SecCAIssuerCacheRef)calloc(sizeof(struct __SecCAIssuerCache), 1), errOut);
@@ -237,6 +238,9 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 	return this;
 
 errOut:
+    if (s3e != SQLITE_OK) {
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationCreate, TAFatalError, s3e);
+    }
 	if (this) {
         if (this->queue)
             dispatch_release(this->queue);
@@ -295,8 +299,9 @@ static void _SecCAIssuerCacheAddCertificate(SecCAIssuerCacheRef this,
     require_noerr(s3e = sec_sqlite3_reset(this->insertIssuer, s3e), errOut);
 
 errOut:
-    if (s3e) {
+    if (s3e != SQLITE_OK) {
         secerror("caissuer cache add failed: %s", sqlite3_errmsg(this->s3h));
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationWrite, TAFatalError, s3e);
         /* TODO: Blow away the cache and create a new db. */
     }
 }
@@ -326,9 +331,10 @@ static SecCertificateRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
     require_noerr(s3e = sec_sqlite3_reset(this->selectIssuer, s3e), errOut);
 
 errOut:
-    if (s3e) {
+    if (s3e != SQLITE_OK) {
         if (s3e != SQLITE_DONE) {
             secerror("caissuer cache lookup failed: %s", sqlite3_errmsg(this->s3h));
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationRead, TAFatalError, s3e);
             /* TODO: Blow away the cache and create a new db. */
         }
 
@@ -355,8 +361,9 @@ static void _SecCAIssuerCacheGC(void *context) {
     require_noerr(s3e = SecCAIssuerCacheCommitTxn(this), errOut);
 
 errOut:
-    if (s3e) {
+    if (s3e != SQLITE_OK) {
         secerror("caissuer cache expire failed: %s", sqlite3_errmsg(this->s3h));
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationWrite, TAFatalError, s3e);
         /* TODO: Blow away the cache and create a new db. */
     }
 }
@@ -368,8 +375,9 @@ static void _SecCAIssuerCacheFlush(void *context) {
     secdebug("caissuercache", "flushing pending changes");
     s3e = SecCAIssuerCacheCommitTxn(this);
 
-    if (s3e) {
+    if (s3e != SQLITE_OK) {
         secerror("caissuer cache flush failed: %s", sqlite3_errmsg(this->s3h));
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationWrite, TAFatalError, s3e);
         /* TODO: Blow away the cache and create a new db. */
     }
 }

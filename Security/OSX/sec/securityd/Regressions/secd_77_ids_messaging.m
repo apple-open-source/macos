@@ -62,7 +62,7 @@ static bool SOSAccountIsThisPeerIDMe(SOSAccount* account, CFStringRef peerID) {
     return myPeerID && CFEqualSafe(myPeerID, peerID);
 }
 
-static void ids_test_sync(SOSAccount* alice_account, SOSAccount* bob_account){
+__unused static void ids_test_sync(SOSAccount* alice_account, SOSAccount* bob_account){
     
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     __block bool SyncingCompletedOverIDS = false;
@@ -275,7 +275,7 @@ static void tests()
     ok(SOSAccountEnsurePeerRegistration(bob_account, NULL), "ensure peer registration - bob");
     
     
-    ids_test_sync(alice_account, bob_account);
+    //ids_test_sync(alice_account, bob_account);
     
     CFReleaseNull(bob_dsid);
     CFReleaseNull(alice_dsid);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,15 @@ namespace WebCore {
 
 void EventLoop::cycle()
 {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+    if (![NSApp isRunning]) {
+        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+        return;
+    }
+#endif
     [NSApp setWindowsNeedUpdate:YES];
-    [NSApp sendEvent:[NSApp nextEventMatchingMask:NSEventMaskAny untilDate:[NSDate dateWithTimeIntervalSinceNow:0.05] inMode:NSDefaultRunLoopMode dequeue:YES]];
+    if (NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:[NSDate dateWithTimeIntervalSinceNow:0.05] inMode:NSDefaultRunLoopMode dequeue:YES])
+        [NSApp sendEvent:event];
 }
 
 } // namespace WebCore

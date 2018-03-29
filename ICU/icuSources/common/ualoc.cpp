@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2016 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2017 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -9,6 +9,7 @@
 #include <stdio.h>
 #endif
 #include <string.h>
+#include <ctype.h>
 #include "unicode/utypes.h"
 #include "unicode/ualoc.h"
 #include "unicode/uloc.h"
@@ -1015,9 +1016,11 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
                 for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
                     char availLocMinOrParent[kLangScriptRegMaxLen + 1];
                     int32_t distance;
-                    // first check for special Apple parents of availLocNorm -
-                    // - the number of locales with such parents is small -
-                    // or if not such parent, then try stripping region.
+                    // first check for special Apple parents of availLocNorm; the number
+                    // of locales with such parents is small.
+                    // If no such parent, or if parent has an intermediate numeric region,
+                    // then try stripping the original region.
+                    int32_t availLocParentLen = 0;
                     const char *availLocParent = getLocParent(availLocNorm[availLocIndex], &distance);
                     if (availLocParent) {
 #if DEBUG_UALOC
@@ -1032,11 +1035,12 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
 #endif
                             continue;
                         }
+                        availLocParentLen = uprv_strlen(availLocParent);
                     }
                     if (minDistance <= 1) {
                         continue; // we can't get any closer in the rest of this iteration
                     }
-                    if (availLocParent == NULL) {
+                    if (availLocParent == NULL || (availLocParentLen >= 6 && isdigit(availLocParent[availLocParentLen-1]))) {
                         tmpStatus = U_ZERO_ERROR;
                         int32_t regLen = uloc_getCountry(availLocNorm[availLocIndex], availLocMinOrParent, kLangScriptRegMaxLen, &tmpStatus);
                         if (U_SUCCESS(tmpStatus) && regLen > 1) {

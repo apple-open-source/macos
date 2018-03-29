@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,13 +39,16 @@
 #import "SandboxUtilities.h"
 #import <CoreAudio/AudioHardware.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebKitSystemInterface.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <mach-o/getsect.h>
 #import <mach/mach_vm.h>
 #import <mach/vm_statistics.h>
 #import <objc/runtime.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <pal/spi/mac/HIToolboxSPI.h>
+#import <pal/spi/mac/NSWindowSPI.h>
 #import <sysexits.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
@@ -96,7 +99,7 @@ static bool windowCoversAnyScreen(WindowRef window)
 
 static CGWindowID cgWindowID(WindowRef window)
 {
-    return reinterpret_cast<CGWindowID>(WKGetNativeWindowFromWindowRef(window));
+    return reinterpret_cast<CGWindowID>(GetNativeWindowFromWindowRef(window));
 }
 
 #endif
@@ -159,20 +162,16 @@ static FullscreenWindowTracker& fullscreenWindowTracker()
 
 #if defined(__i386__)
 
-static pthread_once_t shouldCallRealDebuggerOnce = PTHREAD_ONCE_INIT;
-static bool isUserbreakSet = false;
-
-static void initShouldCallRealDebugger()
-{
-    char* var = getenv("USERBREAK");
-    
-    if (var)
-        isUserbreakSet = atoi(var);
-}
-
 static bool shouldCallRealDebugger()
 {
-    pthread_once(&shouldCallRealDebuggerOnce, initShouldCallRealDebugger);
+    static bool isUserbreakSet = false;
+    static dispatch_once_t flag;
+    dispatch_once(&flag, ^{
+        char* var = getenv("USERBREAK");
+
+        if (var)
+            isUserbreakSet = atoi(var);
+    });
     
     return isUserbreakSet;
 }
@@ -440,12 +439,12 @@ static void initializeCocoaOverrides()
     NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
 
     // Track when any Cocoa window is about to be be shown.
-    id orderOnScreenObserver = [defaultCenter addObserverForName:WKWindowWillOrderOnScreenNotification()
+    id orderOnScreenObserver = [defaultCenter addObserverForName:NSWindowWillOrderOnScreenNotification
                                                           object:nil
                                                            queue:nil
                                                            usingBlock:^(NSNotification *notification) { fullscreenWindowTracker().windowShown([notification object]); }];
     // Track when any Cocoa window is about to be hidden.
-    id orderOffScreenObserver = [defaultCenter addObserverForName:WKWindowWillOrderOffScreenNotification()
+    id orderOffScreenObserver = [defaultCenter addObserverForName:NSWindowWillOrderOffScreenNotification
                                                            object:nil
                                                             queue:nil
                                                        usingBlock:^(NSNotification *notification) { fullscreenWindowTracker().windowHidden([notification object]); }];
@@ -529,7 +528,10 @@ void PluginProcess::platformInitializeProcess(const ChildProcessInitializationPa
 
     // FIXME: It would be better to proxy SetCursor calls over to the UI process instead of
     // allowing plug-ins to change the mouse cursor at any time.
-    WKEnableSettingCursorWhenInBackground();
+    // FIXME: SetsCursorInBackground connection property is deprecated in favor of kCGSSetsCursorInBackgroundTagBit window tag bit.
+    // <rdar://problem/7752422> asks for an API to set cursor from background processes.
+    CGSConnectionID cid = CGSMainConnectionID();
+    CGSSetConnectionProperty(cid, cid, CFSTR("SetsCursorInBackground"), (CFTypeRef)kCFBooleanTrue);
 
     RetainPtr<CFURLRef> pluginURL = adoptCF(CFURLCreateWithFileSystemPath(0, m_pluginPath.createCFString().get(), kCFURLPOSIXPathStyle, false));
     if (!pluginURL)
@@ -616,9 +618,9 @@ void PluginProcess::platformInitializeProcess(const ChildProcessInitializationPa
 void PluginProcess::initializeProcessName(const ChildProcessInitializationParameters& parameters)
 {
     NSString *applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ (%@ Internet plug-in)", "visible name of the plug-in host process. The first argument is the plug-in name and the second argument is the application name."), [[(NSString *)m_pluginPath lastPathComponent] stringByDeletingPathExtension], (NSString *)parameters.uiProcessName];
-    WKSetVisibleApplicationName((CFStringRef)applicationName);
+    _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey, (CFStringRef)applicationName, nullptr);
     if (!m_pluginBundleIdentifier.isEmpty())
-        WKSetApplicationInformationItem(kLSPlugInBundleIdentifierKey, m_pluginBundleIdentifier.createCFString().get());
+        _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), kLSPlugInBundleIdentifierKey, m_pluginBundleIdentifier.createCFString().get(), nullptr);
 }
 
 void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)

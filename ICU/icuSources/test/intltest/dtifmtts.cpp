@@ -1039,6 +1039,7 @@ void DateIntervalFormatTest::testFormat() {
 
         "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "MMM", "\\u0E15.\\u0E04.\\u2013\\u0E1E.\\u0E22.",
 
+        "ar@calendar=islamic", "1438 10 10 10:10:10", "1438 10 20 10:10:10", "MMMd", "\\u0661\\u0660\\u2013\\u0662\\u0660 \\u0634\\u0648\\u0627\\u0644",
     };
     expect(DATA, UPRV_LENGTHOF(DATA));
 }

@@ -78,7 +78,7 @@ struct BC_command {
  */
 
 /*
- * On-disk playlist header, also used in the preload case.
+ * On-disk playlist header
  */
 struct BC_playlist_header {
 	int	ph_magic;
@@ -144,7 +144,7 @@ struct BC_playlist_omap {
 #define BC_PLC_CHUNK	512
 
 /* sanity check for the upper bound on number of entries and batches */
-#define BC_MAXENTRIES	100000
+#define BC_MAXENTRIES	1000000
 #define BC_MAXBATCHES   255
 
 /*

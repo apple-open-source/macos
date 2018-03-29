@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SOSAccount (Transaction)
 
-+ (void)performOnAccountQueue:(void (^)(void))action;
++ (void)performOnQuietAccountQueue:(void (^)(void))action;
 + (void)performWhileHoldingAccountQueue:(void (^)(void))action;
 
 - (void) performTransaction: (void (^)(SOSAccountTransaction* txn)) action;
@@ -28,10 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SOSAccountTransaction : NSObject
 
-+ (instancetype) transactionWithAccount: (SOSAccount*) account;
-
 - (instancetype) init NS_UNAVAILABLE;
-- (instancetype) initWithAccount: (SOSAccount*) account NS_DESIGNATED_INITIALIZER;
+- (instancetype) initWithAccount: (SOSAccount*) account quiet:(bool)quiet NS_DESIGNATED_INITIALIZER;
 
 - (void) finish;
 - (void) restart;

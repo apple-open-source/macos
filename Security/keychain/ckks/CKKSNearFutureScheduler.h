@@ -21,8 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
+#import <keychain/ckks/CKKSResultOperation.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 /*
@@ -41,17 +45,21 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Will execute every time futureBlock is called, just after the future block.
 // Operations added in the futureBlock will receive the next operationDependency, so they won't run again until futureBlock occurs again.
-@property (nullable, readonly) NSOperation* operationDependency;
+@property (readonly) CKKSResultOperation* operationDependency;
 
+
+// dependencyDescriptionCode will be integrated into the operationDependency as per the rules in CKKSResultOperation.h
 - (instancetype)initWithName:(NSString*)name
                        delay:(dispatch_time_t)ns
             keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
                        block:(void (^_Nonnull)(void))futureOperation;
 
 - (instancetype)initWithName:(NSString*)name
                 initialDelay:(dispatch_time_t)initialDelay
              continuingDelay:(dispatch_time_t)continuingDelay
             keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
                        block:(void (^_Nonnull)(void))futureBlock;
 
 - (void)trigger;
@@ -64,3 +72,4 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+#endif // OCTAGON

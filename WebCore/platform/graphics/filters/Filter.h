@@ -31,7 +31,7 @@ public:
         : m_absoluteTransform(absoluteTransform)
         , m_filterScale(filterScale)
     { }
-    virtual ~Filter() { }
+    virtual ~Filter() = default;
 
     void setSourceImage(std::unique_ptr<ImageBuffer> sourceImage) { m_sourceImage = WTFMove(sourceImage); }
     ImageBuffer* sourceImage() { return m_sourceImage.get(); }
@@ -43,7 +43,6 @@ public:
     void setFilterScale(float scale) { m_filterScale = scale; }
 
     const AffineTransform& absoluteTransform() const { return m_absoluteTransform; }
-    FloatPoint mapAbsolutePointToLocalPoint(const FloatPoint& point) const { return m_absoluteTransform.inverse().value_or(AffineTransform()).mapPoint(point); }
 
     RenderingMode renderingMode() const { return m_renderingMode; }
     void setRenderingMode(RenderingMode renderingMode) { m_renderingMode = renderingMode; }

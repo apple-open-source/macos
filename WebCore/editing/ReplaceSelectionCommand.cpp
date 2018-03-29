@@ -566,58 +566,63 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
 static bool isProhibitedParagraphChild(const AtomicString& name)
 {
     // https://dvcs.w3.org/hg/editing/raw-file/57abe6d3cb60/editing.html#prohibited-paragraph-child
-    static NeverDestroyed<HashSet<AtomicString>> elements;
-    if (elements.get().isEmpty()) {
-        elements.get().add(addressTag.localName());
-        elements.get().add(articleTag.localName());
-        elements.get().add(asideTag.localName());
-        elements.get().add(blockquoteTag.localName());
-        elements.get().add(captionTag.localName());
-        elements.get().add(centerTag.localName());
-        elements.get().add(colTag.localName());
-        elements.get().add(colgroupTag.localName());
-        elements.get().add(ddTag.localName());
-        elements.get().add(detailsTag.localName());
-        elements.get().add(dirTag.localName());
-        elements.get().add(divTag.localName());
-        elements.get().add(dlTag.localName());
-        elements.get().add(dtTag.localName());
-        elements.get().add(fieldsetTag.localName());
-        elements.get().add(figcaptionTag.localName());
-        elements.get().add(figureTag.localName());
-        elements.get().add(footerTag.localName());
-        elements.get().add(formTag.localName());
-        elements.get().add(h1Tag.localName());
-        elements.get().add(h2Tag.localName());
-        elements.get().add(h3Tag.localName());
-        elements.get().add(h4Tag.localName());
-        elements.get().add(h5Tag.localName());
-        elements.get().add(h6Tag.localName());
-        elements.get().add(headerTag.localName());
-        elements.get().add(hgroupTag.localName());
-        elements.get().add(hrTag.localName());
-        elements.get().add(liTag.localName());
-        elements.get().add(listingTag.localName());
-        elements.get().add(mainTag.localName()); // Missing in the specification.
-        elements.get().add(menuTag.localName());
-        elements.get().add(navTag.localName());
-        elements.get().add(olTag.localName());
-        elements.get().add(pTag.localName());
-        elements.get().add(plaintextTag.localName());
-        elements.get().add(preTag.localName());
-        elements.get().add(sectionTag.localName());
-        elements.get().add(summaryTag.localName());
-        elements.get().add(tableTag.localName());
-        elements.get().add(tbodyTag.localName());
-        elements.get().add(tdTag.localName());
-        elements.get().add(tfootTag.localName());
-        elements.get().add(thTag.localName());
-        elements.get().add(theadTag.localName());
-        elements.get().add(trTag.localName());
-        elements.get().add(ulTag.localName());
-        elements.get().add(xmpTag.localName());
-    }
-    return elements.get().contains(name);
+    static const auto localNames = makeNeverDestroyed([] {
+        static const HTMLQualifiedName* const tags[] = {
+            &addressTag.get(),
+            &articleTag.get(),
+            &asideTag.get(),
+            &blockquoteTag.get(),
+            &captionTag.get(),
+            &centerTag.get(),
+            &colTag.get(),
+            &colgroupTag.get(),
+            &ddTag.get(),
+            &detailsTag.get(),
+            &dirTag.get(),
+            &divTag.get(),
+            &dlTag.get(),
+            &dtTag.get(),
+            &fieldsetTag.get(),
+            &figcaptionTag.get(),
+            &figureTag.get(),
+            &footerTag.get(),
+            &formTag.get(),
+            &h1Tag.get(),
+            &h2Tag.get(),
+            &h3Tag.get(),
+            &h4Tag.get(),
+            &h5Tag.get(),
+            &h6Tag.get(),
+            &headerTag.get(),
+            &hgroupTag.get(),
+            &hrTag.get(),
+            &liTag.get(),
+            &listingTag.get(),
+            &mainTag.get(), // Missing in the specification.
+            &menuTag.get(),
+            &navTag.get(),
+            &olTag.get(),
+            &pTag.get(),
+            &plaintextTag.get(),
+            &preTag.get(),
+            &sectionTag.get(),
+            &summaryTag.get(),
+            &tableTag.get(),
+            &tbodyTag.get(),
+            &tdTag.get(),
+            &tfootTag.get(),
+            &thTag.get(),
+            &theadTag.get(),
+            &trTag.get(),
+            &ulTag.get(),
+            &xmpTag.get(),
+        };
+        HashSet<AtomicString> set;
+        for (auto& tag : tags)
+            set.add(tag->localName());
+        return set;
+    }());
+    return localNames.get().contains(name);
 }
 
 void ReplaceSelectionCommand::makeInsertedContentRoundTrippableWithHTMLTreeBuilder(InsertedNodes& insertedNodes)
@@ -723,7 +728,8 @@ static void removeHeadContents(ReplacementFragment& fragment)
     auto it = descendantsOfType<Element>(*fragment.fragment()).begin();
     auto end = descendantsOfType<Element>(*fragment.fragment()).end();
     while (it != end) {
-        if (is<HTMLBaseElement>(*it) || is<HTMLLinkElement>(*it) || is<HTMLMetaElement>(*it) || is<HTMLStyleElement>(*it) || is<HTMLTitleElement>(*it)) {
+        if (is<HTMLBaseElement>(*it) || is<HTMLLinkElement>(*it) || is<HTMLMetaElement>(*it) || is<HTMLTitleElement>(*it)
+            || (is<HTMLStyleElement>(*it) && it->getAttribute(classAttr) != WebKitMSOListQuirksStyle)) {
             toRemove.append(&*it);
             it.traverseNextSkippingChildren();
             continue;
@@ -1187,7 +1193,7 @@ void ReplaceSelectionCommand::doApply()
         if (m_shouldMergeEnd && destinationNode != enclosingInline(destinationNode) && enclosingInline(destinationNode)->nextSibling())
             insertNodeBefore(HTMLBRElement::create(document()), *refNode);
         
-        // Merging the the first paragraph of inserted content with the content that came
+        // Merging the first paragraph of inserted content with the content that came
         // before the selection that was pasted into would also move content after 
         // the selection that was pasted into if: only one paragraph was being pasted, 
         // and it was not wrapped in a block, the selection that was pasted into ended 

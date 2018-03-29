@@ -462,8 +462,9 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     CFIndex    count, index;
     OSKextRef ownedKext = NULL;  // must release
 #if !TARGET_OS_EMBEDDED
-    Boolean     earlyBoot = false;
-    Boolean     readOnly = false;
+    Boolean         earlyBoot = false;
+    Boolean         isNetbootEnvironment = false;
+    AuthOptions_t   originalAuthOptions;
 #endif
 
     OSKextLog(/* kext */ NULL,
@@ -485,23 +486,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     int     skc_result;
 
     earlyBoot = (isKextdRunning() == false);
-    skc_result = callSecKeychainMDSInstall();
-    if (skc_result != 0) {
-        // SecKeychainMDSInstall should never fail, except on read only FS.
-        // We get -67674 when SecKeychainMDSInstall can't write to its DB.
-        // see 18367703
-        if (earlyBoot && skc_result == -67674) {
-           struct statfs statfsBuffer;
-            if (statfs("/System/Library", &statfsBuffer) == 0) {
-                if (statfsBuffer.f_flags & MNT_RDONLY) {
-                    readOnly = true;
-                }
-            }
-        }
-        else {
-            goto finish;
-        }
-    }
+    isNetbootEnvironment = isNetBooted();
 
     // Configure authentication required - do not use network or respect
     // system policy if we are in early boot.
@@ -515,10 +500,12 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     };
     _OSKextSetAuthenticationFunction(&authenticateKext, &authOptions);
     _OSKextSetStrictAuthentication(true);
+    memcpy(&originalAuthOptions, &authOptions, sizeof(AuthOptions_t));
 #endif
 
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
+        Boolean       isNetbootKext = false;
         OSKextRef     theKext = NULL;  // do not release
         CFStringRef   kextID  = CFArrayGetValueAtIndex(
                                                        toolArgs->kextIDs,
@@ -546,17 +533,20 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         }
         
 #if !TARGET_OS_EMBEDDED
-        // temp change for 18367703
-        if (readOnly &&
-            (CFStringCompare(kextID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo
-             ||
-             CFStringCompare(kextID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo)) {
-                OSKextLogCFString(NULL,
-                                  kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                                  CFSTR("Netboot, loading '%@'"),
-                                  kextID);
+        // Diskless netboot environment authentication workaround: 18367703
+        isNetbootKext = ((CFStringCompare(kextID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo) ||
+                         (CFStringCompare(kextID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo));
+
+        if (isNetbootEnvironment && isNetbootKext) {
+            // Disable authentication not available in diskless netboot environment.
+            authOptions.performSignatureValidation = false;
+            authOptions.requireSecureLocation = false;
+            authOptions.respectSystemPolicy = false;
+            OSKextLogCFString(NULL, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("Netboot, loading '%@'"), kextID);
         }
-        else {
+
+        if (authOptions.requireSecureLocation) {
             // Perform staging to ensure all kexts are in SIP protected locations.
             theKext = createStagedKext(theKext);
             if (!theKext) {
@@ -572,25 +562,25 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             // theKext returned by staging is owned here, so make sure it gets released at the
             // end of the loop or in the error handler at the end of the function.
             ownedKext = theKext;
+        }
 
-            // Force authentication checks now so they can be reported gracefully.
-            if (!OSKextIsAuthentic(theKext)) {
-                OSKextLog(NULL,
-                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                          "%s failed security checks; failing.", scratchCString);
-                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
-                goto finish;
-            }
+        // Force authentication checks now so they can be reported gracefully.
+        if (!OSKextIsAuthentic(theKext)) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                      kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                      "%s failed security checks; failing.", scratchCString);
+            result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+            goto finish;
+        }
 
-            if (!OSKextAuthenticateDependencies(theKext)) {
-                OSKextLog(NULL,
-                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                          "%s's dependencies failed security checks; failing.", scratchCString);
-                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
-                goto finish;
-            }
+        if (!OSKextAuthenticateDependencies(theKext)) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                      kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                      "%s's dependencies failed security checks; failing.", scratchCString);
+            result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+            goto finish;
         }
 #endif // not TARGET_OS_EMBEDDED
 
@@ -610,6 +600,13 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             /* addPersonalitiesExclusion */ kOSKextExcludeNone,
             /* personalityNames */ NULL,
             /* delayAutounloadFlag */ false);
+
+#if !TARGET_OS_EMBEDDED
+        if (isNetbootEnvironment && isNetbootKext) {
+            // Restore original authentication options for future loads.
+            memcpy(&authOptions, &originalAuthOptions, sizeof(AuthOptions_t));
+        }
+#endif // not TARGET_OS_EMBEDDED
 
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,
@@ -633,6 +630,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
 
     count = CFArrayGetCount(toolArgs->kextURLs);
     for (index = 0; index < count; index++) {
+        Boolean       isNetbootKext = false;
         CFURLRef      kextURL        = CFArrayGetValueAtIndex(
             toolArgs->kextURLs,
             index);
@@ -665,18 +663,21 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
 
             myBundleID = OSKextGetIdentifier(theKext);
 
-            // temp change for 18367703
-            if (readOnly && myBundleID &&
-                (CFStringCompare(myBundleID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo
-                 ||
-                 CFStringCompare(myBundleID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo)) {
-                    OSKextLogCFString(NULL,
-                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                                      CFSTR("Netboot, loading '%@'"),
-                                      myBundleID);
+            // Netboot environment authentication workaround: 18367703
+            isNetbootKext = ((CFStringCompare(myBundleID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo) ||
+                             (CFStringCompare(myBundleID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo));
+
+            if (isNetbootEnvironment && isNetbootKext) {
+                // Disable authentication not available in diskless netboot environment.
+                authOptions.performSignatureValidation = false;
+                authOptions.requireSecureLocation = false;
+                authOptions.respectSystemPolicy = false;
+                OSKextLogCFString(NULL, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                  CFSTR("Netboot, loading '%@'"), myBundleID);
             }
-            else {
-                // Perform staging to ensure all kexts are in SIP protected locations.
+
+            // Perform staging to ensure all kexts are in SIP protected locations.
+            if (authOptions.requireSecureLocation) {
                 theKext = createStagedKext(theKext);
                 if (!theKext) {
                     OSKextLog(NULL,
@@ -691,25 +692,25 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                 // theKext returned by staging is owned here, so make sure it gets released at the
                 // end of the loop or in the error handler at the end of the function.
                 ownedKext = theKext;
+            }
 
-                // Force authentication checks now so they can be reported gracefully.
-                if (!OSKextIsAuthentic(theKext)) {
-                    OSKextLog(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                              "%s failed security checks; failing.", scratchCString);
-                    result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
-                    goto finish;
-                }
+            // Force authentication checks now so they can be reported gracefully.
+            if (!OSKextIsAuthentic(theKext)) {
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s failed security checks; failing.", scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                goto finish;
+            }
 
-                if (!OSKextAuthenticateDependencies(theKext)) {
-                    OSKextLog(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                              "%s's dependencies failed security checks; failing.", scratchCString);
-                    result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
-                    goto finish;
-                }
+            if (!OSKextAuthenticateDependencies(theKext)) {
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s's dependencies failed security checks; failing.", scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                goto finish;
             }
 
 #if HAVE_DANGERZONE
@@ -727,6 +728,13 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                                                kOSKextExcludeNone,
                                                NULL,
                                                false);
+
+#if !TARGET_OS_EMBEDDED
+            if (isNetbootEnvironment && isNetbootKext) {
+                // Restore original authentication options for future loads.
+                memcpy(&authOptions, &originalAuthOptions, sizeof(AuthOptions_t));
+            }
+#endif // not TARGET_OS_EMBEDDED
         }
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,

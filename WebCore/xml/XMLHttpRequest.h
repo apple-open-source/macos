@@ -35,7 +35,6 @@
 namespace JSC {
 class ArrayBuffer;
 class ArrayBufferView;
-class ExecState;
 }
 
 namespace WebCore {
@@ -48,6 +47,7 @@ class SharedBuffer;
 class TextResourceDecoder;
 class ThreadableLoader;
 class XMLHttpRequestUpload;
+struct OwnedString;
 
 class XMLHttpRequest final : public RefCounted<XMLHttpRequest>, public XMLHttpRequestEventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
     WTF_MAKE_FAST_ALLOCATED;
@@ -79,14 +79,14 @@ public:
     ExceptionOr<void> open(const String& method, const String& url);
     ExceptionOr<void> open(const String& method, const URL&, bool async);
     ExceptionOr<void> open(const String& method, const String&, bool async, const String& user, const String& password);
-    ExceptionOr<void> send(JSC::ExecState&, std::optional<SendTypes>&&);
+    ExceptionOr<void> send(std::optional<SendTypes>&&);
     void abort();
     ExceptionOr<void> setRequestHeader(const String& name, const String& value);
     ExceptionOr<void> overrideMimeType(const String& override);
     bool doneWithoutErrors() const { return !m_error && m_state == DONE; }
     String getAllResponseHeaders() const;
     String getResponseHeader(const String& name) const;
-    ExceptionOr<String> responseText();
+    ExceptionOr<OwnedString> responseText();
     String responseTextIgnoringResponseType() const { return m_responseBuilder.toStringPreserveCapacity(); }
     String responseMIMEType() const;
 
@@ -102,19 +102,11 @@ public:
     bool responseCacheIsValid() const { return m_responseCacheIsValid; }
     void didCacheResponse();
 
-    // Expose HTTP validation methods for other untrusted requests.
-    static bool isAllowedHTTPMethod(const String&);
-    static String uppercaseKnownHTTPMethod(const String&);
-    static bool isAllowedHTTPHeader(const String&);
-
     enum class ResponseType { EmptyString, Arraybuffer, Blob, Document, Json, Text };
     ExceptionOr<void> setResponseType(ResponseType);
     ResponseType responseType() const;
 
     String responseURL() const;
-
-    void setLastSendLineAndColumnNumber(unsigned lineNumber, unsigned columnNumber);
-    void setLastSendURL(const String& url) { m_lastSendURL = url; }
 
     XMLHttpRequestUpload* upload();
     XMLHttpRequestUpload* optionalUpload() const { return m_upload.get(); }
@@ -184,6 +176,7 @@ private:
     void dispatchErrorEvents(const AtomicString&);
 
     void resumeTimerFired();
+    Ref<TextResourceDecoder> createDecoder() const;
 
     std::unique_ptr<XMLHttpRequestUpload> m_upload;
 
@@ -216,14 +209,12 @@ private:
     bool m_uploadComplete { false };
 
     bool m_sameOriginRequest { true };
+    bool m_wasAbortedByClient { false };
 
     // Used for progress event tracking.
     long long m_receivedLength { 0 };
 
-    unsigned m_lastSendLineNumber { 0 };
-    unsigned m_lastSendColumnNumber { 0 };
-    String m_lastSendURL;
-    ExceptionCode m_exceptionCode { 0 };
+    std::optional<ExceptionCode> m_exceptionCode;
 
     XMLHttpRequestProgressEventThrottle m_progressEventThrottle;
 

@@ -159,9 +159,10 @@ static void tests(void)
     is([alice_account getCircleStatus:&error],kSOSCCNotInCircle,"alice is not in the account (%@)", error);
     is([bob_account getCircleStatus:&error], kSOSCCNotInCircle,"bob is not in the account (%@)", error);
     is([carol_account getCircleStatus:&error], kSOSCCInCircle,"carol is in the account (%@)", error);
-    
+
     CFReleaseNull(gencount);
     CFReleaseNull(cfpassword);
+    CFReleaseNull(user_privkey);
     alice_account = nil;
     bob_account = nil;
     carol_account = nil;

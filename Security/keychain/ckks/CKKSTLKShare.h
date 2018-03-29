@@ -69,6 +69,8 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
                         poisoned:(NSInteger)poisoned
                            error:(NSError**)error;
 
+- (bool)signatureVerifiesWithPeerSet:(NSSet<id<CKKSPeer>>*)peerSet error:(NSError**)error;
+
 // Database loading
 + (instancetype _Nullable)fromDatabase:(NSString*)uuid
                         receiverPeerID:(NSString*)receiverPeerID

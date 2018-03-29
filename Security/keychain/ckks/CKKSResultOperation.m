@@ -54,12 +54,16 @@
     return self;
 }
 
+- (NSString*)operationStateString {
+    return ([self isFinished] ? [NSString stringWithFormat:@"finished %@", self.finishDate] :
+            [self isCancelled] ? @"cancelled" :
+            [self isExecuting] ? @"executing" :
+            [self isReady] ? @"ready" :
+            @"pending");
+}
+
 - (NSString*)description {
-    NSString* state = ([self isFinished] ? [NSString stringWithFormat:@"finished %@", self.finishDate] :
-                       [self isCancelled] ? @"cancelled" :
-                       [self isExecuting] ? @"executing" :
-                       [self isReady] ? @"ready" :
-                       @"pending");
+    NSString* state = [self operationStateString];
 
     if(self.error) {
         return [NSString stringWithFormat: @"<%@: %@ error:%@>", [self selfname], state, self.error];
@@ -86,6 +90,10 @@
         strongSelf.finishingBlock();
         completionBlock();
         [strongSelf.completionHandlerDidRunCondition fulfill];
+
+        for (NSOperation *op in strongSelf.dependencies) {
+            [strongSelf removeDependency:op];
+        }
     }];
 }
 
@@ -109,14 +117,57 @@
     });
 }
 
+- (NSError* _Nullable)dependenciesDescriptionError {
+    NSError* underlyingReason = nil;
+    NSArray* dependencies = [self.dependencies copy];
+    dependencies = [dependencies objectsAtIndexes: [dependencies indexesOfObjectsPassingTest: ^BOOL (id obj,
+                                                                                                     NSUInteger idx,
+                                                                                                     BOOL* stop) {
+        return [obj isFinished] ? NO : YES;
+    }]];
+
+    for(NSOperation* dependency in dependencies) {
+        if([dependency isKindOfClass:[CKKSResultOperation class]]) {
+            CKKSResultOperation* ro = (CKKSResultOperation*)dependency;
+            underlyingReason = [ro descriptionError] ?: underlyingReason;
+        }
+    }
+
+    return underlyingReason;
+}
+
+// Returns, for this CKKSResultOperation, an error describing this operation or its dependents.
+// Used mainly by other CKKSResultOperations who time out waiting for this operation to start/complete.
+- (NSError* _Nullable)descriptionError {
+    if(self.descriptionErrorCode != 0) {
+        return [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
+                                   code:self.descriptionErrorCode
+                               userInfo:nil];
+    } else {
+        return [self dependenciesDescriptionError];
+    }
+}
+
+- (NSError*)_onqueueTimeoutError {
+    // Find if any of our dependencies are CKKSResultOperations with a custom reason for existing
+
+    NSError* underlyingReason = [self descriptionError];
+
+    NSError* error = [NSError errorWithDomain:CKKSResultErrorDomain
+                                         code:CKKSResultTimedOut
+                                  description:[NSString stringWithFormat:@"Operation(%@) timed out waiting to start for [%@]",
+                                               [self selfname],
+                                               [self pendingDependenciesString:@""]]
+                                   underlying:underlyingReason];
+    return error;
+}
+
 - (instancetype)timeout:(dispatch_time_t)timeout {
     __weak __typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.timeoutQueue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
         if(strongSelf.timeoutCanOccur) {
-            strongSelf.error = [NSError errorWithDomain:CKKSResultErrorDomain
-                                                   code:CKKSResultTimedOut
-                                            description:[NSString stringWithFormat:@"Operation(%@) timed out waiting to start for [%@]", [self selfname], [self pendingDependenciesString:@""]]];
+            strongSelf.error = [self _onqueueTimeoutError];
             strongSelf.timeoutCanOccur = false;
             [strongSelf cancel];
         }
@@ -167,7 +218,10 @@
                     // Already a subresult, just copy it on in
                     self.error = op.error;
                 } else {
-                    self.error = [NSError errorWithDomain:CKKSResultErrorDomain code: CKKSResultSubresultError userInfo:@{ NSUnderlyingErrorKey: op.error}];
+                    self.error = [NSError errorWithDomain:CKKSResultErrorDomain
+                                                     code:CKKSResultSubresultError
+                                              description:@"Success-dependent operation failed"
+                                               underlying:op.error];
                 }
             }
         }

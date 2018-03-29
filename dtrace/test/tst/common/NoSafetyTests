@@ -130,6 +130,7 @@ aggs/tst.quantround.d
 aggs/tst.quantzero.d
 aggs/tst.signature.d
 aggs/tst.stddev.d
+aggs/tst.stddev.normalize.d
 aggs/tst.subr.d
 aggs/tst.sum.d
 aggs/tst.trunc.d
@@ -144,7 +145,9 @@ arithmetic/err.D_SYNTAX.divmin.d
 arithmetic/err.D_SYNTAX.muladd.d
 arithmetic/err.D_SYNTAX.muldiv.d
 arithmetic/tst.basics.d
-arithmetic/tst.complex.d
+arithmetic/tst.compcast.d
+arithmetic/tst.compnarrowassign.d
+arithmetic/tst.execcast.d
 arrays/err.D_ARR_BADREF.bad.d
 arrays/err.D_DECL_ARRBIG.toobig.d
 arrays/err.D_DECL_ARRNULL.bad.d
@@ -243,6 +246,8 @@ builtinvar/tst.timestamp.d
 builtinvar/tst.vcycles.d
 builtinvar/tst.vinstrs.d
 builtinvar/tst.vtimestamp.d
+cg/err.D_NOREG.noreg.d
+cg/err.baddif.d
 clauses/err.D_IDENT_UNDEF.aggfun.d
 clauses/err.D_IDENT_UNDEF.aggtup.d
 clauses/err.D_IDENT_UNDEF.arrtup.d
@@ -509,6 +514,7 @@ llquantize/err.D_LLQUANT_LOWTYPE.d
 llquantize/err.D_LLQUANT_LOWVAL.d
 llquantize/err.D_LLQUANT_MAGRANGE.d
 llquantize/err.D_LLQUANT_MAGTOOBIG.d
+llquantize/err.D_LLQUANT_MAGTOOBIG.offbyone.d
 llquantize/err.D_LLQUANT_NSTEPMATCH.d
 llquantize/err.D_LLQUANT_NSTEPTYPE.d
 llquantize/err.D_LLQUANT_NSTEPVAL.d
@@ -598,6 +604,8 @@ pointers/err.InvalidAddress5.d
 pointers/tst.ArrayPointer1.d
 pointers/tst.ArrayPointer2.d
 pointers/tst.ArrayPointer3.d
+pointers/tst.assigncast1.d
+pointers/tst.assigncast2.d
 pointers/tst.basic1.d
 pointers/tst.basic2.d
 pointers/tst.GlobalVar.d
@@ -646,7 +654,6 @@ preprocessor/tst.preexpelse.d
 preprocessor/tst.preexpif.d
 preprocessor/tst.preexpifelse.d
 preprocessor/tst.withinprobe.d
-print/err.D_PRINT_DYN.bad.d
 print/err.D_PRINT_VOID.bad.d
 print/err.D_PROTO_LEN.bad.d
 print/tst.array.d
@@ -698,6 +705,7 @@ printf/tst.printT.d
 printf/tst.printY.d
 printf/tst.rawfmt.d
 printf/tst.same-encoding.d
+printf/tst.signs.d
 printf/tst.str.d
 printf/tst.sym.ksh
 printf/tst.uints.d
@@ -980,7 +988,6 @@ tick-n/tst.tickus.d
 tick-n/tst.tickusec.d
 tools/tst.dtruss.ksh
 trace/err.D_PROTO_LEN.bad.d
-trace/err.D_TRACE_DYN.bad.d
 trace/err.D_TRACE_VOID.bad.d
 trace/tst.misc.d
 trace/tst.qstring.d

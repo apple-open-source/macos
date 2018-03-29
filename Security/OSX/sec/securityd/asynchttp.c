@@ -38,6 +38,7 @@
 #include <utilities/SecDispatchRelease.h>
 #include <asl.h>
 #include <string.h>
+#include <mach/mach_time.h>
 
 #include <inttypes.h>
 
@@ -455,6 +456,8 @@ bool asynchttp_request(CFHTTPMessageRef request, uint64_t timeout, asynchttp_t *
          | kCFStreamEventEndEncountered),
         handle_server_response, &stream_context);
     CFReadStreamSetDispatchQueue(http->stream, http->queue);
+
+    http->start_time = mach_absolute_time();
     CFReadStreamOpen(http->stream);
 
     return false; /* false -> something was scheduled. */

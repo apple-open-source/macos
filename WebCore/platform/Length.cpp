@@ -26,17 +26,18 @@
 #include "Length.h"
 
 #include "CalculationValue.h"
-#include "TextStream.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/HashMap.h>
+#include <wtf/MallocPtr.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuffer.h>
 #include <wtf/text/StringView.h>
+#include <wtf/text/TextStream.h>
 
-using namespace WTF;
 
 namespace WebCore {
+using namespace WTF;
 
 static Length parseLength(const UChar* data, unsigned length)
 {

@@ -36,7 +36,13 @@
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
 #include "PMAssertions.h"
+#include "PMSettings.h"
 #include <libproc.h>
+
+
+os_log_t    wakeRequests_log = NULL;
+#undef   LOG_STREAM
+#define  LOG_STREAM   wakeRequests_log
 
 enum {                                                                                                                                         
     kIOPMMaxScheduledEntries = 1000                                                                                                            
@@ -170,12 +176,14 @@ removeEventsByAppName(PowerEventBehavior *behave, CFStringRef appName)
 }
 
 
+
 __private_extern__ void 
 AutoWake_prime(void) 
 {
     PowerEventBehavior      *this_behavior;
     int                     i;
 
+    wakeRequests_log = os_log_create(PM_LOG_SYSTEM, WAKEREQUESTS_LOG);
     // clear out behavior structs for good measure
     for(i=0; i<kBehaviorsCount; i++) 
     {
@@ -229,7 +237,6 @@ AutoWake_prime(void)
         if (!CFEqual(this_behavior->title, CFSTR(kIOPMAutoWakeOrPowerOn)))
            schedulePowerEvent(this_behavior);
     }
-
 
     return;
 }
@@ -421,77 +428,6 @@ schedulePowerEventType(CFStringRef type)
     schedulePowerEvent(behaviors[i]);
 }
 
-static void print_one(char *str, CFDictionaryRef entry)
-{
-    CFStringRef name, type;
-    CFDateRef   date;
-    CFAbsoluteTime  abs;
-    int month, day, hour, minute, second;
-    char name_str[200], type_str[100];
-    CFNumberRef leeway = NULL;
-    int leeway_secs = 0;
-    bool  userVisible = false;
-
-    if (!isA_CFDictionary(entry))
-        return;
-
-    name = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventAppNameKey));
-    type = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventTypeKey));
-    date = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventTimeKey));
-    leeway = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventLeewayKey));
-    userVisible = (CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) ?
-                    true : false;
-
-    name_str[0] = type_str[0] = 0;
-    month=day=hour=minute=second = 0;
-
-    if (isA_CFString(name)) {
-        CFStringGetCString(name, name_str, sizeof(name_str), kCFStringEncodingMacRoman);
-    }
-
-    if (isA_CFString(type)) {
-        CFStringGetCString(type, type_str, sizeof(type_str), kCFStringEncodingMacRoman);
-    }
-    if (isA_CFDate(date)) {
-        abs = CFDateGetAbsoluteTime(date);
-        CFCalendarDecomposeAbsoluteTime(_gregorian(), abs, "MdHms", &month, &day, &hour, &minute, &second);
-    }
-
-    if (isA_CFNumber(leeway))  {
-        CFNumberGetValue(leeway, kCFNumberIntType, &leeway_secs);
-    }
-
-    asl_log(0,0,ASL_LEVEL_ERR, "%s WakeReq App:\"%s\" type=%s time=%02d/%02d %02d:%02d:%02d leeway:%d secs user-visible:%d",
-            (str != NULL) ? str : "", 
-            name_str, type_str,  month, day, hour, minute, second, leeway_secs, userVisible);
-
-
-}
-
-#if 0
-static void print_sched(PowerEventBehavior *b)
-{
-    CFArrayRef arr = NULL;
-    CFIndex                 i, count = 0;
-
-    if (b && b->array) {
-        arr = b->array;
-        if (isA_CFArray(arr)) count = CFArrayGetCount(arr);
-    }
-    asl_log(0,0,ASL_LEVEL_ERR, "Dump all Wake Requests:\n");
-    for (i = 0; i < count; i++) {
-        CFDictionaryRef entry = CFArrayGetValueAtIndex(arr, i);
-
-        if (!isA_CFDictionary(entry))
-            return;
-        print_one(NULL, entry);
-
-    }
-
-}
-
-#endif
-
 /*
  * getWakeScheduleTime - Returns the absolute time when this event's wake will
  * be scheduled, taking leeway into account
@@ -583,6 +519,7 @@ __private_extern__ CFDictionaryRef copyEarliestEvent(PowerEventBehavior  *behave
         event = CFArrayGetValueAtIndex(arr, i);
         if (!isA_CFDictionary(event)) continue;
 
+        DEBUG_LOG("Active wake request: %{public}@\n", event);
         wakeup_abs = getWakeScheduleTime(event);
         if ((!wakeup_abs) || (wakeup_abs < now + MIN_SCHEDULE_TIME))
             continue;
@@ -596,6 +533,7 @@ __private_extern__ CFDictionaryRef copyEarliestEvent(PowerEventBehavior  *behave
     repeat_event = copyNextRepeatingEvent(behave->title);
     if (repeat_event)
     {
+        DEBUG_LOG("Active repeat wake request: %{public}@\n", repeat_event);
         wakeup_abs = getWakeScheduleTime(repeat_event);
         if ((wakeup_abs != 0) && 
             ((one_event_ts == 0) || (wakeup_abs < one_event_ts))) {
@@ -605,15 +543,12 @@ __private_extern__ CFDictionaryRef copyEarliestEvent(PowerEventBehavior  *behave
     }
 
 
-    //print_sched(&wakeBehavior);
-    if (gDebugFlags & kIOPMDebugLogWakeRequests) {
-        print_one("Selected",  one_event);
-    }
     
     //copy the event
     if (one_event)
     {
         selected_event = CFDictionaryCreateCopy(NULL,one_event);
+        INFO_LOG("Selected RTC wake request: %{public}@\n", selected_event);
     }
     
     if (repeat_event)
@@ -1259,6 +1194,8 @@ _io_pm_schedule_power_event
         /* Remove all the events from in-memory array as well as Update the disk.
            Failure can occur due to failure to write to disk */
         *return_code = removeAllEvents(token);
+        INFO_LOG("Removed all wake request based on request from pid %d\n", callerPID);
+
         goto exit;
     }
     dataRef = CFDataCreate(0, (const UInt8 *)flatPackage, packageLen);
@@ -1331,9 +1268,7 @@ _io_pm_schedule_power_event
             removeEvent(behaviors[i], event);
             goto exit;
         }
-        if (gDebugFlags & kIOPMDebugLogWakeRequests) {
-            print_one(NULL, event);
-        }
+        DEBUG_LOG("Received wake request: %{public}@\n", event);
         if (CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) {
             notify_post(kIOPMUserVisiblePowerEventNotification);
         }
@@ -1345,6 +1280,7 @@ _io_pm_schedule_power_event
             *return_code = kIOReturnNotFound;
             goto exit;
         }
+        DEBUG_LOG("Cancelled wake request: %{public}@\n", event);
 
         /* Update to disk. Ignore the failure; */
         updateToDisk(prefs, behaviors[i], type);

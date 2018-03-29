@@ -40,6 +40,8 @@
 #include "PlatformContextCairo.h"
 #include "RefPtrCairo.h"
 #include <cairo.h>
+#include <wtf/Deque.h>
+#include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(WIN)
 #include <GLSLANG/ShaderLang.h>
@@ -65,11 +67,18 @@
 
 namespace WebCore {
 
+static const size_t MaxActiveContexts = 16;
+static Deque<GraphicsContext3D*, MaxActiveContexts>& activeContexts()
+{
+    static NeverDestroyed<Deque<GraphicsContext3D*, MaxActiveContexts>> s_activeContexts;
+    return s_activeContexts;
+}
+
 RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3DAttributes attributes, HostWindow* hostWindow, GraphicsContext3D::RenderStyle renderStyle)
 {
     // This implementation doesn't currently support rendering directly to the HostWindow.
     if (renderStyle == RenderDirectlyToHostWindow)
-        return 0;
+        return nullptr;
 
     static bool initialized = false;
     static bool success = true;
@@ -80,14 +89,34 @@ RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3DAttributes 
         initialized = true;
     }
     if (!success)
-        return 0;
+        return nullptr;
 
-    return adoptRef(new GraphicsContext3D(attributes, hostWindow, renderStyle));
+    auto& contexts = activeContexts();
+    if (contexts.size() >= MaxActiveContexts)
+        contexts.first()->recycleContext();
+
+    // Calling recycleContext() above should have lead to the graphics context being
+    // destroyed and thus removed from the active contexts list.
+    if (contexts.size() >= MaxActiveContexts)
+        return nullptr;
+
+    // Create the GraphicsContext3D object first in order to establist a current context on this thread.
+    auto context = adoptRef(new GraphicsContext3D(attributes, hostWindow, renderStyle));
+
+#if USE(LIBEPOXY) && USE(OPENGL_ES_2)
+    // Bail if GLES3 was requested but cannot be provided.
+    if (attributes.useGLES3 && !epoxy_is_desktop_gl() && epoxy_gl_version() < 30)
+        return nullptr;
+#endif
+
+    contexts.append(context.get());
+    return context;
 }
 
-GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, HostWindow*, GraphicsContext3D::RenderStyle renderStyle)
+GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, HostWindow*, GraphicsContext3D::RenderStyle renderStyle, GraphicsContext3D* sharedContext)
     : m_attrs(attributes)
 {
+    ASSERT_UNUSED(sharedContext, !sharedContext);
 #if USE(TEXTURE_MAPPER)
     m_texmapLayer = std::make_unique<TextureMapperGC3DPlatformLayer>(*this, renderStyle);
 #else
@@ -181,7 +210,8 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
         ::glEnable(GL_POINT_SPRITE);
     }
 #else
-    m_compiler = ANGLEWebKitBridge(SH_ESSL_OUTPUT);
+    // Adjust the shader specification depending on whether GLES3 (i.e. WebGL2 support) was requested.
+    m_compiler = ANGLEWebKitBridge(SH_ESSL_OUTPUT, m_attrs.useGLES3 ? SH_WEBGL2_SPEC : SH_WEBGL_SPEC);
 #endif
 
     // ANGLE initialization.
@@ -210,14 +240,6 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
 
 GraphicsContext3D::~GraphicsContext3D()
 {
-#if USE(TEXTURE_MAPPER)
-    if (m_texmapLayer->renderStyle() == RenderToCurrentGLContext)
-        return;
-#else
-    if (m_private->renderStyle() == RenderToCurrentGLContext)
-        return;
-#endif
-
     makeContextCurrent();
     if (m_texture)
         ::glDeleteTextures(1, &m_texture);
@@ -249,12 +271,13 @@ GraphicsContext3D::~GraphicsContext3D()
 
     if (m_vao)
         deleteVertexArray(m_vao);
+
+    auto* activeContext = activeContexts().takeLast([this](auto* it) { return it == this; });
+    ASSERT_UNUSED(activeContext, !!activeContext);
 }
 
 GraphicsContext3D::ImageExtractor::~ImageExtractor()
 {
-    if (m_decoder)
-        delete m_decoder;
 }
 
 bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
@@ -264,19 +287,14 @@ bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool
     // We need this to stay in scope because the native image is just a shallow copy of the data.
     AlphaOption alphaOption = premultiplyAlpha ? AlphaOption::Premultiplied : AlphaOption::NotPremultiplied;
     GammaAndColorProfileOption gammaAndColorProfileOption = ignoreGammaAndColorProfile ? GammaAndColorProfileOption::Ignored : GammaAndColorProfileOption::Applied;
-    m_decoder = new ImageSource(nullptr, alphaOption, gammaAndColorProfileOption);
-    
-    if (!m_decoder)
-        return false;
-
-    ImageSource& decoder = *m_decoder;
+    ImageSource source(nullptr, alphaOption, gammaAndColorProfileOption);
     m_alphaOp = AlphaDoNothing;
 
     if (m_image->data()) {
-        decoder.setData(m_image->data(), true);
-        if (!decoder.frameCount())
+        source.setData(m_image->data(), true);
+        if (!source.frameCount())
             return false;
-        m_imageSurface = decoder.createFrameImageAtIndex(0);
+        m_imageSurface = source.createFrameImageAtIndex(0);
     } else {
         m_imageSurface = m_image->nativeImageForCurrentFrame();
         // 1. For texImage2D with HTMLVideoElment input, assume no PremultiplyAlpha had been applied and the alpha value is 0xFF for each pixel,

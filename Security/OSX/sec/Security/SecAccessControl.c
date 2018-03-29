@@ -27,10 +27,10 @@
 
 #include <TargetConditionals.h>
 #include <AssertMacros.h>
-#include <Security/SecAccessControl.h>
-#include <Security/SecAccessControlPriv.h>
-#include <Security/SecItem.h>
-#include <Security/SecItemPriv.h>
+#include "SecAccessControl.h"
+#include "SecAccessControlPriv.h"
+#include "SecItem.h"
+#include "SecItemPriv.h"
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/der_plist.h>
@@ -90,7 +90,7 @@ SecAccessControlRef SecAccessControlCreate(CFAllocatorRef allocator, CFErrorRef 
     access_control->dict = CFDictionaryCreateMutableForCFTypes(allocator);
     return access_control;
 }
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
+
 static CFDataRef _getEmptyData() {
     static CFMutableDataRef emptyData = NULL;
     static dispatch_once_t onceToken;
@@ -101,7 +101,6 @@ static CFDataRef _getEmptyData() {
 
     return emptyData;
 }
-#endif
 
 SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CFTypeRef protection,
                                                     SecAccessControlCreateFlags flags, CFErrorRef *error) {
@@ -115,7 +114,6 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
         goto errOut;
 
     if (flags) {
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
         bool or = (flags & kSecAccessControlOr) ? true : false;
         bool and = (flags & kSecAccessControlAnd) ? true : false;
 
@@ -124,16 +122,16 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             goto errOut;
         }
 
-        SecAccessControlCreateFlags maskedFlags = flags & (kSecAccessControlTouchIDAny | kSecAccessControlTouchIDCurrentSet);
-        if (maskedFlags && maskedFlags != kSecAccessControlTouchIDAny && maskedFlags != kSecAccessControlTouchIDCurrentSet) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+
+        SecAccessControlCreateFlags maskedFlags = flags & (kSecAccessControlBiometryAny | kSecAccessControlBiometryCurrentSet);
+        if (maskedFlags && maskedFlags != kSecAccessControlBiometryAny && maskedFlags != kSecAccessControlBiometryCurrentSet) {
             SecError(errSecParam, error, CFSTR("only one bio constraint can be set"));
             goto errOut;
         }
 
         if (flags & kSecAccessControlUserPresence && flags & ~(kSecAccessControlUserPresence | kSecAccessControlApplicationPassword | kSecAccessControlPrivateKeyUsage)) {
-#else
-        if (flags & kSecAccessControlUserPresence && flags != kSecAccessControlUserPresence) {
-#endif
             SecError(errSecParam, error, CFSTR("kSecAccessControlUserPresence can be combined only with kSecAccessControlApplicationPassword and kSecAccessControlPrivateKeyUsage"));
             goto errOut;
         }
@@ -152,25 +150,25 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             CFReleaseNull(constraint);
         }
 
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
-        if (flags & kSecAccessControlTouchIDAny) {
-            require_quiet(constraint = SecAccessConstraintCreateTouchIDAny(allocator, _getEmptyData()), errOut);
+        if (flags & kSecAccessControlBiometryAny) {
+            require_quiet(constraint = SecAccessConstraintCreateBiometryAny(allocator, _getEmptyData()), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
 
-        if (flags & kSecAccessControlTouchIDCurrentSet) {
-            require_quiet(constraint = SecAccessConstraintCreateTouchIDCurrentSet(allocator, _getEmptyData(), _getEmptyData()), errOut);
+        if (flags & kSecAccessControlBiometryCurrentSet) {
+            require_quiet(constraint = SecAccessConstraintCreateBiometryCurrentSet(allocator, _getEmptyData(), _getEmptyData()), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
+
+#pragma clang diagnostic pop
 
         if (flags & kSecAccessControlApplicationPassword) {
             SecAccessControlSetRequirePassword(access_control, true);
         }
-#endif
+
         CFIndex constraints_count = CFArrayGetCount(constraints);
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
         if (constraints_count > 1) {
             require_quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);
             if (flags & kSecAccessControlPrivateKeyUsage) {
@@ -184,25 +182,18 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             }
             require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             CFReleaseNull(constraint);
-        } else
-#endif
-        if (constraints_count == 1) {
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
+        } else if (constraints_count == 1) {
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
-#endif
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             }
-#endif
             require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
         } else {
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, kCFBooleanTrue, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, kCFBooleanTrue, error), errOut);
@@ -210,11 +201,8 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             }
             else {
-#endif
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             }
-#endif
         }
 
         CFReleaseNull(constraints);
@@ -280,19 +268,27 @@ SecAccessConstraintRef SecAccessConstraintCreatePasscode(CFAllocatorRef allocato
     return CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintUserPasscode), kCFBooleanTrue, NULL);
 }
 
-SecAccessConstraintRef SecAccessConstraintCreateTouchIDAny(CFAllocatorRef allocator, CFDataRef catacombUUID) {
+SecAccessConstraintRef SecAccessConstraintCreateBiometryAny(CFAllocatorRef allocator, CFDataRef catacombUUID) {
     CFMutableDictionaryRef bioDict = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclParamBioCatacombUUID), catacombUUID, NULL);
     SecAccessConstraintRef constraint = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintBio), bioDict, NULL);
     CFReleaseSafe(bioDict);
     return constraint;
 }
 
-SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash) {
+SecAccessConstraintRef SecAccessConstraintCreateTouchIDAny(CFAllocatorRef allocator, CFDataRef catacombUUID) {
+    return SecAccessConstraintCreateBiometryAny(allocator, catacombUUID);
+}
+
+SecAccessConstraintRef SecAccessConstraintCreateBiometryCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash) {
     CFMutableDictionaryRef bioDict = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclParamBioCatacombUUID), catacombUUID, NULL);
     CFDictionarySetValue(bioDict, CFSTR(kACMKeyAclParamBioDatabaseHash), bioDbHash);
     SecAccessConstraintRef constraint = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintBio), bioDict, NULL);
     CFReleaseSafe(bioDict);
     return constraint;
+}
+
+SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef allocator, CFDataRef catacombUUID, CFDataRef bioDbHash) {
+    return SecAccessConstraintCreateBiometryCurrentSet(allocator, catacombUUID, bioDbHash);
 }
 
 static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRef allocator, size_t numRequired, CFArrayRef constraints, CFErrorRef *error) {
@@ -342,9 +338,7 @@ errOut:
 
 bool SecAccessControlAddConstraintForOperation(SecAccessControlRef access_control, CFTypeRef operation, CFTypeRef constraint, CFErrorRef *error) {
     CheckItemInArray(operation, ItemArray(kAKSKeyOpEncrypt, kAKSKeyOpDecrypt,
-#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
                                           kAKSKeyOpSign, kAKSKeyOpAttest, kAKSKeyOpComputeKey,
-#endif
                                           kAKSKeyOpSync, kAKSKeyOpDefaultAcl, kAKSKeyOpDelete),
                      CFSTR("SecAccessControl: invalid operation"));
     if (!isDictionary(constraint) && !CFEqual(constraint, kCFBooleanTrue) && !CFEqual(constraint, kCFBooleanFalse) ) {

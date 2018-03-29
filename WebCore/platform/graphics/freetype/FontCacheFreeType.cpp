@@ -33,6 +33,10 @@
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
 
+#if PLATFORM(GTK)
+#include "GtkUtilities.h"
+#endif
+
 namespace WebCore {
 
 void FontCache::platformInit()
@@ -135,7 +139,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString&)
+Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString&, AllowUserInstalledFonts)
 {
     return { };
 }
@@ -157,6 +161,12 @@ static String getFamilyNameStringFromFamily(const AtomicString& family)
         return "cursive";
     if (family == fantasyFamily)
         return "fantasy";
+
+#if PLATFORM(GTK)
+    if (family == systemUiFamily || family == "-webkit-system-font")
+        return defaultGtkSystemFont();
+#endif
+
     return "";
 }
 
@@ -316,6 +326,10 @@ static inline bool isCommonlyUsedGenericFamily(const String& familyNameString)
         || equalLettersIgnoringASCIICase(familyNameString, "serif")
         || equalLettersIgnoringASCIICase(familyNameString, "monospace")
         || equalLettersIgnoringASCIICase(familyNameString, "fantasy")
+#if PLATFORM(GTK)
+        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-font")
+        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-ui")
+#endif
         || equalLettersIgnoringASCIICase(familyNameString, "cursive");
 }
 

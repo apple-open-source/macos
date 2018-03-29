@@ -14,11 +14,19 @@
 	<string>com.apple.secd</string>
 	<key>MachServices</key>
 	<dict>
+		<key>com.apple.security.octagon</key>
+		<true/>
 		<key>com.apple.secd</key>
 		<true/>
 		<key>com.apple.securityd.xpc</key>
 		<true/>
 		<key>com.apple.securityd.aps</key>
+		<true/>
+		<key>com.apple.securityd.ckks</key>
+		<true/>
+		<key>com.apple.securityd.general</key>
+		<true/>
+		<key>com.apple.securityd.sos</key>
 		<true/>
 	</dict>
 	<key>ProgramArguments</key>

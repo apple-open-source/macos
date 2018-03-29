@@ -212,6 +212,7 @@
 #undef HAVE_USLEEP
 #undef HAVE_UTIME
 #undef HAVE_BIND_TEXTDOMAIN_CODESET
+#undef HAVE_MBLEN
 
 /* Define, if needed, for accessing large files. */
 #undef _LARGE_FILES
@@ -430,6 +431,9 @@
 
 /* Define if you want to include process communication. */
 #undef FEAT_JOB_CHANNEL
+
+/* Define if you want to include terminal emulator support. */
+#undef FEAT_TERMINAL
 
 /* Define default global runtime path */
 #undef RUNTIME_GLOBAL

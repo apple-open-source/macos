@@ -30,9 +30,6 @@
 #define _USE_EXTENDED_LOCALES_
 #endif /* _USE_EXTENDED_LOCALES_ */
 
-struct _xlocale; /* forward reference */
-typedef struct _xlocale *		locale_t;
-
 #include <_locale.h>
 #include <_xlocale.h>
 

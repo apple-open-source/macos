@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol KCJoiningRequestCircleDelegate
+@protocol KCJoiningRequestCircleDelegate <NSObject>
 /*!
  Get this devices peer info (As Application)
 
@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
     
 @end
 
-@protocol KCJoiningRequestSecretDelegate
+@protocol KCJoiningRequestSecretDelegate <NSObject>
 /*!
  Get the shared secret for this session.
  Not called during creation or initialMessage: to allow the initial message to be sent before
@@ -108,7 +108,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 
-@protocol KCJoiningAcceptCircleDelegate
+@protocol KCJoiningAcceptCircleDelegate <NSObject>
 /*!
  Handle the request's peer info and get the blob they can use to get in circle
  @param peer
@@ -137,7 +137,7 @@ typedef enum {
     kKCRetryWithNewChallenge
 } KCRetryOrNot;
 
-@protocol KCJoiningAcceptSecretDelegate
+@protocol KCJoiningAcceptSecretDelegate <NSObject>
 /*!
     Get the shared secret for this session
     @result

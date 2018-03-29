@@ -17,6 +17,7 @@ using namespace Security;
 //                          SharedMemoryClient
 //=================================================================================
 
+#if !defined(NDEBUG)
 static std::string unixerrorstr(int errnum) {
     string errstr;
     char buf[1024];
@@ -26,6 +27,7 @@ static std::string unixerrorstr(int errnum) {
     errstr += "(" + to_string(errnum) + ")";
     return errstr;
 }
+#endif
 
 SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize, uid_t uid)
 {

@@ -1382,7 +1382,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         secnotice("KCLogin", "StorageManager::login: invalid argument (NULL uid)");
         MacOSError::throwMe(errSecParam);
     }
-    char *userName = pw->pw_name;
+    std::string userName = pw->pw_name;
 
     // make keychain path strings
     std::string keychainPath = DLDbListCFPref::ExpandTildesInPath(kLoginKeychainPathPrefix);

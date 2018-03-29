@@ -254,7 +254,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                     strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
                                 } else {
                                     // The preboot volume isn't mounted right now.  We'll have to mount it.
-                                    ret = MountPrebootVolume(context, currentDev + strlen("/dev/"), prebootMountPoint,
+                                    ret = BLMountContainerVolume(context, currentDev + strlen("/dev/"), prebootMountPoint,
 															 sizeof prebootMountPoint, true);
                                     if (ret) {
                                         blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume %s\n", currentDev);
@@ -274,7 +274,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                                            (long long)blessWords[0]);
                                     }
                                 }
-                                if (mustUnmount) UnmountPrebootVolume(context, prebootMountPoint);
+                                if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
                                 if (ret) {
                                     CFRelease(booterDict);
                                     return 4;
@@ -490,7 +490,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 					strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
 				} else {
 					// The preboot volume isn't mounted right now.  We'll have to mount it.
-					ret = MountPrebootVolume(context, prebootNode, prebootMountPoint, sizeof prebootMountPoint, true);
+					ret = BLMountContainerVolume(context, prebootNode, prebootMountPoint, sizeof prebootMountPoint, true);
 					if (ret) {
 						blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume /dev/%s\n", prebootNode);
 						noAccessToPreboot = true;
@@ -508,7 +508,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 				allInfo = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			} else {
 				ret = BLCreateAPFSVolumeInformationDictionary(context, volToCheck, (void *)&allInfo);
-				if (mustUnmount) UnmountPrebootVolume(context, prebootMountPoint);
+				if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 				if (ret) {
 					blesscontextprintf(context, kBLLogLevelError, "Couldn't get bless data from preboot volume.\n");
 					return 4;

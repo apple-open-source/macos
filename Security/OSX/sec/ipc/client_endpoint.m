@@ -32,21 +32,20 @@
 @implementation SecuritydXPCClient
 @synthesize connection = _connection;
 
-- (instancetype) initWithEndpoint:(xpc_endpoint_t)endpoint
+- (instancetype) init
 {
     if ((self = [super init])) {
         NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SecuritydXPCProtocol)];
-        NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
 
-        [listenerEndpoint _setEndpoint:endpoint];
-
-        self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
+        self.connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydGeneralServiceName) options:0];
         if (self.connection == NULL) {
             return NULL;
         }
 
         self.connection.remoteObjectInterface = interface;
         [SecuritydXPCClient configureSecuritydXPCProtocol: self.connection.remoteObjectInterface];
+
+        [self.connection resume];
     }
 
     return self;
@@ -148,40 +147,16 @@ id<SecuritydXPCProtocol> SecuritydXPCProxyObject(void (^rpcErrorHandler)(NSError
 
     static SecuritydXPCClient* rpc;
     static dispatch_once_t onceToken;
-    static CFErrorRef cferror = NULL;
-    static dispatch_queue_t queue;
-    __block SecuritydXPCClient *result = nil;
 
     dispatch_once(&onceToken, ^{
-        queue = dispatch_queue_create("SecuritydXPCProxyObject", DISPATCH_QUEUE_SERIAL);
+        rpc = [[SecuritydXPCClient alloc] init];
     });
 
-    dispatch_sync(queue, ^{
-        if (rpc) {
-            result = rpc;
-            return;
-        }
-
-        xpc_endpoint_t endpoint = _SecSecuritydCopyEndpoint(kSecXPCOpSecuritydXPCServerEndpoint, &cferror);
-        if (endpoint == NULL) {
-            return;
-        }
-        rpc = [[SecuritydXPCClient alloc] initWithEndpoint:endpoint];
-        rpc.connection.invalidationHandler = ^{
-            dispatch_sync(queue, ^{
-                rpc = nil;
-            });
-        };
-        [rpc.connection resume];
-
-        result = rpc;
-    });
-
-    if (result == NULL) {
-        rpcErrorHandler((__bridge NSError *)cferror);
+    if (rpc == NULL) {
+        rpcErrorHandler([NSError errorWithDomain:@"securityd" code:-1 userInfo:@{ NSLocalizedDescriptionKey : @"Could not create SecuritydXPCClient" }]);
         return NULL;
     } else {
-        return [result.connection remoteObjectProxyWithErrorHandler: rpcErrorHandler];
+        return [rpc.connection remoteObjectProxyWithErrorHandler: rpcErrorHandler];
     }
 }
 

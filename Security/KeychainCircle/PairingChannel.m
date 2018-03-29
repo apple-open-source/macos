@@ -11,6 +11,7 @@
 #import <Security/SecureObjectSync/SOSTypes.h>
 #import <utilities/debugging.h>
 #import <utilities/SecCFWrappers.h>
+#import <ipc/securityd_client.h>
 
 #import <compression.h>
 #if TARGET_OS_EMBEDDED
@@ -402,16 +403,9 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     if (self.connection)
         return true;
 
-    xpc_endpoint_t endpoint = _SecSecuritydCopySOSStatusEndpoint(NULL);
-    if (endpoint == NULL)
-        return false;
-
     NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SOSControlProtocol)];
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
 
-    [listenerEndpoint _setEndpoint:endpoint];
-
-    self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
+    self.connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydSOSServiceName) options:0];
     if (self.connection == NULL)
         return false;
 

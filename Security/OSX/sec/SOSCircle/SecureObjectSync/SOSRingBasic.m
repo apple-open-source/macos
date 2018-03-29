@@ -67,8 +67,8 @@ bool SOSRingApply_Basic(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoR
         SOSRingAddPeerID(ring, myPeerID) &&
         SOSRingSetLastModifier(ring, myPeerID) &&
         SOSRingGenerationSign_Internal(ring, priv, error);
-    CFReleaseNull(priv);
 errOut:
+    CFReleaseNull(priv);
     return retval;
 
 }

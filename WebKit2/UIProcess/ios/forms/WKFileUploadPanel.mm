@@ -235,7 +235,7 @@ static inline UIImage *cameraIcon()
 
     Ref<API::Array> acceptMimeTypes = parameters->acceptMIMETypes();
     NSMutableArray *mimeTypes = [NSMutableArray arrayWithCapacity:acceptMimeTypes->size()];
-    for (const auto& mimeType : acceptMimeTypes->elementsOfType<API::String>())
+    for (auto mimeType : acceptMimeTypes->elementsOfType<API::String>())
         [mimeTypes addObject:mimeType->string()];
     _mimeTypes = adoptNS([mimeTypes copy]);
 
@@ -423,7 +423,7 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
     
     // Use a popover on the iPad if the source type is not the camera.
     // The camera will use a fullscreen, modal view controller.
-    BOOL usePopover = UICurrentUserInterfaceIdiomIsPad() && sourceType != UIImagePickerControllerSourceTypeCamera;
+    BOOL usePopover = currentUserInterfaceIdiomIsPad() && sourceType != UIImagePickerControllerSourceTypeCamera;
     if (usePopover)
         [self _presentPopoverWithContentViewController:_imagePicker.get() animated:YES];
     else
@@ -434,7 +434,7 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 
 - (void)_presentMenuOptionForCurrentInterfaceIdiom:(UIViewController *)viewController
 {
-    if (UICurrentUserInterfaceIdiomIsPad())
+    if (currentUserInterfaceIdiomIsPad())
         [self _presentPopoverWithContentViewController:viewController animated:YES];
     else
         [self _presentFullscreenViewController:viewController animated:YES];
@@ -452,11 +452,25 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
     [_presentationPopover presentPopoverFromRect:CGRectIntegral(CGRectMake(_interactionPoint.x, _interactionPoint.y, 1, 1)) inView:_view permittedArrowDirections:UIPopoverArrowDirectionAny animated:animated];
 }
 
+
+static UIViewController *fallbackViewController(UIView *view)
+{
+    for (UIView *currentView = view; currentView; currentView = currentView.superview) {
+        if (UIViewController *viewController = [UIViewController viewControllerForView:currentView])
+            return viewController;
+    }
+    LOG_ERROR("Failed to find a view controller to show form validation popover");
+    return nil;
+}
+
 - (void)_presentFullscreenViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
     [self _dismissDisplayAnimated:animated];
-
-    _presentationViewController = [UIViewController _viewControllerForFullScreenPresentationFromView:_view];
+    
+    if ([self.delegate respondsToSelector:@selector(fileUploadPanelDidDismiss:)])
+        _presentationViewController = [self.delegate viewControllerForPresentingFileUploadPanel:self];
+    if (!_presentationViewController)
+        _presentationViewController = fallbackViewController(_view);
     [_presentationViewController presentViewController:viewController animated:animated completion:nil];
 }
 

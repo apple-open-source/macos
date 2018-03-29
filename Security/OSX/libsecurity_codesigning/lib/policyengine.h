@@ -88,7 +88,10 @@ private:
 	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, SQLite::int64 authority);
 
 private:
-	OpaqueWhitelist mOpaqueWhitelist;
+	OpaqueWhitelist* mOpaqueWhitelist;
+	CFDictionaryRef opaqueWhitelistValidationConditionsFor(SecStaticCodeRef code);
+	bool opaqueWhiteListContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason);
+	void opaqueWhitelistAdd(SecStaticCodeRef code);
 
     friend class EvaluationManager;
     friend class EvaluationTask;

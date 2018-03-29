@@ -136,8 +136,7 @@ static int validateKextsAlertDict( CFDictionaryRef theDict );
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus startMonitoringConsoleUser(
-    KextdArgs    * toolArgs,
-    unsigned int * sourcePriority)
+    KextdArgs    * toolArgs)
 {
     ExitStatus         result                 = EX_OSERR;
     CFStringRef        consoleUserName        = NULL;  // must release
@@ -196,7 +195,7 @@ ExitStatus startMonitoringConsoleUser(
     sourceContext.version = 0;
     sourceContext.perform = _checkNotificationQueue;
     sNotificationQueueRunLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault,
-        (*sourcePriority)++, &sourceContext);
+                                        0, &sourceContext);
     if (!sNotificationQueueRunLoopSource) {
        OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
            "Failed to create alert run loop source.");

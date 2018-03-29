@@ -40,24 +40,25 @@ void OptionItem::encode(IPC::Encoder& encoder) const
     encoder << parentGroupID;
 }
 
-bool OptionItem::decode(IPC::Decoder& decoder, OptionItem& result)
+std::optional<OptionItem> OptionItem::decode(IPC::Decoder& decoder)
 {
+    OptionItem result;
     if (!decoder.decode(result.text))
-        return false;
+        return std::nullopt;
 
     if (!decoder.decode(result.isGroup))
-        return false;
+        return std::nullopt;
 
     if (!decoder.decode(result.isSelected))
-        return false;
+        return std::nullopt;
 
     if (!decoder.decode(result.disabled))
-        return false;
+        return std::nullopt;
 
     if (!decoder.decode(result.parentGroupID))
-        return false;
+        return std::nullopt;
     
-    return true;
+    return WTFMove(result);
 }
 
 void AssistedNodeInformation::encode(IPC::Encoder& encoder) const
@@ -85,6 +86,8 @@ void AssistedNodeInformation::encode(IPC::Encoder& encoder) const
     encoder << value;
     encoder << valueAsNumber;
     encoder << title;
+    encoder << acceptsAutofilledLoginCredentials;
+    encoder << representingPageURL;
     encoder.encodeEnum(autofillFieldName);
 }
 
@@ -157,6 +160,12 @@ bool AssistedNodeInformation::decode(IPC::Decoder& decoder, AssistedNodeInformat
         return false;
 
     if (!decoder.decode(result.title))
+        return false;
+
+    if (!decoder.decode(result.acceptsAutofilledLoginCredentials))
+        return false;
+
+    if (!decoder.decode(result.representingPageURL))
         return false;
 
     if (!decoder.decodeEnum(result.autofillFieldName))

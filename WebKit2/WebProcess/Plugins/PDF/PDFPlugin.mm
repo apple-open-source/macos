@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,6 @@
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/ArchiveResource.h>
 #import <WebCore/Chrome.h>
-#import <WebCore/CoreGraphicsSPI.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/DocumentLoader.h>
@@ -68,9 +67,11 @@
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLPlugInElement.h>
+#import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/MouseEvent.h>
+#import <WebCore/PDFDocumentImage.h>
 #import <WebCore/Page.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/PluginData.h>
@@ -80,7 +81,8 @@
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
 #import <WebCore/WheelEventTestTrigger.h>
-#import <WebKitSystemInterface.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/UUID.h>
 
@@ -596,16 +598,14 @@ namespace WebKit {
 
 using namespace HTMLNames;
 
-Ref<PDFPlugin> PDFPlugin::create(WebFrame* frame)
+Ref<PDFPlugin> PDFPlugin::create(WebFrame& frame)
 {
     return adoptRef(*new PDFPlugin(frame));
 }
 
-PDFPlugin::PDFPlugin(WebFrame* frame)
+inline PDFPlugin::PDFPlugin(WebFrame& frame)
     : Plugin(PDFPluginType)
-    , m_frame(frame)
-    , m_isPostScript(false)
-    , m_pdfDocumentWasMutated(false)
+    , m_frame(&frame)
     , m_containerLayer(adoptNS([[CALayer alloc] init]))
     , m_contentLayer(adoptNS([[CALayer alloc] init]))
     , m_scrollCornerLayer(adoptNS([[WKPDFPluginScrollbarLayer alloc] initWithPDFPlugin:this]))
@@ -981,29 +981,13 @@ JSObjectRef PDFPlugin::makeJSPDFDoc(JSContextRef ctx)
     return JSObjectMake(ctx, jsPDFDocClass, this);
 }
 
-static RetainPtr<CFMutableDataRef> convertPostScriptDataToPDF(RetainPtr<CFDataRef> postScriptData)
-{
-    // Convert PostScript to PDF using the Quartz 2D API.
-    // http://developer.apple.com/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_ps_convert/chapter_16_section_1.html
-
-    CGPSConverterCallbacks callbacks = { 0, 0, 0, 0, 0, 0, 0, 0 };
-    RetainPtr<CGPSConverterRef> converter = adoptCF(CGPSConverterCreate(0, &callbacks, 0));
-    RetainPtr<CGDataProviderRef> provider = adoptCF(CGDataProviderCreateWithCFData(postScriptData.get()));
-    RetainPtr<CFMutableDataRef> pdfData = adoptCF(CFDataCreateMutable(kCFAllocatorDefault, 0));
-    RetainPtr<CGDataConsumerRef> consumer = adoptCF(CGDataConsumerCreateWithCFData(pdfData.get()));
-    
-    CGPSConverterConvert(converter.get(), provider.get(), consumer.get(), 0);
-    
-    return pdfData;
-}
-
 void PDFPlugin::convertPostScriptDataIfNeeded()
 {
     if (!m_isPostScript)
         return;
 
     m_suggestedFilename = String(m_suggestedFilename + ".pdf");
-    m_data = convertPostScriptDataToPDF(m_data);
+    m_data = PDFDocumentImage::convertPostScriptDataToPDF(WTFMove(m_data));
 }
 
 void PDFPlugin::pdfDocumentDidLoad()
@@ -1031,8 +1015,15 @@ void PDFPlugin::pdfDocumentDidLoad()
 
     if ([document isLocked])
         createPasswordEntryForm();
-}
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    if ([m_pdfLayerController respondsToSelector:@selector(setURLFragment:)]) {
+        String pdfURLFragment = webFrame()->url().fragmentIdentifier();
+        [m_pdfLayerController setURLFragment:pdfURLFragment];
+    }
+#endif
+}
+    
 void PDFPlugin::streamDidReceiveResponse(uint64_t streamID, const URL&, uint32_t, uint32_t, const String& mimeType, const String&, const String& suggestedFilename)
 {
     ASSERT_UNUSED(streamID, streamID == pdfDocumentRequestID);
@@ -1246,7 +1237,7 @@ RefPtr<ShareableBitmap> PDFPlugin::snapshot()
     IntSize backingStoreSize = size();
     backingStoreSize.scale(contentsScaleFactor);
 
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(backingStoreSize, ShareableBitmap::SupportsAlpha);
+    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(backingStoreSize, { });
     auto context = bitmap->createGraphicsContext();
 
     context->scale(FloatSize(contentsScaleFactor, -contentsScaleFactor));
@@ -1575,7 +1566,7 @@ bool PDFPlugin::showContextMenuAtPoint(const IntPoint& point)
 {
     FrameView* frameView = webFrame()->coreFrame()->view();
     IntPoint contentsPoint = frameView->contentsToRootView(point);
-    WebMouseEvent event(WebEvent::MouseDown, WebMouseEvent::RightButton, contentsPoint, contentsPoint, 0, 0, 0, 1, static_cast<WebEvent::Modifiers>(0), monotonicallyIncreasingTime(), WebCore::ForceAtClick);
+    WebMouseEvent event(WebEvent::MouseDown, WebMouseEvent::RightButton, 0, contentsPoint, contentsPoint, 0, 0, 0, 1, static_cast<WebEvent::Modifiers>(0), WallTime::now(), WebCore::ForceAtClick);
     return handleContextMenuEvent(event);
 }
 
@@ -1585,7 +1576,7 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
     IntPoint point = frameView->contentsToScreen(IntRect(frameView->windowToContents(event.position()), IntSize())).location();
     
     if (NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event)]) {
-        WKPopupContextMenu(nsMenu, point);
+        _NSPopUpCarbonMenu3(nsMenu, nil, nil, point, -1, nil, 0, nil, NSPopUpMenuTypeContext, nil);
         return true;
     }
     
@@ -1814,7 +1805,7 @@ void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items,
         if (!data.length)
             continue;
 
-        if ([type isEqualToString:NSStringPboardType] || [type isEqualToString:NSPasteboardTypeString]) {
+        if ([type isEqualToString:legacyStringPasteboardType()] || [type isEqualToString:NSPasteboardTypeString]) {
             RetainPtr<NSString> plainTextString = adoptNS([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
             webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get()), Messages::WebPasteboardProxy::SetPasteboardStringForType::Reply(newChangeCount), 0);
         } else {
@@ -1841,13 +1832,14 @@ void PDFPlugin::showDefinitionForAttributedString(NSAttributedString *string, CG
     webFrame()->page()->send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfo));
 }
 
-unsigned PDFPlugin::countFindMatches(const String& target, WebCore::FindOptions options, unsigned maxMatchCount)
+unsigned PDFPlugin::countFindMatches(const String& target, WebCore::FindOptions options, unsigned /*maxMatchCount*/)
 {
+    // FIXME: Why is it OK to ignore the passed-in maximum match count?
+
     if (!target.length())
         return 0;
 
-    int nsOptions = (options & FindOptionsCaseInsensitive) ? NSCaseInsensitiveSearch : 0;
-
+    NSStringCompareOptions nsOptions = options.contains(WebCore::CaseInsensitive) ? NSCaseInsensitiveSearch : 0;
     return [[pdfDocument() findString:target withOptions:nsOptions] count];
 }
 
@@ -1859,7 +1851,6 @@ PDFSelection *PDFPlugin::nextMatchForString(const String& target, BOOL searchFor
     NSStringCompareOptions options = 0;
     if (!searchForward)
         options |= NSBackwardsSearch;
-
     if (!caseSensitive)
         options |= NSCaseInsensitiveSearch;
 
@@ -1896,22 +1887,17 @@ PDFSelection *PDFPlugin::nextMatchForString(const String& target, BOOL searchFor
 
 bool PDFPlugin::findString(const String& target, WebCore::FindOptions options, unsigned maxMatchCount)
 {
-    BOOL searchForward = !(options & FindOptionsBackwards);
-    BOOL caseSensitive = !(options & FindOptionsCaseInsensitive);
-    BOOL wrapSearch = options & FindOptionsWrapAround;
+    bool searchForward = !options.contains(WebCore::Backwards);
+    bool caseSensitive = !options.contains(WebCore::CaseInsensitive);
+    bool wrapSearch = options.contains(WebCore::WrapAround);
 
-    unsigned matchCount;
-    if (!maxMatchCount) {
-        // If the max was zero, any result means we exceeded the max. We can skip computing the actual count.
-        matchCount = static_cast<unsigned>(kWKMoreThanMaximumMatchCount);
-    } else {
-        matchCount = countFindMatches(target, options, maxMatchCount);
-        if (matchCount > maxMatchCount)
-            matchCount = static_cast<unsigned>(kWKMoreThanMaximumMatchCount);
-    }
+    // If the max was zero, any result means we exceeded the max, so we can skip computing the actual count.
+    // FIXME: How can always returning true without searching if passed a max of 0 be right?
+    // Even if it is right, why not put that special case inside countFindMatches instead of here?
+    bool foundMatch = !maxMatchCount || countFindMatches(target, options, maxMatchCount);
 
     if (target.isEmpty()) {
-        PDFSelection* searchSelection = [m_pdfLayerController searchSelection];
+        auto searchSelection = [m_pdfLayerController searchSelection];
         [m_pdfLayerController findString:target caseSensitive:caseSensitive highlightMatches:YES];
         [m_pdfLayerController setSearchSelection:searchSelection];
         m_lastFoundString = emptyString();
@@ -1919,10 +1905,9 @@ bool PDFPlugin::findString(const String& target, WebCore::FindOptions options, u
     }
 
     if (m_lastFoundString == target) {
-        PDFSelection *selection = nextMatchForString(target, searchForward, caseSensitive, wrapSearch, [m_pdfLayerController searchSelection], NO);
+        auto selection = nextMatchForString(target, searchForward, caseSensitive, wrapSearch, [m_pdfLayerController searchSelection], NO);
         if (!selection)
             return false;
-
         [m_pdfLayerController setSearchSelection:selection];
         [m_pdfLayerController gotoSelection:selection];
     } else {
@@ -1930,17 +1915,15 @@ bool PDFPlugin::findString(const String& target, WebCore::FindOptions options, u
         m_lastFoundString = target;
     }
 
-    return matchCount > 0;
+    return foundMatch;
 }
 
 bool PDFPlugin::performDictionaryLookupAtLocation(const WebCore::FloatPoint& point)
 {
     IntPoint localPoint = convertFromRootViewToPlugin(roundedIntPoint(point));
     PDFSelection* lookupSelection = [m_pdfLayerController getSelectionForWordAtPoint:convertFromPluginToPDFView(localPoint)];
-
     if ([[lookupSelection string] length])
         [m_pdfLayerController searchInDictionaryWithSelection:lookupSelection];
-
     return true;
 }
 
@@ -1959,7 +1942,7 @@ void PDFPlugin::notifySelectionChanged(PDFSelection *)
     webFrame()->page()->didChangeSelection();
 }
 
-static const Cursor& pdfLayerControllerCursorTypeToCursor(PDFLayerControllerCursorType type)
+static const Cursor& coreCursor(PDFLayerControllerCursorType type)
 {
     switch (type) {
     case kPDFLayerControllerCursorTypeHand:
@@ -1974,7 +1957,7 @@ static const Cursor& pdfLayerControllerCursorTypeToCursor(PDFLayerControllerCurs
 
 void PDFPlugin::notifyCursorChanged(uint64_t type)
 {
-    webFrame()->page()->send(Messages::WebPageProxy::SetCursor(pdfLayerControllerCursorTypeToCursor(static_cast<PDFLayerControllerCursorType>(type))));
+    webFrame()->page()->send(Messages::WebPageProxy::SetCursor(coreCursor(static_cast<PDFLayerControllerCursorType>(type))));
 }
 
 String PDFPlugin::getSelectionString() const
@@ -1987,7 +1970,6 @@ String PDFPlugin::getSelectionForWordAtPoint(const WebCore::FloatPoint& point) c
     IntPoint pointInView = convertFromPluginToPDFView(convertFromRootViewToPlugin(roundedIntPoint(point)));
     PDFSelection *selectionForWord = [m_pdfLayerController getSelectionForWordAtPoint:pointInView];
     [m_pdfLayerController setCurrentSelection:selectionForWord];
-    
     return [selectionForWord string];
 }
 
@@ -2028,36 +2010,32 @@ static NSPoint pointInLayoutSpaceForPointInWindowSpace(PDFLayerController* pdfLa
     CGFloat scaleFactor = [pdfLayerController contentScaleFactor];
 
     scrollOffset.y = [pdfLayerController contentSizeRespectingZoom].height - NSRectToCGRect([pdfLayerController frame]).size.height - scrollOffset.y;
-    
+
     CGPoint newPoint = CGPointMake(scrollOffset.x + point.x, scrollOffset.y + point.y);
     newPoint.x /= scaleFactor;
     newPoint.y /= scaleFactor;
     return NSPointFromCGPoint(newPoint);
 }
 
-String PDFPlugin::lookupTextAtLocation(const WebCore::FloatPoint& locationInViewCoordinates, WebHitTestResultData& data, PDFSelection **selectionPtr, NSDictionary **options) const
+std::tuple<String, PDFSelection *, NSDictionary *> PDFPlugin::lookupTextAtLocation(const WebCore::FloatPoint& locationInViewCoordinates, WebHitTestResultData& data) const
 {
-    PDFSelection*& selection = *selectionPtr;
-
-    selection = [m_pdfLayerController currentSelection];
+    auto selection = [m_pdfLayerController currentSelection];
     if (existingSelectionContainsPoint(locationInViewCoordinates))
-        return selection.string;
-        
+        return { selection.string, selection, nil };
+
     IntPoint pointInPDFView = convertFromPluginToPDFView(convertFromRootViewToPlugin(roundedIntPoint(locationInViewCoordinates)));
     selection = [m_pdfLayerController getSelectionForWordAtPoint:pointInPDFView];
     if (!selection)
-        return "";
+        return { emptyString(), nil, nil };
 
     NSPoint pointInLayoutSpace = pointInLayoutSpaceForPointInWindowSpace(m_pdfLayerController.get(), pointInPDFView);
-
     PDFPage *currentPage = [[m_pdfLayerController layout] pageNearestPoint:pointInLayoutSpace currentPage:[m_pdfLayerController currentPage]];
-    
     NSPoint pointInPageSpace = [[m_pdfLayerController layout] convertPoint:pointInLayoutSpace toPage:currentPage forScaleFactor:1.0];
-    
+
     for (PDFAnnotation *annotation in currentPage.annotations) {
         if (![annotation isKindOfClass:pdfAnnotationLinkClass()])
             continue;
-    
+
         NSRect bounds = annotation.bounds;
         if (!NSPointInRect(pointInPageSpace, bounds))
             continue;
@@ -2069,18 +2047,19 @@ String PDFPlugin::lookupTextAtLocation(const WebCore::FloatPoint& locationInView
         NSURL *url = linkAnnotation.URL;
         if (!url)
             continue;
-        
+
         data.absoluteLinkURL = url.absoluteString;
         data.linkLabel = selection.string;
-        return selection.string;
+        return { selection.string, selection, nil };
     }
-    
-    NSString *lookupText = DictionaryLookup::stringForPDFSelection(selection, options);
-    if (!lookupText || !lookupText.length)
-        return "";
+
+    NSDictionary *options = nil;
+    NSString *lookupText = DictionaryLookup::stringForPDFSelection(selection, &options);
+    if (!lookupText.length)
+        return { emptyString(), selection, nil };
 
     [m_pdfLayerController setCurrentSelection:selection];
-    return lookupText;
+    return { lookupText, selection, options };
 }
 
 static NSRect rectInViewSpaceForRectInLayoutSpace(PDFLayerController* pdfLayerController, NSRect layoutSpaceRect)
@@ -2110,20 +2089,20 @@ WebCore::AXObjectCache* PDFPlugin::axObjectCache() const
 WebCore::FloatRect PDFPlugin::rectForSelectionInRootView(PDFSelection *selection) const
 {
     PDFPage *currentPage = nil;
-    NSArray* pages = selection.pages;
+    NSArray *pages = selection.pages;
     if (pages.count)
         currentPage = (PDFPage *)[pages objectAtIndex:0];
 
     if (!currentPage)
         currentPage = [m_pdfLayerController currentPage];
-    
+
     NSRect rectInPageSpace = [selection boundsForPage:currentPage];
     NSRect rectInLayoutSpace = [[m_pdfLayerController layout] convertRect:rectInPageSpace fromPage:currentPage forScaleFactor:1.0];
     NSRect rectInView = rectInViewSpaceForRectInLayoutSpace(m_pdfLayerController.get(), rectInLayoutSpace);
 
     rectInView.origin = convertFromPDFViewToRootView(IntPoint(rectInView.origin));
 
-    return WebCore::FloatRect(rectInView);
+    return rectInView;
 }
 
 CGFloat PDFPlugin::scaleFactor() const
@@ -2191,7 +2170,7 @@ NSData *PDFPlugin::liveData() const
     // untouched by the user, so that PDFs which PDFKit can't display will still be downloadable.
     if (m_pdfDocumentWasMutated)
         return [m_pdfDocument dataRepresentation];
-    
+
     return rawData();
 }
 
@@ -2200,16 +2179,16 @@ id PDFPlugin::accessibilityAssociatedPluginParentForElement(WebCore::Element* el
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if (!m_activeAnnotation)
         return nil;
-    
+
     if (m_activeAnnotation->element() != element)
         return nil;
-    
+
     return [m_activeAnnotation->annotation() accessibilityNode];
 #else
     return nil;
 #endif
 }
-    
+
 NSObject *PDFPlugin::accessibilityObject() const
 {
     return m_accessibilityObject.get();

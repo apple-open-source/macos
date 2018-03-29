@@ -71,10 +71,10 @@ private:
 	IOCommandPool	*fPool;
 
 protected:
-	void free();
+	void free(void) APPLE_KEXT_OVERRIDE;
 	
 public:
-	bool init();
+	bool init(void) APPLE_KEXT_OVERRIDE;
 	void reinit(mbuf_t pkt, IOFireWireIP *ipNode, IOCommandPool *pool);
 	void releaseWithStatus(IOReturn status = kIOReturnSuccess);
 	mbuf_t getMBuf();

@@ -41,18 +41,20 @@ NetworkProcessCreationParameters::NetworkProcessCreationParameters()
 
 void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 {
+    encoder << defaultSessionParameters;
     encoder << privateBrowsingEnabled;
     encoder.encodeEnum(cacheModel);
     encoder << diskCacheSizeOverride;
     encoder << canHandleHTTPSServerTrustEvaluation;
+    encoder << cacheStorageDirectory;
+    encoder << cacheStoragePerOriginQuota;
+    encoder << cacheStorageDirectoryExtensionHandle;
     encoder << diskCacheDirectory;
     encoder << diskCacheDirectoryExtensionHandle;
-#if ENABLE(NETWORK_CACHE)
     encoder << shouldEnableNetworkCache;
     encoder << shouldEnableNetworkCacheEfficacyLogging;
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
     encoder << shouldEnableNetworkCacheSpeculativeRevalidation;
-#endif
 #endif
 #if PLATFORM(MAC)
     encoder << uiProcessCookieStorageIdentifier;
@@ -74,7 +76,6 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << nsURLCacheDiskCapacity;
     encoder << sourceApplicationBundleIdentifier;
     encoder << sourceApplicationSecondaryIdentifier;
-    encoder << allowsCellularAccess;
 #if PLATFORM(IOS)
     encoder << ctDataConnectionServiceType;
 #endif
@@ -84,6 +85,7 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     IPC::encode(encoder, networkATSContext.get());
 #endif
     encoder << cookieStoragePartitioningEnabled;
+    encoder << storageAccessAPIEnabled;
 #endif
 #if USE(SOUP)
     encoder << cookiePersistentStoragePath;
@@ -92,6 +94,9 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << ignoreTLSErrors;
     encoder << languages;
     encoder << proxySettings;
+#endif
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    encoder << logCookieInformation;
 #endif
 #if OS(LINUX)
     encoder << memoryPressureMonitorHandle;
@@ -104,6 +109,12 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProcessCreationParameters& result)
 {
+    std::optional<NetworkSessionCreationParameters> defaultSessionParameters;
+    decoder >> defaultSessionParameters;
+    if (!defaultSessionParameters)
+        return false;
+    result.defaultSessionParameters = WTFMove(*defaultSessionParameters);
+
     if (!decoder.decode(result.privateBrowsingEnabled))
         return false;
     if (!decoder.decodeEnum(result.cacheModel))
@@ -112,11 +123,26 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.canHandleHTTPSServerTrustEvaluation))
         return false;
+    if (!decoder.decode(result.cacheStorageDirectory))
+        return false;
+    if (!decoder.decode(result.cacheStoragePerOriginQuota))
+        return false;
+    
+    std::optional<SandboxExtension::Handle> cacheStorageDirectoryExtensionHandle;
+    decoder >> cacheStorageDirectoryExtensionHandle;
+    if (!cacheStorageDirectoryExtensionHandle)
+        return false;
+    result.cacheStorageDirectoryExtensionHandle = WTFMove(*cacheStorageDirectoryExtensionHandle);
+
     if (!decoder.decode(result.diskCacheDirectory))
         return false;
-    if (!decoder.decode(result.diskCacheDirectoryExtensionHandle))
+    
+    std::optional<SandboxExtension::Handle> diskCacheDirectoryExtensionHandle;
+    decoder >> diskCacheDirectoryExtensionHandle;
+    if (!diskCacheDirectoryExtensionHandle)
         return false;
-#if ENABLE(NETWORK_CACHE)
+    result.diskCacheDirectoryExtensionHandle = WTFMove(*diskCacheDirectoryExtensionHandle);
+
     if (!decoder.decode(result.shouldEnableNetworkCache))
         return false;
     if (!decoder.decode(result.shouldEnableNetworkCacheEfficacyLogging))
@@ -125,18 +151,28 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     if (!decoder.decode(result.shouldEnableNetworkCacheSpeculativeRevalidation))
         return false;
 #endif
-#endif
 #if PLATFORM(MAC)
     if (!decoder.decode(result.uiProcessCookieStorageIdentifier))
         return false;
 #endif
 #if PLATFORM(IOS)
-    if (!decoder.decode(result.cookieStorageDirectoryExtensionHandle))
+    std::optional<SandboxExtension::Handle> cookieStorageDirectoryExtensionHandle;
+    decoder >> cookieStorageDirectoryExtensionHandle;
+    if (!cookieStorageDirectoryExtensionHandle)
         return false;
-    if (!decoder.decode(result.containerCachesDirectoryExtensionHandle))
+    result.cookieStorageDirectoryExtensionHandle = WTFMove(*cookieStorageDirectoryExtensionHandle);
+
+    std::optional<SandboxExtension::Handle> containerCachesDirectoryExtensionHandle;
+    decoder >> containerCachesDirectoryExtensionHandle;
+    if (!containerCachesDirectoryExtensionHandle)
         return false;
-    if (!decoder.decode(result.parentBundleDirectoryExtensionHandle))
+    result.containerCachesDirectoryExtensionHandle = WTFMove(*containerCachesDirectoryExtensionHandle);
+
+    std::optional<SandboxExtension::Handle> parentBundleDirectoryExtensionHandle;
+    decoder >> parentBundleDirectoryExtensionHandle;
+    if (!parentBundleDirectoryExtensionHandle)
         return false;
+    result.parentBundleDirectoryExtensionHandle = WTFMove(*parentBundleDirectoryExtensionHandle);
 #endif
     if (!decoder.decode(result.shouldSuppressMemoryPressureHandler))
         return false;
@@ -161,8 +197,6 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.sourceApplicationSecondaryIdentifier))
         return false;
-    if (!decoder.decode(result.allowsCellularAccess))
-        return false;
 #if PLATFORM(IOS)
     if (!decoder.decode(result.ctDataConnectionServiceType))
         return false;
@@ -176,6 +210,8 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
 #endif
     if (!decoder.decode(result.cookieStoragePartitioningEnabled))
+        return false;
+    if (!decoder.decode(result.storageAccessAPIEnabled))
         return false;
 #endif
 
@@ -191,6 +227,11 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     if (!decoder.decode(result.languages))
         return false;
     if (!decoder.decode(result.proxySettings))
+        return false;
+#endif
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    if (!decoder.decode(result.logCookieInformation))
         return false;
 #endif
 

@@ -37,7 +37,7 @@ class IOFWQEventSource : public IOEventSource
 
 protected:
     IOFWCmdQ *fQueue;
-    virtual bool checkForWork();
+    virtual bool checkForWork(void) APPLE_KEXT_OVERRIDE;
 
 public:
     bool init(IOFireWireController *owner);

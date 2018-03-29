@@ -157,7 +157,9 @@ _pthread_atfork_child(void)
 	_PTHREAD_LOCK_INIT(globals->psaved_self_global_lock);
 	__is_threaded = 0;
 	_pthread_main_thread_init(globals->psaved_self);
-	_pthread_bsdthread_init();
+
+	struct _pthread_registration_data registration_data;
+	_pthread_bsdthread_init(&registration_data);
 }
 
 // Iterate pthread_atfork child handlers.

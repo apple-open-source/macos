@@ -1137,6 +1137,20 @@ ex_diffthis(exarg_T *eap UNUSED)
     diff_win_options(curwin, TRUE);
 }
 
+    static void
+set_diff_option(win_T *wp, int value)
+{
+    win_T *old_curwin = curwin;
+
+    curwin = wp;
+    curbuf = curwin->w_buffer;
+    ++curbuf_lock;
+    set_option_value((char_u *)"diff", (long)value, NULL, OPT_LOCAL);
+    --curbuf_lock;
+    curwin = old_curwin;
+    curbuf = curwin->w_buffer;
+}
+
 /*
  * Set options in window "wp" for diff mode.
  */
@@ -1198,10 +1212,10 @@ diff_win_options(
     if (vim_strchr(p_sbo, 'h') == NULL)
 	do_cmdline_cmd((char_u *)"set sbo+=hor");
 #endif
-    /* Saved the current values, to be restored in ex_diffoff(). */
+    /* Save the current values, to be restored in ex_diffoff(). */
     wp->w_p_diff_saved = TRUE;
 
-    wp->w_p_diff = TRUE;
+    set_diff_option(wp, TRUE);
 
     if (addbuf)
 	diff_buf_add(wp->w_buffer);
@@ -1227,7 +1241,7 @@ ex_diffoff(exarg_T *eap)
 	    /* Set 'diff' off. If option values were saved in
 	     * diff_win_options(), restore the ones whose settings seem to have
 	     * been left over from diff mode.  */
-	    wp->w_p_diff = FALSE;
+	    set_diff_option(wp, FALSE);
 
 	    if (wp->w_p_diff_saved)
 	    {
@@ -1647,6 +1661,40 @@ diff_equal_entry(diff_T *dp, int idx1, int idx2)
 }
 
 /*
+ * Compare the characters at "p1" and "p2".  If they are equal (possibly
+ * ignoring case) return TRUE and set "len" to the number of bytes.
+ */
+    static int
+diff_equal_char(char_u *p1, char_u *p2, int *len)
+{
+#ifdef FEAT_MBYTE
+    int l  = (*mb_ptr2len)(p1);
+
+    if (l != (*mb_ptr2len)(p2))
+	return FALSE;
+    if (l > 1)
+    {
+	if (STRNCMP(p1, p2, l) != 0
+		&& (!enc_utf8
+		    || !(diff_flags & DIFF_ICASE)
+		    || utf_fold(utf_ptr2char(p1))
+						!= utf_fold(utf_ptr2char(p2))))
+	    return FALSE;
+	*len = l;
+    }
+    else
+#endif
+    {
+	if ((*p1 != *p2)
+		&& (!(diff_flags & DIFF_ICASE)
+		    || TOLOWER_LOC(*p1) != TOLOWER_LOC(*p2)))
+	    return FALSE;
+	*len = 1;
+    }
+    return TRUE;
+}
+
+/*
  * Compare strings "s1" and "s2" according to 'diffopt'.
  * Return non-zero when they are different.
  */
@@ -1654,9 +1702,7 @@ diff_equal_entry(diff_T *dp, int idx1, int idx2)
 diff_cmp(char_u *s1, char_u *s2)
 {
     char_u	*p1, *p2;
-#ifdef FEAT_MBYTE
     int		l;
-#endif
 
     if ((diff_flags & (DIFF_ICASE | DIFF_IWHITE)) == 0)
 	return STRCMP(s1, s2);
@@ -1675,30 +1721,10 @@ diff_cmp(char_u *s1, char_u *s2)
 	}
 	else
 	{
-#ifdef FEAT_MBYTE
-	    l  = (*mb_ptr2len)(p1);
-	    if (l != (*mb_ptr2len)(p2))
+	    if (!diff_equal_char(p1, p2, &l))
 		break;
-	    if (l > 1)
-	    {
-		if (STRNCMP(p1, p2, l) != 0
-			&& (!enc_utf8
-			    || !(diff_flags & DIFF_ICASE)
-			    || utf_fold(utf_ptr2char(p1))
-					       != utf_fold(utf_ptr2char(p2))))
-		    break;
-		p1 += l;
-		p2 += l;
-	    }
-	    else
-#endif
-	    {
-		if (*p1 != *p2 && (!(diff_flags & DIFF_ICASE)
-				     || TOLOWER_LOC(*p1) != TOLOWER_LOC(*p2)))
-		    break;
-		++p1;
-		++p2;
-	    }
+	    p1 += l;
+	    p2 += l;
 	}
     }
 
@@ -1955,6 +1981,8 @@ diff_find_change(
     int		idx;
     int		off;
     int		added = TRUE;
+    char_u	*p1, *p2;
+    int		l;
 
     /* Make a copy of the line, the next ml_get() will invalidate it. */
     line_org = vim_strsave(ml_get_buf(wp->w_buffer, lnum, FALSE));
@@ -2003,10 +2031,11 @@ diff_find_change(
 		}
 		else
 		{
-		    if (line_org[si_org] != line_new[si_new])
+		    if (!diff_equal_char(line_org + si_org, line_new + si_new,
+									   &l))
 			break;
-		    ++si_org;
-		    ++si_new;
+		    si_org += l;
+		    si_new += l;
 		}
 	    }
 #ifdef FEAT_MBYTE
@@ -2042,10 +2071,16 @@ diff_find_change(
 		    }
 		    else
 		    {
-			if (line_org[ei_org] != line_new[ei_new])
+			p1 = line_org + ei_org;
+			p2 = line_new + ei_new;
+#ifdef FEAT_MBYTE
+			p1 -= (*mb_head_off)(line_org, p1);
+			p2 -= (*mb_head_off)(line_new, p2);
+#endif
+			if (!diff_equal_char(p1, p2, &l))
 			    break;
-			--ei_org;
-			--ei_new;
+			ei_org -= l;
+			ei_new -= l;
 		    }
 		}
 		if (*endp < ei_org)

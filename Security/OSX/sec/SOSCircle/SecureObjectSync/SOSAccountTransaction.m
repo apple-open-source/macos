@@ -21,6 +21,7 @@
 #import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
 
 #include <keychain/ckks/CKKS.h>
+
 #define kPublicKeyNotAvailable "com.apple.security.publickeynotavailable"
 
 // Account dumping state stuff
@@ -38,6 +39,8 @@
 @property BOOL              initialTrusted;
 @property NSData*           initialKeyParameters;
 
+@property bool              quiet;
+
 @property NSMutableSet<NSString*>* peersToRequestSync;
 
 - (void) start;
@@ -48,18 +51,15 @@
 
 @implementation SOSAccountTransaction
 
-+ (instancetype) transactionWithAccount: (SOSAccount*) account {
-    return [[SOSAccountTransaction new] initWithAccount: account];
-}
-
 - (NSString*) description {
     return [NSString stringWithFormat:@"<SOSAccountTransaction*@%p %ld>",
                                       self, (unsigned long)(self.initialViews ? [self.initialViews count] : 0)];
 }
 
-- (instancetype) initWithAccount:(SOSAccount *)account {
+- (instancetype) initWithAccount:(SOSAccount *)account quiet:(bool)quiet {
     if (self = [super init]) {
         self.account = account;
+        _quiet = quiet;
         [self start];
     }
     return self;
@@ -83,9 +83,11 @@
     }
     self.peersToRequestSync = nil;
 
-    CFStringSetPerformWithDescription((__bridge CFSetRef) self.initialViews, ^(CFStringRef description) {
-        secnotice("acct-txn", "Starting as:%s v:%@", self.initialInCircle ? "member" : "non-member", description);
-    });
+    if(!self.quiet) {
+        CFStringSetPerformWithDescription((__bridge CFSetRef) self.initialViews, ^(CFStringRef description) {
+            secnotice("acct-txn", "Starting as:%s v:%@", self.initialInCircle ? "member" : "non-member", description);
+        });
+    }
 }
 
 - (void) restart {
@@ -96,6 +98,9 @@
 
 - (void) finish {
     static int do_account_state_at_zero = 0;
+    bool doCircleChanged = false;
+    bool doViewChanged = false;
+
 
     CFErrorRef localError = NULL;
     bool notifyEngines = false;
@@ -184,9 +189,11 @@
     mpi = self.account.peerInfo;
     CFSetRef views = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
 
-    CFStringSetPerformWithDescription(views, ^(CFStringRef description) {
-        secnotice("acct-txn", "Finished as:%s v:%@", isInCircle ? "member" : "non-member", description);
-    });
+    if(!self.quiet) {
+        CFStringSetPerformWithDescription(views, ^(CFStringRef description) {
+            secnotice("acct-txn", "Finished as:%s v:%@", isInCircle ? "member" : "non-member", description);
+        });
+    }
 
     // This is the logic to detect a new userKey:
     bool userKeyChanged = !NSIsEqualSafe(self.initialKeyParameters, self.account.accountKeyDerivationParamters);
@@ -198,19 +205,21 @@
                                  self.account.accountKeyIsTrusted);
     
     if(self.initialInCircle != isInCircle) {
-        notify_post(kSOSCCCircleChangedNotification);
-        notify_post(kSOSCCViewMembershipChangedNotification);
+        doCircleChanged = true;
+        doViewChanged = true;
         do_account_state_at_zero = 0;
         secnotice("secdNotify", "Notified clients of kSOSCCCircleChangedNotification && kSOSCCViewMembershipChangedNotification for circle/view change");
     } else if(isInCircle && !NSIsEqualSafe(self.initialViews, (__bridge NSSet*)views)) {
-        notify_post(kSOSCCViewMembershipChangedNotification);
+        doViewChanged = true;
         do_account_state_at_zero = 0;
         secnotice("secdNotify", "Notified clients of kSOSCCViewMembershipChangedNotification for viewchange(only)");
     } else if(weInitiatedKeyChange) { // We consider this a circleChange so (PCS) can tell the userkey trust changed.
-        notify_post(kSOSCCCircleChangedNotification);
+        doCircleChanged = true;
         do_account_state_at_zero = 0;
         secnotice("secdNotify", "Notified clients of kSOSCCCircleChangedNotification for userKey change");
     }
+    
+
 
     // This is the case of we used to trust the key, were in the circle, the key changed, we don't trust it now.
     bool fellOutOfTrust = (self.initialTrusted &&
@@ -221,8 +230,20 @@
     if(fellOutOfTrust) {
         secnotice("userKeyTrust", "No longer trust user public key - prompting for password.");
         notify_post(kPublicKeyNotAvailable);
+        doCircleChanged = true;
         do_account_state_at_zero = 0;
     }
+    
+    bool userKeyTrustChangedToTrueAndNowInCircle = (!self.initialTrusted && self.account.accountKeyIsTrusted && isInCircle);
+    
+    if(userKeyTrustChangedToTrueAndNowInCircle) {
+        secnotice("userKeyTrust", "UserKey is once again trusted and we're valid in circle.");
+        doCircleChanged = true;
+        doViewChanged = true;
+    }
+    
+    if(doCircleChanged)     notify_post(kSOSCCCircleChangedNotification);
+    if(doViewChanged)       notify_post(kSOSCCViewMembershipChangedNotification);
 
     if(do_account_state_at_zero <= 0) {
         SOSAccountLogState(self.account);
@@ -269,28 +290,40 @@ __thread bool __hasAccountQueue = false;
     __hasAccountQueue = hadAccountQueue;
 }
 
-+ (void)performOnAccountQueue:(void (^)(void))action
++ (void)performOnQuietAccountQueue:(void (^)(void))action
 {
     SOSAccount* account = (__bridge SOSAccount*)GetSharedAccountRef();
-    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+    [account performTransaction:true action:^(SOSAccountTransaction * _Nonnull txn) {
         action();
     }];
 }
 
 - (void) performTransaction_Locked: (void (^)(SOSAccountTransaction* txn)) action {
-    SOSAccountTransaction* transaction = [SOSAccountTransaction transactionWithAccount:self];
-    action(transaction);
-    [transaction finish];
+    [self performTransaction_Locked:false action:action];
+}
+
+- (void) performTransaction_Locked:(bool)quiet action:(void (^)(SOSAccountTransaction* txn))action {
+    @autoreleasepool {
+        SOSAccountTransaction* transaction = [[SOSAccountTransaction new] initWithAccount:self quiet:quiet];
+        action(transaction);
+        [transaction finish];
+    }
 }
 
 - (void) performTransaction: (void (^)(SOSAccountTransaction* txn)) action {
+    [self performTransaction:false action:action];
+}
+
+- (void)performTransaction:(bool)quiet action:(void (^)(SOSAccountTransaction* txn))action {
+
     if (__hasAccountQueue) {
-        [self performTransaction_Locked:action];
+        // Be quiet; we're already in a transaction
+        [self performTransaction_Locked:true action:action];
     }
     else {
         dispatch_sync(self.queue, ^{
             __hasAccountQueue = true;
-            [self performTransaction_Locked:action];
+            [self performTransaction_Locked:quiet action:action];
             __hasAccountQueue = false;
         });
     }

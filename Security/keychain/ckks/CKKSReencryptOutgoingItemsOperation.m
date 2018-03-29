@@ -47,7 +47,7 @@
         _ckks = ckks;
         _ckoperationGroup = ckoperationGroup;
 
-        [self addNullableDependency:ckks.viewSetupOperation];
+        [self addNullableDependency:ckks.keyStateReadyDependency];
         [self addNullableDependency:ckks.holdReencryptOutgoingItemsOperation];
 
         // We also depend on the key hierarchy being reasonable
@@ -109,8 +109,8 @@
             NSDictionary* item = [CKKSItemEncrypter decryptItemToDictionary: oqe.item error:&error];
             if(error) {
                 if ([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
-                    ckkserror("ckksreencrypt", ckks, "Coudn't find key in keychain; attempting to poke key hierarchy: %@", error)
-                    [ckks _onqueueAdvanceKeyStateMachineToState: nil withError: nil];
+                    ckkserror("ckksreencrypt", ckks, "Coudn't find key in keychain; attempting to poke key hierarchy: %@", error);
+                    [ckks.pokeKeyStateMachineScheduler trigger];
                 } else {
                     ckkserror("ckksreencrypt", ckks, "Couldn't decrypt item %@: %@", oqe, error);
                 }

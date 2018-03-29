@@ -50,6 +50,7 @@ enum HTTPBodyUpdatePolicy {
 };
 
 class ResourceRequest;
+class ResourceResponse;
 
 // Do not use this type directly.  Use ResourceRequest instead.
 class ResourceRequestBase {
@@ -63,6 +64,8 @@ public:
 
     WEBCORE_EXPORT const URL& url() const;
     WEBCORE_EXPORT void setURL(const URL& url);
+
+    WEBCORE_EXPORT ResourceRequest redirectedRequest(const ResourceResponse&, bool shouldClearReferrerOnHTTPSToHTTPRedirect) const;
 
     WEBCORE_EXPORT void removeCredentials();
 
@@ -100,7 +103,7 @@ public:
 
     WEBCORE_EXPORT String httpContentType() const;
     WEBCORE_EXPORT void setHTTPContentType(const String&);
-    void clearHTTPContentType();
+    WEBCORE_EXPORT void clearHTTPContentType();
 
     bool hasHTTPHeader(HTTPHeaderName) const;
 
@@ -109,7 +112,7 @@ public:
     WEBCORE_EXPORT void setHTTPReferrer(const String&);
     WEBCORE_EXPORT void clearHTTPReferrer();
 
-    String httpOrigin() const;
+    WEBCORE_EXPORT String httpOrigin() const;
     bool hasHTTPOrigin() const;
     void setHTTPOrigin(const String&);
     WEBCORE_EXPORT void clearHTTPOrigin();
@@ -148,10 +151,6 @@ public:
     bool hiddenFromInspector() const { return m_hiddenFromInspector; }
     void setHiddenFromInspector(bool hiddenFromInspector) { m_hiddenFromInspector = hiddenFromInspector; }
 
-    // Whether this request should impact request counting and delay window.onload.
-    bool ignoreForRequestCount() const { return m_ignoreForRequestCount; }
-    void setIgnoreForRequestCount(bool ignoreForRequestCount) { m_ignoreForRequestCount = ignoreForRequestCount; }
-
     enum class Requester { Unspecified, Main, XHR, Fetch, Media };
     Requester requester() const { return m_requester; }
     void setRequester(Requester requester) { m_requester = requester; }
@@ -174,7 +173,7 @@ public:
     WEBCORE_EXPORT static void setDefaultAllowCookies(bool);
 #endif
 
-    static bool compare(const ResourceRequest&, const ResourceRequest&);
+    WEBCORE_EXPORT static bool equal(const ResourceRequest&, const ResourceRequest&);
 
 protected:
     // Used when ResourceRequest is initialized from a platform representation of the request
@@ -222,7 +221,6 @@ protected:
     mutable bool m_resourceRequestBodyUpdated { false };
     mutable bool m_platformRequestBodyUpdated { false };
     bool m_hiddenFromInspector { false };
-    bool m_ignoreForRequestCount { false };
     ResourceLoadPriority m_priority { ResourceLoadPriority::Low };
     Requester m_requester { Requester::Unspecified };
     String m_initiatorIdentifier;
@@ -239,7 +237,7 @@ private:
 
 bool equalIgnoringHeaderFields(const ResourceRequestBase&, const ResourceRequestBase&);
 
-inline bool operator==(const ResourceRequest& a, const ResourceRequest& b) { return ResourceRequestBase::compare(a, b); }
+inline bool operator==(const ResourceRequest& a, const ResourceRequest& b) { return ResourceRequestBase::equal(a, b); }
 inline bool operator!=(ResourceRequest& a, const ResourceRequest& b) { return !(a == b); }
 
 WEBCORE_EXPORT unsigned initializeMaximumHTTPConnectionCountPerHost();

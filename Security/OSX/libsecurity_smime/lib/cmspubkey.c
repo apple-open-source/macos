@@ -65,22 +65,15 @@
  * according to PKCS#1 and RFC2633 (S/MIME)
  */
 OSStatus
-SecCmsUtilEncryptSymKeyRSA(PLArenaPool *poolp, SecCertificateRef cert, 
+SecCmsUtilEncryptSymKeyRSA(PLArenaPool *poolp, SecCertificateRef cert,
                               SecSymmetricKeyRef bulkkey,
                               CSSM_DATA_PTR encKey)
 {
-    OSStatus rv;
-    SecPublicKeyRef publickey;
-
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
-    rv = SecCertificateCopyPublicKey(cert,&publickey);
-#else
-    publickey = SecCertificateCopyPublicKey(cert);
-#endif
+    SecPublicKeyRef publickey = SecCertificateCopyPublicKey_ios(cert);
     if (publickey == NULL)
 	return SECFailure;
 
-    rv = SecCmsUtilEncryptSymKeyRSAPubKey(poolp, publickey, bulkkey, encKey);
+    OSStatus rv = SecCmsUtilEncryptSymKeyRSAPubKey(poolp, publickey, bulkkey, encKey);
     CFRelease(publickey);
     return rv;
 }
@@ -94,6 +87,7 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
     unsigned int data_len;
     //KeyType keyType;
     void *mark = NULL;
+    CFDictionaryRef theirKeyAttrs = NULL;
 
     mark = PORT_ArenaMark(poolp);
     if (!mark)
@@ -108,15 +102,17 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
     }
 #endif
     /* allocate memory for the encrypted key */
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
-    rv = SecKeyGetStrengthInBits(publickey, NULL, &data_len);
-    if (rv)
+    theirKeyAttrs = SecKeyCopyAttributes(publickey);
+    if (!theirKeyAttrs) {
         goto loser;
+    }
+
+    CFNumberRef keySizeNum = CFDictionaryGetValue(theirKeyAttrs, kSecAttrKeySizeInBits);
+    if (!CFNumberGetValue(keySizeNum, kCFNumberIntType, &data_len)) {
+        goto loser;
+    }
     // Convert length to bytes;
-    data_len = data_len / 8;
-#else
-    data_len = SecKeyGetSize(publickey, kSecKeyEncryptedDataSize);
-#endif
+    data_len /= 8;
 
     encKey->Data = (unsigned char*)PORT_ArenaAlloc(poolp, data_len);
     encKey->Length = data_len;
@@ -132,6 +128,9 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
     return SECSuccess;
 
 loser:
+    if (theirKeyAttrs) {
+        CFRelease(theirKeyAttrs);
+    }
     if (mark) {
 	PORT_ArenaRelease(poolp, mark);
     }

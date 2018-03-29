@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,11 +42,17 @@ namespace B3 {
 class Compilation;
 }
 
-class WebAssemblyFunction : public WebAssemblyFunctionBase {
+class WebAssemblyFunction final : public WebAssemblyFunctionBase {
 public:
     using Base = WebAssemblyFunctionBase;
 
-    const static unsigned StructureFlags = Base::StructureFlags;
+    const static unsigned StructureFlags = Base::StructureFlags | TypeOfShouldCallGetCallData;
+
+    template<typename CellType>
+    static IsoSubspace* subspaceFor(VM& vm)
+    {
+        return &vm.webAssemblyFunctionSpace;
+    }
 
     DECLARE_EXPORT_INFO;
 

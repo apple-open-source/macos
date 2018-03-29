@@ -51,25 +51,22 @@ public:
 protected:
     explicit JSCallbackData(JSDOMGlobalObject* globalObject)
         : m_globalObject(globalObject)
-#ifndef NDEBUG
-        , m_thread(currentThread())
-#endif
     {
     }
     
     ~JSCallbackData()
     {
 #if !PLATFORM(IOS)
-        ASSERT(m_thread == currentThread());
+        ASSERT(m_thread.ptr() == &Thread::current());
 #endif
     }
     
-    static JSC::JSValue invokeCallback(JSDOMGlobalObject&, JSC::JSObject* callback, JSC::MarkedArgumentBuffer&, CallbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException);
+    static JSC::JSValue invokeCallback(JSDOMGlobalObject&, JSC::JSObject* callback, JSC::JSValue thisValue, JSC::MarkedArgumentBuffer&, CallbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException);
 
 private:
     JSC::Weak<JSDOMGlobalObject> m_globalObject;
 #ifndef NDEBUG
-    ThreadIdentifier m_thread;
+    Ref<Thread> m_thread { Thread::current() };
 #endif
 };
 
@@ -83,13 +80,13 @@ public:
 
     JSC::JSObject* callback() { return m_callback.get(); }
 
-    JSC::JSValue invokeCallback(JSC::MarkedArgumentBuffer& args, CallbackType callbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
+    JSC::JSValue invokeCallback(JSC::JSValue thisValue, JSC::MarkedArgumentBuffer& args, CallbackType callbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
     {
         auto* globalObject = this->globalObject();
         if (!globalObject)
             return { };
 
-        return JSCallbackData::invokeCallback(*globalObject, callback(), args, callbackType, functionName, returnedException);
+        return JSCallbackData::invokeCallback(*globalObject, callback(), thisValue, args, callbackType, functionName, returnedException);
     }
 
 private:
@@ -106,14 +103,16 @@ public:
 
     JSC::JSObject* callback() { return m_callback.get(); }
 
-    JSC::JSValue invokeCallback(JSC::MarkedArgumentBuffer& args, CallbackType callbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
+    JSC::JSValue invokeCallback(JSC::JSValue thisValue, JSC::MarkedArgumentBuffer& args, CallbackType callbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
     {
         auto* globalObject = this->globalObject();
         if (!globalObject)
             return { };
 
-        return JSCallbackData::invokeCallback(*globalObject, callback(), args, callbackType, functionName, returnedException);
+        return JSCallbackData::invokeCallback(*globalObject, callback(), thisValue, args, callbackType, functionName, returnedException);
     }
+
+    void visitJSFunction(JSC::SlotVisitor&);
 
 private:
     class WeakOwner : public JSC::WeakHandleOwner {

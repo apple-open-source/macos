@@ -173,6 +173,9 @@ DISPATCH_UNAVAILABLE_INIT()
 	return _os_object_retain_count(self);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
+
 -(BOOL)retainWeakReference {
 	return _os_object_retain_weak(self);
 }
@@ -180,6 +183,8 @@ DISPATCH_UNAVAILABLE_INIT()
 -(BOOL)allowsWeakReference {
 	return _os_object_allows_weak_reference(self);
 }
+
+#pragma clang diagnostic pop
 
 - (void)_xref_dispose {
 	return _os_object_release_internal(self);

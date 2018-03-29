@@ -61,9 +61,7 @@ PageOverlay::PageOverlay(Client& client, OverlayType overlayType)
 {
 }
 
-PageOverlay::~PageOverlay()
-{
-}
+PageOverlay::~PageOverlay() = default;
 
 PageOverlayController* PageOverlay::controller() const
 {
@@ -227,6 +225,9 @@ Vector<String> PageOverlay::copyAccessibilityAttributeNames(bool parameterizedNa
 
 void PageOverlay::startFadeInAnimation()
 {
+    if (m_fadeAnimationType == FadeInAnimation && m_fadeAnimationTimer.isActive())
+        return;
+
     m_fractionFadedIn = 0;
     m_fadeAnimationType = FadeInAnimation;
 
@@ -235,6 +236,9 @@ void PageOverlay::startFadeInAnimation()
 
 void PageOverlay::startFadeOutAnimation()
 {
+    if (m_fadeAnimationType == FadeOutAnimation && m_fadeAnimationTimer.isActive())
+        return;
+
     m_fractionFadedIn = 1;
     m_fadeAnimationType = FadeOutAnimation;
 

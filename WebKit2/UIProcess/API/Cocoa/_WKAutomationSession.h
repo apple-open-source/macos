@@ -29,6 +29,7 @@
 
 #import <Foundation/Foundation.h>
 
+@class _WKAutomationSessionConfiguration;
 @protocol _WKAutomationSessionDelegate;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -37,8 +38,14 @@ WK_CLASS_AVAILABLE(macosx(10.12), ios(10.0))
 @interface _WKAutomationSession : NSObject
 
 @property (nonatomic, copy) NSString *sessionIdentifier;
+@property (nonatomic, readonly, copy) _WKAutomationSessionConfiguration *configuration;
+
 @property (nonatomic, weak) id <_WKAutomationSessionDelegate> delegate;
 @property (nonatomic, readonly, getter=isPaired) BOOL paired;
+
+@property (nonatomic, readonly, getter=isSimulatingUserInteraction) BOOL simulatingUserInteraction WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+- (instancetype)initWithConfiguration:(_WKAutomationSessionConfiguration *)configuration NS_DESIGNATED_INITIALIZER;
 
 #if !TARGET_OS_IPHONE
 - (BOOL)wasEventSynthesizedForAutomation:(NSEvent *)event;

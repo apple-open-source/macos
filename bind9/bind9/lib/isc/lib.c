@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2013-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -29,6 +29,7 @@
 #include <isc/mem.h>
 #include <isc/msgs.h>
 #include <isc/once.h>
+#include <isc/print.h>
 #include <isc/socket.h>
 #include <isc/task.h>
 #include <isc/timer.h>
@@ -83,11 +84,12 @@ isc_lib_initmsgcat(void) {
 	}
 }
 
-#ifndef BIND9
 static isc_once_t		register_once = ISC_ONCE_INIT;
 
 static void
 do_register(void) {
+	isc_bind9 = ISC_FALSE;
+
 	RUNTIME_CHECK(isc__mem_register() == ISC_R_SUCCESS);
 	RUNTIME_CHECK(isc__app_register() == ISC_R_SUCCESS);
 	RUNTIME_CHECK(isc__task_register() == ISC_R_SUCCESS);
@@ -100,4 +102,3 @@ isc_lib_register(void) {
 	RUNTIME_CHECK(isc_once_do(&register_once, do_register)
 		      == ISC_R_SUCCESS);
 }
-#endif

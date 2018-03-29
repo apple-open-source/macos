@@ -33,6 +33,8 @@
 #include <securityd/SecItemDataSource.h>
 #include <securityd/SecItemDb.h>
 #include <securityd/SecItemSchema.h>
+#include <utilities/SecDb.h>
+#include <securityd/SecDbKeychainItem.h>
 #include <securityd/SOSCloudCircleServer.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecItemPriv.h>
@@ -45,6 +47,7 @@
 #include <Security/SecTrustInternal.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecEntitlements.h>
+#include <Security/SecSignpost.h>
 
 #include <keychain/ckks/CKKS.h>
 
@@ -107,7 +110,7 @@ void SecKeychainChanged() {
 }
 
 /* Return the current database version in *version. */
-static bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *error)
+bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *error)
 {
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
@@ -354,7 +357,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
 
                 if (isClassD(item)) {
                     // Decrypt the item.
-                    ok &= SecDbItemEnsureDecrypted(item, &localError);
+                    ok &= SecDbItemEnsureDecrypted(item, true, &localError);
                     require_quiet(ok, out);
 
                     // Delete SHA1 field from the item, so that it is newly recalculated before storing
@@ -469,8 +472,13 @@ out:
     return ok;
 }
 
+__thread SecDbConnectionRef dbt = NULL;
+__thread bool isUnlocked = false;
+
 // Goes through all tables represented by old_schema and tries to migrate all items from them into new (current version) tables.
-static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorRef *error) {
+static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error) {
+    SecDbConnectionRef oldDbt = dbt;
+    dbt = inDbt;
     __block bool ok = true;
     SecDbQueryRef query = NULL;
 #if TARGET_OS_EMBEDDED
@@ -498,7 +506,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorR
             query_destroy(query, NULL);
         }
         require_action_quiet(query = query_create(*class, SecMUSRGetAllViews(), NULL, error), out, ok = false);
-        ok = SecDbItemSelect(query, dbt, error, NULL, ^bool(const SecDbAttr *attr) {
+        ok &= SecDbItemSelect(query, dbt, error, NULL, ^bool(const SecDbAttr *attr) {
             // No simple per-attribute filtering.
             return false;
         }, ^bool(CFMutableStringRef sql, bool *needWhere) {
@@ -517,7 +525,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorR
 #endif
 
             // Decrypt the item.
-            if (SecDbItemEnsureDecrypted(item, &localError)) {
+            if (SecDbItemEnsureDecrypted(item, true, &localError)) {
 
                 // Delete SHA1 field from the item, so that it is newly recalculated before storing
                 // the item into the new table.
@@ -541,11 +549,16 @@ static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorR
                 CFIndex status = CFErrorGetCode(localError);
 
                 switch (status) {
-                    case errSecDecode:
+                    case errSecDecode: {
                         // Items producing errSecDecode are silently dropped - they are not decodable and lost forever.
-                        (void)SecDbItemDelete(item, dbt, false, error);
+                        // make sure we use a local error so that this error is not proppaged upward and cause a
+                        // migration failure.
+                        CFErrorRef deleteError = NULL;
+                        (void)SecDbItemDelete(item, dbt, false, &deleteError);
+                        CFReleaseNull(deleteError);
                         ok = true;
                         break;
+                    }
                     case errSecInteractionNotAllowed:
                         // If we are still not able to decrypt the item because the class key is not released yet,
                         // remember that DB still needs phase2 migration to be run next time a connection is made.  Also
@@ -560,11 +573,24 @@ static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorR
                         // ACM context, which we do not have).
                         ok = true;
                         break;
+                    case SQLITE_CONSTRAINT:         // yeah...
+                        if (!CFEqual(kSecDbErrorDomain, CFErrorGetDomain(localError))) {
+                            secerror("Received SQLITE_CONSTRAINT with wrong error domain. Huh? Item: %@, error: %@", item, localError);
+                            break;
+                        }
+                    case errSecDuplicateItem:
+                        // continue to upgrade and don't propagate errors for insert failures
+                        // that are typical of a single item failure
+                        secnotice("upgr", "Ignoring duplicate item: %@", item);
+                        secdebug("upgr", "Duplicate item error: %@", localError);
+                        ok = true;
+                        break;
 #if USE_KEYSTORE
                     case kAKSReturnNotReady:
                     case kAKSReturnTimeout:
 #endif
                     case errSecNotAvailable:
+                        *inProgress = true;     // We're not done, call me again later!
                         secnotice("upgr", "Bailing in phase 2 because AKS is unavailable: %@", localError);
                         // FALLTHROUGH
                     default:
@@ -589,6 +615,8 @@ static bool UpgradeItemPhase2(SecDbConnectionRef dbt, bool *inProgress, CFErrorR
 out:
     if (query != NULL)
         query_destroy(query, NULL);
+
+    dbt = oldDbt;
     return ok;
 }
 
@@ -672,7 +700,10 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
                                  secerror("no schema for version 0x%x", oldVersion));
 
             secnotice("upgr", "Upgrading from version 0x%x to 0x%x", oldVersion, SCHEMA_VERSION(newSchema));
+            SecSignpostStart(SecSignpostUpgradePhase1);
+
             require_action(ok = UpgradeSchemaPhase1(dbt, oldSchema, &localError), out, secerror("upgrade: Upgrade phase1 failed: %@", localError));
+            SecSignpostStop(SecSignpostUpgradePhase1);
 
             didPhase1 = true;
         }
@@ -680,7 +711,9 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         {
             CFErrorRef phase2Error = NULL;
 
-            // Lests try to go through non-D-class items in new tables and apply decode/encode on them
+            SecSignpostStart(SecSignpostUpgradePhase2);
+
+            // Lets try to go through non-D-class items in new tables and apply decode/encode on them
             // If this fails the error will be ignored after doing a phase1 since but not in the second
             // time when we are doing phase2.
             ok = UpgradeItemPhase2(dbt, inProgress, &phase2Error);
@@ -688,11 +721,11 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
                 if (didPhase1) {
                     *inProgress = true;
                     ok = true;
+                    CFReleaseNull(phase2Error);
                 } else {
                     SecErrorPropagate(phase2Error, &localError);
                 }
             }
-            CFReleaseNull(phase2Error);
             require_action(ok, out, secerror("upgrade: Upgrade phase2 (%d) failed: %@", didPhase1, localError));
 
             if (!*inProgress) {
@@ -702,6 +735,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
                 oldVersion = 0;
 
                 didPhase2 = true;
+                SecSignpostStop(SecSignpostUpgradePhase2);
             }
         }
 
@@ -819,6 +853,9 @@ static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConn
     SecurityClient *client,
     keybag_handle_t src_keybag, keybag_handle_t dest_keybag, CFErrorRef *error) {
     CFDataRef data_out = NULL;
+
+    SecSignpostStart(SecSignpostBackupKeychainBackupable);
+
     /* Export everything except the items for which SecItemIsSystemBound()
        returns true. */
     CFDictionaryRef keychain = SecServerCopyKeychainPlist(dbt, client,
@@ -830,6 +867,7 @@ static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConn
                                              0, error);
         CFRelease(keychain);
     }
+    SecSignpostStop(SecSignpostBackupKeychainBackupable);
 
     return data_out;
 }
@@ -844,6 +882,9 @@ static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
     return kc_transaction(dbt, error, ^{
         bool ok = false;
         CFDictionaryRef keychain;
+
+        SecSignpostStart(SecSignpostRestoreKeychainBackupable);
+
         keychain = CFPropertyListCreateWithData(kCFAllocatorDefault, data,
                                                 kCFPropertyListImmutable, NULL,
                                                 error);
@@ -855,12 +896,16 @@ static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
                                                     dest_keybag,
                                                     keychain,
                                                     kSecBackupableItemFilter,
+                                                    false,  // Restoring backup should not remove stuff that got into the keychain before us
                                                     error);
             } else {
                 ok = SecError(errSecParam, error, CFSTR("import: keychain is not a dictionary"));
             }
             CFRelease(keychain);
         }
+
+        SecSignpostStop(SecSignpostRestoreKeychainBackupable);
+
         return ok;
     });
 }
@@ -869,7 +914,7 @@ static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
 /*
  * Similar to ks_open_keybag, but goes through MKB interface
  */
-static bool mkb_open_keybag(CFDataRef keybag, CFDataRef password, MKBKeyBagHandleRef *handle, CFErrorRef *error) {
+static bool mkb_open_keybag(CFDataRef keybag, CFDataRef password, MKBKeyBagHandleRef *handle, bool emcs, CFErrorRef *error) {
     kern_return_t rc;
     MKBKeyBagHandleRef mkbhandle = NULL;
 
@@ -878,12 +923,14 @@ static bool mkb_open_keybag(CFDataRef keybag, CFDataRef password, MKBKeyBagHandl
         return SecKernError(rc, error, CFSTR("MKBKeyBagCreateWithData failed: %d"), rc);
     }
 
-    if (password) {
+    if (!emcs) {
         rc = MKBKeyBagUnlock(mkbhandle, password);
         if (rc != kMobileKeyBagSuccess) {
             CFRelease(mkbhandle);
             return SecKernError(rc, error, CFSTR("failed to unlock bag: %d"), rc);
         }
+    } else {
+        secnotice("keychainbackup", "skipping keybag unlock for EMCS");
     }
 
     *handle = mkbhandle;
@@ -894,23 +941,31 @@ static bool mkb_open_keybag(CFDataRef keybag, CFDataRef password, MKBKeyBagHandl
 
 
 static CFDataRef SecServerKeychainCreateBackup(SecDbConnectionRef dbt, SecurityClient *client, CFDataRef keybag,
-    CFDataRef password, CFErrorRef *error) {
+    CFDataRef password, bool emcs, CFErrorRef *error) {
     CFDataRef backup = NULL;
     keybag_handle_t backup_keybag;
+
+    SecSignpostStart(SecSignpostBackupOpenKeybag);
+
 #if USE_KEYSTORE
     MKBKeyBagHandleRef mkbhandle = NULL;
-    require(mkb_open_keybag(keybag, password, &mkbhandle, error), out);
+    require(mkb_open_keybag(keybag, password, &mkbhandle, emcs, error), out);
 
     require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
 
 #else
     backup_keybag = KEYBAG_NONE;
 #endif
+    SecSignpostStop(SecSignpostBackupOpenKeybag);
+    SecSignpostStart(SecSignpostBackupKeychain);
+
     /* Export from system keybag to backup keybag. */
     backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag, error);
 
 #if USE_KEYSTORE
 out:
+    SecSignpostStop(SecSignpostBackupOpenKeybag);
+
     if (mkbhandle)
         CFRelease(mkbhandle);
 #endif
@@ -926,19 +981,26 @@ static bool SecServerKeychainRestore(SecDbConnectionRef dbt,
 {
     bool ok = false;
     keybag_handle_t backup_keybag;
+
+
+    SecSignpostStart(SecSignpostRestoreOpenKeybag);
 #if USE_KEYSTORE
     MKBKeyBagHandleRef mkbhandle = NULL;
-    require(mkb_open_keybag(keybag, password, &mkbhandle, error), out);
+    require(mkb_open_keybag(keybag, password, &mkbhandle, false, error), out);
 
     require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
 #else
     backup_keybag = KEYBAG_NONE;
 #endif
+    SecSignpostStop(SecSignpostRestoreOpenKeybag);
+    SecSignpostStart(SecSignpostRestoreKeychain);
+
     /* Import from backup keybag to system keybag. */
     require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, KEYBAG_DEVICE, backup, error), out);
 
     ok = true;
 out:
+    SecSignpostStop(SecSignpostRestoreKeychain);
 #if USE_KEYSTORE
     if (mkbhandle)
         CFRelease(mkbhandle);
@@ -1002,6 +1064,12 @@ SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error) {
 
         return ok;
     });
+
+    if (kc) {
+        SecDbSetCorruptionReset(kc, ^{
+            SecDbResetMetadataKeys();
+        });
+    }
 
     if(error) {
         *error = localerror;
@@ -1069,27 +1137,28 @@ static SecDbRef kc_dbhandle(CFErrorRef* error)
 void SecKeychainDbReset(dispatch_block_t inbetween)
 {
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
-        CFStringRef dbPath = __SecKeychainCopyPath();
-        if (dbPath == NULL)
-            abort();
-
         CFReleaseNull(_kc_dbhandle);
+        SecDbResetMetadataKeys();
 
         if (inbetween)
             inbetween();
-
-        CFErrorRef error = NULL;
-        _kc_dbhandle = SecKeychainDbCreate(dbPath, &error);
-
-        if(error) {
-            secerror("error resetting database: %@", error);
-        }
-
-        CFRelease(dbPath);
     });
 }
 
-static SecDbConnectionRef kc_acquire_dbt(bool writeAndRead, CFErrorRef *error) {
+static bool checkIsUnlocked()
+{
+    CFErrorRef aksError = NULL;
+    bool locked = true;
+
+    if(!SecAKSGetIsLocked(&locked, &aksError)) {
+        secerror("error querying lock state: %@", aksError);
+        CFReleaseNull(aksError);
+    }
+
+    return !locked;
+}
+
+static bool kc_acquire_dbt(bool writeAndRead, SecDbConnectionRef* dbconn, CFErrorRef *error) {
     SecDbRef db = kc_dbhandle(error);
     if (db == NULL) {
         if(error && !(*error)) {
@@ -1097,31 +1166,63 @@ static SecDbConnectionRef kc_acquire_dbt(bool writeAndRead, CFErrorRef *error) {
         }
         return NULL;
     }
-    return SecDbConnectionAcquire(db, !writeAndRead, error);
+
+    return SecDbConnectionAcquireRefMigrationSafe(db, !writeAndRead, dbconn, error);
 }
 
 /* Return a per thread dbt handle for the keychain.  If create is true create
  the database if it does not yet exist.  If it is false, just return an
  error if it fails to auto-create. */
-__thread SecDbConnectionRef dbt = NULL;
 bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
 {
+    return kc_with_custom_db(writeAndRead, true, NULL, error, perform);
+}
+
+bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt))
+{
+    return kc_with_custom_db(writeAndRead, false, NULL, error, perform);
+}
+
+bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
+{
+    if (db && db != kc_dbhandle(error)) {
+        __block bool result = false;
+        if (writeAndRead) {
+            return SecDbPerformWrite(db, error, ^(SecDbConnectionRef dbconn) {
+                result = perform(dbconn);
+            });
+        }
+        else {
+            return SecDbPerformRead(db, error, ^(SecDbConnectionRef dbconn) {
+                result = perform(dbconn);
+            });
+        }
+        return result;
+    }
+
     if(dbt) {
         // The kc_with_dbt upthread will clean this up when it's done.
         return perform(dbt);
     }
-    // Make sure we initialize our engines before writing to the keychain
-    if (writeAndRead)
+    
+    if (writeAndRead && usesItemTables) {
         SecItemDataSourceFactoryGetDefault();
+    }
 
     bool ok = false;
-    dbt = kc_acquire_dbt(writeAndRead, error);
-    if (dbt) {
+    if (kc_acquire_dbt(writeAndRead, &dbt, error)) {        
+        isUnlocked = checkIsUnlocked();
         ok = perform(dbt);
         SecDbConnectionRelease(dbt);
         dbt = NULL;
+        isUnlocked = false;
     }
     return ok;
+}
+
+bool kc_is_unlocked()
+{
+    return isUnlocked || checkIsUnlocked();
 }
 
 static bool
@@ -1429,7 +1530,9 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
             SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
-    
+
+    SecSignpostStart(SecSignpostSecItemCopyMatching);
+
     if (client->canAccessNetworkExtensionAccessGroups) {
         CFDataRef persistentRef = CFDictionaryGetValue(query, kSecValuePersistentRef);
         CFStringRef itemClass = NULL;
@@ -1508,6 +1611,8 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     }
     CFReleaseNull(mutableAccessGroups);
 
+    SecSignpostStop(SecSignpostSecItemCopyMatching);
+
 	return ok;
 }
 
@@ -1551,6 +1656,8 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
             SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
+
+    SecSignpostStart(SecSignpostSecItemAdd);
 
     Query *q = query_create_with_limit(attributes, client->musr, 0, error);
     if (q) {
@@ -1631,6 +1738,9 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
     } else {
         ok = false;
     }
+
+    SecSignpostStop(SecSignpostSecItemAdd);
+
     return ok;
 }
 
@@ -1650,6 +1760,8 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
             SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
+
+    SecSignpostStart(SecSignpostSecItemUpdate);
 
     if (SecPLShouldLogRegisteredEvent(CFSTR("SecItem"))) {
         CFTypeRef agrp = CFArrayGetValueAtIndex(accessGroups, 0);
@@ -1727,6 +1839,9 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
     if (q) {
         ok = query_notify_and_destroy(q, ok, error);
     }
+
+    SecSignpostStop(SecSignpostSecItemUpdate);
+
     return ok;
 }
 
@@ -1745,6 +1860,8 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
             SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
+
+    SecSignpostStart(SecSignpostSecItemDelete);
 
     if (SecPLShouldLogRegisteredEvent(CFSTR("SecItem"))) {
         CFTypeRef agrp = CFArrayGetValueAtIndex(accessGroups, 0);
@@ -1799,6 +1916,9 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
     } else {
         ok = false;
     }
+
+    SecSignpostStop(SecSignpostSecItemDelete);
+
     return ok;
 }
 
@@ -2713,7 +2833,7 @@ cleanup:
 // MARK: Keychain backup
 
 CF_RETURNS_RETAINED CFDataRef
-_SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
+_SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error) {
     __block CFDataRef backup;
     kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
         if (!dbt)
@@ -2728,7 +2848,7 @@ _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataR
             backup = NULL;
 #endif /* USE_KEYSTORE */
         } else {
-            backup = SecServerKeychainCreateBackup(dbt, client, keybag, passcode, error);
+            backup = SecServerKeychainCreateBackup(dbt, client, keybag, passcode, emcs, error);
         }
         return (backup != NULL);
     });
@@ -3559,7 +3679,6 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
 
                 out:
                     SecErrorPropagate(localError, error);
-                    CFReleaseSafe(localError);
                 });
 
                 if (q)

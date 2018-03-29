@@ -177,6 +177,7 @@ struct _pthread_registration_data {
 	uint32_t tsd_offset; /* copy-in */
 	uint32_t return_to_kernel_offset; /* copy-in */
 	uint32_t mach_thread_self_offset; /* copy-in */
+	uint32_t mutex_default_policy; /* copy-out */
 } __attribute__ ((packed));
 
 #ifdef KERNEL

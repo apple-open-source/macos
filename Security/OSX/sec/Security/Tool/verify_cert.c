@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007,2009-2010,2013-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,8 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <time.h>
+
+#include "SecurityCommands.h"
 
 CFStringRef policyToConstant(const char *policy);
 int verify_cert(int argc, char * const *argv);
@@ -170,8 +172,7 @@ int verify_cert(int argc, char * const *argv) {
 	SecTrustResultType resultType;
 
 	if (argc < 2) {
-		/* Return 2 triggers usage message. */
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	optind = 1;

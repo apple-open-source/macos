@@ -27,16 +27,19 @@
 #include <utilities/debugging.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
+#include <Security/SecureObjectSync/SOSInternal.h>
 #include <notify.h>
 
 #import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
-
+#import "keychain/ckks/CKKSAnalytics.h"
 
 @interface CKKSCKAccountStateTracker ()
 @property (readonly) Class<CKKSNSNotificationCenter> nsnotificationCenterClass;
 
 @property CKKSAccountStatus currentComputedAccountStatus;
+@property (nullable, atomic) NSError* currentAccountError;
 
 @property dispatch_queue_t queue;
 
@@ -59,10 +62,11 @@
         _currentCircleStatus = kSOSCCError;
 
         _currentComputedAccountStatus = CKKSAccountStatusUnknown;
+        _currentComputedAccountStatusValid = [[CKKSCondition alloc] init];
 
         _container = container;
 
-        _queue = dispatch_queue_create("ck-account-state", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("ck-account-state", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
         _firstCKAccountFetch = false;
         _firstSOSCircleFetch = false;
@@ -90,9 +94,11 @@
             if(!strongSelf) {
                 return;
             }
-            [strongSelf notifyCKAccountStatusChange:nil];
-            [strongSelf notifyCircleChange:nil];
-            [strongSelf.finishedInitialDispatches fulfill];
+            @autoreleasepool {
+                [strongSelf notifyCKAccountStatusChange:nil];
+                [strongSelf notifyCircleChange:nil];
+                [strongSelf.finishedInitialDispatches fulfill];
+            }
         });
     }
     return self;
@@ -104,11 +110,12 @@
 }
 
 -(NSString*)descriptionInternal: (NSString*) selfString {
-    return [NSString stringWithFormat:@"<%@: %@ (%@ %@)",
+    return [NSString stringWithFormat:@"<%@: %@ (%@ %@) %@>",
               selfString,
               [self currentStatus],
               self.currentCKAccountInfo,
-              SOSCCGetStatusDescription(self.currentCircleStatus)];
+              SOSCCGetStatusDescription(self.currentCircleStatus),
+            self.currentAccountError ?: @""];
 }
 
 -(NSString*)description {
@@ -139,8 +146,11 @@
             dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
             [self.changeListeners setObject: listener forKey: objQueue];
 
+            secinfo("ckksaccount", "adding a new listener: %@", listener);
+
             // If we know the current account status, let this listener know
             if(self.currentComputedAccountStatus != CKKSAccountStatusUnknown) {
+                secinfo("ckksaccount", "notifying new listener %@ of current state %d", listener, (int)self.currentComputedAccountStatus);
 
                 dispatch_group_t g = dispatch_group_create();
                 if(!g) {
@@ -205,6 +215,10 @@
     if(ckAccountInfo.accountStatus == CKAccountStatusAvailable) {
         [self.container fetchCurrentDeviceIDWithCompletionHandler:^(NSString* deviceID, NSError* ckerror) {
             __strong __typeof(self) strongSelf = weakSelf;
+            if(!strongSelf) {
+                secerror("ckksaccount: Received fetchCurrentDeviceIDWithCompletionHandler callback with null AccountStateTracker");
+                return;
+            }
 
             // Make sure you synchronize here; if we've logged out before the callback returns, don't record the result
             dispatch_async(strongSelf.queue, ^{
@@ -254,6 +268,11 @@
     if(sosccstatus == kSOSCCInCircle) {
         [CKKSCKAccountStateTracker fetchCirclePeerID:^(NSString* peerID, NSError* error) {
             __strong __typeof(self) strongSelf = weakSelf;
+            if(!strongSelf) {
+                secerror("ckksaccount: Received fetchCirclePeerID callback with null AccountStateTracker");
+                return;
+            }
+
             dispatch_async(strongSelf.queue, ^{
                 __strong __typeof(self) innerstrongSelf = weakSelf;
 
@@ -281,6 +300,57 @@
     }
 }
 
+- (bool)_onqueueDetermineLoggedIn:(NSError**)error {
+    // We are logged in if we are:
+    //   in CKAccountStatusAvailable
+    //   and supportsDeviceToDeviceEncryption == true
+    //   and the iCloud account is not in grey mode
+    //   and in circle
+    dispatch_assert_queue(self.queue);
+    if(self.currentCKAccountInfo) {
+        if(self.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable) {
+            if(error) {
+                *error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotLoggedIn
+                                      description:@"iCloud account is logged out"];
+            }
+            return false;
+        } else if(!self.currentCKAccountInfo.supportsDeviceToDeviceEncryption) {
+            if(error) {
+                *error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotHSA2
+                                      description:@"iCloud account is not HSA2"];
+            }
+            return false;
+        } else if(!self.currentCKAccountInfo.hasValidCredentials) {
+            if(error) {
+                *error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSiCloudGreyMode
+                                      description:@"iCloud account is in grey mode"];
+            }
+            return false;
+        }
+    } else {
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNotLoggedIn
+                                  description:@"No current iCloud account status"];
+        }
+        return false;
+    }
+
+    if(self.currentCircleStatus != kSOSCCInCircle) {
+        if(error) {
+            *error = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain
+                                         code:kSOSErrorNotInCircle
+                                  description:@"Not in circle"];
+        }
+        return false;
+    }
+
+    return true;
+}
+
 -(void)_onqueueUpdateAccountState:(CKAccountInfo*)ckAccountInfo circle:(SOSCCStatus)sosccstatus deliveredSemaphore:(dispatch_semaphore_t)finishedSema {
     dispatch_assert_queue(self.queue);
 
@@ -300,7 +370,9 @@
     if(self.currentCircleStatus != sosccstatus) {
         secnotice("ckksaccount", "moving to circle status: %@", SOSCCGetStatusDescription(sosccstatus));
         self.currentCircleStatus = sosccstatus;
-
+        if (sosccstatus == kSOSCCInCircle) {
+            [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastInCircle];
+        }
         [self _onqueueUpdateCirclePeerID: sosccstatus];
     }
 
@@ -310,28 +382,17 @@
         return;
     }
 
-    // We are CKKSAccountStatusAvailable if we are:
-    //   in CKAccountStatusAvailable
-    //   and in circle
-    //   and supportsDeviceToDeviceEncryption == true
     CKKSAccountStatus oldComputedStatus = self.currentComputedAccountStatus;
 
-    if(self.currentCKAccountInfo) {
-        if(self.currentCKAccountInfo.accountStatus == CKAccountStatusAvailable) {
-            // CloudKit thinks we're logged in. Double check!
-            if(self.currentCKAccountInfo.supportsDeviceToDeviceEncryption && self.currentCircleStatus == kSOSCCInCircle) {
-                self.currentComputedAccountStatus = CKKSAccountStatusAvailable;
-            } else {
-                self.currentComputedAccountStatus = CKKSAccountStatusNoAccount;
-            }
-
-        } else {
-            // Account status is not CKAccountStatusAvailable; no more checking required.
-            self.currentComputedAccountStatus = CKKSAccountStatusNoAccount;
-        }
+    NSError* error = nil;
+    if([self _onqueueDetermineLoggedIn:&error]) {
+        self.currentComputedAccountStatus = CKKSAccountStatusAvailable;
+        self.currentAccountError = nil;
     } else {
-        // No CKAccountInfo? We haven't received an update from cloudd yet; Change nothing.
+        self.currentComputedAccountStatus = CKKSAccountStatusNoAccount;
+        self.currentAccountError = error;
     }
+    [self.currentComputedAccountStatusValid fulfill];
 
     if(oldComputedStatus == self.currentComputedAccountStatus) {
         secnotice("ckksaccount", "No change in computed account status: %@ (%@ %@)",

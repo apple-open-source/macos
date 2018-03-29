@@ -33,7 +33,6 @@
 #include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
 
-#include <sys/sysctl.h>
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
@@ -189,46 +188,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 }
 
 + (void)setOSVersionInRecord: (CKRecord*) record {
-#ifdef PLATFORM
-    // Use complicated macro magic to get the string value passed in as preprocessor define PLATFORM.
-#define PLATFORM_VALUE(f) #f
-#define PLATFORM_OBJCSTR(f) @PLATFORM_VALUE(f)
-    NSString* platform = (PLATFORM_OBJCSTR(PLATFORM));
-#undef PLATFORM_OBJCSTR
-#undef PLATFORM_VALUE
-#else
-    NSString* platform = "unknown";
-#warning No PLATFORM defined; why?
-#endif
-
-    NSString* osversion = nil;
-
-    // If we can get the build information from sysctl, use it.
-    char release[256];
-    size_t releasesize = sizeof(release);
-    bool haveSysctlInfo = true;
-    haveSysctlInfo &= (0 == sysctlbyname("kern.osrelease", release, &releasesize, NULL, 0));
-
-    char version[256];
-    size_t versionsize = sizeof(version);
-    haveSysctlInfo &= (0 == sysctlbyname("kern.osversion", version, &versionsize, NULL, 0));
-
-    if(haveSysctlInfo) {
-        // Null-terminate for extra safety
-        release[sizeof(release)-1] = '\0';
-        version[sizeof(version)-1] = '\0';
-        osversion = [NSString stringWithFormat:@"%s (%s)", release, version];
-    }
-
-    if(!osversion) {
-        //  Otherwise, use the not-really-supported fallback.
-        osversion = [[NSProcessInfo processInfo] operatingSystemVersionString];
-
-        // subtly improve osversion (but it's okay if that does nothing)
-        osversion = [osversion stringByReplacingOccurrencesOfString:@"Version" withString:@""];
-    }
-
-     record[SecCKRecordHostOSVersionKey] = [NSString stringWithFormat:@"%@ %@", platform, osversion];
+     record[SecCKRecordHostOSVersionKey] = SecCKKSHostOSVersion();
 }
 
 - (CKRecord*) updateCKRecord: (CKRecord*) record zoneID: (CKRecordZoneID*) zoneID {

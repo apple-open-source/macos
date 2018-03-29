@@ -53,7 +53,7 @@ extern NSString* const SecCKKSActionDelete;
 extern NSString* const SecCKKSActionModify;
 
 /* Queue States */
-@protocol SecCKKSItemState
+@protocol SecCKKSItemState <NSObject>
 @end
 typedef NSString<SecCKKSItemState> CKKSItemState;
 extern CKKSItemState* const SecCKKSStateNew;
@@ -64,14 +64,14 @@ extern CKKSItemState* const SecCKKSStateError;
 extern CKKSItemState* const SecCKKSStateDeleted;  // meta-state: please delete this item!
 
 /* Processed States */
-@protocol SecCKKSProcessedState
+@protocol SecCKKSProcessedState <NSObject>
 @end
 typedef NSString<SecCKKSProcessedState> CKKSProcessedState;
 extern CKKSProcessedState* const SecCKKSProcessedStateLocal;
 extern CKKSProcessedState* const SecCKKSProcessedStateRemote;
 
 /* Key Classes */
-@protocol SecCKKSKeyClass
+@protocol SecCKKSKeyClass <NSObject>
 @end
 typedef NSString<SecCKKSKeyClass> CKKSKeyClass;
 extern CKKSKeyClass* const SecCKKSKeyClassTLK;
@@ -125,9 +125,9 @@ extern NSString* const SecCKRecordCurrentKeyType;
 /* Current Item CKRecord Keys */
 extern NSString* const SecCKRecordCurrentItemType;
 extern NSString* const SecCKRecordItemRefKey;
-//extern NSString* const SecCKRecordHostOSVersionKey; <-- the OS version which last updated the record
 
-/* Device State CKRexord Keys */
+
+/* Device State CKRecord Keys */
 extern NSString* const SecCKRecordDeviceStateType;
 extern NSString* const SecCKRecordCirclePeerID;
 extern NSString* const SecCKRecordCircleStatus;
@@ -135,6 +135,8 @@ extern NSString* const SecCKRecordKeyState;
 extern NSString* const SecCKRecordCurrentTLK;
 extern NSString* const SecCKRecordCurrentClassA;
 extern NSString* const SecCKRecordCurrentClassC;
+extern NSString* const SecCKSRecordLastUnlockTime;
+extern NSString* const SecCKSRecordOSVersionKey; // Similar to SecCKRecordHostOSVersionKey, but better named
 
 /* Manifest master CKRecord Keys */
 extern NSString* const SecCKRecordManifestType;
@@ -153,19 +155,26 @@ extern NSString* const SecCKRecordManifestLeafDERKey;
 extern NSString* const SecCKRecordManifestLeafDigestKey;
 
 /* Zone Key Hierarchy States */
-@protocol SecCKKSZoneKeyState
+@protocol SecCKKSZoneKeyState <NSObject>
 @end
 typedef NSString<SecCKKSZoneKeyState> CKKSZoneKeyState;
+
+// CKKS is currently logged out
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateLoggedOut;
 
 // Class has just been created.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateInitializing;
 // CKKSZone has just informed us that its setup is done (and completed successfully).
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateInitialized;
+// CKKSZone has informed us that zone setup did not work. Try again soon!
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateZoneCreationFailed;
 // Everything is ready and waiting for input.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReady;
 // We're presumably ready, but we'd like to do one or two more checks after we unlock.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReadyPendingUnlock;
 
+// We're currently refetching the zone
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateFetch;
 // A Fetch has just been completed which includes some new keys to process
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateFetchComplete;
 // We'd really like a full refetch.
@@ -187,6 +196,11 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed;
 // The key hierarchy state machine needs to wait for the fixup operation to complete
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation;
 
+// CKKS is resetting the remote zone, due to key hierarchy reasons. Will not proceed until the local reset occurs.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone;
+// CKKS is resetting the local data, likely to do a cloudkit reset or a rpc.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData;
+
 // Fatal error. Will not proceed unless fixed from outside class.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateError;
 // This CKKS instance has been cancelled.
@@ -197,6 +211,10 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void);
 NSDictionary<NSNumber*, CKKSZoneKeyState*>* CKKSZoneKeyStateInverseMap(void);
 NSNumber* CKKSZoneKeyToNumber(CKKSZoneKeyState* state);
 CKKSZoneKeyState* CKKSZoneKeyRecover(NSNumber* stateNumber);
+
+// Use this to determine if CKKS believes the current state is "transient": that is, should resolve itself with further local processing
+// or 'nontransient': further local processing won't progress. Either we're ready, or waiting for the user to unlock, or a remote device to do something.
+bool CKKSKeyStateTransient(CKKSZoneKeyState* state);
 
 /* Hide Item Length */
 extern const NSUInteger SecCKKSItemPaddingBlockSize;
@@ -215,6 +233,9 @@ extern NSString* const CKKSServerExtensionErrorDomain;
 /* Queue limits: these should likely be configurable via plist */
 #define SecCKKSOutgoingQueueItemsAtOnce 100
 #define SecCKKSIncomingQueueItemsAtOnce 10
+
+// Utility functions
+NSString* SecCKKSHostOSVersion(void);
 
 #endif  // OBJ-C
 
@@ -247,6 +268,9 @@ bool SecCKKSEnforceManifests(void);
 bool SecCKKSEnableEnforceManifests(void);
 bool SecCKKSSetEnforceManifests(bool value);
 
+bool SecCKKSReduceRateLimiting(void);
+bool SecCKKSSetReduceRateLimiting(bool value);
+
 // Testing support
 bool SecCKKSTestsEnabled(void);
 bool SecCKKSTestsEnable(void);
@@ -262,11 +286,9 @@ void SecCKKSTestSetDisableSOS(bool set);
 bool SecCKKSTestDisableKeyNotifications(void);
 void SecCKKSTestSetDisableKeyNotifications(bool set);
 
-
-XPC_RETURNS_RETAINED _Nullable xpc_endpoint_t SecServerCreateCKKSEndpoint(void);
-
 // TODO: handle errors better
 typedef CF_ENUM(CFIndex, CKKSErrorCode) {
+    CKKSNotInitialized = 9,
     CKKSNotLoggedIn = 10,
     CKKSNoSuchView = 11,
 
@@ -283,6 +305,33 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
     CKKSNoSuchRecord = 22,
     CKKSMissingTLKShare = 23,
     CKKSNoPeersAvailable = 24,
+
+    CKKSSplitKeyHierarchy = 32,
+    CKKSOrphanedKey = 33,
+    CKKSInvalidTLK = 34,
+    CKKSNoTrustedTLKShares = 35,
+    CKKSKeyUnknownFormat = 36,
+    CKKSNoSigningKey = 37,
+    CKKSNoEncryptionKey = 38,
+
+    CKKSNotHSA2 = 40,
+    CKKSiCloudGreyMode = 41,
+};
+
+typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {
+    CKKSResultDescriptionNone = 0,
+    CKKSResultDescriptionPendingKeyReady = 1,
+    CKKSResultDescriptionPendingSuccessfulFetch = 2,
+    CKKSResultDescriptionPendingAccountLoggedIn = 3,
+    CKKSResultDescriptionPendingUnlock = 4,
+    CKKSResultDescriptionPendingBottledPeerModifyRecords = 5,
+    CKKSResultDescriptionPendingBottledPeerFetchRecords = 6,
+
+    CKKSResultDescriptionPendingZoneChangeFetchScheduling = 1000,
+    CKKSResultDescriptionPendingViewChangedScheduling = 1001,
+    CKKSResultDescriptionPendingZoneInitializeScheduling = 1002,
+    CKKSResultDescriptionPendingOutgoingQueueScheduling = 1003,
+    CKKSResultDescriptionPendingKeyHierachyPokeScheduling = 1004,
 };
 
 // These errors are returned by the CKKS server extension.
@@ -377,3 +426,4 @@ CF_ASSUME_NONNULL_END
 #endif
 
 #endif /* CKKS_h */
+

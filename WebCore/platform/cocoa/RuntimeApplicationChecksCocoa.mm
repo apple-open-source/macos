@@ -65,6 +65,14 @@ void setApplicationBundleIdentifier(const String& bundleIdentifier)
     applicationBundleIdentifierOverride() = bundleIdentifier;
 }
 
+bool isInWebProcess()
+{
+    static bool mainBundleIsWebProcess = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebKit.WebContent.Development"]
+        || [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebKit.WebContent"]
+        || [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebProcess"];
+    return mainBundleIsWebProcess;
+}
+
 static bool applicationBundleIsEqualTo(const String& bundleIdentifierString)
 {
     return applicationBundleIdentifier() == bundleIdentifierString;
@@ -74,7 +82,7 @@ static bool applicationBundleIsEqualTo(const String& bundleIdentifierString)
 
 bool MacApplication::isSafari()
 {
-    static bool isSafari = applicationBundleIsEqualTo("com.apple.Safari");
+    static bool isSafari = applicationBundleIsEqualTo("com.apple.Safari") || applicationBundleIsEqualTo("com.apple.SafariTechnologyPreview");
     return isSafari;
 }
 
@@ -207,10 +215,7 @@ bool IOSApplication::isWebApp()
 // FIXME: this needs to be changed when the WebProcess is changed to an XPC service.
 bool IOSApplication::isWebProcess()
 {
-    static bool isWebProcess = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebKit.WebContent.Development"]
-        || [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebKit.WebContent"]
-        || [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.WebProcess"];
-    return isWebProcess;
+    return isInWebProcess();
 }
 
 bool IOSApplication::isIBooks()
@@ -229,6 +234,18 @@ bool IOSApplication::isTheSecretSocietyHiddenMystery()
 {
     static bool isTheSecretSocietyHiddenMystery = applicationBundleIsEqualTo("com.g5e.secretsociety");
     return isTheSecretSocietyHiddenMystery;
+}
+
+bool IOSApplication::isCardiogram()
+{
+    static bool isCardiogram = applicationBundleIsEqualTo("com.cardiogram.ios.heart");
+    return isCardiogram;
+}
+
+bool IOSApplication::isNike()
+{
+    static bool isNike = applicationBundleIsEqualTo("com.nike.omega");
+    return isNike;
 }
 
 #endif

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -35,7 +35,7 @@ options {
 
 key rndc_key {
 	secret "1234abcd8765";
-	algorithm hmac-md5;
+	algorithm hmac-sha256;
 };
 
 controls {

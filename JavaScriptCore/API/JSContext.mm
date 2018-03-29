@@ -115,9 +115,11 @@
 
 - (void)setException:(JSValue *)value
 {
-    JSC::JSLockHolder locker(toJS(m_context));
+    JSC::ExecState* exec = toJS(m_context);
+    JSC::VM& vm = exec->vm();
+    JSC::JSLockHolder locker(vm);
     if (value)
-        m_exception.set(toJS(m_context)->vm(), toJS(JSValueToObject(m_context, valueInternalValue(value), 0)));
+        m_exception.set(vm, toJS(JSValueToObject(m_context, valueInternalValue(value), 0)));
     else
         m_exception.clear();
 }
@@ -141,15 +143,15 @@
 
 + (JSContext *)currentContext
 {
-    WTFThreadData& threadData = wtfThreadData();
-    CallbackData *entry = (CallbackData *)threadData.m_apiData;
+    Thread& thread = Thread::current();
+    CallbackData *entry = (CallbackData *)thread.m_apiData;
     return entry ? entry->context : nil;
 }
 
 + (JSValue *)currentThis
 {
-    WTFThreadData& threadData = wtfThreadData();
-    CallbackData *entry = (CallbackData *)threadData.m_apiData;
+    Thread& thread = Thread::current();
+    CallbackData *entry = (CallbackData *)thread.m_apiData;
     if (!entry)
         return nil;
     return [JSValue valueWithJSValueRef:entry->thisValue inContext:[JSContext currentContext]];
@@ -157,8 +159,8 @@
 
 + (JSValue *)currentCallee
 {
-    WTFThreadData& threadData = wtfThreadData();
-    CallbackData *entry = (CallbackData *)threadData.m_apiData;
+    Thread& thread = Thread::current();
+    CallbackData *entry = (CallbackData *)thread.m_apiData;
     if (!entry)
         return nil;
     return [JSValue valueWithJSValueRef:entry->calleeValue inContext:[JSContext currentContext]];
@@ -166,8 +168,8 @@
 
 + (NSArray *)currentArguments
 {
-    WTFThreadData& threadData = wtfThreadData();
-    CallbackData *entry = (CallbackData *)threadData.m_apiData;
+    Thread& thread = Thread::current();
+    CallbackData *entry = (CallbackData *)thread.m_apiData;
 
     if (!entry)
         return nil;
@@ -294,21 +296,21 @@
 
 - (void)beginCallbackWithData:(CallbackData *)callbackData calleeValue:(JSValueRef)calleeValue thisValue:(JSValueRef)thisValue argumentCount:(size_t)argumentCount arguments:(const JSValueRef *)arguments
 {
-    WTFThreadData& threadData = wtfThreadData();
+    Thread& thread = Thread::current();
     [self retain];
-    CallbackData *prevStack = (CallbackData *)threadData.m_apiData;
+    CallbackData *prevStack = (CallbackData *)thread.m_apiData;
     *callbackData = (CallbackData){ prevStack, self, [self.exception retain], calleeValue, thisValue, argumentCount, arguments, nil };
-    threadData.m_apiData = callbackData;
+    thread.m_apiData = callbackData;
     self.exception = nil;
 }
 
 - (void)endCallbackWithData:(CallbackData *)callbackData
 {
-    WTFThreadData& threadData = wtfThreadData();
+    Thread& thread = Thread::current();
     self.exception = callbackData->preservedException;
     [callbackData->preservedException release];
     [callbackData->currentArguments release];
-    threadData.m_apiData = callbackData->next;
+    thread.m_apiData = callbackData->next;
     [self release];
 }
 

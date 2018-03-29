@@ -236,7 +236,9 @@ void IOFramebufferUserClient::stop(IOService *provider)
     DEBG(fName, " provider=%p\n", provider);
     IOFramebuffer *owner = fOwner;
     if (owner && OSCompareAndSwapPtr(owner, NULL, &fOwner)) {
-        owner->close();
+        // Intentionally not calling owner->close() here. We're on the FB
+        // WL so taking SYS WL might deadlock!
+        owner->closeNoSys();
     }
     super::stop(provider);
     IOFBUC_END(stop,0,0,0);
@@ -806,7 +808,7 @@ externalMethod(uint32_t selector, IOExternalMethodArguments *args,
         /*[3]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedD,
             0, 0, 0, 0 },
         /*[4]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedE,
-            0, 0, 0, 0 },
+            4, 0, 0, kIOUCVariableStructureSize },
     };
 
     IOFBDUC_START(externalMethod,selector,0,0);

@@ -31,7 +31,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol CKKSZoneUpdateReceiver
+@protocol CKKSZoneUpdateReceiver <NSObject>
 - (void)notifyZoneChange:(CKRecordZoneNotification* _Nullable)notification;
 @end
 

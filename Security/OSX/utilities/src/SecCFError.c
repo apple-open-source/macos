@@ -175,6 +175,7 @@ bool SecCFCreateErrorWithFormat(CFIndex errorCode, CFStringRef domain, CFErrorRe
     return result;
 }
 
+// Also consumes whatever newError points to
 bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domain,
                                             CF_CONSUMED CFErrorRef previousError, CFErrorRef *newError,
                                             CFDictionaryRef formatoptions, CFStringRef format, va_list args)
@@ -186,12 +187,19 @@ bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domai
         const void* values[2] = { formattedString,          previousError };
         const CFIndex numEntriesToUse = (previousError != NULL) ? 2 : 1;
 
+        // Prepare to release whatever we replaced, as long as they didn't tell us to do so via previousError
+        // In a sane world, this function wouldn't have a previousError argument, since it should always release what it's replacing,
+        // but changing all callsites is a huge change
+        CFErrorRef replacing = ((*newError) == previousError) ? NULL : *newError;
+
         *newError = CFErrorCreateWithUserInfoKeysAndValues(kCFAllocatorDefault, domain, errorCode,
                                                            keys, values, numEntriesToUse);
 
         CFReleaseNull(formattedString);
         if (previousError)
             secdebug("error_thee_well", "encapsulated %@ with new error: %@", previousError, *newError);
+
+        CFReleaseNull(replacing);
         CFReleaseNull(previousError);
     } else {
         if (previousError && newError && (previousError != *newError)) {

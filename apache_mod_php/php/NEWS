@@ -1,5 +1,393 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+01 Feb 2018, PHP 7.1.14
+
+- Core:
+  . Fixed bug #75679 (Path 260 character problem). (Anatol)
+  . Fixed bug #75786 (segfault when using spread operator on generator passed
+    by reference). (Nikita)
+  . Fixed bug #75799 (arg of get_defined_functions is optional). (carusogabriel)
+  . Fixed bug #75396 (Exit inside generator finally results in fatal error).
+    (Nikita)
+  . Fixed bug #75079 (self keyword leads to incorrectly generated TypeError when
+    in closure in trait). (Nikita)
+
+- FCGI:
+  . Fixed bug #75794 (getenv() crashes on Windows 7.2.1 when second parameter is
+    false). (Anatol)
+
+- IMAP:
+  . Fixed bug #75774 (imap_append HeapCorruction). (Anatol)
+
+- Opcache:
+  . Fixed bug #75720 (File cache not populated after SHM runs full). (Dmitry)
+  . Fixed bug #75579 (Interned strings buffer overflow may cause crash).
+    (Dmitry)
+
+- PGSQL:
+  . Fixed bug #75671 (pg_version() crashes when called on a connection to
+    cockroach). (magicaltux at gmail dot com)
+
+- Readline:
+  . Fixed bug #75775 (readline_read_history segfaults with empty file).
+    (Anatol)
+
+- SAPI:
+  . Fixed bug #75735 ([embed SAPI] Segmentation fault in
+    sapi_register_post_entry). (Laruence)
+
+- SOAP:
+  . Fixed bug #70469 (SoapClient generates E_ERROR even if exceptions=1 is
+    used). (Anton Artamonov)
+  . Fixed bug #75502 (Segmentation fault in zend_string_release). (Nikita)
+
+- SPL:
+  . Fixed bug #75717 (RecursiveArrayIterator does not traverse arrays by
+    reference). (Nikita)
+  . Fixed bug #75242 (RecursiveArrayIterator doesn't have constants from parent
+    class). (Nikita)
+  . Fixed bug #73209 (RecursiveArrayIterator does not iterate object
+    properties). (Nikita)
+
+- Standard:
+   . Fixed bug #75781 (substr_count incorrect result). (Laruence)
+
+04 Jan 2018, PHP 7.1.13
+
+- Core:
+  . Fixed bug #75573 (Segmentation fault in 7.1.12 and 7.0.26). (Laruence)
+  . Fixed bug #75384 (PHP seems incompatible with OneDrive files on demand).
+    (Anatol)
+  . Fixed bug #74862 (Unable to clone instance when private __clone defined).
+    (Daniel Ciochiu)
+  . Fixed bug #75074 (php-process crash when is_file() is used with strings
+    longer 260 chars). (Anatol)
+  . Fixed bug #69727 (Remove timestamps from build to make it reproducible).
+    (jelle van der Waa)
+
+- CLI Server:
+  . Fixed bug #60471 (Random "Invalid request (unexpected EOF)" using a router
+    script). (SammyK)
+  . Fixed bug #73830 (Directory does not exist). (Anatol)
+
+- FPM:
+  . Fixed bug #64938 (libxml_disable_entity_loader setting is shared between
+    requests). (Remi)
+
+- GD:
+  . Fixed bug #75571 (Potential infinite loop in gdImageCreateFromGifCtx).
+    (Christoph)
+
+- Opcache:
+  . Fixed bug #75608 ("Narrowing occurred during type inference" error).
+    (Laruence, Dmitry)
+  . Fixed bug #75570 ("Narrowing occurred during type inference" error).
+    (Dmitry)
+  . Fixed bug #75579 (Interned strings buffer overflow may cause crash).
+    (Dmitry)
+
+- PCRE:
+  . Fixed bug #74183 (preg_last_error not returning error code after error).
+    (Andrew Nester)
+
+- Phar:
+  . Fixed bug #74782 (remove file name from output to avoid XSS). (stas)
+
+- Standard:
+  . Fixed bug #75511 (fread not free unused buffer). (Laruence)
+  . Fixed bug #75514 (mt_rand returns value outside [$min,$max]+ on 32-bit)
+    (Remi)
+  . Fixed bug #75535 (Inappropriately parsing HTTP response leads to PHP
+    segment fault). (Nikita)
+  . Fixed bug #75409 (accept EFAULT in addition to ENOSYS as indicator 
+    that getrandom() is missing). (sarciszewski)
+  . Fixed bug #73124 (php_ini_scanned_files() not reporting correctly).
+    (John Stevenson)
+  . Fixed bug #75574 (putenv does not work properly if parameter contains
+    non-ASCII unicode character). (Anatol)
+
+- Zip:
+  . Fixed bug #75540 (Segfault with libzip 1.3.1). (Remi)
+
+23 Nov 2017, PHP 7.1.12
+
+- Core:
+  . Fixed bug #75420 (Crash when modifing property name in __isset for
+    BP_VAR_IS). (Laruence)
+  . Fixed bug #75368 (mmap/munmap trashing on unlucky allocations). (Nikita,
+    Dmitry)
+
+- CLI:
+  . Fixed bug #75287 (Builtin webserver crash after chdir in a shutdown
+    function). (Laruence)
+
+- Enchant:
+  . Fixed bug #53070 (enchant_broker_get_path crashes if no path is set). (jelle
+    van der Waa, cmb)
+  . Fixed bug #75365 (Enchant still reports version 1.1.0). (cmb)
+
+- Exif:
+  . Fixed bug #75301 (Exif extension has built in revision version). (Peter
+    Kokot)
+
+- GD:
+  . Fixed bug #65148 (imagerotate may alter image dimensions). (cmb)
+  . Fixed bug #75437 (Wrong reflection on imagewebp). (Fabien Villepinte)
+
+- intl:
+  . Fixed bug #75317 (UConverter::setDestinationEncoding changes source instead 
+    of destination). (andrewnester)
+
+- interbase:
+  . Fixed bug #75453 (Incorrect reflection for ibase_[p]connect). (villfa)
+
+- Mysqli:
+  . Fixed bug #75434 (Wrong reflection for mysqli_fetch_all function). (Fabien
+    Villepinte)
+
+- OCI8:
+  . Fixed valgrind issue. (Tianfang Yang)
+
+- OpenSSL:
+  . Fixed bug #75363 (openssl_x509_parse leaks memory). (Bob, Jakub Zelenka)
+  . Fixed bug #75307 (Wrong reflection for openssl_open function). (villfa)
+
+- Opcache:
+  . Fixed bug #75373 (Warning Internal error: wrong size calculation). (Laruence, Dmitry)
+
+- PGSQL:
+  . Fixed bug #75419 (Default link incorrectly cleared/linked by pg_close()). (Sara)
+
+- SOAP:
+  . Fixed bug #75464 (Wrong reflection on SoapClient::__setSoapHeaders). (villfa)
+
+- Zlib:
+  . Fixed bug #75299 (Wrong reflection on inflate_init and inflate_add). (Fabien
+    Villepinte)
+
+26 Oct 2017, PHP 7.1.11
+
+- Core:
+  . Fixed bug #75241 (Null pointer dereference in zend_mm_alloc_small()).
+    (Laruence)
+  . Fixed bug #75236 (infinite loop when printing an error-message). (Andrea)
+  . Fixed bug #75252 (Incorrect token formatting on two parse errors in one
+    request). (Nikita)
+  . Fixed bug #75220 (Segfault when calling is_callable on parent). 
+    (andrewnester)
+  . Fixed bug #75290 (debug info of Closures of internal functions contain
+    garbage argument names). (Andrea)
+
+- Apache2Handler:
+  . Fixed bug #75311 (error: 'zend_hash_key' has no member named 'arKey' in
+    apache2handler). (mcarbonneaux)
+
+- Date:
+  . Fixed bug #75055 (Out-Of-Bounds Read in timelib_meridian()). (Derick)
+
+- Hash:
+  . Fixed bug #75303 (sha3 hangs on bigendian). (Remi)
+
+- Intl:
+  . Fixed bug #75318 (The parameter of UConverter::getAliases() is not
+    optional). (cmb)
+
+- litespeed:
+  . Fixed bug #75248 (Binary directory doesn't get created when building 
+    only litespeed SAPI). (petk)
+  . Fixed bug #75251 (Missing program prefix and suffix). (petk)
+
+- mcrypt:
+  . Fixed bug #72535 (arcfour encryption stream filter crashes php). (Leigh)
+
+- MySQLi:
+  . Fixed bug #75018 (Data corruption when reading fields of bit type). (Anatol)
+
+- OCI8:
+  . Fixed incorrect reference counting. (Dmitry, Tianfang Yang)
+
+- Opcache
+  . Fixed bug #75255 (Request hangs and not finish). (Dmitry)
+
+- PCRE:
+  . Fixed bug #75207 (applied upstream patch for CVE-2016-1283). (Anatol)
+
+- PDO_mysql:
+  . Fixed bug #75177 (Type 'bit' is fetched as unexpected string). (Anatol)
+
+- SPL:
+  . Fixed bug #73629 (SplDoublyLinkedList::setIteratorMode masks intern flags).
+    (J. Jeising, cmb)
+
+28 Sep 2017, PHP 7.1.10
+
+- Core:
+  . Fixed bug #75042 (run-tests.php issues with EXTENSION block). (John Boehr)
+
+- BCMath:
+  . Fixed bug #44995 (bcpowmod() fails if scale != 0). (cmb)
+  . Fixed bug #46781 (BC math handles minus zero incorrectly). (cmb)
+  . Fixed bug #54598 (bcpowmod() may return 1 if modulus is 1). (okano1220, cmb)
+  . Fixed bug #75178 (bcpowmod() misbehaves for non-integer base or modulus). (cmb)
+
+- CLI server:
+  . Fixed bug #70470 (Built-in server truncates headers spanning over TCP
+    packets). (bouk)
+
+- CURL:
+  . Fixed bug #75093 (OpenSSL support not detected). (Remi)
+
+- GD:
+  . Fixed bug #75124 (gdImageGrayScale() may produce colors). (cmb)
+  . Fixed bug #75139 (libgd/gd_interpolation.c:1786: suspicious if ?). (cmb)
+
+- Gettext:
+  . Fixed bug #73730 (textdomain(null) throws in strict mode). (cmb)
+
+- Intl:
+  . Fixed bug #75090 (IntlGregorianCalendar doesn't have constants from parent
+    class). (tpunt)
+  . Fixed bug #75193 (segfault in collator_convert_object_to_string). (Remi)
+
+- PDO_OCI:
+  . Fixed bug #74631 (PDO_PCO with PHP-FPM: OCI environment initialized
+    before PHP-FPM sets it up). (Ingmar Runge)
+
+- SPL:
+  . Fixed bug #75155 (AppendIterator::append() is broken when appending another
+    AppendIterator). (Nikita)
+  . Fixed bug #75173 (incorrect behavior of AppendIterator::append in foreach loop).
+    (jhdxr)
+
+- Standard:
+  . Fixed bug #75152 (signed integer overflow in parse_iv). (Laruence)
+  . Fixed bug #75097 (gethostname fails if your host name is 64 chars long). (Andrea)
+
+31 Aug 2017, PHP 7.1.9
+
+- Core:
+  . Fixed bug #74947 (Segfault in scanner on INF number). (Laruence)
+  . Fixed bug #74954 (null deref and segfault in zend_generator_resume()). (Bob)
+  . Fixed bug #74725 (html_errors=1 breaks unhandled exceptions). (Andrea)
+  . Fixed bug #75063 (Main CWD initialized with wrong codepage). (Anatol)
+  . Fixed bug #75349 (NAN comparison). (Sara)
+
+- cURL:
+  . Fixed bug #74125 (Fixed finding CURL on systems with multiarch support).
+    (cebe)
+
+- Date:
+  . Fixed bug #75002 (Null Pointer Dereference in timelib_time_clone). (Derick)
+
+- Intl:
+  . Fixed bug #74993 (Wrong reflection on some locale_* functions). (Sara)
+
+- Mbstring:
+  . Fixed bug #71606 (Segmentation fault mb_strcut with HTML-ENTITIES encoding).
+    (cmb)
+  . Fixed bug #62934 (mb_convert_kana() does not convert iteration marks).
+    (Nikita)
+  . Fixed bug #75001 (Wrong reflection on mb_eregi_replace). (Fabien
+    Villepinte)
+
+- MySQLi:
+  . Fixed bug #74968 (PHP crashes when calling mysqli_result::fetch_object with
+    an abstract class). (Anatol)
+
+- OCI8:
+  . Expose oci_unregister_taf_callback() (Tianfang Yang)
+
+- Opcache:
+  . Fixed bug #74980 (Narrowing occurred during type inference). (Laruence)
+
+- phar:
+  . Fixed bug #74991 (include_path has a 4096 char limit in some cases).
+    (bwbroersma)
+
+- Reflection:
+  . Fixed bug #74949 (null pointer dereference in _function_string). (Laruence)
+
+- Session:
+  . Fixed bug #74892 (Url Rewriting (trans_sid) not working on urls that start
+    with "#"). (Andrew Nester)
+  . Fixed bug #74833 (SID constant created with wrong module number). (Anatol)
+
+- SimpleXML:
+  . Fixed bug #74950 (nullpointer deref in simplexml_element_getDocNamespaces).
+    (Laruence)
+
+- SPL:
+  . Fixed bug #75049 (spl_autoload_unregister can't handle
+    spl_autoload_functions results). (Laruence)
+  . Fixed bug #74669 (Unserialize ArrayIterator broken). (Andrew Nester)
+  . Fixed bug #74977 (Appending AppendIterator leads to segfault). 
+    (Andrew Nester)
+  . Fixed bug #75015 (Crash in recursive iterator destructors). (Julien)
+
+- Standard:
+  . Fixed bug #75075 (unpack with X* causes infinity loop). (Laruence)
+  . Fixed bug #74103 (heap-use-after-free when unserializing invalid array
+    size). (Nikita)
+  . Fixed bug #75054 (A Denial of Service Vulnerability was found when
+    performing deserialization). (Nikita)
+
+- WDDX:
+  . Fixed bug #73793 (WDDX uses wrong decimal seperator). (cmb)
+
+- XMLRPC:
+  . Fixed bug #74975 (Incorrect xmlrpc serialization for classes with declared
+    properties). (blar)
+
+03 Aug 2017, PHP 7.1.8
+
+- Core:
+  . Fixed bug #74832 (Loading PHP extension with already registered function 
+    name leads to a crash). (jpauli)
+  . Fixed bug #74780 (parse_url() broken when query string contains colon). 
+    (jhdxr)
+  . Fixed bug #74761 (Unary operator expected error on some systems). (petk)
+  . Fixed bug #73900 (Use After Free in unserialize() SplFixedArray). (nikic)
+  . Fixed bug #74923 (Crash when crawling through network share). (Anatol)
+  . Fixed bug #74913 (fixed incorrect poll.h include). (petk)
+  . Fixed bug #74906 (fixed incorrect errno.h include). (petk)
+
+- Date:
+  . Fixed bug #74852 (property_exists returns true on unknown DateInterval 
+    property). (jhdxr)
+
+- OCI8:
+  . Fixed bug #74625 (Integer overflow in oci_bind_array_by_name). (Ingmar Runge)
+
+- Opcache:
+  . Fixed bug #74623 (Infinite loop in type inference when using HTMLPurifier).
+    (nikic)
+
+- OpenSSL:
+ . Fixed bug #74798 (pkcs7_en/decrypt does not work if \x0a is used in content).
+   (Anatol)
+ . Added OPENSSL_DONT_ZERO_PAD_KEY constant to prevent key padding and fix bug
+   #71917 (openssl_open() returns junk on envelope < 16 bytes) and bug #72362
+   (OpenSSL Blowfish encryption is incorrect for short keys). (Jakub Zelenka)
+
+- PDO:
+  . Fixed bug #69356 (PDOStatement::debugDumpParams() truncates query). (Adam
+    Baratz)
+
+- SPL:
+  . Fixed bug #73471 (PHP freezes with AppendIterator). (jhdxr)
+
+- SQLite3:
+  . Fixed bug #74883 (SQLite3::__construct() produces "out of memory" exception
+    with invalid flags). (Anatol)
+
+- Wddx:
+  . Fixed bug #73173 (huge memleak when wddx_unserialize).
+    (tloi at fortinet dot com)
+
+- zlib:
+  . Fixed bug #73944 (dictionary option of inflate_init() does not work).
+    (wapmorgan)
+
 06 Jul 2017, PHP 7.1.7
 
 - Core:
@@ -37,7 +425,7 @@ PHP                                                                        NEWS
     CVE-2017-9228, CVE-2017-9229) (Remi, Mamoru TASAKA)
 
 - OCI8:
- . Add TAF callback (PR #2459). (KoenigsKind)
+  . Add TAF callback (PR #2459). (KoenigsKind)
 
 - Opcache:
   . Fixed bug #74663 (Segfault with opcache.memory_protect and

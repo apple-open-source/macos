@@ -120,9 +120,6 @@ struct IOI2CRequest
 #endif
 
     uint32_t                    __reservedC[10];
-#ifdef __ppc__
-    uint32_t                    __reservedD;
-#endif
 };
 #pragma pack(pop)
 

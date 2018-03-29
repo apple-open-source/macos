@@ -410,6 +410,48 @@
 {
     return _has.dnsConfigurationAcquisitionSeconds;
 }
+@synthesize prefixPreferredLifetimeSeconds = _prefixPreferredLifetimeSeconds;
+- (void)setPrefixPreferredLifetimeSeconds:(uint32_t)v
+{
+    _has.prefixPreferredLifetimeSeconds = YES;
+    _prefixPreferredLifetimeSeconds = v;
+}
+- (void)setHasPrefixPreferredLifetimeSeconds:(BOOL)f
+{
+    _has.prefixPreferredLifetimeSeconds = f;
+}
+- (BOOL)hasPrefixPreferredLifetimeSeconds
+{
+    return _has.prefixPreferredLifetimeSeconds;
+}
+@synthesize prefixValidLifetimeSeconds = _prefixValidLifetimeSeconds;
+- (void)setPrefixValidLifetimeSeconds:(uint32_t)v
+{
+    _has.prefixValidLifetimeSeconds = YES;
+    _prefixValidLifetimeSeconds = v;
+}
+- (void)setHasPrefixValidLifetimeSeconds:(BOOL)f
+{
+    _has.prefixValidLifetimeSeconds = f;
+}
+- (BOOL)hasPrefixValidLifetimeSeconds
+{
+    return _has.prefixValidLifetimeSeconds;
+}
+@synthesize routerLifetimeSeconds = _routerLifetimeSeconds;
+- (void)setRouterLifetimeSeconds:(uint32_t)v
+{
+    _has.routerLifetimeSeconds = YES;
+    _routerLifetimeSeconds = v;
+}
+- (void)setHasRouterLifetimeSeconds:(BOOL)f
+{
+    _has.routerLifetimeSeconds = f;
+}
+- (BOOL)hasRouterLifetimeSeconds
+{
+    return _has.routerLifetimeSeconds;
+}
 
 - (NSString *)description
 {
@@ -530,6 +572,18 @@
     if (self->_has.dnsConfigurationAcquisitionSeconds)
     {
         [dict setObject:[NSNumber numberWithUnsignedInt:self->_dnsConfigurationAcquisitionSeconds] forKey:@"dns_configuration_acquisition_seconds"];
+    }
+    if (self->_has.prefixPreferredLifetimeSeconds)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedInt:self->_prefixPreferredLifetimeSeconds] forKey:@"prefix_preferred_lifetime_seconds"];
+    }
+    if (self->_has.prefixValidLifetimeSeconds)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedInt:self->_prefixValidLifetimeSeconds] forKey:@"prefix_valid_lifetime_seconds"];
+    }
+    if (self->_has.routerLifetimeSeconds)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedInt:self->_routerLifetimeSeconds] forKey:@"router_lifetime_seconds"];
     }
     return dict;
 }
@@ -717,6 +771,24 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
             {
                 self->_has.dnsConfigurationAcquisitionSeconds = YES;
                 self->_dnsConfigurationAcquisitionSeconds = PBReaderReadUint32(reader);
+            }
+            break;
+            case 29 /* prefixPreferredLifetimeSeconds */:
+            {
+                self->_has.prefixPreferredLifetimeSeconds = YES;
+                self->_prefixPreferredLifetimeSeconds = PBReaderReadUint32(reader);
+            }
+            break;
+            case 30 /* prefixValidLifetimeSeconds */:
+            {
+                self->_has.prefixValidLifetimeSeconds = YES;
+                self->_prefixValidLifetimeSeconds = PBReaderReadUint32(reader);
+            }
+            break;
+            case 31 /* routerLifetimeSeconds */:
+            {
+                self->_has.routerLifetimeSeconds = YES;
+                self->_routerLifetimeSeconds = PBReaderReadUint32(reader);
             }
             break;
             default:
@@ -930,6 +1002,27 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
             PBDataWriterWriteUint32Field(writer, self->_dnsConfigurationAcquisitionSeconds, 28);
         }
     }
+    /* prefixPreferredLifetimeSeconds */
+    {
+        if (self->_has.prefixPreferredLifetimeSeconds)
+        {
+            PBDataWriterWriteUint32Field(writer, self->_prefixPreferredLifetimeSeconds, 29);
+        }
+    }
+    /* prefixValidLifetimeSeconds */
+    {
+        if (self->_has.prefixValidLifetimeSeconds)
+        {
+            PBDataWriterWriteUint32Field(writer, self->_prefixValidLifetimeSeconds, 30);
+        }
+    }
+    /* routerLifetimeSeconds */
+    {
+        if (self->_has.routerLifetimeSeconds)
+        {
+            PBDataWriterWriteUint32Field(writer, self->_routerLifetimeSeconds, 31);
+        }
+    }
 }
 
 - (void)copyTo:(AWDIPConfigurationIPv6Report *)other
@@ -1073,6 +1166,21 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
         other->_dnsConfigurationAcquisitionSeconds = _dnsConfigurationAcquisitionSeconds;
         other->_has.dnsConfigurationAcquisitionSeconds = YES;
     }
+    if (self->_has.prefixPreferredLifetimeSeconds)
+    {
+        other->_prefixPreferredLifetimeSeconds = _prefixPreferredLifetimeSeconds;
+        other->_has.prefixPreferredLifetimeSeconds = YES;
+    }
+    if (self->_has.prefixValidLifetimeSeconds)
+    {
+        other->_prefixValidLifetimeSeconds = _prefixValidLifetimeSeconds;
+        other->_has.prefixValidLifetimeSeconds = YES;
+    }
+    if (self->_has.routerLifetimeSeconds)
+    {
+        other->_routerLifetimeSeconds = _routerLifetimeSeconds;
+        other->_has.routerLifetimeSeconds = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -1215,6 +1323,21 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
         copy->_dnsConfigurationAcquisitionSeconds = _dnsConfigurationAcquisitionSeconds;
         copy->_has.dnsConfigurationAcquisitionSeconds = YES;
     }
+    if (self->_has.prefixPreferredLifetimeSeconds)
+    {
+        copy->_prefixPreferredLifetimeSeconds = _prefixPreferredLifetimeSeconds;
+        copy->_has.prefixPreferredLifetimeSeconds = YES;
+    }
+    if (self->_has.prefixValidLifetimeSeconds)
+    {
+        copy->_prefixValidLifetimeSeconds = _prefixValidLifetimeSeconds;
+        copy->_has.prefixValidLifetimeSeconds = YES;
+    }
+    if (self->_has.routerLifetimeSeconds)
+    {
+        copy->_routerLifetimeSeconds = _routerLifetimeSeconds;
+        copy->_has.routerLifetimeSeconds = YES;
+    }
     return copy;
 }
 
@@ -1278,6 +1401,12 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     ((self->_has.dhcpv6AddressAcquisitionSeconds && other->_has.dhcpv6AddressAcquisitionSeconds && self->_dhcpv6AddressAcquisitionSeconds == other->_dhcpv6AddressAcquisitionSeconds) || (!self->_has.dhcpv6AddressAcquisitionSeconds && !other->_has.dhcpv6AddressAcquisitionSeconds))
     &&
     ((self->_has.dnsConfigurationAcquisitionSeconds && other->_has.dnsConfigurationAcquisitionSeconds && self->_dnsConfigurationAcquisitionSeconds == other->_dnsConfigurationAcquisitionSeconds) || (!self->_has.dnsConfigurationAcquisitionSeconds && !other->_has.dnsConfigurationAcquisitionSeconds))
+    &&
+    ((self->_has.prefixPreferredLifetimeSeconds && other->_has.prefixPreferredLifetimeSeconds && self->_prefixPreferredLifetimeSeconds == other->_prefixPreferredLifetimeSeconds) || (!self->_has.prefixPreferredLifetimeSeconds && !other->_has.prefixPreferredLifetimeSeconds))
+    &&
+    ((self->_has.prefixValidLifetimeSeconds && other->_has.prefixValidLifetimeSeconds && self->_prefixValidLifetimeSeconds == other->_prefixValidLifetimeSeconds) || (!self->_has.prefixValidLifetimeSeconds && !other->_has.prefixValidLifetimeSeconds))
+    &&
+    ((self->_has.routerLifetimeSeconds && other->_has.routerLifetimeSeconds && self->_routerLifetimeSeconds == other->_routerLifetimeSeconds) || (!self->_has.routerLifetimeSeconds && !other->_has.routerLifetimeSeconds))
     ;
 }
 
@@ -1340,6 +1469,12 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     (self->_has.dhcpv6AddressAcquisitionSeconds ? PBHashInt((NSUInteger)self->_dhcpv6AddressAcquisitionSeconds) : 0)
     ^
     (self->_has.dnsConfigurationAcquisitionSeconds ? PBHashInt((NSUInteger)self->_dnsConfigurationAcquisitionSeconds) : 0)
+    ^
+    (self->_has.prefixPreferredLifetimeSeconds ? PBHashInt((NSUInteger)self->_prefixPreferredLifetimeSeconds) : 0)
+    ^
+    (self->_has.prefixValidLifetimeSeconds ? PBHashInt((NSUInteger)self->_prefixValidLifetimeSeconds) : 0)
+    ^
+    (self->_has.routerLifetimeSeconds ? PBHashInt((NSUInteger)self->_routerLifetimeSeconds) : 0)
     ;
 }
 
@@ -1483,6 +1618,21 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     {
         self->_dnsConfigurationAcquisitionSeconds = other->_dnsConfigurationAcquisitionSeconds;
         self->_has.dnsConfigurationAcquisitionSeconds = YES;
+    }
+    if (other->_has.prefixPreferredLifetimeSeconds)
+    {
+        self->_prefixPreferredLifetimeSeconds = other->_prefixPreferredLifetimeSeconds;
+        self->_has.prefixPreferredLifetimeSeconds = YES;
+    }
+    if (other->_has.prefixValidLifetimeSeconds)
+    {
+        self->_prefixValidLifetimeSeconds = other->_prefixValidLifetimeSeconds;
+        self->_has.prefixValidLifetimeSeconds = YES;
+    }
+    if (other->_has.routerLifetimeSeconds)
+    {
+        self->_routerLifetimeSeconds = other->_routerLifetimeSeconds;
+        self->_has.routerLifetimeSeconds = YES;
     }
 }
 

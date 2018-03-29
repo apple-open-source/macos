@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2013, 2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -24,6 +24,9 @@
 
 #include <isc/stdio.h>
 #include <isc/util.h>
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "errno2result.h"
 
@@ -133,7 +136,17 @@ isc_stdio_flush(FILE *f) {
 
 isc_result_t
 isc_stdio_sync(FILE *f) {
+	struct _stat buf;
 	int r;
+
+	if (_fstat(_fileno(f), &buf) != 0)
+		return (isc__errno2result(errno));
+
+	/*
+	 * Only call _commit() on regular files.
+	 */
+	if ((buf.st_mode & S_IFMT) != S_IFREG)
+		return (ISC_R_SUCCESS);
 
 	r = _commit(_fileno(f));
 	if (r == 0)

@@ -35,18 +35,12 @@ function(strategy, ancestorElement, query, firstResultOnly, timeoutDuration, cal
         strategy = "css selector";
         query = "[name=\"" + escape(query) + "\"]";
         break;
-    case "link text":
-        strategy = "xpath";
-        query = ".//a[@href][descendant-or-self::text() = \"" + escape(query) + "\"]";
-        break;
-    case "partial link text":
-        strategy = "xpath";
-        query = ".//a[@href][contains(descendant-or-self::text(), \"" + escape(query) + "\")]";
-        break;
     }
 
     switch (strategy) {
     case "css selector":
+    case "link text":
+    case "partial link text":
     case "tag name":
     case "class name":
     case "xpath":
@@ -69,6 +63,32 @@ function(strategy, ancestorElement, query, firstResultOnly, timeoutDuration, cal
                 if (firstResultOnly)
                     return ancestorElement.querySelector(query) || null;
                 return Array.from(ancestorElement.querySelectorAll(query));
+
+            case "link text":
+                let linkTextResult = [];
+                for (let link of ancestorElement.getElementsByTagName("a")) {
+                    if (link.text.trim() == query) {
+                        linkTextResult.push(link);
+                        if (firstResultOnly)
+                            break;
+                    }
+                }
+                if (firstResultOnly)
+                    return linkTextResult[0] || null;
+                return linkTextResult;
+
+            case "partial link text":
+                let partialLinkResult = [];
+                for (let link of ancestorElement.getElementsByTagName("a")) {
+                    if (link.text.includes(query)) {
+                        partialLinkResult.push(link);
+                        if (firstResultOnly)
+                            break;
+                    }
+                }
+                if (firstResultOnly)
+                    return partialLinkResult[0] || null;
+                return partialLinkResult;
 
             case "tag name":
                 let tagNameResult = ancestorElement.getElementsByTagName(query);
@@ -100,11 +120,10 @@ function(strategy, ancestorElement, query, firstResultOnly, timeoutDuration, cal
                 return arrayResult;
             }
         } catch (error) {
-            if (error instanceof XPathException && error.code === XPathException.INVALID_EXPRESSION_ERR)
-                return "InvalidXPathExpression";
-            // FIXME: Bad CSS can throw an error that we should report back to the endpoint. There is no
-            // special error code for that though, so we just return an empty match.
-            return firstResultOnly ? null : [];
+            // §12. Element Retrieval. Step 6: If a DOMException, SyntaxError, or other error occurs during
+            // the execution of the element location strategy, return error invalid selector.
+            // https://www.w3.org/TR/webdriver/#dfn-find
+            throw { name: "InvalidSelector", message: error.message };
         }
     }
 

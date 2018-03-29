@@ -201,6 +201,15 @@ supported, see below for more information.
 (This is only applicable for the
 .Fn copyfile
 function.)
+.It Dv COPYFILE_DATA_SPARSE
+Copy a file sparsely.
+This requires that the source and destination file systems support sparse files with hole sizes
+at least as large as their block sizes.
+This also requires that the source file is sparse, and for
+.Fn fcopyfile
+the source file descriptor's offset be a multiple of the minimum hole size.
+If COPYFILE_DATA is also specified, this will fall back to a full copy
+if sparse copying cannot be performed for any reason; otherwise, an error is returned.
 .It Dv COPYFILE_NOFOLLOW
 This is a convenience macro, equivalent to
 .Dv (COPYFILE_NOFOLLOW_DST | COPYFILE_NOFOLLOW_SRC) .
@@ -610,6 +619,11 @@ was a negative number.
 A memory allocation failed.
 .It Bq Er ENOTSUP
 The source file was not a directory, symbolic link, or regular file.
+.It Bq Er ENOTSUP
+COPYFILE_CLONE_FORCE was specified and file cloning is not supported.
+.It Bq Er ENOTSUP
+COPYFILE_DATA_SPARSE was specified, sparse copying is not supported,
+and COPYFILE_DATA was not specified.
 .It Bq Er ECANCELED
 The copy was cancelled by callback.
 .It Bq Er EEXIST

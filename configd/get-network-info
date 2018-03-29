@@ -335,19 +335,34 @@ run_skywalk () {
 	fi
 
 	echo "#"							 > skywalk.txt
-	echo "# skywalkctl list-providers -D"				>> skywalk.txt
+	echo "# skywalkctl show"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl list-providers -D				>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl show					>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
-	echo "# skywalkctl channel-stats"				>> skywalk.txt
+	echo "# skywalkctl flow -n"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl channel-stats				>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl flow -n					>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
-	echo "# skywalkctl netstat -a -n"				>> skywalk.txt
+	echo "# skywalkctl flow-route -n"				>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl netstat -a -n				>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl flow-route -n				>> skywalk.txt		2>&1
+
+	echo "#"							>> skywalk.txt
+	echo "# skywalkctl flow-switch"					>> skywalk.txt
+	echo "#"							>> skywalk.txt
+	/usr/sbin/skywalkctl flow-switch				>> skywalk.txt		2>&1
+
+	echo "#"							>> skywalk.txt
+	echo "# skywalkctl flow-owner"					>> skywalk.txt
+	echo "#"							>> skywalk.txt
+	/usr/sbin/skywalkctl flow-owner					>> skywalk.txt		2>&1
+
+	echo "#"							>> skywalk.txt
+	echo "# skywalkctl flow-adv"					>> skywalk.txt
+	echo "#"							>> skywalk.txt
+	/usr/sbin/skywalkctl flow-adv					>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
 	echo "# skywalkctl netstat -s"					>> skywalk.txt
@@ -360,24 +375,19 @@ run_skywalk () {
 	/usr/sbin/skywalkctl netstat -s --global			>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
-	echo "# skywalkctl netstat --netif"				>> skywalk.txt
+	echo "# skywalkctl interface"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl netstat --netif				>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl interface					>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
-	echo "# skywalkctl netstat --flowswitch"			>> skywalk.txt
+	echo "# skywalkctl channel"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl netstat --flowswitch			>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl channel					>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
-	echo "# skywalkctl netstat --flow-adv"				>> skywalk.txt
+	echo "# skywalkctl provider -D"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl netstat --flow-adv				>> skywalk.txt		2>&1
-
-	echo "#"							>> skywalk.txt
-	echo "# skywalkctl netstat --flow-owner"			>> skywalk.txt
-	echo "#"							>> skywalk.txt
-	/usr/sbin/skywalkctl netstat --flow-owner			>> skywalk.txt		2>&1
+	/usr/sbin/skywalkctl provider -D				>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
 	echo "# skywalkctl netns -a"					>> skywalk.txt
@@ -478,6 +488,10 @@ run_neutil () {
 		echo "# neutil agent dump"						>> network-agents.txt
 		echo "#"								>> network-agents.txt
 		/usr/local/bin/neutil agent dump					>> network-agents.txt	2>&1
+
+		# Generates a default-level log message containing the current file handles that UserEventAgent has
+		/usr/local/bin/neutil session log-file-handles
+		sleep 1 &
 	) &
 }
 

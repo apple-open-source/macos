@@ -107,11 +107,13 @@ SecDbRef SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite,
 SecDbRef SecDbCreate(CFStringRef dbName, bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
 
 void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
+void SecDbSetCorruptionReset(SecDbRef db, void (^corruptionReset)(void));
 
 // Read only connections go to the end of the queue, writeable
 // connections go to the start of the queue.  Use SecDbPerformRead() and SecDbPerformWrite() if you
 // can to avoid leaks.
 SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error);
+bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error);
 void SecDbConnectionRelease(SecDbConnectionRef dbconn);
 
 // Perform a database read operation,

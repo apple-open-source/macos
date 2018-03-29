@@ -31,9 +31,14 @@
         (global-name "com.apple.SystemConfiguration.configd")
         (global-name "com.apple.security.cloudkeychainproxy3")
         (global-name "com.apple.security.keychainsyncingoveridsproxy")
+        (global-name "com.apple.cdp.daemon")
         (global-name "com.apple.cloudd")
         (global-name "com.apple.apsd")
         (global-name "com.apple.windowserver.active"))
+
+;; Used to send logs for MoiC.
+(allow mach-lookup
+        (global-name "com.apple.imagent.desktop.auth"))
 
 (allow iokit-open
     (iokit-user-client-class "AppleKeyStoreUserClient"))

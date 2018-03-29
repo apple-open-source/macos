@@ -4,13 +4,17 @@ Event
 Events interfaceName=Event
 HTMLEvents interfaceName=Event
 AnimationEvent
+AnimationPlaybackEvent
 BeforeLoadEvent
 BeforeUnloadEvent
 ClipboardEvent
 CloseEvent
 CompositionEvent
 CustomEvent
+ExtendableEvent conditional=SERVICE_WORKER
+ExtendableMessageEvent conditional=SERVICE_WORKER
 ErrorEvent
+FetchEvent conditional=SERVICE_WORKER
 FocusEvent
 HashChangeEvent
 InputEvent
@@ -44,6 +48,8 @@ AudioProcessingEvent conditional=WEB_AUDIO
 OfflineAudioCompletionEvent conditional=WEB_AUDIO
 MediaStreamEvent conditional=WEB_RTC
 MediaStreamTrackEvent conditional=MEDIA_STREAM
+MerchantValidationEvent conditional=PAYMENT_REQUEST
+PaymentRequestUpdateEvent conditional=PAYMENT_REQUEST
 RTCPeerConnectionIceEvent conditional=WEB_RTC
 RTCDataChannelEvent conditional=WEB_RTC
 RTCDTMFToneChangeEvent conditional=WEB_RTC_DTMF
@@ -58,12 +64,10 @@ IDBVersionChangeEvent conditional=INDEXED_DATABASE
 TouchEvent conditional=TOUCH_EVENTS
 DeviceMotionEvent conditional=DEVICE_ORIENTATION
 DeviceOrientationEvent conditional=DEVICE_ORIENTATION
-DeviceProximityEvent conditional=PROXIMITY_EVENTS
 OrientationEvent interfaceName=Event, conditional=ORIENTATION_EVENTS
 WebKitMediaKeyMessageEvent conditional=LEGACY_ENCRYPTED_MEDIA
 WebKitMediaKeyNeededEvent conditional=LEGACY_ENCRYPTED_MEDIA
 TrackEvent conditional=VIDEO_TRACK
-AutocompleteErrorEvent conditional=REQUEST_AUTOCOMPLETE
 SecurityPolicyViolationEvent
 GestureEvent conditional=IOS_GESTURE_EVENTS|MAC_GESTURE_EVENTS
 WebKitPlaybackTargetAvailabilityEvent conditional=WIRELESS_PLAYBACK_TARGET
@@ -71,3 +75,4 @@ GamepadEvent conditional=GAMEPAD
 OverconstrainedErrorEvent conditional=MEDIA_STREAM
 MediaEncryptedEvent conditional=ENCRYPTED_MEDIA
 MediaKeyMessageEvent conditional=ENCRYPTED_MEDIA
+VRDisplayEvent

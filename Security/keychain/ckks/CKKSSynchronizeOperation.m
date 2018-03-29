@@ -94,7 +94,9 @@
         [self dependOnBeforeGroupFinished:outgoingOp];
 
         // Step 2
-        CKKSFetchAllRecordZoneChangesOperation* fetchOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView:ckks ckoperationGroup:operationGroup];
+        CKKSFetchAllRecordZoneChangesOperation* fetchOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView:ckks
+                                                                                                                      fetchReasons:[NSSet setWithObject:CKKSFetchBecauseResync]
+                                                                                                                  ckoperationGroup:operationGroup];
         fetchOp.name = [NSString stringWithFormat: @"resync-step%u-fetch", self.restartCount * steps + 2];
         [fetchOp addSuccessDependency: outgoingOp];
         [self runBeforeGroupFinished: fetchOp];
@@ -108,7 +110,9 @@
         // Now, get serious:
 
         // Step 4
-        CKKSFetchAllRecordZoneChangesOperation* fetchAllOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView:ckks ckoperationGroup:operationGroup];
+        CKKSFetchAllRecordZoneChangesOperation* fetchAllOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView:ckks
+                                                                                                                         fetchReasons:[NSSet setWithObject:CKKSFetchBecauseResync]
+                                                                                                                     ckoperationGroup:operationGroup];
         fetchAllOp.resync = true;
         fetchAllOp.name = [NSString stringWithFormat: @"resync-step%u-fetchAll", self.restartCount * steps + 4];
         [fetchAllOp addSuccessDependency: incomingOp];

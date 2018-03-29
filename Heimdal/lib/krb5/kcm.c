@@ -1557,5 +1557,94 @@ krb5_kcm_check_ntlm_challenge(krb5_context context,
     return ret;
 }
 
+/*
+ * Request:
+ *
+ * Repsonse:
+ *	Principals
+ */
+KRB5_LIB_FUNCTION CFArrayRef KRB5_LIB_CALL
+krb5_kcm_get_principal_list(krb5_context context)
+{
+    krb5_error_code ret;
+    krb5_storage *request = NULL, *response = NULL;
+    krb5_data response_data;
+    CFMutableArrayRef array = NULL;
+    CFMutableDictionaryRef tempDict = NULL;
+
+    ret = krb5_kcm_storage_request(context, KCM_OP_GET_CACHE_PRINCIPAL_LIST, &request);
+    if (ret)
+	return NULL;
+
+    ret = krb5_kcm_call(context, request, &response, &response_data);
+    if (ret) {
+	krb5_storage_free(request);
+	return NULL;
+    }
+
+    array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+
+    while (1) {
+	char *name = NULL;
+	CFStringRef principalStr = NULL;
+	pid_t asid;
+	CFNumberRef sessionID = NULL;
+	int32_t endtime;
+	CFNumberRef expireTime = NULL;
+
+	ret = krb5_ret_string(response, &name);
+	if (ret)
+	    break;
+
+	principalStr = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
+	free(name);
+
+	if (principalStr) {
+	    ret = krb5_ret_int32(response, &asid);
+	    if (ret == HEIM_ERR_EOF) {
+		ret = 0;
+		break;
+	    } if (ret) {
+		break;
+	    }
+
+	    ret = krb5_ret_int32(response, &endtime);
+	    if (ret) {
+		break;
+	    }
+
+	    sessionID = CFNumberCreate(NULL, kCFNumberIntType, &asid);
+	    expireTime = CFNumberCreate(NULL, kCFNumberIntType, &endtime);
+
+	    tempDict = CFDictionaryCreateMutable(NULL, 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
+	    if (tempDict && sessionID && expireTime) {
+		CFDictionaryAddValue(tempDict, CFSTR("principal"), principalStr);
+		CFDictionaryAddValue(tempDict, CFSTR("asid"), sessionID);
+		CFDictionaryAddValue(tempDict, CFSTR("expire"), expireTime);
+
+		CFArrayAppendValue(array, tempDict);
+		CFRelease(tempDict);
+	    }
+
+	    CFRelease(principalStr);
+
+	    if (sessionID) {
+		CFRelease(sessionID);
+	    }
+
+	    if (expireTime) {
+		CFRelease(expireTime);
+	    }
+	}
+    }
+
+    krb5_storage_free(request);
+    krb5_storage_free(response);
+    krb5_data_free(&response_data);
+
+    return array;
+}
 
 #endif /* HAVE_KCM */

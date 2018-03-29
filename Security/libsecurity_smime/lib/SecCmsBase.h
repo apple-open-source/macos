@@ -482,8 +482,9 @@ typedef enum {
     SEC_OID_ECDSA_WITH_SHA384 = 212,
     SEC_OID_ECDSA_WITH_SHA512 = 213,
 
-    /* Apple CMS Attribute */
+    /* Apple CMS Attributes */
     SEC_OID_APPLE_HASH_AGILITY = 214,
+    SEC_OID_APPLE_HASH_AGILITY_V2 = 215,
 
     SEC_OID_TOTAL
 } SECOidTag;

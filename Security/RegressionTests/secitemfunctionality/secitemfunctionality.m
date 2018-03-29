@@ -526,6 +526,10 @@ CheckFindIdentityByReference(void)
      */
 
     CFRelease(pref);
+    if(identity) {
+        CFRelease(identity);
+        identity = NULL;
+    }
 
     printf("[PASS] %s\n", __FUNCTION__);
 }

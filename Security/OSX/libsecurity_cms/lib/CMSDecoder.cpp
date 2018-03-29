@@ -1003,8 +1003,8 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
     int numContentInfos = 0;
     CFDataRef returnedValue = NULL;
 
-    require(cmsDecoder && hashAgilityAttrValue, xit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    require(cmsDecoder && hashAgilityAttrValue, exit);
+    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++)
     {
@@ -1018,11 +1018,57 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
                     break;
                 }
     }
-xit:
+exit:
     if (status == errSecSuccess && returnedValue) {
         *hashAgilityAttrValue = (CFDataRef) CFRetain(returnedValue);
     } else {
         *hashAgilityAttrValue = NULL;
+    }
+    return status;
+}
+
+/*
+ * Obtain the Hash Agility V2 attribute value of signer 'signerIndex'
+ * of a CMS message, if present.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
+    CMSDecoderRef        cmsDecoder,
+    size_t                signerIndex,            /* usually 0 */
+    CFDictionaryRef  CF_RETURNS_RETAINED *hashAgilityV2AttrValues)            /* RETURNED */
+{
+    OSStatus status = errSecParam;
+    SecCmsMessageRef cmsg;
+    SecCmsSignedDataRef signedData = NULL;
+    int numContentInfos = 0;
+    CFDictionaryRef returnedValue = NULL;
+
+    require(cmsDecoder && hashAgilityV2AttrValues, exit);
+    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
+    {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA)
+            if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
+                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo)
+                {
+                    status = SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(signerInfo, &returnedValue);
+                    break;
+                }
+            }
+    }
+exit:
+    if (status == errSecSuccess && returnedValue) {
+        *hashAgilityV2AttrValues = (CFDictionaryRef) CFRetain(returnedValue);
+    } else {
+        *hashAgilityV2AttrValues = NULL;
     }
     return status;
 }

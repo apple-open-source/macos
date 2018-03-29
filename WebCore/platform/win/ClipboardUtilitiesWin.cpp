@@ -34,9 +34,10 @@
 #include <shlwapi.h>
 #include <wininet.h> // for INTERNET_MAX_URL_LENGTH
 #include <wtf/StringExtras.h>
+#include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-
+#include <wtf/text/win/WCharStringExtras.h>
 
 #if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
@@ -130,7 +131,7 @@ static bool getWebLocData(const DragDataMap* dataObject, String& url, String* ti
     if (!dataObject->contains(cfHDropFormat()->cfFormat))
         return false;
 
-    wcscpy(filename, dataObject->get(cfHDropFormat()->cfFormat)[0].charactersWithNullTermination().data());
+    wcscpy(filename, stringToNullTerminatedWChar(dataObject->get(cfHDropFormat()->cfFormat)[0]).data());
     if (_wcsicmp(PathFindExtensionW(filename), L".url"))
         return false;    
 
@@ -139,10 +140,10 @@ static bool getWebLocData(const DragDataMap* dataObject, String& url, String* ti
 
     if (title) {
         PathRemoveExtension(filename);
-        *title = filename;
+        *title = nullTerminatedWCharToString(filename);
     }
     
-    url = urlBuffer;
+    url = nullTerminatedWCharToString(urlBuffer);
     return true;
 #else
     return false;
@@ -179,7 +180,7 @@ HGLOBAL createGlobalData(const URL& url, const String& title)
 
     if (cbData) {
         PWSTR buffer = static_cast<PWSTR>(GlobalLock(cbData));
-        _snwprintf(buffer, size, L"%s\n%s", mutableURL.charactersWithNullTermination().data(), mutableTitle.charactersWithNullTermination().data());
+        _snwprintf(buffer, size, L"%s\n%s", stringToNullTerminatedWChar(mutableURL).data(), stringToNullTerminatedWChar(mutableTitle).data());
         GlobalUnlock(cbData);
     }
     return cbData;
@@ -237,10 +238,10 @@ static void append(Vector<char>& vector, const CString& string)
 // Find the markup between "<!--StartFragment -->" and "<!--EndFragment -->", accounting for browser quirks.
 static String extractMarkupFromCFHTML(const String& cfhtml)
 {
-    unsigned markupStart = cfhtml.find("<html", 0, false);
-    unsigned tagStart = cfhtml.find("startfragment", markupStart, false);
+    unsigned markupStart = cfhtml.findIgnoringASCIICase("<html");
+    unsigned tagStart = cfhtml.findIgnoringASCIICase("startfragment", markupStart);
     unsigned fragmentStart = cfhtml.find('>', tagStart) + 1;
-    unsigned tagEnd = cfhtml.find("endfragment", fragmentStart, false);
+    unsigned tagEnd = cfhtml.findIgnoringASCIICase("endfragment", fragmentStart);
     unsigned fragmentEnd = cfhtml.reverseFind('<', tagEnd);
     return cfhtml.substring(fragmentStart, fragmentEnd - fragmentStart).stripWhiteSpace();
 }
@@ -277,11 +278,13 @@ void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& re
     unsigned endFragmentOffset = startFragmentOffset + markupUTF8.length();
     unsigned endHTMLOffset = endFragmentOffset + strlen(endMarkup);
 
-    unsigned headerBufferLength = startHTMLOffset + 1; // + 1 for '\0' terminator.
-    char* headerBuffer = (char*)malloc(headerBufferLength);
-    snprintf(headerBuffer, headerBufferLength, header, startHTMLOffset, endHTMLOffset, startFragmentOffset, endFragmentOffset);
-    append(result, CString(headerBuffer));
-    free(headerBuffer);
+    {
+        unsigned headerBufferLength = startHTMLOffset + 1; // + 1 for '\0' terminator.
+        static const constexpr unsigned InitialBufferSize { 2048 };
+        Vector<char, InitialBufferSize> headerBuffer(headerBufferLength);
+        snprintf(headerBuffer.data(), headerBufferLength, header, startHTMLOffset, endHTMLOffset, startFragmentOffset, endFragmentOffset);
+        append(result, CString(headerBuffer.data()));
+    }
     if (sourceURLUTF8.length()) {
         append(result, sourceURLPrefix);
         append(result, sourceURLUTF8);
@@ -299,13 +302,12 @@ void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& re
 
 void replaceNewlinesWithWindowsStyleNewlines(String& str)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, windowsNewline, (ASCIILiteral("\r\n")));
     StringBuilder result;
     for (unsigned index = 0; index < str.length(); ++index) {
         if (str[index] != '\n' || (index > 0 && str[index - 1] == '\r'))
             result.append(str[index]);
         else
-            result.append(windowsNewline);
+            result.appendLiteral("\r\n");
     }
     str = result.toString();
 }
@@ -395,7 +397,7 @@ void getFileDescriptorData(IDataObject* dataObject, int& size, String& pathname)
 
     FILEGROUPDESCRIPTOR* fgd = static_cast<FILEGROUPDESCRIPTOR*>(GlobalLock(store.hGlobal));
     size = fgd->fgd[0].nFileSizeLow;
-    pathname = fgd->fgd[0].cFileName;
+    pathname = nullTerminatedWCharToString(fgd->fgd[0].cFileName);
 
     GlobalUnlock(store.hGlobal);
     ::ReleaseStgMedium(&store);
@@ -518,9 +520,9 @@ String getURL(const DragDataMap* data, DragData::FilenameConversionPolicy filena
     if (!getDataMapItem(data, filenameWFormat(), stringData))
         getDataMapItem(data, filenameFormat(), stringData);
 
-    if (stringData.isEmpty() || (!PathFileExists(stringData.charactersWithNullTermination().data()) && !PathIsUNC(stringData.charactersWithNullTermination().data())))
+    if (stringData.isEmpty() || (!PathFileExists(stringToNullTerminatedWChar(stringData).data()) && !PathIsUNC(stringToNullTerminatedWChar(stringData).data())))
         return url;
-    RetainPtr<CFStringRef> pathAsCFString = adoptCF(CFStringCreateWithCharacters(kCFAllocatorDefault, (const UniChar *)stringData.charactersWithNullTermination().data(), wcslen(stringData.charactersWithNullTermination().data())));
+    RetainPtr<CFStringRef> pathAsCFString = adoptCF(CFStringCreateWithCharacters(kCFAllocatorDefault, (const UniChar *)stringToNullTerminatedWChar(stringData).data(), wcslen(stringToNullTerminatedWChar(stringData).data())));
     if (urlFromPath(pathAsCFString.get(), url) && title)
         *title = url;
 #endif
@@ -628,9 +630,9 @@ Ref<DocumentFragment> fragmentFromCFHTML(Document* doc, const String& cfhtml)
     // obtain baseURL if present
     String srcURLStr("sourceURL:");
     String srcURL;
-    unsigned lineStart = cfhtml.find(srcURLStr, 0, false);
+    unsigned lineStart = cfhtml.findIgnoringASCIICase(srcURLStr);
     if (lineStart != -1) {
-        unsigned srcEnd = cfhtml.find("\n", lineStart, false);
+        unsigned srcEnd = cfhtml.find('\n', lineStart);
         unsigned srcStart = lineStart+srcURLStr.length();
         String rawSrcURL = cfhtml.substring(srcStart, srcEnd-srcStart);
         replaceNBSPWithSpace(rawSrcURL);
@@ -735,7 +737,7 @@ void getCFData(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings
     for (UINT i = 0; i < fileCount; i++) {
         if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
             continue;
-        dataStrings.append(static_cast<UChar*>(filename));
+        dataStrings.append(nullTerminatedWCharToString(filename));
     }
 
     GlobalUnlock(store.hGlobal);
@@ -790,7 +792,7 @@ void setCFData(IDataObject* data, FORMATETC* format, const Vector<String>& dataS
     dropFiles->pFiles = sizeof(DROPFILES);
     dropFiles->fWide = TRUE;
     String filename = dataStrings.first();
-    wcscpy(reinterpret_cast<LPWSTR>(dropFiles + 1), filename.charactersWithNullTermination().data());    
+    wcscpy(reinterpret_cast<LPWSTR>(dropFiles + 1), stringToNullTerminatedWChar(filename).data());
     GlobalUnlock(medium.hGlobal);
     data->SetData(format, &medium, FALSE);
     ::GlobalFree(medium.hGlobal);

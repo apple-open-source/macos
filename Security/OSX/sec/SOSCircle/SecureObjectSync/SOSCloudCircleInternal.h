@@ -149,8 +149,6 @@ CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error);
 bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(CFStringRef peerID, CFErrorRef *error);
 bool SOSCCTestPopulateKVSWithBadKeys(CFErrorRef *error);
 CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
-    
-char *SOSCCSysdiagnose(const char *directoryname);
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString));
 

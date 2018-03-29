@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DownloadManager_h
-#define DownloadManager_h
+#pragma once
 
 #include "DownloadID.h"
 #include "NetworkDataTask.h"
@@ -35,12 +34,15 @@
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 
+namespace PAL {
+class SessionID;
+}
+
 namespace WebCore {
 class BlobDataFileReference;
 class ResourceHandle;
 class ResourceRequest;
 class ResourceResponse;
-class SessionID;
 }
 
 namespace IPC {
@@ -75,19 +77,16 @@ public:
 
     explicit DownloadManager(Client&);
 
-    void startDownload(NetworkConnectionToWebProcess*, WebCore::SessionID, DownloadID, const WebCore::ResourceRequest&, const String& suggestedName = { });
+    void startDownload(NetworkConnectionToWebProcess*, PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const String& suggestedName = { });
 #if USE(NETWORK_SESSION)
     void dataTaskBecameDownloadTask(DownloadID, std::unique_ptr<Download>&&);
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void continueCanAuthenticateAgainstProtectionSpace(DownloadID, bool canAuthenticate);
-#endif
     void continueWillSendRequest(DownloadID, WebCore::ResourceRequest&&);
     void willDecidePendingDownloadDestination(NetworkDataTask&, ResponseCompletionHandler&&);
 #endif
     void convertNetworkLoadToDownload(DownloadID, std::unique_ptr<NetworkLoad>&&, Vector<RefPtr<WebCore::BlobDataFileReference>>&&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
-    void continueDecidePendingDownloadDestination(DownloadID, String destination, const SandboxExtension::Handle&, bool allowOverwrite);
+    void continueDecidePendingDownloadDestination(DownloadID, String destination, SandboxExtension::Handle&&, bool allowOverwrite);
 
-    void resumeDownload(WebCore::SessionID, DownloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
+    void resumeDownload(PAL::SessionID, DownloadID, const IPC::DataReference& resumeData, const String& path, SandboxExtension::Handle&&);
 
     void cancelDownload(DownloadID);
     
@@ -114,5 +113,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // DownloadManager_h

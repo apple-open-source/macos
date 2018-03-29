@@ -63,9 +63,7 @@ ScriptedAnimationController::ScriptedAnimationController(Document& document, Pla
     windowScreenDidChange(displayID);
 }
 
-ScriptedAnimationController::~ScriptedAnimationController()
-{
-}
+ScriptedAnimationController::~ScriptedAnimationController() = default;
 
 bool ScriptedAnimationController::requestAnimationFrameEnabled() const
 {
@@ -174,7 +172,8 @@ ScriptedAnimationController::CallbackId ScriptedAnimationController::registerCal
     callback->m_id = id;
     m_callbacks.append(WTFMove(callback));
 
-    InspectorInstrumentation::didRequestAnimationFrame(m_document, id);
+    if (m_document)
+        InspectorInstrumentation::didRequestAnimationFrame(*m_document, id);
 
     if (!m_suspendCount)
         scheduleAnimation();
@@ -186,7 +185,7 @@ void ScriptedAnimationController::cancelCallback(CallbackId id)
     for (size_t i = 0; i < m_callbacks.size(); ++i) {
         if (m_callbacks[i]->m_id == id) {
             m_callbacks[i]->m_firedOrCancelled = true;
-            InspectorInstrumentation::didCancelAnimationFrame(m_document, id);
+            InspectorInstrumentation::didCancelAnimationFrame(*m_document, id);
             m_callbacks.remove(i);
             return;
         }
@@ -210,11 +209,12 @@ void ScriptedAnimationController::serviceScriptedAnimations(double timestamp)
     // Invoking callbacks may detach elements from our document, which clears the document's
     // reference to us, so take a defensive reference.
     Ref<ScriptedAnimationController> protectedThis(*this);
+    Ref<Document> protectedDocument(*m_document);
 
     for (auto& callback : callbacks) {
         if (!callback->m_firedOrCancelled) {
             callback->m_firedOrCancelled = true;
-            InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireAnimationFrame(m_document, callback->m_id);
+            InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireAnimationFrame(protectedDocument, callback->m_id);
             if (callback->m_useLegacyTimeBase)
                 callback->handleEvent(legacyHighResNowMs);
             else

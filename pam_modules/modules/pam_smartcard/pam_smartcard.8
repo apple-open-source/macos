@@ -43,6 +43,8 @@ This module permits or denies users based on smartcard authentication support in
 .Bl -tag -width Ds
 .It Cm no_check_shell
 Continues evaluation even if user's shell is not valid. Normally, users with a shell like /usr/bin/false are considered as disabled.
+.It Cm no_ignore
+Return failure when an appropriate smartcard is not present.
 .El
 .Sh EXAMPLE
 .Bl -tag -width Ds

@@ -13,10 +13,17 @@
 #import <AccountsDaemon/ACDAccountStore.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
+#import <AuthKit/AuthKit.h>
+#import <AuthKit/AuthKit_Private.h>
 #import <Security/SecureObjectSync/SOSCloudCircle.h>
 #import "utilities/SecCFRelease.h"
 #import "utilities/debugging.h"
 
+
+#if !TARGET_OS_SIMULATOR
+SOFT_LINK_FRAMEWORK(PrivateFrameworks, AuthKit);
+SOFT_LINK_CLASS(AuthKit, AKAccountManager);
+#endif
 
 @implementation SOSCCAuthPlugin
 
@@ -40,7 +47,21 @@
 		do_auth = [account aa_isPrimaryAccount];
 	}
 
-	ACLogNotice(@"do_auth %@", do_auth ? @"YES" : @"NO" );
+#if !TARGET_OS_SIMULATOR
+    // If this is an HSA2 account let cdpd SetCreds
+    AKAccountManager *manager = [getAKAccountManagerClass() sharedInstance];
+    if(manager != nil) {
+        AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount: account];
+        if(securityLevel == AKAppleIDSecurityLevelHSA2) {
+            secnotice("accounts", "Not performing SOSCCSetUserCredentialsAndDSID in accountsd plugin since we're HSA2" );
+            do_auth = NO;
+        }
+    } else {
+        secnotice("accounts", "Couldn't softlink AKAccountManager - proceeding with do_auth = %@", do_auth ? @"YES" : @"NO");
+    }
+#endif
+
+	secnotice("accounts", "do_auth %@", do_auth ? @"YES" : @"NO" );
 
 	if (do_auth) {
 		CFErrorRef	authError    = NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "DisallowVMReentry.h"
 #include "Options.h"
 #include "SamplingProfiler.h"
+#include "ThreadLocalCacheInlines.h"
 #include "VM.h"
 #include "Watchdog.h"
 #include <wtf/StackBounds.h>
@@ -40,8 +41,9 @@ VMEntryScope::VMEntryScope(VM& vm, JSGlobalObject* globalObject)
     : m_vm(vm)
     , m_globalObject(globalObject)
 {
+    globalObject->threadLocalCache().install(vm, &m_previousTLC);
     ASSERT(!DisallowVMReentry::isInEffectOnCurrentThread());
-    ASSERT(wtfThreadData().stack().isGrowingDownward());
+    ASSERT(Thread::current().stack().isGrowingDownward());
     if (!vm.entryScope) {
         vm.entryScope = this;
 
@@ -69,11 +71,14 @@ void VMEntryScope::addDidPopListener(std::function<void ()> listener)
 
 VMEntryScope::~VMEntryScope()
 {
+    if (m_previousTLC)
+        m_previousTLC->install(m_vm);
+    
     if (m_vm.entryScope != this)
         return;
 
     TracePoint(VMEntryScopeEnd);
-
+    
     if (m_vm.watchdog())
         m_vm.watchdog()->exitedVM();
 

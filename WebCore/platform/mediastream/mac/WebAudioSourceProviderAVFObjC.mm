@@ -33,7 +33,6 @@
 #import "AudioSampleDataSource.h"
 #import "AudioSourceProviderClient.h"
 #import "Logging.h"
-#import "MediaTimeAVFoundation.h"
 #import "WebAudioBufferList.h"
 #import <objc/runtime.h>
 #import <wtf/MainThread.h>
@@ -42,7 +41,7 @@
 #import <wtf/StringPrintStream.h>
 #endif
 
-#import "CoreMediaSoftLink.h"
+#import <pal/cf/CoreMediaSoftLink.h>
 
 namespace WebCore {
 

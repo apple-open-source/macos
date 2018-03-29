@@ -1,0 +1,51 @@
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/host/hr_filesys.c net-snmp-5.6.2.1.working/agent/mibgroup/host/hr_filesys.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/host/hr_filesys.c	2015-10-06 16:42:15.000000000 -0700
++++ net-snmp-5.6.2.1.working/agent/mibgroup/host/hr_filesys.c	2017-10-03 21:05:32.000000000 -0700
+@@ -970,14 +970,13 @@
+ Get_FSSize(char *dev)
+ {
+     struct HRFS_statfs statfs_buf;
+-
++    long long_return = 0;
+     Init_HR_FileSys();
+ 
+     while (Get_Next_HR_FileSys() != -1)
+         if (!strcmp(HRFS_entry->HRFS_name, cook_device(dev))) {
+-            End_HR_FileSys();
+ 
+-            if (HRFS_statfs(HRFS_entry->HRFS_mount, &statfs_buf) != -1)
++            if (HRFS_statfs(HRFS_entry->HRFS_mount, &statfs_buf) != -1) {
+   		/*
+   		 * with large file systems the following calculation produces
+   		 * an overflow:
+@@ -988,17 +987,22 @@
+   		 * otherwise (f_blocks*(f_bsize/1024)) is returned
+   		 */
+ #if defined(solaris2) && defined(HAVE_STRUCT_STATVFS_F_FRSIZE)
+-                return (statfs_buf.f_blocks*(statfs_buf.f_frsize/1024));
++                long_return = (statfs_buf.f_blocks*(statfs_buf.f_frsize/1024));
+ #else
+-  		if (statfs_buf.f_bsize == 512)
+-  		    return (statfs_buf.f_blocks/2);
+-                else
+-  		    return (statfs_buf.f_blocks*(statfs_buf.f_bsize/1024));
++  		if (statfs_buf.f_bsize == 512) {
++  		    long_return = (statfs_buf.f_blocks/2);
++		    break;
++                } else {
++  		    long_return = (statfs_buf.f_blocks*(statfs_buf.f_bsize/1024));
++		    break;
++                }
+ #endif
+-            else
+-                return -1;
++            } else {
++                long_return = -1;
++                break;
++            }
+         }
+ 
+     End_HR_FileSys();
+-    return 0;
++    return long_return;
+ }

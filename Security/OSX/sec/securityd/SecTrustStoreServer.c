@@ -52,6 +52,7 @@
 #include <utilities/SecCFError.h>
 #include "utilities/SecFileLocations.h"
 #include <utilities/SecDispatchRelease.h>
+#include <securityd/SecTrustLoggingServer.h>
 
 /* uid of the _securityd user. */
 #define SECURTYD_UID 64
@@ -165,7 +166,7 @@ errOutNotLocked:
 static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
 	bool create) {
 	SecTrustStoreRef ts;
-	int s3e;
+	int s3e = SQLITE_OK;
 
 	require(ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore)), errOut);
     ts->queue = dispatch_queue_create("truststore", DISPATCH_QUEUE_SERIAL);
@@ -216,6 +217,8 @@ errOut:
         dispatch_release_safe(ts->queue);
 		free(ts);
 	}
+	secerror("Failed to create trust store database: %d", s3e);
+	TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationCreate, TAFatalError, s3e);
 
 	return NULL;
 }
@@ -303,18 +306,18 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
         require_action_quiet(s3e == SQLITE_OK, errOut, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
 
         /* Parameter order is sha1,subj,tset,data. */
-        require_noerr_action_quiet(sqlite3_prepare(ts->s3h, insertSQL, sizeof(insertSQL),
+        require_noerr_action_quiet(s3e = sqlite3_prepare(ts->s3h, insertSQL, sizeof(insertSQL),
                                                    &insert, NULL), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(sqlite3_bind_blob_wrapper(insert, 1,
+        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 1,
                                                              CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(sqlite3_bind_blob_wrapper(insert, 2,
+        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 2,
                                                              CFDataGetBytePtr(subject), CFDataGetLength(subject),
                                                              SQLITE_STATIC), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(sqlite3_bind_blob_wrapper(insert, 3,
+        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 3,
                                                              CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData),
                                                              SQLITE_STATIC), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(sqlite3_bind_blob_wrapper(insert, 4,
+        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 4,
                                                              SecCertificateGetBytePtr(certificate),
                                                              SecCertificateGetLength(certificate), SQLITE_STATIC), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
         s3e = sqlite3_step(insert);
@@ -342,15 +345,20 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
         }
 
     errOutSql:
-        if (insert)
+        if (insert) {
             s3e = sqlite3_finalize(insert);
-        if (update)
+        }
+        if (update) {
             s3e = sqlite3_finalize(update);
+        }
 
-        if (ok && s3e == SQLITE_OK)
+        if (ok && s3e == SQLITE_OK) {
             s3e = sqlite3_exec(ts->s3h, "COMMIT TRANSACTION", NULL, NULL, NULL);
+        }
 
         if (!ok || s3e != SQLITE_OK) {
+            secerror("Failed to update trust store: (%d) %@", s3e, error ? *error : NULL);
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationWrite, TAFatalError, s3e);
             sqlite3_exec(ts->s3h, "ROLLBACK TRANSACTION", NULL, NULL, NULL);
             if (ok) {
                 ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e);
@@ -374,17 +382,23 @@ bool SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts,
 	require_quiet(ts, errOutNotLocked);
 	require(!ts->readOnly, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
+        int s3e = SQLITE_OK;
         sqlite3_stmt *deleteStmt = NULL;
-        require_noerr(sqlite3_prepare(ts->s3h, deleteSQL, sizeof(deleteSQL),
+
+        require_noerr(s3e = sqlite3_prepare(ts->s3h, deleteSQL, sizeof(deleteSQL),
                                       &deleteStmt, NULL), errOut);
-        require_noerr(sqlite3_bind_blob_wrapper(deleteStmt, 1,
+        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 1,
                                                 CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
                       errOut);
-        sqlite3_step(deleteStmt);
+        s3e = sqlite3_step(deleteStmt);
 
     errOut:
         if (deleteStmt) {
             verify_noerr(sqlite3_finalize(deleteStmt));
+        }
+        if (s3e != SQLITE_OK && s3e != SQLITE_DONE) {
+            secerror("Removal of certificate from trust store failed: %d", s3e);
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationWrite, TAFatalError, s3e);
         }
     });
 errOutNotLocked:
@@ -397,9 +411,13 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
 	require(ts, errOutNotLocked);
 	require(!ts->readOnly, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
-        if (SQLITE_OK == sqlite3_exec(ts->s3h, deleteAllSQL, NULL, NULL, NULL)) {
+        int s3e =sqlite3_exec(ts->s3h, deleteAllSQL, NULL, NULL, NULL);
+        if (s3e == SQLITE_OK) {
             removed_all = true;
             ts->containsSettings = false;
+        } else {
+            secerror("Clearing of trust store failed: %d", s3e);
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationWrite, TAFatalError, s3e);
         }
 
         /* prepared statements become unusable after deleteAllSQL, reset them */
@@ -421,19 +439,20 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
 	__block CFMutableArrayRef parents = NULL;
 	require(ts, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
-        require_quiet(ts->containsSettings, errOut);
+        int s3e = SQLITE_OK;
+        require_quiet(ts->containsSettings, ok);
         CFDataRef issuer;
         require(issuer = SecCertificateGetNormalizedIssuerContent(certificate),
             errOut);
         /* @@@ Might have to use SQLITE_TRANSIENT */
-        require_noerr(sqlite3_bind_blob_wrapper(ts->copyParents, 1,
+        require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 1,
             CFDataGetBytePtr(issuer), CFDataGetLength(issuer),
             SQLITE_STATIC), errOut);
 
         require(parents = CFArrayCreateMutable(kCFAllocatorDefault, 0,
             &kCFTypeArrayCallBacks), errOut);
         for (;;) {
-            int s3e = sqlite3_step(ts->copyParents);
+            s3e = sqlite3_step(ts->copyParents);
             if (s3e == SQLITE_ROW) {
                 SecCertificateRef cert;
                 require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
@@ -442,13 +461,15 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
                 CFArrayAppendValue(parents, cert);
                 CFRelease(cert);
             } else {
-                require(s3e == SQLITE_DONE, errOut);
+                require(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut);
                 break;
             }
         }
 
         goto ok;
     errOut:
+        secerror("Failed to read parents from trust store: %d", s3e);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationRead, TAFatalError, s3e);
         if (parents) {
             CFRelease(parents);
             parents = NULL;
@@ -470,8 +491,8 @@ static bool SecTrustStoreQueryCertificateWithDigest(SecTrustStoreRef ts,
     dispatch_sync(ts->queue, ^{
         CFDataRef xmlData = NULL;
         CFPropertyListRef trustSettings = NULL;
+        int s3e = SQLITE_OK;
         require_action_quiet(ts->containsSettings, errOut, ok = true);
-        int s3e;
         require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 1,
             CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
             errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
@@ -491,10 +512,15 @@ static bool SecTrustStoreQueryCertificateWithDigest(SecTrustStoreRef ts,
                 *usageConstraints = CFRetain(trustSettings);
             }
         } else {
-            require_action(s3e == SQLITE_DONE, errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_step failed")));
+            require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut,
+                           ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_step failed")));
         }
 
     errOut:
+        if (!ok) {
+            secerror("Failed to query for cert in trust store: %d", s3e);
+            TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationRead, TAFatalError, s3e);
+        }
         verify_noerr(sqlite3_reset(ts->contains));
         verify_noerr(sqlite3_clear_bindings(ts->contains));
         CFReleaseNull(xmlData);
@@ -525,12 +551,12 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
         CFDataRef xmlData = NULL;
         CFPropertyListRef trustSettings = NULL;
         CFArrayRef certSettingsPair = NULL;
-        require_noerr(sqlite3_prepare(ts->s3h, copyAllSQL, sizeof(copyAllSQL),
-                                      &copyAllStmt, NULL), errOut);
+        int s3e = SQLITE_OK;
+        require_noerr(s3e = sqlite3_prepare(ts->s3h, copyAllSQL, sizeof(copyAllSQL),
+                                            &copyAllStmt, NULL), errOut);
         require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
-
         for(;;) {
-            int s3e = sqlite3_step(copyAllStmt);
+            s3e = sqlite3_step(copyAllStmt);
             if (s3e == SQLITE_ROW) {
                 require(cert = CFDataCreate(kCFAllocatorDefault,
                                             sqlite3_column_blob(copyAllStmt, 0),
@@ -551,13 +577,15 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
                 CFReleaseNull(trustSettings);
                 CFReleaseNull(certSettingsPair);
             } else {
-                require_action(s3e == SQLITE_DONE, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
+                require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
                 break;
             }
         }
         goto ok;
 
     errOut:
+        secerror("Failed to query for all certs in trust store: %d", s3e);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationRead, TAFatalError, s3e);
         CFReleaseNull(cert);
         CFReleaseNull(xmlData);
         CFReleaseNull(trustSettings);

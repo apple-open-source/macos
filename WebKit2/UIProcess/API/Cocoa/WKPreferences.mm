@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #import "_WKExperimentalFeature.h"
 #import "_WKExperimentalFeatureInternal.h"
 #import <WebCore/SecurityOrigin.h>
+#import <WebCore/Settings.h>
 #import <wtf/RetainPtr.h>
 
 @implementation WKPreferences
@@ -52,6 +53,11 @@
     _preferences->~WebPreferences();
 
     [super dealloc];
+}
+
++ (BOOL)supportsSecureCoding
+{
+    return YES;
 }
 
 // FIXME: We currently only encode/decode API preferences. We should consider whether we should
@@ -86,6 +92,11 @@
 #endif
 
     return self;
+}
+
+- (id)copyWithZone:(NSZone *)zone
+{
+    return wrapper(_preferences->copy().leakRef());
 }
 
 - (CGFloat)minimumFontSize
@@ -557,6 +568,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setLoadsImagesAutomatically(loadsImagesAutomatically);
 }
 
+- (BOOL)_peerConnectionEnabled
+{
+    return _preferences->peerConnectionEnabled();
+}
+
+- (void)_setPeerConnectionEnabled:(BOOL)enabled
+{
+    _preferences->setPeerConnectionEnabled(enabled);
+}
+
 - (BOOL)_mediaDevicesEnabled
 {
     return _preferences->mediaDevicesEnabled();
@@ -565,6 +586,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setMediaDevicesEnabled:(BOOL)enabled
 {
     _preferences->setMediaDevicesEnabled(enabled);
+}
+
+- (BOOL)_screenCaptureEnabled
+{
+    return _preferences->screenCaptureEnabled();
+}
+
+- (void)_setScreenCaptureEnabled:(BOOL)enabled
+{
+    _preferences->setScreenCaptureEnabled(enabled);
 }
 
 - (BOOL)_mockCaptureDevicesEnabled
@@ -577,6 +608,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setMockCaptureDevicesEnabled(enabled);
 }
 
+- (BOOL)_mockCaptureDevicesPromptEnabled
+{
+    return _preferences->mockCaptureDevicesPromptEnabled();
+}
+
+- (void)_setMockCaptureDevicesPromptEnabled:(BOOL)enabled
+{
+    _preferences->setMockCaptureDevicesPromptEnabled(enabled);
+}
+
 - (BOOL)_mediaCaptureRequiresSecureConnection
 {
     return _preferences->mediaCaptureRequiresSecureConnection();
@@ -585,6 +626,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setMediaCaptureRequiresSecureConnection:(BOOL)requiresSecureConnection
 {
     _preferences->setMediaCaptureRequiresSecureConnection(requiresSecureConnection);
+}
+
+- (double)_inactiveMediaCaptureSteamRepromptIntervalInMinutes
+{
+    return _preferences->inactiveMediaCaptureSteamRepromptIntervalInMinutes();
+}
+
+- (void)_setInactiveMediaCaptureSteamRepromptIntervalInMinutes:(double)interval
+{
+    _preferences->setInactiveMediaCaptureSteamRepromptIntervalInMinutes(interval);
 }
 
 - (BOOL)_enumeratingAllNetworkInterfacesEnabled
@@ -597,7 +648,7 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setEnumeratingAllNetworkInterfacesEnabled(enabled);
 }
 
-- (BOOL)_iceCandidateFiltertingEnabled
+- (BOOL)_iceCandidateFilteringEnabled
 {
     return _preferences->iceCandidateFilteringEnabled();
 }
@@ -609,18 +660,368 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 
 - (BOOL)_webRTCLegacyAPIEnabled
 {
-    return !_preferences->webRTCLegacyAPIDisabled();
+    return _preferences->webRTCLegacyAPIEnabled();
 }
 
 - (void)_setWebRTCLegacyAPIEnabled:(BOOL)enabled
 {
-    _preferences->setWebRTCLegacyAPIDisabled(!enabled);
+    _preferences->setWebRTCLegacyAPIEnabled(enabled);
 }
 
 - (void)_setJavaScriptCanAccessClipboard:(BOOL)javaScriptCanAccessClipboard
 {
     _preferences->setJavaScriptCanAccessClipboard(javaScriptCanAccessClipboard);
 }
+
+- (BOOL)_shouldAllowUserInstalledFonts
+{
+    return _preferences->shouldAllowUserInstalledFonts();
+}
+
+- (void)_setShouldAllowUserInstalledFonts:(BOOL)_shouldAllowUserInstalledFonts
+{
+    _preferences->setShouldAllowUserInstalledFonts(_shouldAllowUserInstalledFonts);
+}
+
+static _WKEditableLinkBehavior toAPI(WebCore::EditableLinkBehavior behavior)
+{
+    switch (behavior) {
+    case WebCore::EditableLinkDefaultBehavior:
+        return _WKEditableLinkBehaviorDefault;
+    case WebCore::EditableLinkAlwaysLive:
+        return _WKEditableLinkBehaviorAlwaysLive;
+    case WebCore::EditableLinkOnlyLiveWithShiftKey:
+        return _WKEditableLinkBehaviorOnlyLiveWithShiftKey;
+    case WebCore::EditableLinkLiveWhenNotFocused:
+        return _WKEditableLinkBehaviorLiveWhenNotFocused;
+    case WebCore::EditableLinkNeverLive:
+        return _WKEditableLinkBehaviorNeverLive;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return _WKEditableLinkBehaviorNeverLive;
+}
+
+static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehavior wkBehavior)
+{
+    switch (wkBehavior) {
+    case _WKEditableLinkBehaviorDefault:
+        return WebCore::EditableLinkDefaultBehavior;
+    case _WKEditableLinkBehaviorAlwaysLive:
+        return WebCore::EditableLinkAlwaysLive;
+    case _WKEditableLinkBehaviorOnlyLiveWithShiftKey:
+        return WebCore::EditableLinkOnlyLiveWithShiftKey;
+    case _WKEditableLinkBehaviorLiveWhenNotFocused:
+        return WebCore::EditableLinkLiveWhenNotFocused;
+    case _WKEditableLinkBehaviorNeverLive:
+        return WebCore::EditableLinkNeverLive;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return WebCore::EditableLinkNeverLive;
+}
+
+- (_WKEditableLinkBehavior)_editableLinkBehavior
+{
+    return toAPI(static_cast<WebCore::EditableLinkBehavior>(_preferences->editableLinkBehavior()));
+}
+
+- (void)_setEditableLinkBehavior:(_WKEditableLinkBehavior)editableLinkBehavior
+{
+    _preferences->setEditableLinkBehavior(toEditableLinkBehavior(editableLinkBehavior));
+}
+
+#if PLATFORM(MAC)
+- (void)_setJavaEnabledForLocalFiles:(BOOL)enabled
+{
+    _preferences->setJavaEnabledForLocalFiles(enabled);
+}
+
+- (BOOL)_javaEnabledForLocalFiles
+{
+    return _preferences->javaEnabledForLocalFiles();
+}
+
+- (void)_setCanvasUsesAcceleratedDrawing:(BOOL)enabled
+{
+    _preferences->setCanvasUsesAcceleratedDrawing(enabled);
+}
+
+- (BOOL)_canvasUsesAcceleratedDrawing
+{
+    return _preferences->canvasUsesAcceleratedDrawing();
+}
+
+- (void)_setAcceleratedCompositingEnabled:(BOOL)enabled
+{
+    _preferences->setAcceleratedCompositingEnabled(enabled);
+}
+
+- (BOOL)_acceleratedCompositingEnabled
+{
+    return _preferences->acceleratedCompositingEnabled();
+}
+
+- (void)_setDefaultTextEncodingName:(NSString *)name
+{
+    _preferences->setDefaultTextEncodingName(name);
+}
+
+- (NSString *)_defaultTextEncodingName
+{
+    return _preferences->defaultTextEncodingName();
+}
+
+- (void)_setNeedsSiteSpecificQuirks:(BOOL)enabled
+{
+    _preferences->setNeedsSiteSpecificQuirks(enabled);
+}
+
+- (BOOL)_needsSiteSpecificQuirks
+{
+    return _preferences->needsSiteSpecificQuirks();
+}
+
+- (void)_setAuthorAndUserStylesEnabled:(BOOL)enabled
+{
+    _preferences->setAuthorAndUserStylesEnabled(enabled);
+}
+
+- (BOOL)_authorAndUserStylesEnabled
+{
+    return _preferences->authorAndUserStylesEnabled();
+}
+
+- (void)_setDOMTimersThrottlingEnabled:(BOOL)enabled
+{
+    _preferences->setDOMTimersThrottlingEnabled(enabled);
+}
+
+- (BOOL)_domTimersThrottlingEnabled
+{
+    return _preferences->domTimersThrottlingEnabled();
+}
+
+- (void)_setWebArchiveDebugModeEnabled:(BOOL)enabled
+{
+    _preferences->setWebArchiveDebugModeEnabled(enabled);
+}
+
+- (BOOL)_webArchiveDebugModeEnabled
+{
+    return _preferences->webArchiveDebugModeEnabled();
+}
+
+- (void)_setLocalFileContentSniffingEnabled:(BOOL)enabled
+{
+    _preferences->setLocalFileContentSniffingEnabled(enabled);
+}
+
+- (BOOL)_localFileContentSniffingEnabled
+{
+    return _preferences->localFileContentSniffingEnabled();
+}
+
+- (void)_setUsesPageCache:(BOOL)enabled
+{
+    _preferences->setUsesPageCache(enabled);
+}
+
+- (BOOL)_usesPageCache
+{
+    return _preferences->usesPageCache();
+}
+
+- (void)_setPageCacheSupportsPlugins:(BOOL)enabled
+{
+    _preferences->setPageCacheSupportsPlugins(enabled);
+}
+
+- (BOOL)_pageCacheSupportsPlugins
+{
+    return _preferences->pageCacheSupportsPlugins();
+}
+
+- (void)_setShouldPrintBackgrounds:(BOOL)enabled
+{
+    _preferences->setShouldPrintBackgrounds(enabled);
+}
+
+- (BOOL)_shouldPrintBackgrounds
+{
+    return _preferences->shouldPrintBackgrounds();
+}
+
+- (void)_setWebSecurityEnabled:(BOOL)enabled
+{
+    _preferences->setWebSecurityEnabled(enabled);
+}
+
+- (BOOL)_webSecurityEnabled
+{
+    return _preferences->webSecurityEnabled();
+}
+
+- (void)_setUniversalAccessFromFileURLsAllowed:(BOOL)enabled
+{
+    _preferences->setAllowUniversalAccessFromFileURLs(enabled);
+}
+
+- (BOOL)_universalAccessFromFileURLsAllowed
+{
+    return _preferences->allowUniversalAccessFromFileURLs();
+}
+
+- (void)_setAVFoundationEnabled:(BOOL)enabled
+{
+    _preferences->setAVFoundationEnabled(enabled);
+}
+
+- (BOOL)_avFoundationEnabled
+{
+    return _preferences->isAVFoundationEnabled();
+}
+
+- (void)_setSuppressesIncrementalRendering:(BOOL)enabled
+{
+    _preferences->setSuppressesIncrementalRendering(enabled);
+}
+
+- (BOOL)_suppressesIncrementalRendering
+{
+    return _preferences->suppressesIncrementalRendering();
+}
+
+- (void)_setAsynchronousPluginInitializationEnabled:(BOOL)enabled
+{
+    _preferences->setAsynchronousPluginInitializationEnabled(enabled);
+}
+
+- (BOOL)_asynchronousPluginInitializationEnabled
+{
+    return _preferences->asynchronousPluginInitializationEnabled();
+}
+
+- (void)_setArtificialPluginInitializationDelayEnabled:(BOOL)enabled
+{
+    _preferences->setArtificialPluginInitializationDelayEnabled(enabled);
+}
+
+- (BOOL)_artificialPluginInitializationDelayEnabled
+{
+    return _preferences->artificialPluginInitializationDelayEnabled();
+}
+
+- (void)_setCookieEnabled:(BOOL)enabled
+{
+    _preferences->setCookieEnabled(enabled);
+}
+
+- (BOOL)_cookieEnabled
+{
+    return _preferences->cookieEnabled();
+}
+
+- (void)_setPlugInSnapshottingEnabled:(BOOL)enabled
+{
+    _preferences->setPlugInSnapshottingEnabled(enabled);
+}
+
+- (BOOL)_plugInSnapshottingEnabled
+{
+    return _preferences->plugInSnapshottingEnabled();
+}
+
+- (void)_setQTKitEnabled:(BOOL)enabled
+{
+    _preferences->setQTKitEnabled(enabled);
+}
+
+- (BOOL)_qtKitEnabled
+{
+    return _preferences->isQTKitEnabled();
+}
+
+- (void)_setSubpixelCSSOMElementMetricsEnabled:(BOOL)enabled
+{
+    _preferences->setSubpixelCSSOMElementMetricsEnabled(enabled);
+}
+
+- (BOOL)_subpixelCSSOMElementMetricsEnabled
+{
+    return _preferences->subpixelCSSOMElementMetricsEnabled();
+}
+
+- (void)_setMediaSourceEnabled:(BOOL)enabled
+{
+    _preferences->setMediaSourceEnabled(enabled);
+}
+
+- (BOOL)_mediaSourceEnabled
+{
+    return _preferences->mediaSourceEnabled();
+}
+
+- (void)_setViewGestureDebuggingEnabled:(BOOL)enabled
+{
+    _preferences->setViewGestureDebuggingEnabled(enabled);
+}
+
+- (BOOL)_viewGestureDebuggingEnabled
+{
+    return _preferences->viewGestureDebuggingEnabled();
+}
+
+- (void)_setCSSAnimationTriggersEnabled:(BOOL)enabled
+{
+    _preferences->setCSSAnimationTriggersEnabled(enabled);
+}
+
+- (BOOL)_cssAnimationTriggersEnabled
+{
+    return _preferences->cssAnimationTriggersEnabled();
+}
+
+- (void)_setStandardFontFamily:(NSString *)family
+{
+    _preferences->setStandardFontFamily(family);
+}
+
+- (NSString *)_standardFontFamily
+{
+    return _preferences->standardFontFamily();
+}
+
+- (void)_setNotificationsEnabled:(BOOL)enabled
+{
+    _preferences->setNotificationsEnabled(enabled);
+}
+
+- (BOOL)_notificationsEnabled
+{
+    return _preferences->notificationsEnabled();
+}
+
+- (void)_setBackspaceKeyNavigationEnabled:(BOOL)enabled
+{
+    _preferences->setBackspaceKeyNavigationEnabled(enabled);
+}
+
+- (BOOL)_backspaceKeyNavigationEnabled
+{
+    return _preferences->backspaceKeyNavigationEnabled();
+}
+
+- (void)_setWebGLEnabled:(BOOL)enabled
+{
+    _preferences->setWebGLEnabled(enabled);
+}
+
+- (BOOL)_webGLEnabled
+{
+    return _preferences->webGLEnabled();
+}
+#endif // PLATFORM(MAC)
 
 - (BOOL)_javaScriptCanAccessClipboard
 {
@@ -635,16 +1036,6 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (BOOL)_domPasteAllowed
 {
     return _preferences->domPasteAllowed();
-}
-
-- (void)_setMediaDocumentEntersFullscreenAutomatically:(BOOL)mediaDocumentEntersFullscreenAutomatically
-{
-    _preferences->setMediaDocumentEntersFullscreenAutomatically(mediaDocumentEntersFullscreenAutomatically);
-}
-
-- (BOOL)_mediaDocumentEntersFullscreenAutomatically
-{
-    return _preferences->mediaDocumentEntersFullscreenAutomatically();
 }
 
 @end

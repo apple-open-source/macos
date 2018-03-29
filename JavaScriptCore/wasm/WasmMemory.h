@@ -27,8 +27,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "WasmMemoryMode.h"
 #include "WasmPageCount.h"
 
+#include <wtf/Expected.h>
+#include <wtf/Function.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -38,18 +41,7 @@ class PrintStream;
 
 namespace JSC {
 
-class VM;
-
 namespace Wasm {
-
-// FIXME: We should support other modes. see: https://bugs.webkit.org/show_bug.cgi?id=162693
-enum class MemoryMode : uint8_t {
-    BoundsChecking,
-    Signaling,
-    NumberOfMemoryModes
-};
-static constexpr size_t NumberOfMemoryModes = static_cast<size_t>(MemoryMode::NumberOfMemoryModes);
-JS_EXPORT_PRIVATE const char* makeString(MemoryMode);
 
 class Memory : public RefCounted<Memory> {
     WTF_MAKE_NONCOPYABLE(Memory);
@@ -58,21 +50,22 @@ public:
     void dump(WTF::PrintStream&) const;
 
     explicit operator bool() const { return !!m_memory; }
+    
+    enum NotifyPressure { NotifyPressureTag };
+    enum SyncTryToReclaim { SyncTryToReclaimTag };
+    enum GrowSuccess { GrowSuccessTag };
 
-    static void initializePreallocations();
-    static RefPtr<Memory> create(VM&, PageCount initial, PageCount maximum);
+    static RefPtr<Memory> create();
+    static RefPtr<Memory> create(PageCount initial, PageCount maximum, WTF::Function<void(NotifyPressure)>&& notifyMemoryPressure, WTF::Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback);
 
-    Memory() = default;
     ~Memory();
 
     static size_t fastMappedRedzoneBytes();
     static size_t fastMappedBytes(); // Includes redzone.
-    static size_t maxFastMemoryCount();
     static bool addressIsInActiveFastMemory(void*);
 
     void* memory() const { return m_memory; }
     size_t size() const { return m_size; }
-    size_t indexingMask() const { return m_indexingMask; }
     PageCount sizeInPages() const { return PageCount::fromBytes(m_size); }
 
     PageCount initial() const { return m_initial; }
@@ -80,19 +73,26 @@ public:
 
     MemoryMode mode() const { return m_mode; }
 
-    // grow() should only be called from the JSWebAssemblyMemory object since that object needs to update internal
-    // pointers with the current base and size.
-    bool grow(PageCount);
+    enum class GrowFailReason {
+        InvalidDelta,
+        InvalidGrowSize,
+        WouldExceedMaximum,
+        OutOfMemory,
+    };
+    Expected<PageCount, GrowFailReason> grow(PageCount);
 
     void check() {  ASSERT(!deletionHasBegun()); }
 
+    static ptrdiff_t offsetOfMemory() { return OBJECT_OFFSETOF(Memory, m_memory); }
+    static ptrdiff_t offsetOfSize() { return OBJECT_OFFSETOF(Memory, m_size); }
     static ptrdiff_t offsetOfIndexingMask() { return OBJECT_OFFSETOF(Memory, m_indexingMask); }
 
 private:
-    Memory(void* memory, PageCount initial, PageCount maximum, size_t mappedCapacity, MemoryMode);
-    Memory(PageCount initial, PageCount maximum);
+    Memory();
+    Memory(void* memory, PageCount initial, PageCount maximum, size_t mappedCapacity, MemoryMode, WTF::Function<void(NotifyPressure)>&& notifyMemoryPressure, WTF::Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback);
+    Memory(PageCount initial, PageCount maximum, WTF::Function<void(NotifyPressure)>&& notifyMemoryPressure, WTF::Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback);
 
-    // FIXME: we should move these to the instance to avoid a load on instance->instance calls.
+    // FIXME: we cache these on the instances to avoid a load on instance->instance calls. This will require updating all the instances when grow is called. https://bugs.webkit.org/show_bug.cgi?id=177305
     void* m_memory { nullptr };
     size_t m_size { 0 };
     size_t m_indexingMask { 0 };
@@ -100,6 +100,9 @@ private:
     PageCount m_maximum;
     size_t m_mappedCapacity { 0 };
     MemoryMode m_mode { MemoryMode::BoundsChecking };
+    WTF::Function<void(NotifyPressure)> m_notifyMemoryPressure;
+    WTF::Function<void(SyncTryToReclaim)> m_syncTryToReclaimMemory;
+    WTF::Function<void(GrowSuccess, PageCount, PageCount)> m_growSuccessCallback;
 };
 
 } } // namespace JSC::Wasm
@@ -116,4 +119,4 @@ public:
 
 } } // namespace JSC::Wasm
 
-#endif // ENABLE(WEBASSEMLY)
+#endif // ENABLE(WEBASSEMBLY)

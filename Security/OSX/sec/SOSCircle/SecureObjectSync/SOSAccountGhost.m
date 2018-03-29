@@ -108,7 +108,7 @@ bool SOSAccountGhostResultsInReset(SOSAccount* account) {
 
 // This only works if you're in the circle and have the private key
 
-SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle) {
+CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle) {
     SOSCircleRef newCircle = NULL;
     CFSetRef ghosts = NULL;
     require_quiet(account, retOut);

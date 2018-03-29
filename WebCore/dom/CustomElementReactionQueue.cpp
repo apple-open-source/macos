@@ -35,6 +35,7 @@
 #include "JSDOMBinding.h"
 #include "Microtasks.h"
 #include <heap/Heap.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Optional.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
@@ -197,7 +198,7 @@ void CustomElementReactionQueue::enqueuePostUpgradeReactions(Element& element)
 
 bool CustomElementReactionQueue::observesStyleAttribute() const
 {
-    return m_interface->observesAttribute(HTMLNames::styleAttr.localName());
+    return m_interface->observesAttribute(HTMLNames::styleAttr->localName());
 }
 
 void CustomElementReactionQueue::invokeAll(Element& element)

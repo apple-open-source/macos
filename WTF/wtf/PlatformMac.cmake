@@ -5,20 +5,19 @@ list(APPEND WTF_LIBRARIES
     ${COREFOUNDATION_LIBRARY}
     ${COCOA_LIBRARY}
     ${READLINE_LIBRARY}
-    libicucore.dylib
 )
 
 list(APPEND WTF_SOURCES
     AutodrainedPoolMac.mm
     BlockObjCExceptions.mm
-    PlatformUserPreferredLanguagesMac.mm
     RunLoopTimerCF.cpp
     SchedulePairCF.cpp
     SchedulePairMac.mm
 
-    text/mac/TextBreakIteratorInternalICUMac.mm
-
+    cf/LanguageCF.cpp
     cf/RunLoopCF.cpp
+
+    text/mac/TextBreakIteratorInternalICUMac.mm
 
     cocoa/CPUTimeCocoa.mm
     cocoa/MemoryFootprintCocoa.cpp

@@ -119,6 +119,7 @@ const OSSymbol *           gIOPlatformFreeDeviceResourcesKey;
 const OSSymbol *           gIOPlatformGetMessagedInterruptControllerKey;
 const OSSymbol *           gIOPlatformGetMessagedInterruptAddressKey;
 const OSSymbol *           gIOPolledInterfaceActiveKey;
+const OSSymbol *           gIOPCIDeviceHiddenKey;
 
 #if ACPI_SUPPORT
 const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
@@ -135,12 +136,14 @@ static OSSet *             gIOPCIWaitingPauseSet;
 static OSSet *             gIOPCIPausedSet;
 static OSSet *             gIOPCIProbeSet;
 
+static bool                gIOPCIUSBCSystem;
 
 uint32_t gIOPCIFlags = 0
              | kIOPCIConfiguratorAllocate
              | kIOPCIConfiguratorPFM64
              | kIOPCIConfiguratorCheckTunnel
              | kIOPCIConfiguratorTBMSIEnable
+             | kIOPCIConfiguratorTBUSBCPanics
 #if !ACPI_SUPPORT
 			 | kIOPCIConfiguratorAER
 			 | kIOPCIConfiguratorWakeToOff
@@ -314,6 +317,7 @@ void IOPCIBridge::initialize(void)
         gIOPCIThunderboltKey        = OSSymbol::withCStringNoCopy("PCI-Thunderbolt");
         gIOPCIHotplugCapableKey     = OSSymbol::withCStringNoCopy("PCIHotplugCapable");
         gIOPolledInterfaceActiveKey = OSSymbol::withCStringNoCopy(kIOPolledInterfaceActiveKey);
+        gIOPCIDeviceHiddenKey       = OSSymbol::withCStringNoCopy(kIOPCIDeviceHiddenKey);
 
 		gIOPCIWaitingPauseSet = OSSet::withCapacity(4);
 		gIOPCIPausedSet       = OSSet::withCapacity(4);
@@ -1290,10 +1294,17 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 	if (dead)
 	{
 		if ((kPCIHotPlugTunnelRoot == shadow->hpType)
-		 || (kPCIStaticTunnel == shadow->hpType)
-		 || (kPCIStaticShared == shadow->hpType))
-		 {
-			 panic("%s: thunderbolt power on failed 0x%08x\n", device->getName(), (int)data);
+		   || (kPCIStaticTunnel == shadow->hpType)
+		   || (kPCIStaticShared == shadow->hpType))
+        {
+            if (((kIOPCIConfiguratorTBPanics    & gIOPCIFlags) && !gIOPCIUSBCSystem)
+            || ((kIOPCIConfiguratorTBUSBCPanics & gIOPCIFlags) && gIOPCIUSBCSystem))
+            {
+                panic("%s(%s): thunderbolt power on failed 0x%08x\n",
+                    device->getName(),
+                    getPlatform()->getProvider()->getName(),
+                    (int)data);
+            }
 		 }
 	}
 	else
@@ -2069,6 +2080,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 				shadow->hpType = num->unsigned8BitValue();
 				num->release();
 			}
+			if (kPCIStaticShared == shadow->hpType) gIOPCIUSBCSystem = true;
 
 			for (root = nub;
 				 (!root->getProperty(gIOPCIThunderboltKey)) 

@@ -117,7 +117,7 @@ keychain_recode(int argc, char * const *argv)
 		{
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 	argc -= optind;
@@ -141,7 +141,7 @@ keychain_recode(int argc, char * const *argv)
 
 	}
 	else
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 
 	result = do_recode(keychainName1, keychainName2);
 

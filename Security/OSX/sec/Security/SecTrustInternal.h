@@ -58,6 +58,9 @@ SecKeyRef SecTrustCopyPublicKey_ios(SecTrustRef trust);
 CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);
 #endif
 
+#define kSecTrustEventNameKey "eventName"
+#define kSecTrustEventAttributesKey "eventAttributes"
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTINTERNAL_H_ */

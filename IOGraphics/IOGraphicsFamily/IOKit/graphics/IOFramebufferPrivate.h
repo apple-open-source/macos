@@ -180,6 +180,8 @@
     bool suspend(bool now);
     bool updateOnline(void);
     void displaysOnline(bool nowOnline);
+    uint32_t globalConnectionCount(void);
+    bool clamshellOfflineShouldChange(bool online);
 
 #if IOFB_DISABLEFB
 	static IODeviceMemory * _getApertureRange(IOFramebuffer * fb, IOPixelAperture aperture);
@@ -214,8 +216,6 @@
     void transformLocation(StdFBShmem_t * shmem, IOGPoint * cursorLoc, IOGPoint * transformLoc);
     void transformCursor(StdFBShmem_t * shmem, IOIndex frame);
 
-    bool deepFramebuffer( IOPixelInformation * pixelInfo );
-    bool validFramebuffer( IOPixelInformation * pixelInfo );
     IOIndex closestDepth(IODisplayModeID mode, IOPixelInformation * pixelInfo);
     IOReturn setDisplayAttributes(OSObject * data);
     IOReturn doSetDisplayMode(IODisplayModeID displayMode, IOIndex depth);
@@ -302,7 +302,6 @@ public:
 
     void displayOnline( IODisplay * display, SInt32 delta, uint32_t options );
     static void updateDisplaysPowerState(void);
-    static IOOptionBits clamshellState( void );
     static IOReturn setPreferences( IOService * props, OSDictionary * prefs );
     static OSObject * copyPreferences( void );
     OSObject * copyPreference( class IODisplay * display, const OSSymbol * key );
@@ -324,6 +323,7 @@ public:
     IODeviceMemory * getApertureRangeWithLength( IOPixelAperture aperture, IOByteCount requiredLength );
 
     IOReturn waitQuietController(void);
+    void closeNoSys(void);
 
 protected:
 

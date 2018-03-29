@@ -772,6 +772,8 @@ kern_return_t ucsp_server_stashDbCheck(UCSP_ARGS, DbHandle db)
 kern_return_t ucsp_server_isLocked(UCSP_ARGS, DbHandle db, boolean_t *locked)
 {
     BEGIN_IPC(isLocked)
+    // Must hold the DB's common's lock to safely determine if it's locked. Locking is a mess in there.
+    StLock<Mutex> _(Server::database(db)->common());
     *locked = Server::database(db)->isLocked();
     END_IPC(DL)
 }

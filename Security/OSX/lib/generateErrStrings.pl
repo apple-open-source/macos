@@ -72,7 +72,7 @@
 #			CSSM_CSSM_BASE_ERROR + CSSM_ERRORCODE_COMMON_EXTENT + 0x10,
 #		CSSMERR_CSSM_SCOPE_NOT_SUPPORTED =				CSSM_CSSM_BASE_CSSM_ERROR + 1,
 #
-# Style A has the comment after the comment. Style has the comment before the value,
+# Style A has the comment after the value. Style has the comment before the value,
 # and Style C has no comment. In cases where both Style A and B apply, the
 # comment at the end of the line is used.
 #
@@ -116,13 +116,9 @@ $TARGETSTR=$ARGV[2];				# path of .strings file, e.g.
 $#INPUTFILES = $#ARGV - 3;			# truncate to actual number of files
 
 print "gend: $GENDEBUGSTRINGS, tmpdir: $TMPDIR, targetstr: $TARGETSTR\n";
-$PROGNAME="${TMPDIR}/generateErrStrings.mm";
-open PROGRAM,"> $PROGNAME"  or die "can't open $PROGNAME: $!";
-select PROGRAM;
-
-printAdditionalIncludes();
-printInputIncludes();
-printMainProgram();
+open STRINGFILE, "> $TARGETSTR"  or die "can't open $TARGETSTR: $!";
+select STRINGFILE;
+binmode STRINGFILE, ":encoding(UTF-16)";
 
 # -----------------------------------------------------------------------------------
 # Parse error headers and build array of all relevant lines
@@ -131,12 +127,6 @@ $/="\};";	#We set the section termination string - very important
 processInput();
 close(ERR);
 # -----------------------------------------------------------------------------------
-
-printTrailer();
-select STDOUT;
-close PROGRAM;
-
-compileLinkAndRun();
 
 # 4: Done!
 exit;
@@ -147,53 +137,55 @@ exit;
 
 sub processInput
 {
-	# 3: Read input, process each line, output it.
-	while ( $line = <ERR>)
-	{
-		($enum) = ($line =~ /\n\s*(?:enum|CF_ENUM\(OSStatus\))\s*{\s*([^}]*)};/);
-		while ($enum ne '')	#basic filter for badly formed enums
-		{
-			#Drop leading whitespace
-			$enum =~ s/^\s+//;
-	#	print "A:", $enum,"\n";
-			($leadingcomment) = ($enum =~ m%^(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)%);
-			if ($leadingcomment ne '')
-			{	
-				$enum = substr($enum, length($leadingcomment));
-				$leadingcomment = substr($leadingcomment, 2);		# drop leading "/*"
-				$leadingcomment = substr($leadingcomment, 0, -2);	# drop trailing "*/"
-				$leadingcomment = cleanupComment($leadingcomment);
-			}
-			next if ($enum eq '');	#basic filter for badly formed enums
-			
-			# Check for C++ style comments at start of line
-			if ($enum =~ /\s*(\/\/)/)
-			{
-				#Drop everything before the end of line
-				$enum =~ s/[^\n]*[\n]*//;
-				next;
-			}
-			($identifier) = ($enum =~ /\s*([_A-Za-z][_A-Za-z0-9]*)/);
-			
-#			print "identifier: ", $identifier,"\n" if ($identifier ne '');
-			
-			#Drop everything before the comma, end of line or trailing comment
+    # 3: Read input, process each line, output it.
+    while ( $line = <ERR>)
+    {
+        ($enum) = ($line =~ /\n\s*(?:enum|CF_ENUM\(OSStatus\))\s*{\s*([^}]*)};/);
+        while ($enum ne '')	#basic filter for badly formed enums
+        {
+            #Drop leading whitespace
+            $enum =~ s/^\s+//;
+
+            ($leadingcomment) = ($enum =~ m%^(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)%);
+            if ($leadingcomment ne '')
+            {
+                $enum = substr($enum, length($leadingcomment));
+                $leadingcomment = substr($leadingcomment, 2);		# drop leading "/*"
+                $leadingcomment = substr($leadingcomment, 0, -2);	# drop trailing "*/"
+                $leadingcomment = cleanupComment($leadingcomment);
+            }
+            next if ($enum eq '');	#basic filter for badly formed enums
+
+            # Check for C++ style comments at start of line
+            if ($enum =~ /\s*(\/\/)/)
+            {
+                #Drop everything before the end of line
+                $enum =~ s/[^\n]*[\n]*//;
+                next;
+            }
+            ($identifier) = ($enum =~ /\s*([_A-Za-z][_A-Za-z0-9]*)/);
+            #print "identifier: ", $identifier,"\n" if ($identifier ne '');
+
+            ($value) = ($enum =~ /\s*[_A-Za-z][_A-Za-z0-9]*\s*=\s*(-?[0-9]*),/);
+            #print "value: ", $value,"\n" if ($value ne '');
+
+            #Drop everything before the comma, end of line or trailing comment
             $enum =~ s/[^,]*(,|\n|(\/\*))//;
-	
-			# Now look for trailing comment. We only consider them
-			# trailing if they come before the end of the line
-			($trailingcomment) = ($enum =~ /^[ \t]*\/\*((.)*)?\*\//);
-			$trailingcomment = cleanupComment($trailingcomment);
-			
-			#Drop everything before the end of line
-			$enum =~ s/[^\n]*[\n]*//;
-	#	print "B:", $enum,"\n";
-	#	print "lc:$leadingcomment, id:$identifier, tc:$trailingcomment\n";
-	#	print "===========================================\n";
-		
-			writecomment($leadingcomment, $identifier, $trailingcomment);
-		}	
-	}
+
+            # Now look for trailing comment. We only consider them
+            # trailing if they come before the end of the line
+            ($trailingcomment) = ($enum =~ /^[ \t]*\/\*((.)*)?\*\//);
+            $trailingcomment = cleanupComment($trailingcomment);
+
+            #Drop everything before the end of line
+            $enum =~ s/[^\n]*[\n]*//;
+
+            #print "lc:$leadingcomment, id:$identifier, v:$value, tc:$trailingcomment\n";
+            #print "===========================================\n";
+
+            writecomment($leadingcomment, $identifier, $trailingcomment, $value);
+        }
+    }
 }
 
 sub writecomment
@@ -205,7 +197,7 @@ sub writecomment
 	#	tmp << "/* errAuthorizationSuccess */\n\"" << errAuthorizationSuccess 
 	#		<< "\" = \"The operation completed successfully.\"\n" << endl;
 	
-	my($mylc,$myid,$mytc) = @_;
+	my($mylc,$myid,$mytc,$myvalue) = @_;
 	if ($myid =~ /(CSSM_ERRCODE|CSSMERR_|errSec|errCS|errAuth|errSSL)[_A-Za-z][_A-Za-z0-9]*/)
 	{
 		$errormessage = '';
@@ -218,88 +210,12 @@ sub writecomment
 		
 		if ($errormessage ne '')
 		{
-			print "\ttmp << \"/* ", $myid, " */\\n\\\"\" << ";
-			print $myid, " << \"\\\" = \\\"";
-			print $errormessage, "\\\";\\n\" << endl;\n";
+			print "/* ", $myid, " */\n\"";
+            print $myvalue, "\" = \"";
+			print $errormessage, "\";\n\n";
 		}
 	}
 };
-
- 
-sub printAdditionalIncludes
-{
-	#This uses the "here" construct to dump out lines verbatim
-	print <<"AdditionalIncludes";
-
-#include <iostream>
-#include <fstream>
-#include <CoreFoundation/CoreFoundation.h>
-#include <Foundation/Foundation.h>
-
-using namespace std;
-AdditionalIncludes
-}
-
-sub printInputIncludes
-{
-	#Now "#include" each of the input files
-	print "\n#include \"$_\"" foreach @INPUTFILES;
-	print "\n";
-}
-
-sub printMainProgram
-{
-	#Output the main part of the program using the "here" construct
-	print <<"MAINPROGRAM";
-
-void writeStrings(const char *stringsFileName);
-void createStringsTemp();
-
-int main (int argc, char * const argv[])
-{
-	const char *stringsFileName = NULL;
-   
-	if (argc == 2)
-		stringsFileName = argv[1];
-	else
-	if (argc == 1)
-		stringsFileName = "SecErrorMessages.strings";
-	else
-		return -1;
-
-	cout << "Strings file to create: " << stringsFileName << endl;
-	createStringsTemp();
-	writeStrings(stringsFileName);
-}
-
-void writeStrings(const char *stringsFileName)
-{
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:@"generateErrStrings.tmp"];
-	NSData *rawstrings = [fh readDataToEndOfFile];
-	UInt32 encoding = CFStringConvertEncodingToNSStringEncoding (kCFStringEncodingUTF8);
-	NSString *instring = [[NSString alloc] initWithData:rawstrings encoding:(NSStringEncoding)encoding];
-
-	if (instring)
-	{
-		NSString *path = [NSString stringWithUTF8String:stringsFileName];
-		NSFileManager *fm = [NSFileManager defaultManager];
-		if ([fm fileExistsAtPath:path])
-			[fm removeItemAtPath:path error:NULL];
-		BOOL bx = [fm createFileAtPath:path contents:nil attributes:nil];
-		NSFileHandle *fs = [NSFileHandle fileHandleForWritingAtPath:path];
-		[fs writeData:[instring dataUsingEncoding:NSUnicodeStringEncoding]];
-	}
-
-	[pool release];
-}
-
-void createStringsTemp()
-{
-	ofstream tmp("generateErrStrings.tmp") ; 
-
-MAINPROGRAM
-}
 
 sub cleanupComment
 {
@@ -310,33 +226,8 @@ sub cleanupComment
 		$comment =~ s/\s\s+/ /g; 	# Squeeze multiple spaces to one
 		$comment =~ s/^\s+//;		# Drop leading whitespace
 		$comment =~ s/\s+$//;		# Drop trailing whitespace
-		$comment =~ s/[\"]/\\\\\\"/g; 	# Replace double quotes with \" (backslash is sextupled to make it through regex and printf)
+		$comment =~ s/[\"]/\\\"/g; 	# Replace double quotes with \" (backslash is sextupled to make it through regex and printf)
 	}
 #	print "B:",$comment,"\n";
 	$comment;
-}    
-
-sub printTrailer
-{
-	print "	tmp.close();\n";
-	print "}\n";
 }
-
-sub compileLinkAndRun
-{
-	$status = system( <<"MAINPROGRAM");
-(cd ${TMPDIR} ; /usr/bin/cc -x objective-c++  -pipe -Wno-trigraphs -fpascal-strings -fasm-blocks -g -O0 -Wreturn-type -fmessage-length=0 -F$ENV{'BUILT_PRODUCTS_DIR'} -I$ENV{'BUILT_PRODUCTS_DIR'}/SecurityPieces/Headers -I$ENV{'BUILT_PRODUCTS_DIR'}/SecurityPieces/PrivateHeaders -c generateErrStrings.mm -o generateErrStrings.o)
-MAINPROGRAM
-	die "$compile exited funny: $?" unless $status == 0;
-
-	$status = system( <<"LINKERSTEP");
-(cd ${TMPDIR} ; /usr/bin/clang++ -o generateErrStrings generateErrStrings.o -framework Foundation )
-LINKERSTEP
-	die "$linker exited funny: $?" unless $status == 0;
-
-	$status = system( <<"RUNSTEP");
-(cd ${TMPDIR} ; ./generateErrStrings $TARGETSTR )
-RUNSTEP
-	die "$built program exited funny: $?" unless $status == 0;
-}
-

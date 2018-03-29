@@ -667,63 +667,61 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 static void
 dt_action_trace(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+	int ctflib;
+
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
+	boolean_t istrace = (dnp->dn_ident->di_id == DT_ACT_TRACE);
+	const char *act = istrace ?  "trace" : "print";
 
 	if (dt_node_is_void(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_TRACE_VOID,
-		    "trace( ) may not be applied to a void expression\n");
+		dnerror(dnp->dn_args, istrace ? D_TRACE_VOID : D_PRINT_VOID,
+		    "%s( ) may not be applied to a void expression\n", act);
 	}
 
-	if (dt_node_is_dynamic(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_TRACE_DYN,
-		    "trace( ) may not be applied to a dynamic expression\n");
+	if (dt_node_resolve(dnp->dn_args, DT_IDENT_XLPTR) != NULL) {
+		dnerror(dnp->dn_args, istrace ? D_TRACE_DYN : D_PRINT_DYN,
+		    "%s( ) may not be applied to a translated pointer\n", act);
 	}
 
-	dt_cg(yypcb, dnp->dn_args);
-	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_kind = DTRACEACT_DIFEXPR;
-}
-
-/*
- * The print() action behaves identically to trace(), except that it stores the
- * CTF type of the argument (if present) within the DOF for the DIFEXPR action.
- * To do this, we set the 'dtsd_strdata' to point to the fully-qualified CTF
- * type ID for the result of the DIF action.  We use the ID instead of the name
- * to handles complex types like arrays and function pointers that can't be
- * resolved by ctf_type_lookup().  This is later processed by
- * dtrace_dof_create() and turned into a reference into the string table so
- * that we can get the type information when we process the data after the
- * fact.
- */
-static void
-dt_action_print(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
-{
-	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-	dt_node_t *dret;
-	size_t len;
-	dt_module_t *dmp;
-
-	if (dt_node_is_void(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_PRINT_VOID,
-		    "print( ) may not be applied to a void expression\n");
-	}
-
-	if (dt_node_is_dynamic(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_PRINT_DYN,
-		    "print( ) may not be applied to a dynamic expression\n");
+	if (dnp->dn_args->dn_kind == DT_NODE_AGG) {
+		dnerror(dnp->dn_args, istrace ? D_TRACE_AGG : D_PRINT_AGG,
+		    "%s( ) may not be applied to an aggregation%s\n", act,
+		    istrace ? "" : " -- did you mean printa()?");
 	}
 
 	dt_cg(yypcb, dnp->dn_args);
 
-	dret = yypcb->pcb_dret;
-	dmp = dt_module_lookup_by_ctf(dtp, dret->dn_ctfp);
+	/*
+	 * The print() action behaves identically to trace(), except that it
+	 * stores the CTF type of the argument (if present) within the DOF for
+	 * the DIFEXPR action.  To do this, we set the 'dtsd_strdata' to point
+	 * to the fully-qualified CTF type ID for the result of the DIF
+	 * action.  We use the ID instead of the name to handles complex types
+	 * like arrays and function pointers that can't be resolved by
+	 * ctf_type_lookup().  This is later processed by dtrace_dof_create()
+	 * and turned into a reference into the string table so that we can
+	 * get the type information when we process the data after the fact.  In
+	 * the case where we are referring to userland CTF data, we also need to
+	 * to identify which ctf container in question we care about and encode
+	 * that within the name.
+	 */
+	if (dnp->dn_ident->di_id == DT_ACT_PRINT) {
+		dt_node_t *dret;
+		size_t n;
+		dt_module_t *dmp;
 
-	len = snprintf(NULL, 0, "%s`%d", dmp->dm_name, dret->dn_type) + 1;
-	sdp->dtsd_strdata = dt_alloc(dtp, len);
-	if (sdp->dtsd_strdata == NULL)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-	(void) snprintf(sdp->dtsd_strdata, len, "%s`%d", dmp->dm_name,
-	    dret->dn_type);
+		dret = yypcb->pcb_dret;
+		dmp = dt_module_lookup_by_ctf(dtp, dret->dn_ctfp);
+
+		n = snprintf(NULL, 0, "%s`%d", dmp->dm_name,
+		    dret->dn_type) + 1;
+
+		sdp->dtsd_strdata = dt_alloc(dtp, n);
+		if (sdp->dtsd_strdata == NULL)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+		(void) snprintf(sdp->dtsd_strdata, n, "%s`%d",
+		    dmp->dm_name, dret->dn_type);
+	}
 
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = DTRACEACT_DIFEXPR;
@@ -1269,6 +1267,9 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	case DT_ACT_PANIC:
 		dt_action_panic(dtp, dnp->dn_expr, sdp);
 		break;
+	case DT_ACT_PRINT:
+		dt_action_trace(dtp, dnp->dn_expr, sdp);
+		break;
 	case DT_ACT_PRINTA:
 		dt_action_printa(dtp, dnp->dn_expr, sdp);
 		break;
@@ -1298,9 +1299,6 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		break;
 	case DT_ACT_TRACE:
 		dt_action_trace(dtp, dnp->dn_expr, sdp);
-		break;
-	case DT_ACT_PRINT:
-		dt_action_print(dtp, dnp->dn_expr, sdp);
 		break;
 	case DT_ACT_TRACEMEM:
 		dt_action_tracemem(dtp, dnp->dn_expr, sdp);
@@ -1570,106 +1568,112 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		incr = arg3 != NULL ? arg3->dn_list : NULL;
 		argmax = 5;
 	}
-
 	if (fid->di_id == DTRACEAGG_LLQUANTIZE) {
+		/*
+		 * For log/linear quantizations, we have between one and five
+		 * arguments in addition to the expression:
+		 *
+		 *    arg1 => Factor
+		 *    arg2 => Low magnitude
+		 *    arg3 => High magnitude
+		 *    arg4 => Number of steps per magnitude
+		 *    arg5 => Quantization increment value (defaults to 1)
+		 */
 		dt_node_t *llarg = dnp->dn_aggfun->dn_args->dn_list;
 		uint64_t oarg, order, v;
-		uint16_t factor, low, high, nsteps;
-		dt_idsig_t* isp;
+		dt_idsig_t *isp;
 		int i;
 
 		struct {
-			char* str;              /* string identifier */
-			int badtype;            /* error on bad type */
-			int badval;             /* error on vad value */
-			int mismatch;           /* error on bad match */
-			int shift;              /* shift value */
-			uint16_t value;         /* value itself */
+			char *str;		/* string identifier */
+			int badtype;		/* error on bad type */
+			int badval;		/* error on bad value */
+			int mismatch;		/* error on bad match */
+			int shift;		/* shift value */
+			uint16_t value;		/* value itself */
 		} args[] = {
-			{ "factor", D_LLQUANT_FACTORTYPE, D_LLQUANT_FACTORVAL, D_LLQUANT_FACTORMATCH, DTRACE_LLQUANTIZE_FACTORSHIFT },
-			{ "low magnitude", D_LLQUANT_LOWTYPE, D_LLQUANT_LOWVAL, D_LLQUANT_LOWMATCH, DTRACE_LLQUANTIZE_LOWSHIFT },
-			{ "high magnitude", D_LLQUANT_HIGHTYPE, D_LLQUANT_HIGHVAL, D_LLQUANT_HIGHMATCH, DTRACE_LLQUANTIZE_HIGHSHIFT },
-			{ "linear steps per magnitude", D_LLQUANT_NSTEPTYPE, D_LLQUANT_NSTEPVAL, D_LLQUANT_NSTEPMATCH, DTRACE_LLQUANTIZE_NSTEPSHIFT},
+			{ "factor", D_LLQUANT_FACTORTYPE,
+			    D_LLQUANT_FACTORVAL, D_LLQUANT_FACTORMATCH,
+			    DTRACE_LLQUANTIZE_FACTORSHIFT },
+			{ "low magnitude", D_LLQUANT_LOWTYPE,
+			    D_LLQUANT_LOWVAL, D_LLQUANT_LOWMATCH,
+			    DTRACE_LLQUANTIZE_LOWSHIFT },
+			{ "high magnitude", D_LLQUANT_HIGHTYPE,
+			    D_LLQUANT_HIGHVAL, D_LLQUANT_HIGHMATCH,
+			    DTRACE_LLQUANTIZE_HIGHSHIFT },
+			{ "linear steps per magnitude", D_LLQUANT_NSTEPTYPE,
+			    D_LLQUANT_NSTEPVAL, D_LLQUANT_NSTEPMATCH,
+			    DTRACE_LLQUANTIZE_NSTEPSHIFT },
 			{ NULL }
 		};
 
-		/*
-		 * We will check each arguments of llquantize.
-		 * First the node type, then its value.
-		 */
-		for (i = 0; args[i].str != NULL; ++i) {
+		assert(arg == 0);
+
+		for (i = 0; args[i].str != NULL; i++) {
 			if (llarg->dn_kind != DT_NODE_INT) {
 				dnerror(llarg, args[i].badtype, "llquantize( ) "
-						"argument #%d (%s) must be an "
-						"integer constant\n", i + 1, args[i].str);
+				    "argument #%d (%s) must be an "
+				    "integer constant\n", i + 1, args[i].str);
 			}
 
-			if ((uint64_t) llarg->dn_value > UINT16_MAX) {
+			if ((uint64_t)llarg->dn_value > UINT16_MAX) {
 				dnerror(llarg, args[i].badval, "llquantize( ) "
-						"argument #%d (%s) must be an unsigned "
-						"16-bit quantity\n", i + 1, args[i].str);
+				    "argument #%d (%s) must be an unsigned "
+				    "16-bit quantity\n", i + 1, args[i].str);
 			}
 
-			/* OK, we can retrieve the value of the node. */
-			args[i].value = (int16_t) llarg->dn_value;
+			args[i].value = (uint16_t)llarg->dn_value;
 
-			/* Next arg. */
+			assert(!(arg & ((uint64_t)UINT16_MAX <<
+			    args[i].shift)));
+			arg |= ((uint64_t)args[i].value << args[i].shift);
 			llarg = llarg->dn_list;
 		}
 
-		factor = args[0].value;
-		low    = args[1].value;
-		high   = args[2].value;
-		nsteps = args[3].value;
+		assert(arg != 0);
 
-		if (factor < 2) {
+		if (args[0].value < 2) {
 			dnerror(dnp, D_LLQUANT_FACTORSMALL, "llquantize( ) "
-					"factor (argument #1) must be two or more\n");
+			    "factor (argument #1) must be two or more\n");
 		}
 
-		if (low >= high) {
+		if (args[1].value >= args[2].value) {
 			dnerror(dnp, D_LLQUANT_MAGRANGE, "llquantize( ) "
-					"high magnitude (argument #3) must be greater "
-					"than low magnitude (argument #2)\n");
+			    "high magnitude (argument #3) must be greater "
+			    "than low magnitude (argument #2)\n");
 		}
 
-		if (nsteps < factor) {
+		if (args[3].value < args[0].value) {
 			dnerror(dnp, D_LLQUANT_FACTORNSTEPS, "llquantize( ) "
-					"factor (argument #1) must be less than or "
-					"equal to the number of linear steps per "
-					"magnitude (argument #4)\n");
+			    "factor (argument #1) must be less than or "
+			    "equal to the number of linear steps per "
+			    "magnitude (argument #4)\n");
 		}
 
-		for (v = factor; v < nsteps; v *= factor)
+		for (v = args[0].value; v < args[3].value; v *= args[0].value)
 			continue;
 
-		if ((nsteps % factor) || (v % nsteps)) {
+		if ((args[3].value % args[0].value) || (v % args[3].value)) {
 			dnerror(dnp, D_LLQUANT_FACTOREVEN, "llquantize( ) "
-					"factor (argument #1) must evenly divide the "
-					"number of steps per magnitude (argument #4), "
-					"and the number of steps per magnitude must evenly "
-					"divide a power of the factor\n");
+			    "factor (argument #1) must evenly divide the "
+			    "number of steps per magnitude (argument #4), "
+			    "and the number of steps per magnitude must evenly "
+			    "divide a power of the factor\n");
 		}
 
-		for (i = 0, order = 1; i < high; ++i) {
-			if (order * factor > order) {
-				order *= factor;
+		for (i = 0, order = 1; i <= args[2].value + 1; i++) {
+			if (order * args[0].value > order) {
+				order *= args[0].value;
 				continue;
 			}
 
 			dnerror(dnp, D_LLQUANT_MAGTOOBIG, "llquantize( ) "
-					"factor (%d) raised to power of high magnitude "
-					"(%d) overflows 64-bits\n", factor, high);
+			    "factor (%d) raised to power of high magnitude "
+			    "(%d) plus 1 overflows 64-bits\n", args[0].value,
+			    args[2].value);
 		}
 
-		/* Pack the arguments inside arg. */
-		arg = ((int64_t) nsteps << DTRACE_LLQUANTIZE_NSTEPSHIFT)
-				| ((int64_t) high   << DTRACE_LLQUANTIZE_HIGHSHIFT)
-				| ((int64_t) low    << DTRACE_LLQUANTIZE_LOWSHIFT)
-				| ((int64_t) factor << DTRACE_LLQUANTIZE_FACTORSHIFT);
-		assert(arg != 0);
-
-		isp = (dt_idsig_t*) aid->di_data;
+		isp = (dt_idsig_t *)aid->di_data;
 
 		if (isp->dis_auxinfo == 0) {
 			/*
@@ -1685,19 +1689,19 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 			 * the original argument apart to concisely report the
 			 * mismatch.
 			 */
-			int expected = 0;
-			int found = 0;
+			int expected = 0, found = 0;
 
-			for (i = 0; expected == found; ++i) {
+			for (i = 0; expected == found; i++) {
 				assert(args[i].str != NULL);
+
 				expected = (oarg >> args[i].shift) & UINT16_MAX;
 				found = (arg >> args[i].shift) & UINT16_MAX;
 			}
 
-			dnerror(dnp, args[i-1].mismatch, "llquantize( ) "
-					"%s (argument #%d) does not match previous "
-					"declaration: expected %d, found %d",
-					args[i-1].str, i, expected, found);
+			dnerror(dnp, args[i - 1].mismatch, "llquantize( ) "
+			    "%s (argument #%d) doesn't match previous "
+			    "declaration: expected %d, found %d\n",
+			    args[i - 1].str, i, expected, found);
 		}
 
 		incr = llarg;

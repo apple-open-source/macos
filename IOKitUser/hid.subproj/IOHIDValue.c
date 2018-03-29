@@ -256,11 +256,12 @@ double_t IOHIDValueGetScaledValue(IOHIDValueRef event, IOHIDValueScaleType type)
     CFIndex         logicalMin      = IOHIDElementGetLogicalMin(element);
     CFIndex         logicalMax      = IOHIDElementGetLogicalMax(element);
     CFIndex         logicalRange    = 0;
-    CFIndex         scaledMin       = 0;
-    CFIndex         scaledMax       = 0;
+    CFIndex         scaledMin       = IOHIDElementGetPhysicalMin(element);
+    CFIndex         scaledMax       = IOHIDElementGetPhysicalMax(element);
     CFIndex         scaledRange     = 0;
     double_t        granularity     = 0.0;
     double_t        returnValue     = 0.0;
+    double_t        exponent        = 0.0;
 
     if ( type == kIOHIDValueScaleTypeCalibrated ){
         IOHIDCalibrationInfo * calibrationInfo;
@@ -303,14 +304,22 @@ double_t IOHIDValueGetScaledValue(IOHIDValueRef event, IOHIDValueScaleType type)
 
             granularity = calibrationInfo->gran;
         }
-    } else { // kIOHIDValueScaleTypePhysical
-        scaledMin = IOHIDElementGetPhysicalMin(element);
-        scaledMax = IOHIDElementGetPhysicalMax(element);
+    } else if (type == kIOHIDValueScaleTypeExponent) {
+        uint8_t unitExp = IOHIDElementGetUnitExponent(element) & 0x0F;
+        
+        // Per HID spec:
+        // Exponent value of 0x1 - 0x7 is a positive exponent. Exponent value of
+        // 0x8 - 0xF is a negative exponent, where 0x8 is 10^-8 and 0xF is 10^-1
+        exponent = unitExp < 8 ? pow(10, unitExp) : 1.0 / pow(10, 0x10 - unitExp);
     }
-
+    
     logicalRange    = logicalMax - logicalMin;
     scaledRange     = scaledMax - scaledMin;
     returnValue     = ((double_t)(logicalValue - logicalMin) * (double_t)scaledRange / (double_t)logicalRange) + scaledMin;
+    
+    if (exponent) {
+        returnValue *= exponent;
+    }
 
     if ( granularity )
         returnValue = granularity * llround(returnValue / granularity);

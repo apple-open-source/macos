@@ -51,13 +51,13 @@ static BOOL isForcingPreviewUpdate;
 
 @implementation WKPrintingView
 
-- (id)initWithFrameProxy:(WebKit::WebFrameProxy*)frame view:(NSView *)wkView
+- (id)initWithFrameProxy:(WebKit::WebFrameProxy&)frame view:(NSView *)wkView
 {
     self = [super init]; // No frame rect to pass to NSView.
     if (!self)
         return nil;
 
-    _webFrame = frame;
+    _webFrame = &frame;
     _wkView = wkView;
 
     return self;
@@ -78,10 +78,16 @@ static BOOL isForcingPreviewUpdate;
 
 - (void)_setAutodisplay:(BOOL)newState
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (!newState && [[_wkView window] isAutodisplay])
+#pragma clang diagnostic pop
         [_wkView displayIfNeeded];
     
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [[_wkView window] setAutodisplay:newState];
+#pragma clang diagnostic pop
 
     // For some reason, painting doesn't happen for a long time without this call, <rdar://problem/8975229>.
     if (newState)
@@ -151,8 +157,8 @@ static BOOL isForcingPreviewUpdate;
     }
     
     CGFloat scale = [info scalingFactor];
-    [info setTopMargin:originalTopMargin + _webFrame->page()->headerHeight(_webFrame.get()) * scale];
-    [info setBottomMargin:originalBottomMargin + _webFrame->page()->footerHeight(_webFrame.get()) * scale];
+    [info setTopMargin:originalTopMargin + _webFrame->page()->headerHeight(*_webFrame) * scale];
+    [info setBottomMargin:originalBottomMargin + _webFrame->page()->footerHeight(*_webFrame) * scale];
 }
 
 - (BOOL)_isPrintingPreview
@@ -448,7 +454,10 @@ static CFStringRef linkDestinationName(PDFDocument *document, PDFDestination *de
     }
 
     NSGraphicsContext *nsGraphicsContext = [NSGraphicsContext currentContext];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CGContextRef context = static_cast<CGContextRef>([nsGraphicsContext graphicsPort]);
+#pragma clang diagnostic pop
 
     CGContextSaveGState(context);
     CGContextTranslateCTM(context, point.x, point.y);
@@ -537,7 +546,10 @@ static CFStringRef linkDestinationName(PDFDocument *document, PDFDestination *de
     }
 
     RefPtr<ShareableBitmap> bitmap = pagePreviewIterator->value;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CGContextRef cgContext = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
+#pragma clang diagnostic pop
 
     GraphicsContext context(cgContext);
     GraphicsContextStateSaver stateSaver(context);
@@ -637,18 +649,18 @@ static CFStringRef linkDestinationName(PDFDocument *document, PDFDestination *de
     NSSize paperSize = [printInfo paperSize];
     CGFloat headerFooterLeft = [printInfo leftMargin] / scale;
     CGFloat headerFooterWidth = (paperSize.width - ([printInfo leftMargin] + [printInfo rightMargin])) / scale;
-    NSRect footerRect = NSMakeRect(headerFooterLeft, [printInfo bottomMargin] / scale - _webFrame->page()->footerHeight(_webFrame.get()), headerFooterWidth, _webFrame->page()->footerHeight(_webFrame.get()));
-    NSRect headerRect = NSMakeRect(headerFooterLeft, (paperSize.height - [printInfo topMargin]) / scale, headerFooterWidth, _webFrame->page()->headerHeight(_webFrame.get()));
+    NSRect footerRect = NSMakeRect(headerFooterLeft, [printInfo bottomMargin] / scale - _webFrame->page()->footerHeight(*_webFrame), headerFooterWidth, _webFrame->page()->footerHeight(*_webFrame));
+    NSRect headerRect = NSMakeRect(headerFooterLeft, (paperSize.height - [printInfo topMargin]) / scale, headerFooterWidth, _webFrame->page()->headerHeight(*_webFrame));
 
     NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
     [currentContext saveGraphicsState];
     NSRectClip(headerRect);
-    _webFrame->page()->drawHeader(_webFrame.get(), headerRect);
+    _webFrame->page()->drawHeader(*_webFrame, headerRect);
     [currentContext restoreGraphicsState];
 
     [currentContext saveGraphicsState];
     NSRectClip(footerRect);
-    _webFrame->page()->drawFooter(_webFrame.get(), footerRect);
+    _webFrame->page()->drawFooter(*_webFrame, footerRect);
     [currentContext restoreGraphicsState];
 }
 

@@ -15,7 +15,7 @@ GENRB_SOURCE_LOCAL = iu.txt iu_CA.txt\
 	en_PL.txt en_PT.txt en_RO.txt en_RU.txt en_SK.txt\
 	en_TR.txt en_TW.txt\
 	es_AG.txt es_AI.txt es_AW.txt es_BB.txt es_BL.txt\
-	es_BM.txt es_BQ.txt es_BS.txt es_CW.txt es_DM.txt\
+	es_BM.txt es_BQ.txt es_BS.txt es_CA.txt es_CW.txt es_DM.txt\
 	es_FK.txt es_GD.txt es_GF.txt es_GL.txt es_GP.txt\
 	es_GY.txt es_HT.txt es_KN.txt es_KY.txt es_LC.txt\
 	es_MF.txt es_MQ.txt es_MS.txt es_PM.txt en_SA.txt es_SR.txt\

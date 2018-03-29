@@ -99,7 +99,7 @@ parse_domain(const char *name, SecPreferencesDomain *domain)
 	else
 	{
 		sec_error("Invalid domain: %s", name);
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	return 0;
@@ -188,7 +188,7 @@ keychain_list(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -363,7 +363,7 @@ keychain_default(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -375,7 +375,7 @@ keychain_default(int argc, char * const *argv)
 		if (argc == 1)
 			keychain = (SecKeychainRef)keychain_create_array(argc, argv);
 		else if (argc > 0)
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 
 		if (use_domain)
 		{
@@ -399,7 +399,7 @@ keychain_default(int argc, char * const *argv)
 	else
 	{
 		if (argc > 0)
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 
 		if (use_domain)
 		{
@@ -467,7 +467,7 @@ keychain_login(int argc, char * const *argv)
 			break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -479,7 +479,7 @@ keychain_login(int argc, char * const *argv)
 		if (argc == 1)
 			keychain = (SecKeychainRef)keychain_create_array(argc, argv);
 		else if (argc > 0)
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 
 #if 0
 		if (use_domain)
@@ -507,7 +507,7 @@ keychain_login(int argc, char * const *argv)
 	else
 	{
 		if (argc > 0)
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 
 		if (use_domain)
 		{

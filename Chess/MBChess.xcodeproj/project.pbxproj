@@ -1208,7 +1208,7 @@
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
@@ -1242,7 +1242,7 @@
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
@@ -1275,7 +1275,7 @@
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = (
 					"-pagezero_size",

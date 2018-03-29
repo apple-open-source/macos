@@ -68,9 +68,10 @@
 /******************************************************************************
 * File-Globals
 ******************************************************************************/
-static mach_port_t sBRUptLock = MACH_PORT_NULL;
-static uuid_t      s_vol_uuid;      // XX not threadsafe (10561671)
-static mach_port_t sKextdPort = MACH_PORT_NULL;
+static mach_port_t sBRUptLock    = MACH_PORT_NULL;
+static mach_port_t sKextdPort    = MACH_PORT_NULL;
+static int         sBRUptLockCtr = 0; /* Number of times we've "taken" the volume lock */
+static uuid_t      s_vol_uuid;   // XX not threadsafe (10561671)
 
 
 /******************************************************************************
@@ -650,6 +651,7 @@ checkRebuildAllCaches(struct bootCaches *caches,
                       Boolean invalidateKextCache,
                       Boolean earlyBootCheckUpdate,
                       Boolean startupKextsOk,
+                      Boolean buildImmutableKernel,
                       Boolean *anyUpdates)
 {
     int opres, result = ELAST + 1;  // no pathc() [yet]
@@ -659,39 +661,47 @@ checkRebuildAllCaches(struct bootCaches *caches,
     char *  suffixPtr           = NULL; // must free
     char *  tmpKernelPath       = NULL; // must free
 #endif
-    
+    char imk_path[PATH_MAX] = {};
+
     if (caches == NULL)  goto finish;
     // if the caches data is no longer valid, abort immediately
     if ((opres = fstat(caches->cachefd, &sb))) {
         result = opres; goto finish;
     }
-   
+
     OSKextLog(NULL, kOSKextLogProgressLevel | kOSKextLogArchiveFlag,
               "Ensuring %s's caches are up to date.", caches->root);
-    
+
     /* XX Sec (re-review?): can't let an external volume insert a cache
      * - mktmp/mkstmp used to create temp file at destination
      * - final rename must be on whatever volume provided the kexts
      * - if volume is /, then kexts owned by root can be trusted (4623559 fstat)
      * - otherwise, rename from wrong volume will fail
      */
-    
+
     // We have to rely on the system's kextcache + IOKit.framework to
     // rebuild these caches.  If called on an older system via
     // libBootRoot against newer cache files, the launched kextcache
     // processes are unlikely to know how to update the caches.  Errors
     // should be returned.
-    
-    // Avoid deadlock with the kextcache processes which might launch below.
-    // This environment variable tells it *not* to take a lock since we
-    // should be holding it (caller should have called initContext() XX?).
-    setenv("_com_apple_kextd_skiplocks", "1", 1);
-    
+
+    if (buildImmutableKernel) {
+        if (!translatePrelinkedToImmutablePath(caches->kext_boot_cache_file->rpath,
+                                               imk_path, sizeof(imk_path))) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                      "Cannot construct immutablekernel path from \"%s\".",
+                      caches->kext_boot_cache_file->rpath);
+            result = EX_SOFTWARE;
+            goto finish;
+        }
+    }
+
     // update the various kernel caches
     if (invalidateKextCache ||
         check_kext_boot_cache_file(caches,
                                    caches->kext_boot_cache_file->rpath,
-                                   caches->kernelpath)) {
+                                   caches->kernelpath, imk_path)) {
         // rebuild the mkext under our lock / lack thereof
         // (-v forwarded via environment variable by kextcache & kextd)
         OSKextLog(nil, oodLogSpec, "rebuilding %s%s",
@@ -700,7 +710,8 @@ checkRebuildAllCaches(struct bootCaches *caches,
         if ((opres = rebuild_kext_boot_cache_file(caches,
                                                   caches->kext_boot_cache_file->rpath,
                                                   caches->kernelpath,
-                                                  startupKextsOk))) {
+                                                  startupKextsOk,
+                                                  buildImmutableKernel))) {
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                       "Error %d rebuilding %s", result,
                       caches->kext_boot_cache_file->rpath);
@@ -732,12 +743,23 @@ checkRebuildAllCaches(struct bootCaches *caches,
                     continue;
                 if (strlcat(tmpKernelPath, suffixPtr, PATH_MAX) >= PATH_MAX)
                     continue;
+                if (buildImmutableKernel) {
+                    if (!translatePrelinkedToImmutablePath(cp->rpath, imk_path, sizeof(imk_path))) {
+                        OSKextLog(/* kext */ NULL,
+                                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                                  "Cannot construct immutablekernel path from \"%s\".",
+                                  cp->rpath);
+                        result = EX_SOFTWARE;
+                        goto finish;
+                    }
+                }
                 if (invalidateKextCache ||
-                    check_kext_boot_cache_file(caches, cp->rpath, tmpKernelPath)) {
+                    check_kext_boot_cache_file(caches, cp->rpath, tmpKernelPath, imk_path)) {
                     if ((opres = rebuild_kext_boot_cache_file(caches,
                                                               cp->rpath,
                                                               tmpKernelPath,
-                                                              startupKextsOk))){
+                                                              startupKextsOk,
+                                                              buildImmutableKernel))){
                         result = opres; goto finish;
                     }
                 }
@@ -1104,6 +1126,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
                                        (opts & kBRUInvalidateKextcache),
                                        earlyBootCheckUpdate,
                                        true /* -all-loaded okay */,
+                                       (opts & kBRUImmutableKernel),
                                        &anyCacheUpdates))) {
         result = opres; goto finish;    // error logged by function
     }
@@ -1206,6 +1229,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
                                                true /* invalidate cache */,
                                                earlyBootCheckUpdate,
                                                false /* no -all-loaded */,
+                                               (opts & kBRUImmutableKernel),
                                                &anyCacheUpdates))) {
                 result = opres; goto finish;    // error logged by function
             }
@@ -1445,10 +1469,11 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
 
     // Make sure all caches are up to date on the source
     // (undefined if OOD & system's kext management/EFILogin can't rebuild)
-    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec, 
+    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec,
                                    (opts & kBRUInvalidateKextcache),
-                   (opts & kBRUExpectUpToDate) && (opts & kBRUEarlyBoot),
+                                   (opts & kBRUExpectUpToDate) && (opts & kBRUEarlyBoot),
                                    true, /* -all-loaded okay */
+                                   false, /* don't rebuild immutable kernel */
                                    NULL);
     if (errnum) {
         result = errnum; goto finish;
@@ -3389,15 +3414,17 @@ finish:
 int
 takeVolumeForPath(const char *path)
 {
-    int rval = ELAST + 1;
-    kern_return_t macherr = KERN_SUCCESS;
-    int lckres = 0;
+    int           rval     = ELAST + 1;
+    int           lckres   = 0;
+    kern_return_t macherr  = KERN_SUCCESS;
+    const char    *volPath = "<unknown>";  // llvm can't track lckres/macherr
+    mach_port_t   taskport = MACH_PORT_NULL;
     struct statfs sfs;
-    const char *volPath = "<unknown>";  // llvm can't track lckres/macherr
-    mach_port_t taskport = MACH_PORT_NULL;
 
-    if (sBRUptLock) {
-        return EALREADY;        // only support one lock at a time
+    if (getenv("_com_apple_kextd_skiplocks")) {
+        /* Skip locking if we've already taken it */
+        rval = 0;
+        goto finish;
     }
 
     if (geteuid() != 0) {
@@ -3423,7 +3450,7 @@ takeVolumeForPath(const char *path)
     if ((rval = copyVolumeInfo(volPath,&s_vol_uuid,NULL,NULL,NULL))) {
         goto finish;
     }
-    
+
     // allocate a port to pass (in case we die -- kernel cleans up on exit())
     taskport = mach_task_self();
     if (taskport == MACH_PORT_NULL)  goto finish;
@@ -3460,7 +3487,7 @@ takeVolumeForPath(const char *path)
         }
     }
 
-    
+
     // kextd might not be watching this volume (isn't currently competing)
     // so we set our success to the existance of the volume's root
     if (lckres == ENOENT) {
@@ -3474,7 +3501,7 @@ takeVolumeForPath(const char *path)
         rval = lckres;
     }
 
-finish: 
+finish:
     if (sBRUptLock != MACH_PORT_NULL && (lckres != 0 || macherr)) {
         mach_port_mod_refs(taskport, sBRUptLock, MACH_PORT_RIGHT_RECEIVE, -1);
         sBRUptLock = MACH_PORT_NULL;
@@ -3497,6 +3524,17 @@ finish:
         if (rval == -1)     rval = errno;
         OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
             "Couldn't lock %s: %s", path, strerror(rval));
+    } else {
+        /* Counter tells putVolumeForPath() when it's okay to drop the lock. */
+        sBRUptLockCtr++;
+
+        /*
+         * If this call created the lock, make sure future calls to
+         * takeVolumeForPath, in children or otherwise, don't attempt to retake it
+         */
+        if (sBRUptLock && sBRUptLockCtr == 1) {
+            setenv("_com_apple_kextd_skiplocks", "1", 1);
+        }
     }
 
     return rval;
@@ -3509,11 +3547,19 @@ finish:
 int
 putVolumeForPath(const char *path, int status)
 {
-    int rval = KERN_SUCCESS;
+    int  rval      = KERN_SUCCESS;
+    bool wasLocked = false;
 
     // if not locked, don't sweat it
-    if (sBRUptLock == MACH_PORT_NULL)
+    if (sBRUptLock == MACH_PORT_NULL) {
         goto finish;
+    }
+    wasLocked = true;
+
+    /* Don't unlock until calls to takeVolumeForPath and putVolumeForPath are balanced */
+    if (sBRUptLockCtr > 1) {
+        goto finish;
+    }
 
     rval = kextmanager_unlock_volume(sKextdPort,sBRUptLock,s_vol_uuid,status);
 
@@ -3526,6 +3572,12 @@ finish:
         OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
             "Couldn't unlock volume for %s: %s (%d).",
             path, safe_mach_error_string(rval), rval);
+    } else {
+        sBRUptLockCtr--;
+
+        if (wasLocked && sBRUptLockCtr == 0) {
+            unsetenv("_com_apple_kextd_skiplocks");
+        }
     }
 
     return rval;

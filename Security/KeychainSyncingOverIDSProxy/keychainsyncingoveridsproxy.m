@@ -131,21 +131,26 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         xpc_object_t xidsMessageData = xpc_dictionary_get_value(event, kMessageKeyValue);
         xpc_object_t xDeviceName = xpc_dictionary_get_value(event, kMessageKeyDeviceName);
         xpc_object_t xPeerID = xpc_dictionary_get_value(event, kMessageKeyPeerID);
+        xpc_object_t xSenderDeviceID = xpc_dictionary_get_value(event, kMessageKeyDeviceID);
         BOOL object = false;
         
         NSString *deviceName = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xDeviceName));
         NSString *peerID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xPeerID));
         NSDictionary *messageDictionary = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
+        NSString *senderDeviceID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xSenderDeviceID));
+
         NSError *error = NULL;
         bool isNameString = (CFGetTypeID((__bridge CFTypeRef)(deviceName)) == CFStringGetTypeID());
         bool isPeerIDString = (CFGetTypeID((__bridge CFTypeRef)(peerID)) == CFStringGetTypeID());
         bool isMessageDictionary = (CFGetTypeID((__bridge CFTypeRef)(messageDictionary)) == CFDictionaryGetTypeID());
+        bool isDeviceIDString = (CFGetTypeID((__bridge CFTypeRef)(senderDeviceID)) == CFStringGetTypeID());
 
         require_quiet(isNameString, xit);
         require_quiet(isPeerIDString, xit);
+        require_quiet(isDeviceIDString, xit);
         require_quiet(isMessageDictionary, xit);
         
-        object = [[KeychainSyncingOverIDSProxy idsProxy] sendFragmentedIDSMessages:messageDictionary name:deviceName peer:peerID error:&error];
+        object = [[KeychainSyncingOverIDSProxy idsProxy] sendFragmentedIDSMessages:messageDictionary name:deviceName peer:peerID senderDeviceID:senderDeviceID error:&error];
         
         xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
         xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, object);
@@ -162,30 +167,36 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         xpc_object_t xidsMessageData = xpc_dictionary_get_value(event, kMessageKeyValue);
         xpc_object_t xDeviceName = xpc_dictionary_get_value(event, kMessageKeyDeviceName);
         xpc_object_t xPeerID = xpc_dictionary_get_value(event, kMessageKeyPeerID);
+        xpc_object_t xSenderDeviceID = xpc_dictionary_get_value(event, kMessageKeyDeviceID);
+
         BOOL object = false;
         
         NSString *deviceName = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xDeviceName));
         NSString *peerID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xPeerID));
         NSDictionary *messageDictionary = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
+        NSString *senderDeviceID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xSenderDeviceID));
+
         CFErrorRef error = NULL;
         bool isNameString = (CFGetTypeID((__bridge CFTypeRef)(deviceName)) == CFStringGetTypeID());
         bool isPeerIDString = (CFGetTypeID((__bridge CFTypeRef)(peerID)) == CFStringGetTypeID());
         bool isMessageDictionary = (CFGetTypeID((__bridge CFTypeRef)(messageDictionary)) == CFDictionaryGetTypeID());
-        
+        bool isDeviceIDString = (CFGetTypeID((__bridge CFTypeRef)(senderDeviceID)) == CFStringGetTypeID());
+
         require_quiet(isNameString, xit);
         require_quiet(isPeerIDString, xit);
         require_quiet(isMessageDictionary, xit);
-        
+        require_quiet(isDeviceIDString, xit);
+
         NSString *localMessageIdentifier = [[NSUUID UUID] UUIDString];
         NSMutableDictionary* messageDictionaryCopy = [NSMutableDictionary dictionaryWithDictionary:messageDictionary];
         
         [messageDictionaryCopy setObject:localMessageIdentifier forKey:(__bridge NSString*)(kIDSMessageUniqueID)];
         
-        if([[KeychainSyncingOverIDSProxy idsProxy] sendIDSMessage:messageDictionaryCopy name:deviceName peer:peerID])
+        if([[KeychainSyncingOverIDSProxy idsProxy] sendIDSMessage:messageDictionaryCopy name:deviceName peer:peerID senderDeviceID:senderDeviceID])
         {
             object = true;
             NSString *useAckModel = [messageDictionaryCopy objectForKey:(__bridge NSString*)(kIDSMessageUsesAckModel)];
-            if(object && [useAckModel compare:@"YES"] == NSOrderedSame){
+            if(object && [useAckModel compare:@"YES"] == NSOrderedSame && [KeychainSyncingOverIDSProxy idsProxy].allowKVSFallBack){
                 secnotice("IDS Transport", "setting timer!");
                 [[KeychainSyncingOverIDSProxy idsProxy] setMessageTimer:localMessageIdentifier deviceID:deviceName message:messageDictionaryCopy];
             }
@@ -221,7 +232,6 @@ xit:
 
 static void idskeychainsyncingproxy_peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 {
-    describeXPCObject("peer: ", peer);
 	xpc_type_t type = xpc_get_type(event);
 	if (type == XPC_TYPE_ERROR) {
 		if (event == XPC_ERROR_CONNECTION_INVALID) {
@@ -235,8 +245,6 @@ static void idskeychainsyncingproxy_peer_event_handler(xpc_connection_t peer, xp
 		}
 	} else {
 		assert(type == XPC_TYPE_DICTIONARY);
-		// Handle the message.
-    //    describeXPCObject("dictionary:", event);
         dispatch_async(dispatch_get_main_queue(), ^{
             idskeychainsyncingproxy_peer_dictionary_handler(peer, event);
         });
@@ -265,6 +273,20 @@ static void idskeychainsyncingproxy_event_handler(xpc_connection_t peer)
 	xpc_connection_resume(peer);
 }
 
+static bool kvsFallbackFromDefaultsWrite(void)
+{
+    bool kvsFallbackEnabled = true;
+
+    //defaults write ~/Library/Preferences/com.apple.security allowKVSFallback -bool 
+    CFBooleanRef value = (CFBooleanRef)CFPreferencesCopyValue(CFSTR("allowKVSFallback"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    if ( value )
+    {
+        kvsFallbackEnabled = CFBooleanGetValue(value);
+        CFReleaseNull(value);
+    }
+    return kvsFallbackEnabled;
+}
+
 int idsproxymain(int argc, const char *argv[])
 {
     secdebug(PROXYXPCSCOPE, "Starting IDSProxy");
@@ -288,6 +310,8 @@ int idsproxymain(int argc, const char *argv[])
         [[KeychainSyncingOverIDSProxy idsProxy] sendPersistedMessagesAgain];
         [KeychainSyncingOverIDSProxy idsProxy].sendRestoredMessages = false;
     }
+
+    [KeychainSyncingOverIDSProxy idsProxy].allowKVSFallBack = kvsFallbackFromDefaultsWrite();
 
     // It looks to me like there is insufficient locking to allow a request to come in on the XPC connection while doing the initial all items.
     // Therefore I'm leaving the XPC connection suspended until that has time to process.

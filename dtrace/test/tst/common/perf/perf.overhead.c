@@ -59,6 +59,13 @@ T_DECL(overhead_baseline, "overhead_baseline", T_META_CHECK_LEAKS(false)) {
 	}
 
 	dt_stat_finalize(s);
+
+	dt_stat_thread_instructions_t i = dt_stat_thread_instructions_create("instructions");
+	T_STAT_MEASURE_LOOP(i) {
+		geteuid();
+	}
+
+	dt_stat_finalize(i);
 }
 
 T_DECL(overhead_syscall, "overhead_syscall", T_META_CHECK_LEAKS(false)) {
@@ -69,8 +76,15 @@ T_DECL(overhead_syscall, "overhead_syscall", T_META_CHECK_LEAKS(false)) {
 	T_STAT_MEASURE_LOOP(s) {
 		geteuid();
 	}
+	
+
+	dt_stat_thread_instructions_t i = dt_stat_thread_instructions_create("instructions");
+	T_STAT_MEASURE_LOOP(i) {
+		geteuid();
+	}
 
 	disable_dtrace();
+	dt_stat_finalize(i);
 	dt_stat_finalize(s);
 }
 
@@ -81,7 +95,14 @@ T_DECL(overhead_fbt, "overhead_fbt", T_META_CHECK_LEAKS(false)) {
 	T_STAT_MEASURE_LOOP(s) {
 		geteuid();
 	}
+
+	dt_stat_thread_instructions_t i = dt_stat_thread_instructions_create("instructions");
+	T_STAT_MEASURE_LOOP(i) {
+		geteuid();
+	}
+
 	disable_dtrace();
+	dt_stat_finalize(i);
 	dt_stat_finalize(s);
 }
 

@@ -2,6 +2,7 @@
  * Copyright (C) 2011 Igalia S.L.
  * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  * Copyright (C) 2014 Collabora Ltd.
+ * Copyright (C) 2017 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,6 +35,7 @@
 #include "WebKitContextMenuItemPrivate.h"
 #include "WebKitContextMenuPrivate.h"
 #include "WebKitDownloadPrivate.h"
+#include "WebKitEditingCommands.h"
 #include "WebKitEditorStatePrivate.h"
 #include "WebKitEnumTypes.h"
 #include "WebKitError.h"
@@ -43,9 +45,8 @@
 #include "WebKitIconLoadingClient.h"
 #include "WebKitInstallMissingMediaPluginsPermissionRequestPrivate.h"
 #include "WebKitJavascriptResultPrivate.h"
-#include "WebKitLoaderClient.h"
+#include "WebKitNavigationClient.h"
 #include "WebKitNotificationPrivate.h"
-#include "WebKitPolicyClient.h"
 #include "WebKitPrivate.h"
 #include "WebKitResponsePolicyDecision.h"
 #include "WebKitScriptDialogPrivate.h"
@@ -65,7 +66,9 @@
 #include <WebCore/GUniquePtrSoup.h>
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/RefPtrCairo.h>
+#include <WebCore/URL.h>
 #include <glib/gi18n-lib.h>
+#include <wtf/SetForScope.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
@@ -81,6 +84,7 @@
 #if PLATFORM(WPE)
 #include "APIViewClient.h"
 #include "WPEView.h"
+#include "WebKitWebViewBackendPrivate.h"
 #endif
 
 #if USE(LIBNOTIFY)
@@ -141,6 +145,7 @@ enum {
     INSECURE_CONTENT_DETECTED,
 
     WEB_PROCESS_CRASHED,
+    WEB_PROCESS_TERMINATED,
 
     AUTHENTICATE,
 
@@ -158,13 +163,21 @@ enum {
 enum {
     PROP_0,
 
+#if PLATFORM(WPE)
+    PROP_BACKEND,
+#endif
+
     PROP_WEB_CONTEXT,
     PROP_RELATED_VIEW,
     PROP_SETTINGS,
     PROP_USER_CONTENT_MANAGER,
     PROP_TITLE,
     PROP_ESTIMATED_LOAD_PROGRESS,
+
+#if PLATFORM(GTK)
     PROP_FAVICON,
+#endif
+
     PROP_URI,
     PROP_ZOOM_LEVEL,
     PROP_IS_LOADING,
@@ -185,9 +198,14 @@ struct _WebKitWebViewPrivate {
         // For modal dialogs, make sure the main loop is stopped when finalizing the webView.
         if (modalLoop && g_main_loop_is_running(modalLoop.get()))
             g_main_loop_quit(modalLoop.get());
+#if PLATFORM(WPE)
+        view = nullptr;
+        webkitWebViewBackendUnref(backend);
+#endif
     }
 
 #if PLATFORM(WPE)
+    WebKitWebViewBackend* backend;
     std::unique_ptr<WKWPE::View> view;
 #endif
 
@@ -219,16 +237,20 @@ struct _WebKitWebViewPrivate {
     GRefPtr<WebKitWebResource> mainResource;
     LoadingResourcesMap loadingResourcesMap;
 
+    WebKitScriptDialog* currentScriptDialog;
+
 #if PLATFORM(GTK)
     GRefPtr<WebKitWebInspector> inspector;
-#endif
 
     RefPtr<cairo_surface_t> favicon;
     GRefPtr<GCancellable> faviconCancellable;
+
     CString faviconURI;
     unsigned long faviconChangedHandlerID;
 
     SnapshotResultsMap snapshotResultsMap;
+#endif
+
     GRefPtr<WebKitAuthenticationRequest> authenticationRequest;
 
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
@@ -430,6 +452,7 @@ static void userAgentChanged(WebKitSettings* settings, GParamSpec*, WebKitWebVie
     getPage(webView).setCustomUserAgent(String::fromUTF8(webkit_settings_get_user_agent(settings)));
 }
 
+#if PLATFORM(GTK)
 static void webkitWebViewUpdateFavicon(WebKitWebView* webView, cairo_surface_t* favicon)
 {
     WebKitWebViewPrivate* priv = webView->priv;
@@ -487,6 +510,7 @@ static void faviconChangedCallback(WebKitFaviconDatabase*, const char* pageURI, 
 
     webkitWebViewUpdateFaviconURI(webView, faviconURI);
 }
+#endif
 
 static bool webkitWebViewIsConstructed(WebKitWebView* webView)
 {
@@ -526,6 +550,7 @@ static void webkitWebViewDisconnectSettingsSignalHandlers(WebKitWebView* webView
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(userAgentChanged), webView);
 }
 
+#if PLATFORM(GTK)
 static void webkitWebViewWatchForChangesInFavicon(WebKitWebView* webView)
 {
     WebKitWebViewPrivate* priv = webView->priv;
@@ -543,6 +568,7 @@ static void webkitWebViewDisconnectFaviconDatabaseSignalHandlers(WebKitWebView* 
         g_signal_handler_disconnect(webkit_web_context_get_favicon_database(priv->context.get()), priv->faviconChangedHandlerID);
     priv->faviconChangedHandlerID = 0;
 }
+#endif
 
 #if USE(LIBNOTIFY)
 static const char* gNotifyNotificationID = "wk-notify-notification";
@@ -604,6 +630,10 @@ static void webkitWebViewConstructed(GObject* object)
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
+#if PLATFORM(WPE)
+    if (!priv->backend)
+        priv->backend = webkitWebViewBackendCreateDefault();
+#endif
     if (priv->relatedView) {
         priv->context = webkit_web_view_get_context(priv->relatedView);
         priv->isEphemeral = webkit_web_view_is_ephemeral(priv->relatedView);
@@ -632,12 +662,14 @@ static void webkitWebViewConstructed(GObject* object)
     // The related view is only valid during the construction.
     priv->relatedView = nullptr;
 
-    attachLoaderClientToView(webView);
+    attachNavigationClientToView(webView);
     attachUIClientToView(webView);
-    attachPolicyClientToView(webView);
     attachContextMenuClientToView(webView);
     attachFormClientToView(webView);
+
+#if PLATFORM(GTK)
     attachIconLoadingClientToView(webView);
+#endif
 
 #if PLATFORM(WPE)
     priv->view->setClient(std::make_unique<WebViewClient>(webView));
@@ -656,6 +688,13 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
 
     switch (propId) {
+#if PLATFORM(WPE)
+    case PROP_BACKEND: {
+        gpointer backend = g_value_get_boxed(value);
+        webView->priv->backend = backend ? static_cast<WebKitWebViewBackend*>(backend) : nullptr;
+        break;
+    }
+#endif
     case PROP_WEB_CONTEXT: {
         gpointer webContext = g_value_get_object(value);
         webView->priv->context = webContext ? WEBKIT_WEB_CONTEXT(webContext) : nullptr;
@@ -698,6 +737,11 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
 
     switch (propId) {
+#if PLATFORM(WPE)
+    case PROP_BACKEND:
+        g_value_set_static_boxed(value, webView->priv->backend);
+        break;
+#endif
     case PROP_WEB_CONTEXT:
         g_value_set_object(value, webView->priv->context.get());
         break;
@@ -713,9 +757,11 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     case PROP_ESTIMATED_LOAD_PROGRESS:
         g_value_set_double(value, webkit_web_view_get_estimated_load_progress(webView));
         break;
+#if PLATFORM(GTK)
     case PROP_FAVICON:
         g_value_set_pointer(value, webkit_web_view_get_favicon(webView));
         break;
+#endif
     case PROP_URI:
         g_value_set_string(value, webkit_web_view_get_uri(webView));
         break;
@@ -745,9 +791,13 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
 static void webkitWebViewDispose(GObject* object)
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
+
+#if PLATFORM(GTK)
     webkitWebViewCancelFaviconRequest(webView);
-    webkitWebViewDisconnectSettingsSignalHandlers(webView);
     webkitWebViewDisconnectFaviconDatabaseSignalHandlers(webView);
+#endif
+
+    webkitWebViewDisconnectSettingsSignalHandlers(webView);
 
     if (webView->priv->loadObserver) {
         getPage(webView).pageLoadState().removeObserver(*webView->priv->loadObserver);
@@ -797,6 +847,25 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     webViewClass->run_file_chooser = webkitWebViewRunFileChooser;
     webViewClass->authenticate = webkitWebViewAuthenticate;
     webViewClass->show_notification = webkitWebViewShowNotification;
+
+#if PLATFORM(WPE)
+    /**
+     * WebKitWebView:backend:
+     *
+     * The #WebKitWebViewBackend of the view.
+     *
+     * since: 2.20
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_BACKEND,
+        g_param_spec_boxed(
+            "backend",
+            _("Backend"),
+            _("The backend for the web view"),
+            WEBKIT_TYPE_WEB_VIEW_BACKEND,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+#endif
 
     /**
      * WebKitWebView:web-context:
@@ -895,6 +964,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                         _("An estimate of the percent completion for a document load"),
                                                         0.0, 1.0, 0.0,
                                                         WEBKIT_PARAM_READABLE));
+#if PLATFORM(GTK)
     /**
      * WebKitWebView:favicon:
      *
@@ -907,6 +977,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                          _("Favicon"),
                                                          _("The favicon associated to the view, if any"),
                                                          WEBKIT_PARAM_READABLE));
+#endif
+
     /**
      * WebKitWebView:uri:
      *
@@ -1630,7 +1702,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * the menu.
      * </para></listitem>
      * <listitem><para>
-     * a generic #GdkEvent of type %GDK_NOTHING when the #GtkWidget:popup-menu
+     * a generic #GdkEvent of type %GDK_NOTHING when the #GtkWidget::popup-menu
      * signal was used to show the context menu.
      * </para></listitem>
      * </itemizedlist>
@@ -1735,6 +1807,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      *
      * Returns: %TRUE to stop other handlers from being invoked for the event.
      *    %FALSE to propagate the event further.
+     *
+     * Deprecated: 2.20: Use WebKitWebView::web-process-terminated instead.
      */
     signals[WEB_PROCESS_CRASHED] = g_signal_new(
         "web-process-crashed",
@@ -1744,6 +1818,26 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
         g_signal_accumulator_true_handled, nullptr,
         g_cclosure_marshal_generic,
         G_TYPE_BOOLEAN, 0);
+
+    /**
+     * WebKitWebView::web-process-terminated:
+     * @web_view: the #WebKitWebView
+     * @reason: the a #WebKitWebProcessTerminationReason
+     *
+     * This signal is emitted when the web process terminates abnormally due
+     * to @reason.
+     *
+     * Since: 2.20
+     */
+    signals[WEB_PROCESS_TERMINATED] = g_signal_new(
+        "web-process-terminated",
+        G_TYPE_FROM_CLASS(webViewClass),
+        G_SIGNAL_RUN_LAST,
+        G_STRUCT_OFFSET(WebKitWebViewClass, web_process_terminated),
+        0, 0,
+        g_cclosure_marshal_VOID__ENUM,
+        G_TYPE_NONE, 1,
+        WEBKIT_TYPE_WEB_PROCESS_TERMINATION_REASON);
 
     /**
      * WebKitWebView::authenticate:
@@ -1859,7 +1953,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * Returns: %TRUE to stop other handlers from being invoked for the event.
      *   %FALSE to propagate the event further.
      *
-     * Since: 2.18.
+     * Since: 2.18
      */
     signals[SHOW_OPTION_MENU] = g_signal_new(
         "show-option-menu",
@@ -1889,7 +1983,7 @@ void webkitWebViewCreatePage(WebKitWebView* webView, Ref<API::PageConfiguration>
 #if PLATFORM(GTK)
     webkitWebViewBaseCreateWebPage(WEBKIT_WEB_VIEW_BASE(webView), WTFMove(configuration));
 #elif PLATFORM(WPE)
-    webView->priv->view.reset(WKWPE::View::create(nullptr, configuration.get()));
+    webView->priv->view.reset(WKWPE::View::create(webkit_web_view_backend_get_wpe_backend(webView->priv->backend), configuration.get()));
 #endif
 }
 
@@ -1903,18 +1997,22 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
     WebKitWebViewPrivate* priv = webView->priv;
     switch (loadEvent) {
     case WEBKIT_LOAD_STARTED:
+#if PLATFORM(GTK)
         webkitWebViewCancelFaviconRequest(webView);
         webkitWebViewWatchForChangesInFavicon(webView);
+#endif
         webkitWebViewCancelAuthenticationRequest(webView);
         priv->loadingResourcesMap.clear();
         priv->mainResource = nullptr;
         break;
+#if PLATFORM(GTK)
     case WEBKIT_LOAD_COMMITTED: {
         WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
         GUniquePtr<char> faviconURI(webkit_favicon_database_get_favicon_uri(database, priv->activeURI.data()));
         webkitWebViewUpdateFaviconURI(webView, faviconURI.get());
         break;
     }
+#endif
     case WEBKIT_LOAD_FINISHED:
         webkitWebViewCancelAuthenticationRequest(webView);
         break;
@@ -1949,6 +2047,7 @@ void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView* webView, const char* fa
     g_signal_emit(webView, signals[LOAD_CHANGED], 0, WEBKIT_LOAD_FINISHED);
 }
 
+#if PLATFORM(GTK)
 void webkitWebViewGetLoadDecisionForIcon(WebKitWebView* webView, const LinkIcon& icon, Function<void(bool)>&& completionHandler)
 {
     WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(webView->priv->context.get());
@@ -1960,6 +2059,7 @@ void webkitWebViewSetIcon(WebKitWebView* webView, const LinkIcon& icon, API::Dat
     WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(webView->priv->context.get());
     webkitFaviconDatabaseSetIconForPageURL(database, icon, iconData, getPage(webView).pageLoadState().activeURL());
 }
+#endif
 
 WebPageProxy* webkitWebViewCreateNewPage(WebKitWebView* webView, const WindowFeatures& windowFeatures, WebKitNavigationAction* navigationAction)
 {
@@ -2008,6 +2108,7 @@ void webkitWebViewClosePage(WebKitWebView* webView)
 void webkitWebViewRunJavaScriptAlert(WebKitWebView* webView, const CString& message)
 {
     WebKitScriptDialog dialog(WEBKIT_SCRIPT_DIALOG_ALERT, message);
+    SetForScope<WebKitScriptDialog*> change(webView->priv->currentScriptDialog, &dialog);
     gboolean returnValue;
     g_signal_emit(webView, signals[SCRIPT_DIALOG], 0, &dialog, &returnValue);
 }
@@ -2015,6 +2116,7 @@ void webkitWebViewRunJavaScriptAlert(WebKitWebView* webView, const CString& mess
 bool webkitWebViewRunJavaScriptConfirm(WebKitWebView* webView, const CString& message)
 {
     WebKitScriptDialog dialog(WEBKIT_SCRIPT_DIALOG_CONFIRM, message);
+    SetForScope<WebKitScriptDialog*> change(webView->priv->currentScriptDialog, &dialog);
     gboolean returnValue;
     g_signal_emit(webView, signals[SCRIPT_DIALOG], 0, &dialog, &returnValue);
     return dialog.confirmed;
@@ -2023,6 +2125,7 @@ bool webkitWebViewRunJavaScriptConfirm(WebKitWebView* webView, const CString& me
 CString webkitWebViewRunJavaScriptPrompt(WebKitWebView* webView, const CString& message, const CString& defaultText)
 {
     WebKitScriptDialog dialog(WEBKIT_SCRIPT_DIALOG_PROMPT, message, defaultText);
+    SetForScope<WebKitScriptDialog*> change(webView->priv->currentScriptDialog, &dialog);
     gboolean returnValue;
     g_signal_emit(webView, signals[SCRIPT_DIALOG], 0, &dialog, &returnValue);
     return dialog.text;
@@ -2031,9 +2134,65 @@ CString webkitWebViewRunJavaScriptPrompt(WebKitWebView* webView, const CString& 
 bool webkitWebViewRunJavaScriptBeforeUnloadConfirm(WebKitWebView* webView, const CString& message)
 {
     WebKitScriptDialog dialog(WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM, message);
+    SetForScope<WebKitScriptDialog*> change(webView->priv->currentScriptDialog, &dialog);
     gboolean returnValue;
     g_signal_emit(webView, signals[SCRIPT_DIALOG], 0, &dialog, &returnValue);
     return dialog.confirmed;
+}
+
+bool webkitWebViewIsShowingScriptDialog(WebKitWebView* webView)
+{
+    if (!webView->priv->currentScriptDialog)
+        return false;
+
+    // FIXME: Add API to ask the user in case default implementation is not being used.
+    return webkitScriptDialogIsRunning(webView->priv->currentScriptDialog);
+}
+
+String webkitWebViewGetCurrentScriptDialogMessage(WebKitWebView* webView)
+{
+    if (!webView->priv->currentScriptDialog)
+        return { };
+
+    return String::fromUTF8(webView->priv->currentScriptDialog->message);
+}
+
+void webkitWebViewSetCurrentScriptDialogUserInput(WebKitWebView* webView, const String& userInput)
+{
+    if (!webView->priv->currentScriptDialog)
+        return;
+
+    // FIXME: Add API to ask the user in case default implementation is not being used.
+    if (webkitScriptDialogIsRunning(webView->priv->currentScriptDialog))
+        webkitScriptDialogSetUserInput(webView->priv->currentScriptDialog, userInput);
+}
+
+void webkitWebViewAcceptCurrentScriptDialog(WebKitWebView* webView)
+{
+    if (!webView->priv->currentScriptDialog)
+        return;
+
+    // FIXME: Add API to ask the user in case default implementation is not being used.
+    if (webkitScriptDialogIsRunning(webView->priv->currentScriptDialog))
+        webkitScriptDialogAccept(webView->priv->currentScriptDialog);
+}
+
+void webkitWebViewDismissCurrentScriptDialog(WebKitWebView* webView)
+{
+    if (!webView->priv->currentScriptDialog)
+        return;
+
+    // FIXME: Add API to ask the user in case default implementation is not being used.
+    if (webkitScriptDialogIsRunning(webView->priv->currentScriptDialog))
+        webkitScriptDialogDismiss(webView->priv->currentScriptDialog);
+}
+
+std::optional<WebKitScriptDialogType> webkitWebViewGetCurrentScriptDialogType(WebKitWebView* webView)
+{
+    if (!webView->priv->currentScriptDialog)
+        return std::nullopt;
+
+    return static_cast<WebKitScriptDialogType>(webView->priv->currentScriptDialog->type);
 }
 
 void webkitWebViewMakePolicyDecision(WebKitWebView* webView, WebKitPolicyDecisionType type, WebKitPolicyDecision* decision)
@@ -2256,6 +2415,25 @@ bool webkitWebViewShowOptionMenu(WebKitWebView* webView, const IntRect& rect, We
 }
 #endif
 
+#if PLATFORM(WPE)
+/**
+ * webkit_web_view_get_backend:
+ * @web_view: a #WebKitWebView
+ *
+ * Get the #WebKitWebViewBackend of @web_view
+ *
+ * Returns: (transfer none): the #WebKitWebViewBackend of @web_view
+ *
+ * Since: 2.20
+ */
+WebKitWebViewBackend* webkit_web_view_get_backend(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+
+    return webView->priv->backend;
+}
+#endif
+
 /**
  * webkit_web_view_get_context:
  * @web_view: a #WebKitWebView
@@ -2429,7 +2607,7 @@ void webkit_web_view_load_alternate_html(WebKitWebView* webView, const gchar* co
     g_return_if_fail(content);
     g_return_if_fail(contentURI);
 
-    getPage(webView).loadAlternateHTMLString(String::fromUTF8(content), String::fromUTF8(baseURI), String::fromUTF8(contentURI));
+    getPage(webView).loadAlternateHTMLString(String::fromUTF8(content), URL(URL(), String::fromUTF8(baseURI)), URL(URL(), String::fromUTF8(contentURI)));
 }
 
 /**
@@ -2504,7 +2682,7 @@ void webkit_web_view_load_request(WebKitWebView* webView, WebKitURIRequest* requ
 
     ResourceRequest resourceRequest;
     webkitURIRequestGetResourceRequest(request, resourceRequest);
-    getPage(webView).loadRequest(resourceRequest);
+    getPage(webView).loadRequest(WTFMove(resourceRequest));
 }
 
 /**
@@ -2565,7 +2743,7 @@ void webkit_web_view_reload_bypass_cache(WebKitWebView* webView)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    getPage(webView).reload(WebCore::ReloadOption::FromOrigin);
+    getPage(webView).reload(ReloadOption::FromOrigin);
 }
 
 /**
@@ -2751,6 +2929,7 @@ const gchar* webkit_web_view_get_uri(WebKitWebView* webView)
     return webView->priv->activeURI.data();
 }
 
+#if PLATFORM(GTK)
 /**
  * webkit_web_view_get_favicon:
  * @web_view: a #WebKitWebView
@@ -2770,6 +2949,7 @@ cairo_surface_t* webkit_web_view_get_favicon(WebKitWebView* webView)
 
     return webView->priv->favicon.get();
 }
+#endif
 
 /**
  * webkit_web_view_get_custom_charset:
@@ -2992,9 +3172,9 @@ void webkit_web_view_can_execute_editing_command(WebKitWebView* webView, const c
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(command);
 
-    GTask* task = g_task_new(webView, cancellable, callback, userData);
-    getPage(webView).validateCommand(String::fromUTF8(command), [task](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
-        g_task_return_boolean(adoptGRef(task).get(), isEnabled);        
+    GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
+    getPage(webView).validateCommand(String::fromUTF8(command), [task = WTFMove(task)](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
+        g_task_return_boolean(task.get(), isEnabled);
     });
 }
 
@@ -3093,7 +3273,7 @@ JSGlobalContextRef webkit_web_view_get_javascript_global_context(WebKitWebView* 
     return webView->priv->javascriptGlobalContext.get();
 }
 
-static void webkitWebViewRunJavaScriptCallback(API::SerializedScriptValue* wkSerializedScriptValue, const WebCore::ExceptionDetails& exceptionDetails, GTask* task)
+static void webkitWebViewRunJavaScriptCallback(API::SerializedScriptValue* wkSerializedScriptValue, const ExceptionDetails& exceptionDetails, GTask* task)
 {
     if (g_task_return_error_if_cancelled(task))
         return;
@@ -3120,7 +3300,7 @@ static void webkitWebViewRunJavaScriptCallback(API::SerializedScriptValue* wkSer
 
     auto* jsContext = webkit_web_view_get_javascript_global_context(WEBKIT_WEB_VIEW(g_task_get_source_object(task)));
     g_task_return_pointer(task, webkitJavascriptResultCreate(jsContext,
-        *wkSerializedScriptValue->internalRepresentation()),
+        wkSerializedScriptValue->internalRepresentation()),
         reinterpret_cast<GDestroyNotify>(webkit_javascript_result_unref));
 }
 
@@ -3144,7 +3324,7 @@ void webkit_web_view_run_javascript(WebKitWebView* webView, const gchar* script,
     g_return_if_fail(script);
 
     GTask* task = g_task_new(webView, cancellable, callback, userData);
-    getPage(webView).runJavaScriptInMainFrame(String::fromUTF8(script), true, [task](API::SerializedScriptValue* serializedScriptValue, bool, const WebCore::ExceptionDetails& exceptionDetails, WebKit::CallbackBase::Error) {
+    getPage(webView).runJavaScriptInMainFrame(String::fromUTF8(script), true, [task](API::SerializedScriptValue* serializedScriptValue, bool, const ExceptionDetails& exceptionDetails, WebKit::CallbackBase::Error) {
         webkitWebViewRunJavaScriptCallback(serializedScriptValue, exceptionDetails, adoptGRef(task).get());
     });
 }
@@ -3235,7 +3415,7 @@ static void resourcesStreamReadCallback(GObject* object, GAsyncResult* result, g
     WebKitWebView* webView = WEBKIT_WEB_VIEW(g_task_get_source_object(task.get()));
     gpointer outputStreamData = g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(object));
     getPage(webView).runJavaScriptInMainFrame(String::fromUTF8(reinterpret_cast<const gchar*>(outputStreamData)), true,
-        [task](API::SerializedScriptValue* serializedScriptValue, bool, const WebCore::ExceptionDetails& exceptionDetails, WebKit::CallbackBase::Error) {
+        [task](API::SerializedScriptValue* serializedScriptValue, bool, const ExceptionDetails& exceptionDetails, WebKit::CallbackBase::Error) {
             webkitWebViewRunJavaScriptCallback(serializedScriptValue, exceptionDetails, task.get());
         });
 }
@@ -3566,6 +3746,7 @@ gboolean webkit_web_view_get_tls_info(WebKitWebView* webView, GTlsCertificate** 
     return !!certificateInfo.certificate();
 }
 
+#if PLATFORM(GTK)
 void webKitWebViewDidReceiveSnapshot(WebKitWebView* webView, uint64_t callbackID, WebImage* webImage)
 {
     GRefPtr<GTask> task = webView->priv->snapshotResultsMap.take(callbackID);
@@ -3658,11 +3839,15 @@ cairo_surface_t* webkit_web_view_get_snapshot_finish(WebKitWebView* webView, GAs
 
     return static_cast<cairo_surface_t*>(g_task_propagate_pointer(G_TASK(result), error));
 }
+#endif
 
-void webkitWebViewWebProcessCrashed(WebKitWebView* webView)
+void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessTerminationReason reason)
 {
-    gboolean returnValue;
-    g_signal_emit(webView, signals[WEB_PROCESS_CRASHED], 0, &returnValue);
+    if (reason == WEBKIT_WEB_PROCESS_CRASHED) {
+        gboolean returnValue;
+        g_signal_emit(webView, signals[WEB_PROCESS_CRASHED], 0, &returnValue);
+    }
+    g_signal_emit(webView, signals[WEB_PROCESS_TERMINATED], 0, reason);
 }
 
 #if PLATFORM(GTK)
@@ -3798,7 +3983,7 @@ WebKitEditorState* webkit_web_view_get_editor_state(WebKitWebView *webView)
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
 
     if (!webView->priv->editorState)
-        webView->priv->editorState = adoptGRef(webkitEditorStateCreate(getPage(webView).editorState()));
+        webView->priv->editorState = adoptGRef(webkitEditorStateCreate(getPage(webView)));
 
     return webView->priv->editorState.get();
 }

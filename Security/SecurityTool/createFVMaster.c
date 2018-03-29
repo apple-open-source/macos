@@ -685,11 +685,11 @@ keychain_createMFV(int argc, char * const *argv)
         //  Specify the keysize in bits (default 1024)
             keySizeInBits = atoi(optarg);
             if (!(keySizeInBits == SR_KEY_SIZE_IN_BITS || keySizeInBits == SR2_KEY_SIZE_IN_BITS || keySizeInBits == 4096))
-                return 2;
+                return SHOW_USAGE_MESSAGE;
             break;
 		case '?':
 		default:
-			return 2; /* @@@ Return 2 triggers usage message. */
+			return SHOW_USAGE_MESSAGE;
 		}
 	}
 /*
@@ -704,7 +704,7 @@ keychain_createMFV(int argc, char * const *argv)
 	argv += optind;
 
 	if (argc > 1)
-        return 2; /* @@@ Return 2 triggers usage message. */
+        return SHOW_USAGE_MESSAGE;
 
     keychainName = (argc == 1)?*argv:_masterKeychainName;
     if (!keychainName || *keychainName == '\0')

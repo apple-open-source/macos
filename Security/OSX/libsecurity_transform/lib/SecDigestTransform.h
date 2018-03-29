@@ -140,7 +140,7 @@ SecTransformRef SecDigestTransformCreate(CFTypeRef __nullable digestType,
 	@result			The CFTypeID
 */
 
-CFTypeID SecDigestTransformGetTypeID()
+    CFTypeID SecDigestTransformGetTypeID(void)
 										 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
 
 CF_IMPLICIT_BRIDGING_DISABLED

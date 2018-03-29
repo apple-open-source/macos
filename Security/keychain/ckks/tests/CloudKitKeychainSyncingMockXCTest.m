@@ -44,6 +44,8 @@
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSPeer.h"
 
+#import "keychain/ot/OTDefines.h"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #import "Security/SecureObjectSync/SOSAccount.h"
@@ -109,7 +111,7 @@
                     [description isEqualToString: [SecCKKSKeyClassTLK stringByAppendingString: @"-piggy"]];
         bool isClassA = [description isEqualToString: SecCKKSKeyClassA];
 
-        return (isTLK || isClassA) && strongSelf.aksLockState;
+        return ((isTLK || isClassA) && strongSelf.aksLockState) || self.keychainFetchError;
     };
 
     OCMStub([self.mockCKKSKey setKeyMaterialInKeychain:[OCMArg checkWithBlock:shouldFailKeychainQuery] error:[OCMArg anyObjectRef]]
@@ -123,10 +125,15 @@
                                                         encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
                                                            signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
 
-    // No trusted non-self peers by default. Your test can change this if it wants.
+    // One trusted non-self peer, but it doesn't have any Octagon keys. Your test can change this if it wants.
+    // However, note that [self putFakeDeviceStatusInCloudKit:] will likely not do what you want.
+    self.remoteSOSOnlyPeer = [[CKKSSOSPeer alloc] initWithSOSPeerID:@"remote-peer-with-no-keys"
+                                                encryptionPublicKey:nil
+                                                   signingPublicKey:nil];
     self.currentPeers = [NSMutableSet set];
+    [self.currentPeers addObject:self.remoteSOSOnlyPeer];
 
-    OCMStub([self.mockCKKSViewManager fetchSelfPeers:[OCMArg anyObjectRef]]).andCall(self, @selector(fetchSelfPeers:));
+    OCMStub([self.mockCKKSViewManager currentSOSSelf:[OCMArg anyObjectRef]]).andCall(self, @selector(currentSOSSelf:));
     OCMStub([self.mockCKKSViewManager fetchTrustedPeers:[OCMArg anyObjectRef]]).andCall(self, @selector(fetchTrustedPeers:));
 
     // Bring up a fake CKKSControl object
@@ -147,20 +154,30 @@
     self.currentPeers = nil;
 }
 
-- (CKKSSelves*)fetchSelfPeers:(NSError* __autoreleasing *)error {
-    //
-    if(self.aksLockState) {
+- (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error {
+    if(self.currentSelfPeerError) {
+        if(error) {
+            *error = self.currentSelfPeerError;
+        }
+        return nil;
+    } else if(self.aksLockState) {
         if(error) {
             *error = [NSError errorWithDomain:(__bridge NSString*)kSecErrorDomain code:errSecInteractionNotAllowed userInfo:nil];
         }
         return nil;
     } else {
-        // Only supports a single self peer for now
-        return [[CKKSSelves alloc] initWithCurrent:self.currentSelfPeer allSelves:nil];
+        return self.currentSelfPeer;
     }
 }
 
 - (NSSet<id<CKKSPeer>>*)fetchTrustedPeers:(NSError* __autoreleasing *)error {
+    if(self.currentPeersError) {
+        if(error) {
+            *error = self.currentPeersError;
+        }
+        return nil;
+    }
+
     // Trusted Peers include ourselves, but as a CKKSSOSPeer object instead of a self peer
     CKKSSOSPeer* s = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.currentSelfPeer.peerID
                                         encryptionPublicKey:self.currentSelfPeer.publicEncryptionKey
@@ -194,6 +211,13 @@
 
 // Helpers to handle 'locked' keychain loading and saving
 -(bool)handleLockLoadKeyMaterialFromKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
+    if(self.keychainFetchError) {
+        if(error) {
+            *error = self.keychainFetchError;
+        }
+        return false;
+    }
+
     // I think the behavior is: errSecItemNotFound if the item doesn't exist, otherwise errSecInteractionNotAllowed.
     XCTAssertTrue(self.aksLockState, "Failing a read when keychain is locked");
 
@@ -211,6 +235,13 @@
 }
 
 -(bool)handleLockSetKeyMaterialInKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
+    if(self.keychainFetchError) {
+        if(error) {
+            *error = self.keychainFetchError;
+        }
+        return false;
+    }
+
     XCTAssertTrue(self.aksLockState, "Failing a write only when keychain is locked");
     if(error) {
         *error = [NSError errorWithDomain:@"securityd" code:errSecInteractionNotAllowed userInfo:nil];
@@ -280,6 +311,25 @@
 
     [zonekeys.currentClassCPointer saveToDatabase:&error];
     XCTAssertNil(error, "Current Class C pointer saved to database successfully");
+}
+
+- (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys {
+    CKKSDeviceStateEntry* dse = [[CKKSDeviceStateEntry alloc] initForDevice:self.remoteSOSOnlyPeer.peerID
+                                                                  osVersion:@"faux-version"
+                                                             lastUnlockTime:nil
+                                                               circlePeerID:self.remoteSOSOnlyPeer.peerID
+                                                               circleStatus:kSOSCCInCircle
+                                                                   keyState:SecCKKSZoneKeyStateReady
+                                                             currentTLKUUID:zonekeys.tlk.uuid
+                                                          currentClassAUUID:zonekeys.classA.uuid
+                                                          currentClassCUUID:zonekeys.classC.uuid
+                                                                     zoneID:zoneID
+                                                            encodedCKRecord:nil];
+    [self.zones[zoneID] addToZone:dse zoneID:zoneID];
+}
+
+- (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID {
+    [self putFakeDeviceStatusInCloudKit:zoneID zonekeys:self.keys[zoneID]];
 }
 
 - (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
@@ -365,6 +415,7 @@ static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
     SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, &octagonSigningKey, &octagonEncryptionKey, NULL);
     
     NSData *data = CFBridgingRelease(SOSPeerInfoCopyData(SOSFullPeerInfoGetPeerInfo(fpi), NULL));
+    CFReleaseNull(fpi);
     if (data)
         [icloudidentities addObject:data];
     
@@ -480,7 +531,10 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     NSSet* peers = [self.currentPeers setByAddingObject:self.currentSelfPeer];
 
     for(id<CKKSPeer> peer in peers) {
-        [self putTLKShareInCloudKit:key from:sharingPeer to:peer zoneID:zoneID];
+        // Can only send to peers with encryption keys
+        if(peer.publicEncryptionKey) {
+            [self putTLKShareInCloudKit:key from:sharingPeer to:peer zoneID:zoneID];
+        }
     }
 }
 
@@ -512,7 +566,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     [self saveTLKSharesInLocalDatabase:zoneID];
 }
 
-// Override our base class here:
+// Override our base class here, but only for Keychain Views
 
 - (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)expectedRecordTypeCounts
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*)expectedDeletedRecordTypeCounts
@@ -520,70 +574,76 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
           checkModifiedRecord:(BOOL (^)(CKRecord*))checkRecord
          runAfterModification:(void (^) ())afterModification
 {
-    __weak __typeof(self) weakSelf = self;
+
+    void (^newAfterModification)() = afterModification;
+    if([self.ckksZones containsObject:zoneID]) {
+        __weak __typeof(self) weakSelf = self;
+        newAfterModification = ^{
+            __strong __typeof(weakSelf) strongSelf = weakSelf;
+            XCTAssertNotNil(strongSelf, "self exists");
+
+            // Reach into our cloudkit database and extract the keys
+            CKRecordID* currentTLKPointerID =    [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassTLK zoneID:zoneID];
+            CKRecordID* currentClassAPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassA   zoneID:zoneID];
+            CKRecordID* currentClassCPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassC   zoneID:zoneID];
+
+            ZoneKeys* zonekeys = strongSelf.keys[zoneID];
+            if(!zonekeys) {
+                zonekeys = [[ZoneKeys alloc] init];
+                strongSelf.keys[zoneID] = zonekeys;
+            }
+
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID],    "Have a currentTLKPointer");
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID], "Have a currentClassAPointer");
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID], "Have a currentClassCPointer");
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID][SecCKRecordParentKeyRefKey],    "Have a currentTLKPointer parent");
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID][SecCKRecordParentKeyRefKey], "Have a currentClassAPointer parent");
+            XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID][SecCKRecordParentKeyRefKey], "Have a currentClassCPointer parent");
+            XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID][SecCKRecordParentKeyRefKey] recordID].recordName,    "Have a currentTLKPointer parent UUID");
+            XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID][SecCKRecordParentKeyRefKey] recordID].recordName, "Have a currentClassAPointer parent UUID");
+            XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID][SecCKRecordParentKeyRefKey] recordID].recordName, "Have a currentClassCPointer parent UUID");
+
+            zonekeys.currentTLKPointer =    [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID]];
+            zonekeys.currentClassAPointer = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID]];
+            zonekeys.currentClassCPointer = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID]];
+
+            XCTAssertNotNil(zonekeys.currentTLKPointer.currentKeyUUID,    "Have a currentTLKPointer current UUID");
+            XCTAssertNotNil(zonekeys.currentClassAPointer.currentKeyUUID, "Have a currentClassAPointer current UUID");
+            XCTAssertNotNil(zonekeys.currentClassCPointer.currentKeyUUID, "Have a currentClassCPointer current UUID");
+
+            CKRecordID* currentTLKID =    [[CKRecordID alloc] initWithRecordName:zonekeys.currentTLKPointer.currentKeyUUID    zoneID:zoneID];
+            CKRecordID* currentClassAID = [[CKRecordID alloc] initWithRecordName:zonekeys.currentClassAPointer.currentKeyUUID zoneID:zoneID];
+            CKRecordID* currentClassCID = [[CKRecordID alloc] initWithRecordName:zonekeys.currentClassCPointer.currentKeyUUID zoneID:zoneID];
+
+            zonekeys.tlk =    [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentTLKID]];
+            zonekeys.classA = [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassAID]];
+            zonekeys.classC = [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassCID]];
+
+            XCTAssertNotNil(zonekeys.tlk, "Have the current TLK");
+            XCTAssertNotNil(zonekeys.classA, "Have the current Class A key");
+            XCTAssertNotNil(zonekeys.classC, "Have the current Class C key");
+
+            NSMutableArray<CKKSTLKShare*>* shares = [NSMutableArray array];
+            for(CKRecordID* recordID in strongSelf.zones[zoneID].currentDatabase.allKeys) {
+                if([recordID.recordName hasPrefix: [CKKSTLKShare ckrecordPrefix]]) {
+                    CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:strongSelf.zones[zoneID].currentDatabase[recordID]];
+                    XCTAssertNotNil(share, "Should be able to parse a CKKSTLKShare CKRecord into a CKKSTLKShare");
+                    [shares addObject:share];
+                }
+            }
+            zonekeys.tlkShares = shares;
+
+            if(afterModification) {
+                afterModification();
+            }
+        };
+    }
+
     [super expectCKModifyRecords:expectedRecordTypeCounts
          deletedRecordTypeCounts:expectedDeletedRecordTypeCounts
                           zoneID:zoneID
              checkModifiedRecord:checkRecord
-            runAfterModification:^{
-                __strong __typeof(weakSelf) strongSelf = weakSelf;
-                XCTAssertNotNil(strongSelf, "self exists");
-
-                // Reach into our cloudkit database and extract the keys
-                CKRecordID* currentTLKPointerID =    [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassTLK zoneID:zoneID];
-                CKRecordID* currentClassAPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassA   zoneID:zoneID];
-                CKRecordID* currentClassCPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassC   zoneID:zoneID];
-
-                ZoneKeys* zonekeys = strongSelf.keys[zoneID];
-                if(!zonekeys) {
-                    zonekeys = [[ZoneKeys alloc] init];
-                    strongSelf.keys[zoneID] = zonekeys;
-                }
-
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID],    "Have a currentTLKPointer");
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID], "Have a currentClassAPointer");
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID], "Have a currentClassCPointer");
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID][SecCKRecordParentKeyRefKey],    "Have a currentTLKPointer parent");
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID][SecCKRecordParentKeyRefKey], "Have a currentClassAPointer parent");
-                XCTAssertNotNil(strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID][SecCKRecordParentKeyRefKey], "Have a currentClassCPointer parent");
-                XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID][SecCKRecordParentKeyRefKey] recordID].recordName,    "Have a currentTLKPointer parent UUID");
-                XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID][SecCKRecordParentKeyRefKey] recordID].recordName, "Have a currentClassAPointer parent UUID");
-                XCTAssertNotNil([strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID][SecCKRecordParentKeyRefKey] recordID].recordName, "Have a currentClassCPointer parent UUID");
-
-                zonekeys.currentTLKPointer =    [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentTLKPointerID]];
-                zonekeys.currentClassAPointer = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassAPointerID]];
-                zonekeys.currentClassCPointer = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassCPointerID]];
-
-                XCTAssertNotNil(zonekeys.currentTLKPointer.currentKeyUUID,    "Have a currentTLKPointer current UUID");
-                XCTAssertNotNil(zonekeys.currentClassAPointer.currentKeyUUID, "Have a currentClassAPointer current UUID");
-                XCTAssertNotNil(zonekeys.currentClassCPointer.currentKeyUUID, "Have a currentClassCPointer current UUID");
-
-                CKRecordID* currentTLKID =    [[CKRecordID alloc] initWithRecordName:zonekeys.currentTLKPointer.currentKeyUUID    zoneID:zoneID];
-                CKRecordID* currentClassAID = [[CKRecordID alloc] initWithRecordName:zonekeys.currentClassAPointer.currentKeyUUID zoneID:zoneID];
-                CKRecordID* currentClassCID = [[CKRecordID alloc] initWithRecordName:zonekeys.currentClassCPointer.currentKeyUUID zoneID:zoneID];
-
-                zonekeys.tlk =    [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentTLKID]];
-                zonekeys.classA = [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassAID]];
-                zonekeys.classC = [[CKKSKey alloc] initWithCKRecord: strongSelf.zones[zoneID].currentDatabase[currentClassCID]];
-
-                XCTAssertNotNil(zonekeys.tlk, "Have the current TLK");
-                XCTAssertNotNil(zonekeys.classA, "Have the current Class A key");
-                XCTAssertNotNil(zonekeys.classC, "Have the current Class C key");
-
-                NSMutableArray<CKKSTLKShare*>* shares = [NSMutableArray array];
-                for(CKRecordID* recordID in strongSelf.zones[zoneID].currentDatabase.allKeys) {
-                    if([recordID.recordName hasPrefix: [CKKSTLKShare ckrecordPrefix]]) {
-                        CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:strongSelf.zones[zoneID].currentDatabase[recordID]];
-                        XCTAssertNotNil(share, "Should be able to parse a CKKSTLKShare CKRecord into a CKKSTLKShare");
-                        [shares addObject:share];
-                    }
-                }
-                zonekeys.tlkShares = shares;
-
-                if(afterModification) {
-                    afterModification();
-                }
-            }];
+            runAfterModification:newAfterModification];
 }
 
 - (void)expectCKReceiveSyncKeyHierarchyError:(CKRecordZoneID*)zoneID {
@@ -947,13 +1007,13 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
                             };
     CFTypeRef result = NULL;
 
-    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &result), "Finding item %@", account);
-    XCTAssertNotNil((__bridge id)result, "Received an item");
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &result), "Item %@ should exist", account);
+    XCTAssertNotNil((__bridge id)result, "Should have received an item");
 
     NSString* storedPassword = [[NSString alloc] initWithData: (__bridge NSData*) result encoding: NSUTF8StringEncoding];
-    XCTAssertNotNil(storedPassword, "Password parsed as a password");
+    XCTAssertNotNil(storedPassword, "Password should parse as a UTF8 password");
 
-    XCTAssertEqualObjects(storedPassword, password, "Stored password matches received password");
+    XCTAssertEqualObjects(storedPassword, password, "Stored password should match received password");
 }
 
 -(XCTestExpectation*)expectChangeForView:(NSString*)view {

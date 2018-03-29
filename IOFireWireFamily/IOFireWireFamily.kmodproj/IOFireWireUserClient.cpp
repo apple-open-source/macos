@@ -417,11 +417,36 @@ IOFireWireUserClient::start( IOService * provider )
 
 	bool result = true ;
 
-	fExporter = IOFWUserObjectExporter::createWithOwner( this );
-	
-	if ( ! fExporter )
-		result = false ;
-		
+    if( result )
+    {
+        if( !fOwner )
+        {
+            result = false;
+        }
+    }
+
+    if( result )
+    {
+        fController = fOwner->getController();
+        if( fController == NULL )
+        {
+            result = false;
+        }
+    }
+
+    if( result )
+    {
+        fController->retain();
+    }
+    
+    if( result )
+    {
+        fExporter = IOFWUserObjectExporter::createWithOwner( this );
+        
+        if ( ! fExporter )
+            result = false ;
+    }
+    
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 	if (result)
 	{
@@ -483,6 +508,11 @@ IOFireWireUserClient::free()
 		fExporter = NULL ;
 	}
 	
+    if( fController )
+    {
+        fController->release();
+    }
+    
 	if ( fOwner )
 	{
 		fOwner->release() ;
@@ -622,8 +652,9 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 										void * reference)
 {
 	IOReturn result = kIOReturnBadArgument;
-	OSObject *targetObject;
-
+	OSObject *targetObject = NULL;
+    bool target_object_needs_release = false;
+    
 	UInt32 actualSelector = selector & 0xFFFF ;
 	if ( actualSelector >= kNumMethods )
 		return result;
@@ -643,8 +674,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 		
 		if (targetObject)
 		{
-			(targetObject)->release() ;	// exporter retains returned objects, we have to release it here.. 
-										// hopefully no one will release the object until we're done..
+            // exporter retains returned objects, need to remember to release it..
+            target_object_needs_release = true;
 		}
 		else
 			return result;
@@ -2504,6 +2535,12 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 			break;
 	};		
 	
+    if( target_object_needs_release && targetObject )
+    {
+        (targetObject)->release();    // exporter retains returned objects, we have to release it here..
+        targetObject = NULL;
+    }
+
 	return result;
 }
 
@@ -4691,6 +4728,8 @@ IOFireWireUserClient::userAsyncCommand_Submit(
         return kIOReturnBadArgument;
     }
     
+    fController->closeGate();
+    
 	if ( params->kernCommandRef )
 	{
 		const OSObject * object = fExporter->lookupObject( params->kernCommandRef ) ;
@@ -4736,6 +4775,8 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 		
 		cmd->release() ;		// we need to release this in all cases
 	}
+
+    fController->openGate();
 
 	return error ;
 }

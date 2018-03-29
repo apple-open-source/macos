@@ -135,13 +135,13 @@ static int appendConstraintsToDict(
 	if(policy != NULL) {
 		oid = policyStringToOid(policy);
 		if(oid == NULL) {
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 		}
 
 		/* OID to SecPolicyRef */
 		SecPolicyRef policyRef = oidToPolicy(oid);
 		if(policyRef == NULL) {
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 		}
 		CFDictionaryAddValue(*dict, kSecTrustSettingsPolicy, policyRef);
 		CFRelease(policyRef);
@@ -226,7 +226,7 @@ trusted_cert_add(int argc, char * const *argv)
 	int policyNameCount = 0, policyStringCount = 0, allowedErrorCount = 0;
 
 	if(argc < 2) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	optind = 1;
@@ -249,7 +249,7 @@ trusted_cert_add(int argc, char * const *argv)
 					resultType = kSecTrustSettingsResultUnspecified;
 				}
 				else {
-					return 2;
+					return SHOW_USAGE_MESSAGE;
 				}
 				haveConstraints = 1;
 				break;
@@ -258,7 +258,7 @@ trusted_cert_add(int argc, char * const *argv)
 					policyNames[policyNameCount++] = optarg;
 				} else {
 					fprintf(stderr, "Too many policy arguments.\n");
-					return 2;
+					return SHOW_USAGE_MESSAGE;
 				}
 				haveConstraints = 1;
 				break;
@@ -271,7 +271,7 @@ trusted_cert_add(int argc, char * const *argv)
 					policyStrings[policyStringCount++] = optarg;
 				} else {
 					fprintf(stderr, "Too many policy string arguments.\n");
-					return 2;
+					return SHOW_USAGE_MESSAGE;
 				}
 				haveConstraints = 1;
 				break;
@@ -285,12 +285,12 @@ trusted_cert_add(int argc, char * const *argv)
 						allowErr = (CSSM_RETURN)atoi(optarg);
 					if (!allowErr) {
 						fprintf(stderr, "Invalid value for allowed error.\n");
-						return 2;
+						return SHOW_USAGE_MESSAGE;
 					}
 					allowedErrors[allowedErrorCount++] = allowErr;
 				} else {
 					fprintf(stderr, "Too many \"allowed error\" arguments.\n");
-					return 2;
+					return SHOW_USAGE_MESSAGE;
 				}
 				haveConstraints = 1;
 				break;
@@ -312,7 +312,7 @@ trusted_cert_add(int argc, char * const *argv)
 				break;
 			default:
 			case 'h':
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 	if(ourRtn) {
@@ -551,7 +551,7 @@ trusted_cert_remove(int argc, char * const *argv)
 				break;
 			default:
 			case 'h':
-				return 2; /* @@@ Return 2 triggers usage message. */
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -563,12 +563,12 @@ trusted_cert_remove(int argc, char * const *argv)
 			certFile = argv[optind];
 			break;
 		default:
-			return 2;
+			return SHOW_USAGE_MESSAGE;
 	}
 
 	if(certFile == NULL) {
 		fprintf(stderr, "No cert file specified.\n");
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 
     if(readCertFile(certFile, &certRef)) {

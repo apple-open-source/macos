@@ -95,39 +95,6 @@ typedef struct cssm_upcalls {
          uint32 NumFunctions);
 } CSSM_UPCALLS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_UPCALLS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-CSSM_RETURN CSSMSPI
-CSSM_SPI_ModuleLoad (const CSSM_GUID *CssmGuid,
-                     const CSSM_GUID *ModuleGuid,
-                     CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
-                     void *CssmNotifyCallbackCtx)
-					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-
-CSSM_RETURN CSSMSPI
-CSSM_SPI_ModuleUnload (const CSSM_GUID *CssmGuid,
-                       const CSSM_GUID *ModuleGuid,
-                       CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
-                       void *CssmNotifyCallbackCtx)
-					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-
-CSSM_RETURN CSSMSPI
-CSSM_SPI_ModuleAttach (const CSSM_GUID *ModuleGuid,
-                       const CSSM_VERSION *Version,
-                       uint32 SubserviceID,
-                       CSSM_SERVICE_TYPE SubServiceType,
-                       CSSM_ATTACH_FLAGS AttachFlags,
-                       CSSM_MODULE_HANDLE ModuleHandle,
-                       CSSM_KEY_HIERARCHY KeyHierarchy,
-                       const CSSM_GUID *CssmGuid,
-                       const CSSM_GUID *ModuleManagerGuid,
-                       const CSSM_GUID *CallerGuid,
-                       const CSSM_UPCALLS *Upcalls,
-                       CSSM_MODULE_FUNCS_PTR *FuncTbl)
-					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-
-CSSM_RETURN CSSMSPI
-CSSM_SPI_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle)
-	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-
 #pragma clang diagnostic pop
 
 #ifdef __cplusplus

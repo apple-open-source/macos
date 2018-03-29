@@ -55,10 +55,23 @@ public:
 	{ return reinterpret_cast<T *>(malloc(sizeof(T))); }
 
 	template <class T> T *alloc(UInt32 count) throw(std::bad_alloc)
-	{ return reinterpret_cast<T *>(malloc(sizeof(T) * count)); }
+	{
+        size_t bytes = 0;
+        if (__builtin_mul_overflow(sizeof(T), count, &bytes)) {
+            throw std::bad_alloc();
+        }
+        return reinterpret_cast<T *>(malloc(bytes));
+
+    }
 
 	template <class T> T *alloc(T *old, UInt32 count) throw(std::bad_alloc)
-	{ return reinterpret_cast<T *>(realloc(old, sizeof(T) * count)); }
+	{
+        size_t bytes = 0;
+        if (__builtin_mul_overflow(sizeof(T), count, &bytes)) {
+            throw std::bad_alloc();
+        }
+        return reinterpret_cast<T *>(realloc(old, bytes));
+    }
 	
         
 	//

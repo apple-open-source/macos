@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# Copyright (C) 2004, 2006-2015  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2006-2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000-2002  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -52,7 +52,7 @@ cat $infile $keyname1.key $keyname2.key >$zonefile
 $SIGNER -P -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1
 
 zone=keyless.example.
-infile=keyless.example.db.in
+infile=generic.example.db.in
 zonefile=keyless.example.db
 
 keyname=`$KEYGEN -q -r $RANDFILE -a RSAMD5 -b 768 -n zone $zone`
@@ -214,7 +214,8 @@ $SIGNER -P -3 - -r $RANDFILE -o $zone -O full -f ${zonefile}.tmp $zonefile > /de
 
 awk '$4 == "DNSKEY" { $7 = 100; print } $4 == "RRSIG" { $6 = 100; print } { print }' ${zonefile}.tmp > ${zonefile}.signed
 
-$DSFROMKEY -A -f ${zonefile}.signed $zone > dsset-${zone}
+DSFILE=dsset-`echo ${zone} |sed -e "s/\.$//g"`$TP
+$DSFROMKEY -A -f ${zonefile}.signed $zone > $DSFILE
 
 #
 # A zone with a unknown DNSKEY algorithm + unknown NSEC3 hash algorithm (-U).
@@ -232,7 +233,8 @@ $SIGNER -P -3 - -r $RANDFILE -o $zone -U -O full -f ${zonefile}.tmp $zonefile > 
 
 awk '$4 == "DNSKEY" { $7 = 100; print } $4 == "RRSIG" { $6 = 100; print } { print }' ${zonefile}.tmp > ${zonefile}.signed
 
-$DSFROMKEY -A -f ${zonefile}.signed $zone > dsset-${zone}
+DSFILE=dsset-`echo ${zone} |sed -e "s/\.$//g"`$TP
+$DSFROMKEY -A -f ${zonefile}.signed $zone > $DSFILE
 
 #
 # A multiple parameter nsec3 zone.
@@ -505,3 +507,30 @@ zskname=`$KEYGEN -q -r $RANDFILE $zone`
 cat $infile $kskname.key $zskname.key >$zonefile
 $SIGNER -P -s +3600 -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1
 cp -f $kskname.key trusted-future.key
+
+#
+# A zone with future signatures.
+#
+zone=managed-future.example
+infile=managed-future.example.db.in
+zonefile=managed-future.example.db
+kskname=`$KEYGEN -q -r $RANDFILE -f KSK $zone`
+zskname=`$KEYGEN -q -r $RANDFILE $zone`
+cat $infile $kskname.key $zskname.key >$zonefile
+$SIGNER -P -s +3600 -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1
+
+#
+# A zone with a revoked key
+#
+zone=revkey.example.
+infile=generic.example.db.in
+zonefile=revkey.example.db
+
+ksk1=`$KEYGEN -q -r $RANDFILE -3fk $zone`
+ksk1=`$REVOKE $ksk1`
+ksk2=`$KEYGEN -q -r $RANDFILE -3fk $zone`
+zsk1=`$KEYGEN -q -r $RANDFILE -3 $zone`
+
+cat $infile ${ksk1}.key ${ksk2}.key ${zsk1}.key >$zonefile
+
+$SIGNER -P -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1

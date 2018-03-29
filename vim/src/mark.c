@@ -1056,9 +1056,7 @@ mark_adjust_internal(
     int		fnum = curbuf->b_fnum;
     linenr_T	*lp;
     win_T	*win;
-#ifdef FEAT_WINDOWS
     tabpage_T	*tab;
-#endif
     static pos_T initpos = INIT_POS_T(1, 0, 0);
 
     if (line2 < line1 && amount_after == 0L)	    /* nothing to do */
@@ -1340,7 +1338,6 @@ cleanup_jumplist(void)
     curwin->w_jumplistlen = to;
 }
 
-# if defined(FEAT_WINDOWS) || defined(PROTO)
 /*
  * Copy the jumplist from window "from" to window "to".
  */
@@ -1370,7 +1367,6 @@ free_jumplist(win_T *wp)
     for (i = 0; i < wp->w_jumplistlen; ++i)
 	vim_free(wp->w_jumplist[i].fname);
 }
-# endif
 #endif /* FEAT_JUMPLIST */
 
     void
@@ -1649,6 +1645,19 @@ handle_viminfo_mark(garray_T *values, int force)
     }
 }
 
+/*
+ * Return TRUE if marks for "buf" should not be written.
+ */
+    static int
+skip_for_viminfo(buf_T *buf)
+{
+    return
+#ifdef FEAT_TERMINAL
+	    bt_terminal(buf) ||
+#endif
+	    removable(buf->b_ffname);
+}
+
     void
 write_viminfo_filemarks(FILE *fp)
 {
@@ -1681,7 +1690,7 @@ write_viminfo_filemarks(FILE *fp)
      * Move '0 to '1, '1 to '2, etc. until the matching one or '9
      * Set the '0 mark to current cursor position.
      */
-    if (curbuf->b_ffname != NULL && !removable(curbuf->b_ffname))
+    if (curbuf->b_ffname != NULL && !skip_for_viminfo(curbuf))
     {
 	name = buflist_nr2name(curbuf->b_fnum, TRUE, FALSE);
 	for (i = NMARKS; i < NMARKS + EXTRA_MARKS - 1; ++i)
@@ -1757,7 +1766,7 @@ write_viminfo_filemarks(FILE *fp)
 	    --idx;
 	if (fm->fmark.fnum == 0
 		|| ((buf = buflist_findnr(fm->fmark.fnum)) != NULL
-		    && !removable(buf->b_ffname)))
+		    && !skip_for_viminfo(buf)))
 	    write_one_filemark(fp, fm, '-', '\'');
     }
 #endif
@@ -1882,7 +1891,6 @@ write_viminfo_marks(FILE *fp_out, garray_T *buflist)
     buf_T	*buf;
     int		is_mark_set;
     int		i;
-#ifdef FEAT_WINDOWS
     win_T	*win;
     tabpage_T	*tp;
 
@@ -1891,9 +1899,6 @@ write_viminfo_marks(FILE *fp_out, garray_T *buflist)
      */
     FOR_ALL_TAB_WINDOWS(tp, win)
 	set_last_cursor(win);
-#else
-	set_last_cursor(curwin);
-#endif
 
     fputs(_("\n# History of marks within files (newest to oldest):\n"), fp_out);
     FOR_ALL_BUFFERS(buf)
@@ -1917,7 +1922,8 @@ write_viminfo_marks(FILE *fp_out, garray_T *buflist)
 		    }
 	    }
 	    if (is_mark_set && buf->b_ffname != NULL
-		      && buf->b_ffname[0] != NUL && !removable(buf->b_ffname))
+		      && buf->b_ffname[0] != NUL
+		      && !skip_for_viminfo(buf))
 	    {
 		if (buflist == NULL)
 		    write_buffer_marks(buf, fp_out);

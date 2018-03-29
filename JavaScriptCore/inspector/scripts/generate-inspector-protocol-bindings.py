@@ -27,7 +27,7 @@
 # This script generates JS, Objective C, and C++ bindings for the inspector protocol.
 # Generators for individual files are located in the codegen/ directory.
 
-import os.path
+import os
 import re
 import sys
 import string
@@ -48,7 +48,7 @@ try:
 
 # When copying generator files to JavaScriptCore's private headers on Mac,
 # the codegen/ module directory is flattened. So, import directly.
-except ImportError, e:
+except ImportError as e:
     # log.error(e) # Uncomment this to debug early import errors.
     import models
     from models import *
@@ -103,6 +103,9 @@ class IncrementalFileWriter:
             pass
 
         if text_changed or self.force_output:
+            dirname = os.path.dirname(self._filepath)
+            if not os.path.isdir(dirname):
+                os.makedirs(dirname)
             out_file = open(self._filepath, "w")
             out_file.write(self._output)
             out_file.close()
@@ -170,6 +173,8 @@ def generate_from_specification(primary_specification_filepath=None,
     elif protocol.framework is Frameworks.WebKit and generate_backend:
         generators.append(CppBackendDispatcherHeaderGenerator(*generator_arguments))
         generators.append(CppBackendDispatcherImplementationGenerator(*generator_arguments))
+        generators.append(CppFrontendDispatcherHeaderGenerator(*generator_arguments))
+        generators.append(CppFrontendDispatcherImplementationGenerator(*generator_arguments))
         generators.append(CppProtocolTypesHeaderGenerator(*generator_arguments))
         generators.append(CppProtocolTypesImplementationGenerator(*generator_arguments))
 

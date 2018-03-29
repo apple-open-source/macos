@@ -1034,6 +1034,18 @@ kcm_op_get_cache_uuid_list(krb5_context context,
 }
 
 static krb5_error_code
+kcm_op_get_cache_principal_list(krb5_context context,
+				kcm_client *client,
+				kcm_operation opcode,
+				krb5_storage *request,
+				krb5_storage *response)
+{
+    KCM_LOG_REQUEST(context, client, opcode);
+
+    return kcm_ccache_get_client_principals(context, client, opcode, response);
+}
+
+static krb5_error_code
 kcm_op_get_cache_by_uuid(krb5_context context,
 			 kcm_client *client,
 			 kcm_operation opcode,
@@ -2887,6 +2899,7 @@ static struct kcm_op kcm_ops[] = {
     { "CRED_LABEL_GET",		kcm_op_cred_label_get },
     { "CRED_LABEL_SET",		kcm_op_cred_label_set },
     { "CHECK_NTLM_CHALLAGE",	kcm_op_check_ntlm_challenge },
+    { "GET_CACHE_PRINCIPAL_LIST",kcm_op_get_cache_principal_list },
 };
 
 

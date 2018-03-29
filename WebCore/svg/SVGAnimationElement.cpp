@@ -137,20 +137,23 @@ static void parseKeySplines(const String& parse, Vector<UnitBezier>& result)
 
 bool SVGAnimationElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
-    if (supportedAttributes.get().isEmpty()) {
-        SVGTests::addSupportedAttributes(supportedAttributes);
-        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.get().add(SVGNames::valuesAttr);
-        supportedAttributes.get().add(SVGNames::keyTimesAttr);
-        supportedAttributes.get().add(SVGNames::keyPointsAttr);
-        supportedAttributes.get().add(SVGNames::keySplinesAttr);
-        supportedAttributes.get().add(SVGNames::attributeTypeAttr);
-        supportedAttributes.get().add(SVGNames::calcModeAttr);
-        supportedAttributes.get().add(SVGNames::fromAttr);
-        supportedAttributes.get().add(SVGNames::toAttr);
-        supportedAttributes.get().add(SVGNames::byAttr);
-    }
+    static const auto supportedAttributes = makeNeverDestroyed([] {
+        HashSet<QualifiedName> set;
+        SVGTests::addSupportedAttributes(set);
+        SVGExternalResourcesRequired::addSupportedAttributes(set);
+        set.add({
+            SVGNames::valuesAttr.get(),
+            SVGNames::keyTimesAttr.get(),
+            SVGNames::keyPointsAttr.get(),
+            SVGNames::keySplinesAttr.get(),
+            SVGNames::attributeTypeAttr.get(),
+            SVGNames::calcModeAttr.get(),
+            SVGNames::fromAttr.get(),
+            SVGNames::toAttr.get(),
+            SVGNames::byAttr.get(),
+        });
+        return set;
+    }());
     return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
@@ -640,7 +643,7 @@ void SVGAnimationElement::adjustForInheritance(SVGElement* targetElement, const 
     // In the future we might want to work with the value type directly to avoid the String parsing.
     ASSERT(targetElement);
 
-    Element* parent = targetElement->parentElement();
+    auto parent = makeRefPtr(targetElement->parentElement());
     if (!parent || !parent->isSVGElement())
         return;
 
@@ -659,13 +662,13 @@ static bool inheritsFromProperty(SVGElement*, const QualifiedName& attributeName
 
 void SVGAnimationElement::determinePropertyValueTypes(const String& from, const String& to)
 {
-    SVGElement* targetElement = this->targetElement();
+    auto targetElement = makeRefPtr(this->targetElement());
     ASSERT(targetElement);
 
     const QualifiedName& attributeName = this->attributeName();
-    if (inheritsFromProperty(targetElement, attributeName, from))
+    if (inheritsFromProperty(targetElement.get(), attributeName, from))
         m_fromPropertyValueType = InheritValue;
-    if (inheritsFromProperty(targetElement, attributeName, to))
+    if (inheritsFromProperty(targetElement.get(), attributeName, to))
         m_toPropertyValueType = InheritValue;
 }
 void SVGAnimationElement::resetAnimatedPropertyType()

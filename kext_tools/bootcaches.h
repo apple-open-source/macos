@@ -200,14 +200,16 @@ int updateStamps(struct bootCaches *caches, int command);
 Boolean plistCachesNeedRebuild(const NXArchInfo * kernelArchInfo);
 Boolean check_kext_boot_cache_file(
     struct bootCaches * caches,
-    const char * cache_path,
-    const char * kernel_path);
+    const char *cache_path,
+    const char *kernel_path,
+    const char *immutable_path);
 // build the mkext; waiting for the kextcache child if instructed
 int rebuild_kext_boot_cache_file(
     struct bootCaches *caches,
     const char * cache_path,
     const char * kernel_file,
-    Boolean startup_kexts_ok);
+    Boolean startup_kexts_ok,
+    Boolean rebuild_immutable_kernel);
 
 // check/rebuild CSFDE caches
 Boolean check_csfde(struct bootCaches *caches);

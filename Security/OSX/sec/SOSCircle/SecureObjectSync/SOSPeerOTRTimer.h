@@ -9,9 +9,6 @@ void SOSPeerOTRTimerFired(SOSAccount* account, SOSPeerRef peer, SOSEngineRef eng
 int SOSPeerOTRTimerTimeoutValue(SOSAccount* account, SOSPeerRef peer);
 void SOSPeerOTRTimerSetupAwaitingTimer(SOSAccount* account, SOSPeerRef peer, SOSEngineRef engine, SOSCoderRef coder);
 
-//KVS global config
-void SOSPeerOTRTimerCreateKVSConfigDict(SOSAccount* account, CFNumberRef timeout, CFStringRef peerid);
-
 
 //functions to handle max retry counter
 void SOSPeerOTRTimerIncreaseOTRNegotiationRetryCount(SOSAccount* account, NSString* peerid);

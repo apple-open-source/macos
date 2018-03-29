@@ -31,7 +31,6 @@
 #include "Blob.h"
 #include "Event.h"
 #include "EventNames.h"
-#include "ExceptionCode.h"
 #include "MessageEvent.h"
 #include "RTCDataChannelHandler.h"
 #include "ScriptExecutionContext.h"
@@ -96,58 +95,58 @@ const AtomicString& RTCDataChannel::binaryType() const
 ExceptionOr<void> RTCDataChannel::setBinaryType(const AtomicString& binaryType)
 {
     if (binaryType == blobKeyword())
-        return Exception { NOT_SUPPORTED_ERR };
+        return Exception { NotSupportedError };
     if (binaryType == arraybufferKeyword()) {
         m_binaryType = BinaryType::ArrayBuffer;
         return { };
     }
-    return Exception { TYPE_MISMATCH_ERR };
+    return Exception { TypeMismatchError };
 }
 
 ExceptionOr<void> RTCDataChannel::send(const String& data)
 {
-    // FIXME: We should only throw in Connected state.
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
     if (!m_handler->sendStringData(data)) {
         // FIXME: Decide what the right exception here is.
-        return Exception { SYNTAX_ERR };
+        return Exception { SyntaxError };
     }
 
     return { };
 }
 
-ExceptionOr<void> RTCDataChannel::send(ArrayBuffer& data)
+ExceptionOr<void> RTCDataChannel::sendRawData(const char* data, size_t length)
 {
-    // FIXME: We should only throw in Connected state.
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { INVALID_STATE_ERR };
+        return Exception { InvalidStateError };
 
-    size_t dataLength = data.byteLength();
-    if (!dataLength)
+    if (!length)
         return { };
 
-    const char* dataPointer = static_cast<const char*>(data.data());
-
-    if (!m_handler->sendRawData(dataPointer, dataLength)) {
+    if (!m_handler->sendRawData(data, length)) {
         // FIXME: Decide what the right exception here is.
-        return Exception { SYNTAX_ERR };
+        return Exception { SyntaxError };
     }
 
     return { };
+}
+
+
+ExceptionOr<void> RTCDataChannel::send(ArrayBuffer& data)
+{
+    return sendRawData(static_cast<const char*>(data.data()), data.byteLength());
 }
 
 ExceptionOr<void> RTCDataChannel::send(ArrayBufferView& data)
 {
-    // FIXME: We should only throw in Connected state.
-    return send(*data.unsharedBuffer());
+    return sendRawData(static_cast<const char*>(data.baseAddress()), data.byteLength());
 }
 
 ExceptionOr<void> RTCDataChannel::send(Blob&)
 {
     // FIXME: Implement.
-    return Exception { NOT_SUPPORTED_ERR };
+    return Exception { NotSupportedError };
 }
 
 void RTCDataChannel::close()

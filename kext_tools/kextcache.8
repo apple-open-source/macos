@@ -142,6 +142,11 @@ to enable early boot behaviors such as limiting which caches must be updated.
 .It Fl e , Fl system-mkext
 This option is provided for legacy compatibility, and is simply an alias to
 .Fl system-prelinked-kernel .
+.It Fl clear-staging
+Clears the kernel extension staging area by removing all staged content.
+.It Fl prune-staging
+Prunes the kernel extension staging area by removing all kernel extensions no
+longer present in their original location.
 .El
 .Sh PRELINKED KERNEL FILTERING OPTIONS
 These options restrict which kexts are included in a prelinked kernel.
@@ -397,6 +402,8 @@ The default kernel file.
 Describes specific kext cache files for a Mac OS X volume.
 .It Pa /System/Library/Caches/com.apple.bootstamps/
 Contains timestamp information about kext caches.
+.It Pa /Library/StagedExtensions/
+A directory used to stage copies of kernel extensions during validation and loading.
 .El
 .Sh DIAGNOSTICS
 .Nm

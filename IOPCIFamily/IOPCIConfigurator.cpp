@@ -1082,30 +1082,44 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
 void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 {
     IORegistryEntry *   dtBridge = bridge->dtEntry;
+    MatchDTEntryContext context;
+
+    if ((kPCIHotPlugTunnel != bridge->supportsHotPlug)
+     || (kPCIHotPlugTunnelRoot == bridge->parent->supportsHotPlug))
+    {
+        context.me     = this;
+        context.bridge = bridge;
+        if (dtBridge)
+        {
+            dtBridge->applyToChildren(&matchDTEntry, &context, gIODTPlane);
+        }
+#if ACPI_SUPPORT
+        if (gIOPCIACPIPlane && bridge->acpiDevice)
+        {
+            bridge->acpiDevice->applyToChildren(&matchACPIEntry, &context, gIOPCIACPIPlane);
+        }
+#endif /* ACPI_SUPPORT */
+    }
+
+    FOREACH_CHILD(bridge, child)
+    {
+        if (child->dtEntry && child->dtEntry->getProperty(gIOPCIDeviceHiddenKey))
+        {
+            child->deviceState |= kPCIDeviceStateHidden;
+        }
+    }
+}
+
+//---------------------------------------------------------------------------
+
+void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
+{
     IOPCIConfigEntry *  parent;
 	OSObject *          obj;
     OSNumber *          num;
-    MatchDTEntryContext context;
 	IOPCIRange *        childRange;
 	bool				oneChild;
 	bool				tbok = (0 == (kIOPCIConfiguratorNoTB & gIOPCIFlags));
-
-	if ((kPCIHotPlugTunnel != bridge->supportsHotPlug)
-	 || (kPCIHotPlugTunnelRoot == bridge->parent->supportsHotPlug))
-	{
-		context.me     = this;
-		context.bridge = bridge;
-		if (dtBridge)
-		{
-			dtBridge->applyToChildren(&matchDTEntry, &context, gIODTPlane);
-		}
-#if ACPI_SUPPORT
-		if (gIOPCIACPIPlane && bridge->acpiDevice)
-		{
-			bridge->acpiDevice->applyToChildren(&matchACPIEntry, &context, gIOPCIACPIPlane);
-		}
-#endif /* ACPI_SUPPORT */
-	}
 
 	oneChild = (bridge->child && !bridge->child->peer);
 
@@ -1406,7 +1420,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t resetMask)
+void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 {
     IOPCIAddressSpace   space;
     IOPCIConfigEntry *  child;
@@ -1440,9 +1454,8 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t re
 									  |  (1 << kIOPCIRangeBridgePFMemory));
 		}
 
-		DLOG("bridge " D() " %s%s linkStatus 0x%04x, linkCaps 0x%04x\n",
+		DLOG("bridge " D() " %s linkStatus 0x%04x, linkCaps 0x%04x\n",
 			 DEVICE_IDENT(bridge), 
-			 resetMask ? "reset " : "",
 			 noLink    ? "nolink " : "",
 			 linkStatus, bridge->linkCaps);
 
@@ -1482,7 +1495,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t re
 				space.s.deviceNum   = scanDevice; // deviceMap[scanDevice];
 				space.s.functionNum = scanFunction;
 	
-				bridgeProbeChild(bridge, space, resetMask);
+				bridgeProbeChild(bridge, space);
 	
 				// look in function 0 for multi function flag
 				if (0 == scanFunction)
@@ -1724,7 +1737,7 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space, uint32_t resetMask )
+void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space )
 {
     IOPCIConfigEntry * child = NULL;
     bool      ok = true;
@@ -1791,7 +1804,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     child->classCode     = configRead32(child, kIOPCIConfigRevisionID) >> 8;
     child->vendorProduct = vendorProduct;
 
-    DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
+    DLOG("Found type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
          child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
          DEVICE_IDENT(child),
          child->deviceState);
@@ -1799,21 +1812,11 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     switch (child->headerType)
     {
         case kPCIHeaderType0:
-            // skip devices aliased to host bridges
-            if ((child->classCode & 0xFFFFFF) == 0x060000)
-                break;
-
-            deviceProbeRanges(child, resetMask);
             break;
 
         case kPCIHeaderType1:
-            child->isBridge = true;
-            bridgeProbeRanges(child, resetMask);
-            break;
-
         case kPCIHeaderType2:
             child->isBridge = true;
-            cardbusProbeRanges(child, resetMask);
             break;
 
         default:
@@ -1861,6 +1864,46 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 
 	bridgeAddChild(bridge, child);
 	checkCacheLineSize(child);
+}
+
+//---------------------------------------------------------------------------
+
+void CLASS::bridgeProbeChildRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
+{
+	DLOG("bridge " D() " %s probe child ranges\n",
+		 DEVICE_IDENT(bridge), resetMask ? "reset " : "");
+
+	FOREACH_CHILD(bridge, child)
+	{
+        if (kPCIDeviceStateRangesProbed & child->deviceState) continue;
+        child->deviceState |= kPCIDeviceStateRangesProbed;
+
+        DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
+             child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
+             DEVICE_IDENT(child),
+             child->deviceState);
+
+        if (kPCIDeviceStateDeadOrHidden & child->deviceState) continue;
+
+	    switch (child->headerType)
+	    {
+	        case kPCIHeaderType0:
+	            // skip devices aliased to host bridges
+	            if ((child->classCode & 0xFFFFFF) == 0x060000)
+	                break;
+
+	            deviceProbeRanges(child, resetMask);
+	            break;
+
+	        case kPCIHeaderType1:
+	            bridgeProbeRanges(child, resetMask);
+	            break;
+
+	        case kPCIHeaderType2:
+	            cardbusProbeRanges(child, resetMask);
+	            break;
+	    }
+	}
 }
 
 //---------------------------------------------------------------------------
@@ -2354,9 +2397,9 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
     int32_t            ok = true;
     bool			   bootScan = (NULL != ref);
     bool 			   haveBus;
-	uint32_t           resetMask;
+	uint32_t           resetMask = 0;
 
-    if (kPCIDeviceStateDead & bridge->deviceState) return (ok);
+    if (kPCIDeviceStateDeadOrHidden & bridge->deviceState) return (ok);
 
     if (!(kPCIDeviceStateScanned & bridge->deviceState))
     {
@@ -2366,7 +2409,6 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 		if (haveBus)
 		{
 			DLOG("scan %s" B() "\n", bootScan ? "(boot) " : "", BRIDGE_IDENT(bridge));
-			resetMask = 0;	
 			if (kPCIStatic != (kPCIHPTypeMask & bridge->supportsHotPlug))
 			{
 				resetMask = ((1 << kIOPCIResourceTypeMemory)
@@ -2374,7 +2416,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 						   | (1 << kIOPCIResourceTypeIO)
 						   | (1 << kIOPCIResourceTypeBusNumber));
 			}
-			bridgeScanBus(bridge, bridge->secBusNum, resetMask);
+			bridgeScanBus(bridge, bridge->secBusNum);
 			bridge->deviceState |= kPCIDeviceStateScanned;
 			if (kPCIDeviceStateChildChanged & bridge->deviceState) 
 			{
@@ -2392,8 +2434,11 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 			}
 		}
         
-        // Associate bootrom devices.
+        // associate bootrom devices
         bridgeConnectDeviceTree(bridge);
+        // scan ranges
+        if (haveBus) bridgeProbeChildRanges(bridge, resetMask);
+        bridgeFinishProbe(bridge);
     }
     if (!bootScan)
 	{
@@ -2448,7 +2493,7 @@ int32_t CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
     bool ok;
 
     if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (true);
-    if (kPCIDeviceStateTotalled & bridge->deviceState) return (true);
+    if (kPCIDeviceStateTotalled & bridge->deviceState)        return (true);
 
     ok = bridgeTotalResources(bridge, 
                           (1 << kIOPCIResourceTypeMemory)
@@ -2802,8 +2847,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
     IOPCIScalar        maxAddress[kIOPCIResourceTypeCount];
     IOPCIScalar        countMaximize[kIOPCIResourceTypeCount];
 
-	if (bridge == fRoot) 							return (ok);
-    if (kPCIDeviceStateDead & bridge->deviceState)  return (ok);
+	if (bridge == fRoot) 							        return (ok);
+    if (kPCIDeviceStateDeadOrHidden & bridge->deviceState)  return (ok);
 
     DLOG("bridgeTotalResources(bridge " B() ", iter 0x%x, state 0x%x, type 0x%x)\n",
             BRIDGE_IDENT(bridge), bridge->iterator, bridge->deviceState, typeMask);
@@ -2850,6 +2895,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
 	for (child = bridge->child; child; child = child->peer)
     {
+		if (kPCIDeviceStateHidden & child->deviceState)				continue;
+
         for (int i = 0; i < kIOPCIRangeCount; i++)
         {
             childRange = child->ranges[i];
@@ -2958,8 +3005,8 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     DLOG("bridgeAllocateResources(bridge " B() ", state 0x%x, type 0x%x)\n",
             BRIDGE_IDENT(bridge), bridge->deviceState, typeMask);
 
-    if (bridge == fRoot)                           return (true);
-    if (kPCIDeviceStateDead & bridge->deviceState) return (true);
+    if (bridge == fRoot)                                   return (true);
+    if (kPCIDeviceStateDeadOrHidden & bridge->deviceState) return (true);
 
 	if (treeInState(bridge, kPCIDeviceStateRequestPause, 
 		(kPCIDeviceStateRequestPause | kPCIDeviceStatePaused))) return (-1);
@@ -2974,6 +3021,8 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     // determine kIOPCIRangeFlagRelocatable
     FOREACH_CHILD(bridge, child)
     {
+		if (kPCIDeviceStateHidden & child->deviceState)				    continue;
+
         expressCards |= (kPCIHotPlugRoot == child->supportsHotPlug);
         if (kPCIStatic == (kPCIHPTypeMask & child->supportsHotPlug))    continue;
         for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
@@ -3021,6 +3070,8 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 
 	FOREACH_CHILD(bridge, child)
 	{
+		if (kPCIDeviceStateHidden & child->deviceState) continue;
+
 		for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
 		{
 			childRange = child->ranges[rangeIndex];
@@ -3346,7 +3397,7 @@ void CLASS::restoreAccess( IOPCIConfigEntry * device, UInt16 command )
 
 void CLASS::applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, bool dolog)
 {
-    if ((!device->isHostBridge) && !(kPCIDeviceStateDead & device->deviceState))
+    if ((!device->isHostBridge) && !(kPCIDeviceStateDeadOrHidden & device->deviceState))
     {
         if (device->rangeBaseChanges || device->rangeSizeChanges) 
         {
@@ -3757,7 +3808,7 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 	{
 		FOREACH_CHILD(bridge, child)
 		{
-			if (kPCIDeviceStateDead & child->deviceState) 			continue;
+			if (kPCIDeviceStateDeadOrHidden   & child->deviceState) continue;
 			if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
 			if (!child->expressCapBlock) 							continue;
 			deviceControl = configRead16(child, child->expressCapBlock + 0x08);

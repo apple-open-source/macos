@@ -5,6 +5,7 @@
 #import <Foundation/Foundation.h>
 
 #import "smartcards.h"
+#import "security_tool.h"
 
 const CFStringRef kTKSmartCardPreferencesDomain = CFSTR("com.apple.security.smartcard");
 const CFStringRef kTKDisabledTokensPreferencesKey  = CFSTR("DisabledTokens");
@@ -72,7 +73,7 @@ static int token(int argc, char * const *argv)
         }
     }
 
-    return 2; /* @@@ Return 2 triggers usage message. */
+    return SHOW_USAGE_MESSAGE;
 }
 
 int smartcards(int argc, char * const *argv) {

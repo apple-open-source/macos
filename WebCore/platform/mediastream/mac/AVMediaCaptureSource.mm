@@ -41,7 +41,7 @@
 #import <objc/runtime.h>
 #import <wtf/MainThread.h>
 
-#import "CoreMediaSoftLink.h"
+#import <pal/cf/CoreMediaSoftLink.h>
 
 typedef AVCaptureConnection AVCaptureConnectionType;
 typedef AVCaptureDevice AVCaptureDeviceTypedef;
@@ -214,6 +214,7 @@ void AVMediaCaptureSource::initializeSettings()
         m_currentSettings.setSupportedConstraints(supportedConstraints());
 
     m_currentSettings.setDeviceId(id());
+    m_currentSettings.setLabel(name());
     updateSettings(m_currentSettings);
 }
 

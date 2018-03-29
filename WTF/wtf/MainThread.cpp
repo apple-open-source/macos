@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,9 +31,11 @@
 
 #include "CurrentTime.h"
 #include "Deque.h"
+#include "MonotonicTime.h"
 #include "StdLibExtras.h"
 #include "Threading.h"
 #include <mutex>
+#include <wtf/Condition.h>
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadSpecific.h>
@@ -42,7 +44,7 @@ namespace WTF {
 
 static bool callbacksPaused; // This global variable is only accessed from main thread.
 #if !PLATFORM(COCOA)
-static ThreadIdentifier mainThreadIdentifier;
+static Thread* mainThread { nullptr };
 #endif
 
 static StaticLock mainThreadFunctionQueueMutex;
@@ -60,7 +62,7 @@ void initializeMainThread()
     std::call_once(initializeKey, [] {
         initializeThreading();
 #if !PLATFORM(COCOA)
-        mainThreadIdentifier = currentThread();
+        mainThread = &Thread::current();
 #endif
         initializeMainThreadPlatform();
         initializeGCThreads();
@@ -70,7 +72,7 @@ void initializeMainThread()
 #if !PLATFORM(COCOA)
 bool isMainThread()
 {
-    return currentThread() == mainThreadIdentifier;
+    return mainThread == &Thread::current();
 }
 #endif
 
@@ -96,9 +98,9 @@ void initializeWebThread()
 #endif // PLATFORM(COCOA)
 
 #if !USE(WEB_THREAD)
-bool canAccessThreadLocalDataForThread(ThreadIdentifier threadId)
+bool canAccessThreadLocalDataForThread(Thread& thread)
 {
-    return threadId == currentThread();
+    return &thread == &Thread::current();
 }
 #endif
 
@@ -141,7 +143,7 @@ void dispatchFunctionsFromMainThread()
     }
 }
 
-void callOnMainThread(Function<void ()>&& function)
+void callOnMainThread(Function<void()>&& function)
 {
     ASSERT(function);
 
@@ -208,6 +210,32 @@ std::optional<GCThreadType> mayBeGCThread()
     if (!isGCThread->isSet())
         return std::nullopt;
     return **isGCThread;
+}
+
+void callOnMainThreadAndWait(WTF::Function<void()>&& function)
+{
+    if (isMainThread()) {
+        function();
+        return;
+    }
+
+    Lock mutex;
+    Condition conditionVariable;
+
+    bool isFinished = false;
+
+    callOnMainThread([&, function = WTFMove(function)] {
+        function();
+
+        std::lock_guard<Lock> lock(mutex);
+        isFinished = true;
+        conditionVariable.notifyOne();
+    });
+
+    std::unique_lock<Lock> lock(mutex);
+    conditionVariable.wait(lock, [&] {
+        return isFinished;
+    });
 }
 
 } // namespace WTF

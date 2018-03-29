@@ -210,15 +210,26 @@ typedef enum {
     }
 
     NSData* joinData = [self.circleDelegate circleJoinDataFor:ref error:error];
+    if(ref) {
+        CFRelease(ref);
+        ref = NULL;
+    }
+
     if (joinData == nil) return nil;
     
     if(self->_piggy_version == kPiggyV1){
-        //grab iCloud Identity, TLK, BackupV0 thing
+        //grab iCloud Identities, TLKs
         secnotice("acceptor", "piggy version is 1");
-        NSData* initialSyncData = [self.circleDelegate circleGetInitialSyncViews:error];
+        NSError *localV1Error = nil;
+        NSData* initialSyncData = [self.circleDelegate circleGetInitialSyncViews:&localV1Error];
+        if(localV1Error){
+            secnotice("piggy", "PB v1 threw an error: %@", localV1Error);
+        }
+        
         NSMutableData* growPacket = [[NSMutableData alloc] initWithData:joinData];
         [growPacket appendData:initialSyncData];
         joinData = growPacket;
+       
     }
     
     NSData* encryptedOutgoing = [self.session encrypt:joinData error:error];

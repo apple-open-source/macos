@@ -99,7 +99,7 @@ public:
         @discussion Do not call this function directly, use release() instead.
     */
     
-	virtual void free();
+	virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     /*!
         @function getLength
@@ -167,7 +167,7 @@ public:
 	virtual IOReturn checkROMState( UInt32 &generation );
 	virtual IOReturn checkROMState( void );
 	
-	virtual bool serialize( OSSerialize * s ) const;
+	virtual bool serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireROMCache, 0);

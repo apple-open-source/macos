@@ -158,7 +158,7 @@ static bool SOSTransportCircleKVSUpdateRetirementRecords(CFDictionaryRef updates
     return SOSAccountHandleRetirementMessages(self.account, circle_retirement_messages_table, error);
 }
 
--(CFArrayRef) handleCircleMessagesAndReturnHandledCopy:(CFMutableDictionaryRef) circle_circle_messages_table err:(CFErrorRef *)error
+-(CFArrayRef)CF_RETURNS_RETAINED handleCircleMessagesAndReturnHandledCopy:(CFMutableDictionaryRef) circle_circle_messages_table err:(CFErrorRef *)error
 {
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFDictionaryForEach(circle_circle_messages_table, ^(const void *key, const void *value) {
@@ -235,13 +235,6 @@ fail:
     CFStringRef key = SOSDebugInfoKeyCreateWithTypeName(kSOSAccountDebugScope);
     CFArrayAppendValue(alwaysKeys, key);
     CFReleaseNull(key);
-    return true;
-}
-
-//register otr config
--(bool)kvsAppendConfigKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error
-{
-    CFArrayAppendValue(alwaysKeys, kSOSKVSOTRConfigVersion);
     return true;
 }
 

@@ -34,24 +34,30 @@
 #import <AVFoundation/AVPlayerLayer.h>
 #import <Carbon/Carbon.h>
 #import <WebCore/HTMLVideoElement.h>
-#import <WebCore/SleepDisabler.h>
 #import <objc/runtime.h>
+#import <pal/system/SleepDisabler.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SoftLinking.h>
 
 #if USE(QTKIT)
-#import "QTKitSPI.h"
+#import <pal/spi/mac/QTKitSPI.h>
 SOFT_LINK_FRAMEWORK(QTKit)
 SOFT_LINK_CLASS(QTKit, QTMovieLayer)
 SOFT_LINK_POINTER(QTKit, QTMovieRateDidChangeNotification, NSString *)
 #define QTMovieRateDidChangeNotification getQTMovieRateDidChangeNotification()
 #endif
 
-using namespace WebCore;
+using WebCore::HTMLVideoElement;
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 SOFT_LINK_FRAMEWORK(AVFoundation)
 SOFT_LINK_CLASS(AVFoundation, AVPlayerLayer)
 
+using WebCore::PlatformMedia;
 @interface WebVideoFullscreenWindow : NSWindow<NSAnimationDelegate>
 {
     SEL _controllerActionOnAnimationEnd;
@@ -366,7 +372,7 @@ static NSWindow *createBackgroundFullscreenWindow(NSRect frame, int level)
     
     if (rate && !_isEndingFullscreen) {
         if (!_displaySleepDisabler)
-            _displaySleepDisabler = SleepDisabler::create("com.apple.WebCore - Fullscreen video", SleepDisabler::Type::Display);
+            _displaySleepDisabler = PAL::SleepDisabler::create("com.apple.WebCore - Fullscreen video", PAL::SleepDisabler::Type::Display);
     } else
 #endif
         _displaySleepDisabler = nullptr;
@@ -555,5 +561,9 @@ static NSWindow *createBackgroundFullscreenWindow(NSRect frame, int level)
 }
 
 @end
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
 #endif /* ENABLE(VIDEO) */

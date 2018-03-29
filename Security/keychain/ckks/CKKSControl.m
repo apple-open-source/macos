@@ -30,6 +30,7 @@
 
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSControlProtocol.h"
+#import "keychain/ckks/CKKSControlServer.h"
 
 #include <security_utilities/debugging.h>
 
@@ -109,27 +110,11 @@
     }];
 }
 
-- (void)rpcGetAnalyticsSysdiagnoseWithReply:(void (^)(NSString* sysdiagnose, NSError* error))reply {
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        reply(nil, error);
-    }] rpcGetAnalyticsSysdiagnoseWithReply:^(NSString* sysdiagnose, NSError* error){
-        reply(sysdiagnose, error);
-    }];
-}
-
-- (void)rpcGetAnalyticsJSONWithReply:(void (^)(NSData* json, NSError* error))reply {
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        reply(nil, error);
-    }] rpcGetAnalyticsJSONWithReply:^(NSData* json, NSError* error){
-        reply(json, error);
-    }];
-}
-
-- (void)rpcForceUploadAnalyticsWithReply:   (void (^)(BOOL success, NSError* error))reply {
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
-        reply(false, error);
-    }] rpcForceUploadAnalyticsWithReply:^(BOOL success, NSError* error){
-        reply(success, error);
+- (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString *))reply {
+    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(nil);
+    }] rpcGetCKDeviceIDWithReply:^(NSString *ckdeviceID) {
+        reply(ckdeviceID);
     }];
 }
 
@@ -157,27 +142,43 @@
     }];
 }
 
+- (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply {
+    [self rpcStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
+        bool tlkMissing = false;
+        bool waitForUnlock = false;
+
+        CKKSKnownBadState response = CKKSKnownStatePossiblyGood;
+
+        // We can now change this hack, but this change needs to be addition-only: <rdar://problem/36356681> CKKS: remove "global" hack from rpcStatus
+        // Use this hack
+        for(NSDictionary* result in results) {
+            NSString* name = result[@"view"];
+            NSString* keystate = result[@"keystate"];
+
+            if([name isEqualToString:@"global"]) {
+                // this is global status; no view implicated
+                continue;
+            }
+
+            if ([keystate isEqualToString:@"waitfortlk"] || [keystate isEqualToString:@"error"]) {
+                tlkMissing = true;
+            }
+            if ([keystate isEqualToString:@"waitforunlock"]) {
+                waitForUnlock = true;
+            }
+        }
+
+        response = (tlkMissing ? CKKSKnownStateTLKsMissing :
+                   (waitForUnlock ? CKKSKnownStateWaitForUnlock :
+                    CKKSKnownStatePossiblyGood));
+
+        reply(response);
+    }];
+}
+
 + (CKKSControl*)controlObject:(NSError* __autoreleasing *)error {
 
-    CFErrorRef cferror = NULL;
-    xpc_endpoint_t endpoint = _SecSecuritydCopyCKKSEndpoint(&cferror);
-    if (endpoint == NULL) {
-        NSString* errorstr = NULL;
-
-        if(cferror) {
-            errorstr = CFBridgingRelease(CFErrorCopyDescription(cferror));
-        }
-
-        NSString* errorDescription = [NSString stringWithFormat:@"no CKKSControl endpoint available: %@", errorstr ? errorstr : @"unknown error"];
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd" code:-1 userInfo:@{NSLocalizedDescriptionKey: errorDescription}];
-        }
-        return nil;
-    }
-
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
-    [listenerEndpoint _setEndpoint:endpoint];
-    NSXPCConnection* connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
+    NSXPCConnection* connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydCKKSServiceName) options:0];
 
     if (connection == nil) {
         if(error) {

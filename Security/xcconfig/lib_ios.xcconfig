@@ -5,7 +5,7 @@ EXECUTABLE_EXTENSION = a
 
 CODE_SIGN_IDENTITY =
 
-HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/header_symlinks $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/sec/ipc $(PROJECT_DIR)/OSX/sectask $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/libsecurity_ssl $(PROJECT_DIR)/OSX/regressions $(PROJECT_DIR)/OSX/ibsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR)/usr/local/include
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/header_symlinks $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/sec/ipc $(PROJECT_DIR)/OSX/sectask $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/libsecurity_ssl $(PROJECT_DIR)/OSX/regressions $(SDKROOT)/usr/local/include/security_libDER $(BUILT_PRODUCTS_DIR)/usr/local/include
 
 HEADER_SEARCH_PATHS[sdk=macosx*] = $(inherited) $(PROJECT_DIR)/OSX/libsecurity_smime $(PROJECT_DIR)/header_symlinks/macOS $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers
 HEADER_SEARCH_PATHS[sdk=embedded*] = $(inherited) $(PROJECT_DIR)/libsecurity_smime $(PROJECT_DIR)/OSX/sec/sectask $(PROJECT_DIR)/header_symlinks/iOS

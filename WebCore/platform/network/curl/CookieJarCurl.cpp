@@ -17,10 +17,9 @@
  */
 
 #include "config.h"
-#include "PlatformCookieJar.h"
+#include "CookieJarCurl.h"
 
 #if USE(CURL)
-
 #include "Cookie.h"
 #include "CurlContext.h"
 #include "NotImplemented.h"
@@ -240,8 +239,10 @@ static String getNetscapeCookieFormat(const URL& url, const String& value)
     return cookieStr.toString();
 }
 
-void setCookiesFromDOM(const NetworkStorageSession&, const URL&, const URL& url, const String& value)
+void CookieJarCurlFileSystem::setCookiesFromDOM(const NetworkStorageSession&, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& value)
 {
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
     CurlHandle curlHandle;
 
     curlHandle.enableShareHandle();
@@ -268,17 +269,18 @@ static String cookiesForSession(const NetworkStorageSession&, const URL&, const 
     CurlHandle curlHandle;
     curlHandle.enableShareHandle();
 
-    struct curl_slist* list = curlHandle.getCookieList();
+    CurlSList cookieList;
+    curlHandle.fetchCookieList(cookieList);
+    const struct curl_slist* list = cookieList.head();
     if (list) {
         String domain = url.host();
         String path = url.path();
         StringBuilder cookiesBuilder;
 
-        struct curl_slist* item = list;
-        while (item) {
-            const char* cookie = item->data;
+        while (list) {
+            const char* cookie = list->data;
             addMatchingCurlCookie(cookie, domain, path, cookiesBuilder, httponly);
-            item = item->next;
+            list = list->next;
         }
 
         cookies = cookiesBuilder.toString();
@@ -287,51 +289,111 @@ static String cookiesForSession(const NetworkStorageSession&, const URL&, const 
     return cookies;
 }
 
-String cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
+std::pair<String, bool> CookieJarCurlFileSystem::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies)
 {
-    return cookiesForSession(session, firstParty, url, false);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+    // FIXME: This should filter secure cookies out if the caller requests it.
+    return { cookiesForSession(session, firstParty, url, false), false };
 }
 
-String cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
+std::pair<String, bool> CookieJarCurlFileSystem::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies)
 {
-    return cookiesForSession(session, firstParty, url, true);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+    // FIXME: This should filter secure cookies out if the caller requests it.
+    return { cookiesForSession(session, firstParty, url, true), false };
 }
 
-bool cookiesEnabled(const NetworkStorageSession&, const URL& /*firstParty*/, const URL& /*url*/)
+bool CookieJarCurlFileSystem::cookiesEnabled(const NetworkStorageSession&)
 {
     return true;
 }
 
-bool getRawCookies(const NetworkStorageSession&, const URL& /*firstParty*/, const URL& /*url*/, Vector<Cookie>& rawCookies)
+bool CookieJarCurlFileSystem::getRawCookies(const NetworkStorageSession&, const URL& firstParty, const URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<Cookie>& rawCookies)
 {
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
     // FIXME: Not yet implemented
     rawCookies.clear();
     return false; // return true when implemented
 }
 
-void deleteCookie(const NetworkStorageSession&, const URL&, const String&)
+void CookieJarCurlFileSystem::deleteCookie(const NetworkStorageSession&, const URL&, const String&)
 {
     // FIXME: Not yet implemented
 }
 
-void getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>&)
+void CookieJarCurlFileSystem::getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>& hostnames)
 {
     // FIXME: Not yet implemented
 }
 
-void deleteCookiesForHostnames(const NetworkStorageSession&, const Vector<String>&)
+void CookieJarCurlFileSystem::deleteCookiesForHostnames(const NetworkStorageSession&, const Vector<String>& cookieHostNames)
 {
     // FIXME: Not yet implemented
 }
 
-void deleteAllCookies(const NetworkStorageSession&)
+void CookieJarCurlFileSystem::deleteAllCookies(const NetworkStorageSession&)
 {
     // FIXME: Not yet implemented
 }
 
-void deleteAllCookiesModifiedSince(const NetworkStorageSession&, std::chrono::system_clock::time_point)
+void CookieJarCurlFileSystem::deleteAllCookiesModifiedSince(const NetworkStorageSession&, WallTime)
 {
     // FIXME: Not yet implemented
+}
+
+// dispatcher functions
+
+std::pair<String, bool> cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+{
+    return CurlContext::singleton().cookieJar().cookiesForDOM(session, firstParty, url, frameID, pageID, includeSecureCookies);
+}
+
+void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& value)
+{
+    CurlContext::singleton().cookieJar().setCookiesFromDOM(session, firstParty, url, frameID, pageID, value);
+}
+
+std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+{
+    return CurlContext::singleton().cookieJar().cookieRequestHeaderFieldValue(session, firstParty, url, frameID, pageID, includeSecureCookies);
+}
+
+bool cookiesEnabled(const NetworkStorageSession& session)
+{
+    return CurlContext::singleton().cookieJar().cookiesEnabled(session);
+}
+
+bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<Cookie>& rawCookies)
+{
+    return CurlContext::singleton().cookieJar().getRawCookies(session, firstParty, url, frameID, pageID, rawCookies);
+}
+
+void deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookie)
+{
+    CurlContext::singleton().cookieJar().deleteCookie(session, url, cookie);
+}
+
+void getHostnamesWithCookies(const NetworkStorageSession& session, HashSet<String>& hostnames)
+{
+    CurlContext::singleton().cookieJar().getHostnamesWithCookies(session, hostnames);
+}
+
+void deleteCookiesForHostnames(const NetworkStorageSession& session, const Vector<String>& cookieHostNames)
+{
+    CurlContext::singleton().cookieJar().deleteCookiesForHostnames(session, cookieHostNames);
+}
+
+void deleteAllCookies(const NetworkStorageSession& session)
+{
+    CurlContext::singleton().cookieJar().deleteAllCookies(session);
+}
+
+void deleteAllCookiesModifiedSince(const NetworkStorageSession& session, WallTime since)
+{
+    CurlContext::singleton().cookieJar().deleteAllCookiesModifiedSince(session, since);
 }
 
 }

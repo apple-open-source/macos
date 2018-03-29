@@ -32,6 +32,7 @@
 #include "CSSParserToken.h"
 #include "CSSPrimitiveValue.h"
 #include "MediaFeatureNames.h"
+#include <wtf/text/TextStream.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -39,15 +40,15 @@ namespace WebCore {
 static inline bool featureWithValidIdent(const AtomicString& mediaFeature)
 {
     return mediaFeature == MediaFeatureNames::orientation
-#if ENABLE(VIEW_MODE_CSS_MEDIA)
-    || mediaFeature == MediaFeatureNames::viewMode
-#endif
     || mediaFeature == MediaFeatureNames::colorGamut
     || mediaFeature == MediaFeatureNames::anyHover
     || mediaFeature == MediaFeatureNames::anyPointer
     || mediaFeature == MediaFeatureNames::hover
     || mediaFeature == MediaFeatureNames::invertedColors
     || mediaFeature == MediaFeatureNames::pointer
+#if ENABLE(APPLICATION_MANIFEST)
+    || mediaFeature == MediaFeatureNames::displayMode
+#endif
     || mediaFeature == MediaFeatureNames::prefersReducedMotion;
 }
 
@@ -151,13 +152,13 @@ static inline bool isFeatureValidWithoutValue(const AtomicString& mediaFeature)
         || mediaFeature == MediaFeatureNames::transition
         || mediaFeature == MediaFeatureNames::animation
         || mediaFeature == MediaFeatureNames::invertedColors
-#if ENABLE(VIEW_MODE_CSS_MEDIA)
-        || mediaFeature == MediaFeatureNames::viewMode
-#endif
         || mediaFeature == MediaFeatureNames::pointer
         || mediaFeature == MediaFeatureNames::prefersReducedMotion
         || mediaFeature == MediaFeatureNames::devicePixelRatio
         || mediaFeature == MediaFeatureNames::resolution
+#if ENABLE(APPLICATION_MANIFEST)
+        || mediaFeature == MediaFeatureNames::displayMode
+#endif
         || mediaFeature == MediaFeatureNames::videoPlayableInline;
 }
 
@@ -230,5 +231,12 @@ String MediaQueryExpression::serialize() const
     m_serializationCache = result.toString();
     return m_serializationCache;
 }
+
+TextStream& operator<<(TextStream& ts, const MediaQueryExpression& expression)
+{
+    ts << expression.serialize();
+    return ts;
+}
+
 
 } // namespace

@@ -40,10 +40,12 @@
 #include "RenderStyle.h"
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 class RenderImageControlsButton final : public RenderBlockFlow {
+    WTF_MAKE_ISO_ALLOCATED_INLINE(RenderImageControlsButton);
 public:
     RenderImageControlsButton(HTMLElement&, RenderStyle&&);
     virtual ~RenderImageControlsButton();
@@ -60,9 +62,7 @@ RenderImageControlsButton::RenderImageControlsButton(HTMLElement& element, Rende
 {
 }
 
-RenderImageControlsButton::~RenderImageControlsButton()
-{
-}
+RenderImageControlsButton::~RenderImageControlsButton() = default;
 
 void RenderImageControlsButton::updateLogicalWidth()
 {
@@ -85,9 +85,7 @@ ImageControlsButtonElementMac::ImageControlsButtonElementMac(Document& document)
 {
 }
 
-ImageControlsButtonElementMac::~ImageControlsButtonElementMac()
-{
-}
+ImageControlsButtonElementMac::~ImageControlsButtonElementMac() = default;
 
 RefPtr<ImageControlsButtonElementMac> ImageControlsButtonElementMac::tryCreate(Document& document)
 {
@@ -109,7 +107,7 @@ RefPtr<ImageControlsButtonElementMac> ImageControlsButtonElementMac::tryCreate(D
 void ImageControlsButtonElementMac::defaultEventHandler(Event& event)
 {
     if (event.type() == eventNames().clickEvent) {
-        Frame* frame = document().frame();
+        RefPtr<Frame> frame = document().frame();
         if (!frame)
             return;
 

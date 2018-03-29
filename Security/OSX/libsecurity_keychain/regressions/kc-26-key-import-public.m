@@ -21,6 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <libDER/asn1Types.h>
+#include <libDER/DER_Encode.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/DER_Keys.h>
+
+#import <Foundation/Foundation.h>
+
 #import <Security/Security.h>
 #import <Security/SecCertificatePriv.h>
 
@@ -35,15 +42,6 @@
 //  testPubKeyImport
 //  <rdar://problem/10473567>
 //
-
-#import <Foundation/Foundation.h>
-#import <Security/Security.h>
-
-#include <libDER/asn1Types.h>
-#include <libDER/DER_Encode.h>
-#include <libDER/DER_Decode.h>
-#include <libDER/DER_Keys.h>
-
 
 /* test RSA public key to import */
 static const uint8_t kPublicKey[] =

@@ -161,39 +161,19 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 #define CAST_FIXED_TO_INTEGER(value)        (((value) != kIOFixedNaN) ? (value / 65536) : kIOFixedNaN)
 #define CAST_DOUBLE_TO_INTEGER(value)       (value)
 #define CAST_FIXED_TO_DOUBLE(value)         (((value) != kIOFixedNaN) ? ((value) / 65536.0) : (NAN))
-#define CAST_DOUBLE_TO_FIXED(value)         ((value != value) ? kIOFixedNaN : ((value) * 65536.0))
+#define CAST_DOUBLE_TO_FIXED(value)         ((value != value) ? kIOFixedNaN : (IOFixed)((value) * 65536.0))
 #define CAST_INTEGER_TO_DOUBLE(value)       ((double)(value))
 #define CAST_SHORTINTEGER_TO_FIXED(value)   ((value) * 65536)
 
 #define IOHIDEventFieldEventType(field) ((field >> 16) & 0xffff)
 #define IOHIDEventFieldOffset(field) (field & 0xffff)
 
-//@todo review
 #ifdef KERNEL
-#define IOHIDEventValueFloat_1(value)                       value
-#define IOHIDEventValueFloat_0(value)                       (((value) != kIOFixedNaN) ? (value)>>16 : (value))
-
-#define IOHIDEventValueFixed_1(value)                       value
-#define IOHIDEventValueFixed_0(value)                       (((value) != kIOFixedNaN) ? (value)<<16 : (value))
-
 #define IOHIDEventGetEventWithOptions(event, type, options) event->getEvent(type, options)
 #define GET_EVENTDATA(event)                                event->_data
 #else
-#define IOHIDEventValueFloat_1(value)                       value
-#define IOHIDEventValueFloat_0(value)                       (((value) != kIOFixedNaN) ? ((value) / 65536.0) : (NAN))
-
-#define IOHIDEventValueFixed_1(value)                       value
-#define IOHIDEventValueFixed_0(value)                       (((value) != kIOFixedNaN) ? ((value) * 65536) : (kIOFixedNaN))
-
 #define GET_EVENTDATA(event)                                event->eventData
 #endif
-
-#define IOHIDEventValueFixed_true  IOHIDEventValueFixed_1
-#define IOHIDEventValueFixed_false IOHIDEventValueFixed_0
-#define IOHIDEventValueFloat_true  IOHIDEventValueFloat_1
-#define IOHIDEventValueFloat_false IOHIDEventValueFloat_0
-#define IOHIDEventValueFloat(value, isFixed)                IOHIDEventValueFloat_##isFixed (value)
-#define IOHIDEventValueFixed(value, isFixed)                IOHIDEventValueFixed_##isFixed (value)
 
 //@todo review
 

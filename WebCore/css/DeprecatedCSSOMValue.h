@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CSSStyleDeclaration.h"
 #include "CSSValue.h"
 #include "ExceptionOr.h"
 #include <wtf/Ref.h>
@@ -57,13 +58,12 @@ public:
     WEBCORE_EXPORT String cssText() const;
     ExceptionOr<void> setCssText(const String&) { return { }; } // Will never implement.
 
-    bool equals(const DeprecatedCSSOMValue& other) const;
-    bool operator==(const DeprecatedCSSOMValue& other) const { return equals(other); }
-
     bool isComplexValue() const { return m_classType == DeprecatedComplexValueClass; }
     bool isPrimitiveValue() const { return m_classType == DeprecatedPrimitiveValueClass; }
     bool isValueList() const { return m_classType == DeprecatedValueListClass; }
-    
+
+    CSSStyleDeclaration& owner() const { return m_owner; }
+
 protected:
     static const size_t ClassTypeBits = 2;
     enum DeprecatedClassType {
@@ -74,40 +74,40 @@ protected:
 
     DeprecatedClassType classType() const { return static_cast<DeprecatedClassType>(m_classType); }
 
-    DeprecatedCSSOMValue(DeprecatedClassType classType)
+    DeprecatedCSSOMValue(DeprecatedClassType classType, CSSStyleDeclaration& owner)
         : m_classType(classType)
+        , m_owner(owner)
     {
     }
 
     // NOTE: This class is non-virtual for memory and performance reasons.
     // Don't go making it virtual again unless you know exactly what you're doing!
-    ~DeprecatedCSSOMValue() { }
+    ~DeprecatedCSSOMValue() = default;
 
 private:
     WEBCORE_EXPORT void destroy();
 
 protected:
     unsigned m_valueListSeparator : CSSValue::ValueListSeparatorBits;
-
-private:
     unsigned m_classType : ClassTypeBits; // ClassType
+    
+    Ref<CSSStyleDeclaration> m_owner;
 };
 
 class DeprecatedCSSOMComplexValue : public DeprecatedCSSOMValue {
 public:
-    static Ref<DeprecatedCSSOMComplexValue> create(const CSSValue& value)
+    static Ref<DeprecatedCSSOMComplexValue> create(const CSSValue& value, CSSStyleDeclaration& owner)
     {
-        return adoptRef(*new DeprecatedCSSOMComplexValue(value));
+        return adoptRef(*new DeprecatedCSSOMComplexValue(value, owner));
     }
 
-    bool equals(const DeprecatedCSSOMComplexValue& other) const { return m_value->equals(other.m_value); }
     String cssText() const { return m_value->cssText(); }
 
     unsigned cssValueType() const { return m_value->cssValueType(); }
 
 protected:
-    DeprecatedCSSOMComplexValue(const CSSValue& value)
-        : DeprecatedCSSOMValue(DeprecatedComplexValueClass)
+    DeprecatedCSSOMComplexValue(const CSSValue& value, CSSStyleDeclaration& owner)
+        : DeprecatedCSSOMValue(DeprecatedComplexValueClass, owner)
         , m_value(const_cast<CSSValue&>(value))
     {
     }

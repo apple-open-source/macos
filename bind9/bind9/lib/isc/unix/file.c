@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -60,6 +60,10 @@
 
 #include <sys/stat.h>
 #include <sys/time.h>
+
+#ifdef HAVE_SYS_MMAN_H
+#include <sys/mman.h>
+#endif
 
 #include <isc/dir.h>
 #include <isc/file.h>
@@ -135,30 +139,46 @@ isc_file_mode(const char *file, mode_t *modep) {
 }
 
 isc_result_t
-isc_file_getmodtime(const char *file, isc_time_t *time) {
+isc_file_getmodtime(const char *file, isc_time_t *modtime) {
 	isc_result_t result;
 	struct stat stats;
 
 	REQUIRE(file != NULL);
-	REQUIRE(time != NULL);
+	REQUIRE(modtime != NULL);
 
 	result = file_stats(file, &stats);
 
 	if (result == ISC_R_SUCCESS)
-		/*
-		 * XXXDCL some operating systems provide nanoseconds, too,
-		 * such as BSD/OS via st_mtimespec.
-		 */
-		isc_time_set(time, stats.st_mtime, 0);
+#ifdef ISC_PLATFORM_HAVESTATNSEC
+		isc_time_set(modtime, stats.st_mtime, stats.st_mtim.tv_nsec);
+#else
+		isc_time_set(modtime, stats.st_mtime, 0);
+#endif
 
 	return (result);
 }
 
 isc_result_t
-isc_file_settime(const char *file, isc_time_t *time) {
+isc_file_getsize(const char *file, off_t *size) {
+	isc_result_t result;
+	struct stat stats;
+
+	REQUIRE(file != NULL);
+	REQUIRE(size != NULL);
+
+	result = file_stats(file, &stats);
+
+	if (result == ISC_R_SUCCESS)
+		*size = stats.st_size;
+
+	return (result);
+}
+
+isc_result_t
+isc_file_settime(const char *file, isc_time_t *when) {
 	struct timeval times[2];
 
-	REQUIRE(file != NULL && time != NULL);
+	REQUIRE(file != NULL && when != NULL);
 
 	/*
 	 * tv_sec is at least a 32 bit quantity on all platforms we're
@@ -170,7 +190,7 @@ isc_file_settime(const char *file, isc_time_t *time) {
 	 *   * isc_time_seconds is changed to be > 32 bits but long is 32 bits
 	 *      and isc_time_seconds has at least 33 significant bits.
 	 */
-	times[0].tv_sec = times[1].tv_sec = (long)isc_time_seconds(time);
+	times[0].tv_sec = times[1].tv_sec = (long)isc_time_seconds(when);
 
 	/*
 	 * Here is the real check for the high bit being set.
@@ -186,7 +206,7 @@ isc_file_settime(const char *file, isc_time_t *time) {
 	 * we can at least cast to signed so the IRIX compiler shuts up.
 	 */
 	times[0].tv_usec = times[1].tv_usec =
-		(isc_int32_t)(isc_time_nanoseconds(time) / 1000);
+		(isc_int32_t)(isc_time_nanoseconds(when) / 1000);
 
 	if (utimes(file, times) < 0)
 		return (isc__errno2result(errno));
@@ -204,8 +224,9 @@ isc_file_mktemplate(const char *path, char *buf, size_t buflen) {
 
 isc_result_t
 isc_file_template(const char *path, const char *templet, char *buf,
-			size_t buflen) {
-	char *s;
+		  size_t buflen)
+{
+	const char *s;
 
 	REQUIRE(path != NULL);
 	REQUIRE(templet != NULL);
@@ -262,7 +283,7 @@ isc_file_renameunique(const char *file, char *templet) {
 		if (errno != EEXIST)
 			return (isc__errno2result(errno));
 		for (cp = x;;) {
-			char *t;
+			const char *t;
 			if (*cp == '\0')
 				return (ISC_R_FAILURE);
 			t = strchr(alphnum, *cp);
@@ -420,6 +441,23 @@ isc_file_isplainfile(const char *filename) {
 }
 
 isc_result_t
+isc_file_isplainfilefd(int fd) {
+	/*
+	 * This function returns success if filename is a plain file.
+	 */
+	struct stat filestat;
+	memset(&filestat,0,sizeof(struct stat));
+
+	if ((fstat(fd, &filestat)) == -1)
+		return(isc__errno2result(errno));
+
+	if(! S_ISREG(filestat.st_mode))
+		return(ISC_R_INVALIDFILE);
+
+	return(ISC_R_SUCCESS);
+}
+
+isc_result_t
 isc_file_isdirectory(const char *filename) {
 	/*
 	 * This function returns success if filename exists and is a
@@ -436,6 +474,7 @@ isc_file_isdirectory(const char *filename) {
 
 	return(ISC_R_SUCCESS);
 }
+
 
 isc_boolean_t
 isc_file_isabsolute(const char *filename) {
@@ -461,7 +500,7 @@ isc_file_ischdiridempotent(const char *filename) {
 
 const char *
 isc_file_basename(const char *filename) {
-	char *s;
+	const char *s;
 
 	REQUIRE(filename != NULL);
 
@@ -579,9 +618,11 @@ isc_file_safecreate(const char *filename, FILE **fp) {
 }
 
 isc_result_t
-isc_file_splitpath(isc_mem_t *mctx, char *path, char **dirname, char **basename)
+isc_file_splitpath(isc_mem_t *mctx, const char *path, char **dirname,
+		   char const **bname)
 {
-	char *dir, *file, *slash;
+	char *dir;
+	const char *file, *slash;
 
 	if (path == NULL)
 		return (ISC_R_INVALIDFILE);
@@ -610,7 +651,53 @@ isc_file_splitpath(isc_mem_t *mctx, char *path, char **dirname, char **basename)
 	}
 
 	*dirname = dir;
-	*basename = file;
+	*bname = file;
 
 	return (ISC_R_SUCCESS);
+}
+
+void *
+isc_file_mmap(void *addr, size_t len, int prot,
+	      int flags, int fd, off_t offset)
+{
+#ifdef HAVE_MMAP
+	return (mmap(addr, len, prot, flags, fd, offset));
+#else
+	void *buf;
+	ssize_t ret;
+	off_t end;
+
+	UNUSED(addr);
+	UNUSED(prot);
+	UNUSED(flags);
+
+	end = lseek(fd, 0, SEEK_END);
+	lseek(fd, offset, SEEK_SET);
+	if (end - offset < (off_t) len)
+		len = end - offset;
+
+	buf = malloc(len);
+	if (buf == NULL)
+		return (NULL);
+
+	ret = read(fd, buf, len);
+	if (ret != (ssize_t) len) {
+		free(buf);
+		buf = NULL;
+	}
+
+	return (buf);
+#endif
+}
+
+int
+isc_file_munmap(void *addr, size_t len) {
+#ifdef HAVE_MMAP
+	return (munmap(addr, len));
+#else
+	UNUSED(len);
+
+	free(addr);
+	return (0);
+#endif
 }

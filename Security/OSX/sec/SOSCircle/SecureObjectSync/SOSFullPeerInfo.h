@@ -53,7 +53,10 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, 
 
 SOSPeerInfoRef SOSFullPeerInfoGetPeerInfo(SOSFullPeerInfoRef fullPeer);
 SecKeyRef      SOSFullPeerInfoCopyDeviceKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
-SecKeyRef SOSFullPeerInfoCopyPubKey(SOSFullPeerInfoRef fpi, CFErrorRef *error);
+
+CF_RETURNS_RETAINED
+SecKeyRef
+SOSFullPeerInfoCopyPubKey(SOSFullPeerInfoRef fpi, CFErrorRef *error);
 
 /* octagon keys */
 SecKeyRef SOSFullPeerInfoCopyOctagonPublicSigningKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
@@ -71,8 +74,6 @@ bool SOSFullPeerInfoPing(SOSFullPeerInfoRef peer, CFErrorRef* error);
 bool SOSFullPeerInfoValidate(SOSFullPeerInfoRef peer, CFErrorRef* error);
 
 bool SOSFullPeerInfoPrivKeyExists(SOSFullPeerInfoRef peer);
-
-bool SOSFullPeerInfoOctagonPrivKeyExists(SOSFullPeerInfoRef peer);
 
 bool SOSFullPeerInfoUpdateGestalt(SOSFullPeerInfoRef peer, CFDictionaryRef gestalt, CFErrorRef* error);
 

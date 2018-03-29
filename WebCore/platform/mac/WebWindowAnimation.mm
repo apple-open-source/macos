@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,11 @@
 #import "WebWindowAnimation.h"
 
 #import "FloatConversion.h"
-#import "WebCoreSystemInterface.h"
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/MathExtras.h>
 
-using namespace WebCore;
+namespace WebCore {
 
 static const CGFloat slowMotionFactor = 10;
 
@@ -58,6 +58,12 @@ static CGFloat squaredDistance(NSPoint point1, NSPoint point2)
     return deltaX * deltaX + deltaY * deltaY;
 }
 
+}
+
+using WebCore::WebWindowAnimationDurationFromDuration;
+using WebCore::narrowPrecisionToFloat;
+using WebCore::scaledRect;
+using WebCore::squaredDistance;
 @implementation WebWindowScaleAnimation
 
 - (id)init
@@ -109,6 +115,62 @@ static CGFloat squaredDistance(NSPoint point1, NSPoint point2)
     return scaledRect(_finalFrame, _initialFrame, [self currentValue]);
 }
 
+static void flipRect(NSRect* rect)
+{
+    rect->origin.y = NSMaxY([(NSScreen *)[[NSScreen screens] objectAtIndex:0] frame]) - NSMaxY(*rect);
+}
+
+static CGSConnectionID mainWindowServerConnectionID()
+{
+    static CGSConnectionID cgsId;
+    if (!cgsId)
+        cgsId = CGSMainConnectionID();
+    return cgsId;
+}
+
+static void setScaledFrameForWindow(NSWindow *window, NSRect scaleFrame, NSRect nonScaledFrame)
+{
+    if (NSEqualRects(scaleFrame, nonScaledFrame)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+        CGSSetWindowWarp(mainWindowServerConnectionID(), window.windowNumber, 0, 0, nullptr);
+#pragma clang diagnostic pop
+        return;
+    }
+    
+    float mesh[16];
+    
+    flipRect(&scaleFrame);
+    flipRect(&nonScaledFrame);
+    
+    // top-left point (to and from)
+    mesh[0] = 0;
+    mesh[1] = 0;
+    mesh[2] = NSMinX(scaleFrame);
+    mesh[3] = NSMinY(scaleFrame);
+    
+    // top-right point (to and from)
+    mesh[4] = NSWidth(nonScaledFrame);
+    mesh[5] = 0;
+    mesh[6] = NSMaxX(scaleFrame);
+    mesh[7] = NSMinY(scaleFrame);
+    
+    // bottom-left (to and from)
+    mesh[8] = 0;
+    mesh[9] = NSHeight(nonScaledFrame);
+    mesh[10] = NSMinX(scaleFrame);
+    mesh[11] = NSMaxY(scaleFrame);
+    
+    // bottom-right (to and from)
+    mesh[12] = NSWidth(nonScaledFrame);
+    mesh[13] = NSHeight(nonScaledFrame);
+    mesh[14] = NSMaxX(scaleFrame);
+    mesh[15] = NSMaxY(scaleFrame);
+    
+    // Apply the warp.
+    CGSSetWindowWarp(mainWindowServerConnectionID(), window.windowNumber, 2, 2, mesh);
+}
+
 - (void)setCurrentProgress:(NSAnimationProgress)progress
 {
     if (!_window)
@@ -117,7 +179,7 @@ static CGFloat squaredDistance(NSPoint point1, NSPoint point2)
     [super setCurrentProgress:progress];
 
     NSRect currentRect = [self currentFrame];
-    wkWindowSetScaledFrame(_window, currentRect, _realFrame);
+    setScaledFrameForWindow(_window, currentRect, _realFrame);
     [_subAnimation setCurrentProgress:progress];
 }
 
@@ -211,7 +273,7 @@ static CGFloat squaredDistance(NSPoint point1, NSPoint point2)
     ASSERT(_window);
     [super setCurrentProgress:progress];
 
-    wkWindowSetAlpha(_window, [self currentAlpha]);
+    CGSSetWindowAlpha(mainWindowServerConnectionID(), _window.windowNumber, self.currentAlpha);
 }
 
 - (void)setWindow:(NSWindow*)window

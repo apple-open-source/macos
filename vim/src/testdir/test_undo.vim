@@ -3,7 +3,6 @@
 " undo-able pieces.  Do that by setting 'undolevels'.
 " Also tests :earlier and :later.
 
-set belloff=all
 func Test_undotree()
   exe "normal Aabc\<Esc>"
   set ul=100
@@ -191,6 +190,7 @@ func Test_undojoin_redo()
 endfunc
 
 func Test_undo_write()
+  call delete('Xtest')
   split Xtest
   call feedkeys("ione one one\<Esc>", 'xt')
   w!
@@ -273,4 +273,20 @@ func Test_undofile_earlier()
   bwipe!
   call delete('Xfile')
   call delete('Xundofile')
+endfunc
+
+" Test for undo working properly when executing commands from a register.
+" Also test this in an empty buffer.
+func Test_cmd_in_reg_undo()
+  enew!
+  let @a="Ox\<Esc>jAy\<Esc>kdd"
+  edit +/^$ test_undo.vim
+  normal @au
+  call assert_equal(0, &modified)
+  return
+  new
+  normal @au
+  call assert_equal(0, &modified)
+  only!
+  let @a=''
 endfunc

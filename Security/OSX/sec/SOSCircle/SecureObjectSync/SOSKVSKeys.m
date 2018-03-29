@@ -77,7 +77,6 @@ SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key) {
     else if(CFStringHasPrefix(key, kSOSKVSAccountChangedKey)) retval = kAccountChangedKey;
     else if(CFStringHasPrefix(key, sDebugInfoPrefix)) retval = kDebugInfoKey;
     else if(CFStringHasPrefix(key, sLastKeyParametersPushedPrefix)) retval = kLastKeyParameterKey;
-    else if(CFStringHasPrefix(key, kSOSKVSOTRConfigVersion)) retval = kOTRConfig;
     else retval = kMessageKey;
 
     return retval;
@@ -150,7 +149,6 @@ bool SOSKVSKeyParse(SOSKVSKeyType keyType, CFStringRef key, CFStringRef *circle,
         case kParametersKey:
         case kInitialSyncKey:
         case kUnknownKey:
-        case kOTRConfig:
             break;
         case kLastKeyParameterKey:
             if(from) {
@@ -313,6 +311,17 @@ CFStringRef SOSRingKeyCreateWithRingName(CFStringRef ring_name)
 CFStringRef SOSRetirementKeyCreateWithCircleAndPeer(SOSCircleRef circle, CFStringRef retirement_peer_name)
 {
     return SOSRetirementKeyCreateWithCircleNameAndPeer(SOSCircleGetName(circle), retirement_peer_name);
+}
+
+static CFStringRef SOSAccountCreateCompactDescription(SOSAccount* a) {
+
+    CFStringRef gestaltDescription = CFDictionaryCopySuperCompactDescription((__bridge CFDictionaryRef)(a.gestalt));
+
+    CFStringRef result = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), gestaltDescription);
+
+    CFReleaseNull(gestaltDescription);
+
+    return result;
 }
 
 //should be >KeyParameters|ourPeerID

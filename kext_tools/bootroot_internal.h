@@ -52,6 +52,8 @@ typedef enum {
     // needUpdates() opt (default is all caches, default-bootable)
     kBRUCachesAnyRoot       = 1 << 6,   // non-default B!=R configs okay
 
+    kBRUImmutableKernel     = 1 << 7,   // -X: build-immutable-kernel
+
     // copy files opts
 
     // kBRAnyBootStamps = 0x10000 (1<<16) // in bootroot.h

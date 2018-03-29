@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009-2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -31,6 +31,7 @@
 #include <isc/hash.h>
 #include <isc/log.h>
 #include <isc/mem.h>
+#include <isc/print.h>
 #include <isc/result.h>
 #include <isc/string.h>
 #include <isc/util.h>
@@ -67,7 +68,7 @@ usage(void) ISC_PLATFORM_NORETURN_POST;
 
 static void
 usage(void) {
-	fprintf(stderr, "usage: %s [-h] [-j] [-p] [-v] [-z] [-t directory] "
+	fprintf(stderr, "usage: %s [-hjvz] [-p [-x]] [-t directory] "
 		"[named.conf]\n", program);
 	exit(1);
 }
@@ -179,14 +180,17 @@ configure_zone(const char *vclass, const char *view,
 	const char *zfile = NULL;
 	const cfg_obj_t *maps[4];
 	const cfg_obj_t *mastersobj = NULL;
+	const cfg_obj_t *inviewobj = NULL;
 	const cfg_obj_t *zoptions = NULL;
 	const cfg_obj_t *classobj = NULL;
 	const cfg_obj_t *typeobj = NULL;
 	const cfg_obj_t *fileobj = NULL;
+	const cfg_obj_t *dlzobj = NULL;
 	const cfg_obj_t *dbobj = NULL;
 	const cfg_obj_t *obj = NULL;
 	const cfg_obj_t *fmtobj = NULL;
 	dns_masterformat_t masterformat;
+	dns_ttl_t maxttl = 0;
 
 	zone_options = DNS_ZONEOPT_CHECKNS | DNS_ZONEOPT_MANYERRORS;
 
@@ -208,6 +212,10 @@ configure_zone(const char *vclass, const char *view,
 	}
 	maps[i] = NULL;
 
+	cfg_map_get(zoptions, "in-view", &inviewobj);
+	if (inviewobj != NULL)
+		return (ISC_R_SUCCESS);
+
 	cfg_map_get(zoptions, "type", &typeobj);
 	if (typeobj == NULL)
 		return (ISC_R_FAILURE);
@@ -219,6 +227,10 @@ configure_zone(const char *vclass, const char *view,
 	if (dbobj != NULL &&
 	    strcmp("rbt", cfg_obj_asstring(dbobj)) != 0 &&
 	    strcmp("rbt64", cfg_obj_asstring(dbobj)) != 0)
+		return (ISC_R_SUCCESS);
+
+	cfg_map_get(zoptions, "dlz", &dlzobj);
+	if (dlzobj != NULL)
 		return (ISC_R_SUCCESS);
 
 	cfg_map_get(zoptions, "file", &fileobj);
@@ -375,11 +387,20 @@ configure_zone(const char *vclass, const char *view,
 			masterformat = dns_masterformat_text;
 		else if (strcasecmp(masterformatstr, "raw") == 0)
 			masterformat = dns_masterformat_raw;
+		else if (strcasecmp(masterformatstr, "map") == 0)
+			masterformat = dns_masterformat_map;
 		else
 			INSIST(0);
 	}
 
-	result = load_zone(mctx, zname, zfile, masterformat, zclass, NULL);
+	obj = NULL;
+	if (get_maps(maps, "max-zone-ttl", &obj)) {
+		maxttl = cfg_obj_asuint32(obj);
+		zone_options2 |= DNS_ZONEOPT2_CHECKTTL;
+	}
+
+	result = load_zone(mctx, zname, zfile, masterformat,
+			   zclass, maxttl, NULL);
 	if (result != ISC_R_SUCCESS)
 		fprintf(stderr, "%s/%s/%s: %s\n", view, zname, zclass,
 			dns_result_totext(result));
@@ -420,15 +441,27 @@ configure_view(const char *vclass, const char *view, const cfg_obj_t *config,
 	return (result);
 }
 
+static isc_result_t
+config_getclass(const cfg_obj_t *classobj, dns_rdataclass_t defclass,
+		dns_rdataclass_t *classp)
+{
+	isc_textregion_t r;
+
+	if (!cfg_obj_isstring(classobj)) {
+		*classp = defclass;
+		return (ISC_R_SUCCESS);
+	}
+	DE_CONST(cfg_obj_asstring(classobj), r.base);
+	r.length = strlen(r.base);
+	return (dns_rdataclass_fromtext(classp, &r));
+}
 
 /*% load zones from the configuration */
 static isc_result_t
 load_zones_fromconfig(const cfg_obj_t *config, isc_mem_t *mctx) {
 	const cfg_listelt_t *element;
-	const cfg_obj_t *classobj;
 	const cfg_obj_t *views;
 	const cfg_obj_t *vconfig;
-	const char *vclass;
 	isc_result_t result = ISC_R_SUCCESS;
 	isc_result_t tresult;
 
@@ -439,17 +472,24 @@ load_zones_fromconfig(const cfg_obj_t *config, isc_mem_t *mctx) {
 	     element != NULL;
 	     element = cfg_list_next(element))
 	{
+		const cfg_obj_t *classobj;
+		dns_rdataclass_t viewclass;
 		const char *vname;
+		char buf[sizeof("CLASS65535")];
 
-		vclass = "IN";
 		vconfig = cfg_listelt_value(element);
-		if (vconfig != NULL) {
-			classobj = cfg_tuple_get(vconfig, "class");
-			if (cfg_obj_isstring(classobj))
-				vclass = cfg_obj_asstring(classobj);
-		}
+		if (vconfig == NULL)
+			continue;
+
+		classobj = cfg_tuple_get(vconfig, "class");
+		CHECK(config_getclass(classobj, dns_rdataclass_in,
+					 &viewclass));
+		if (dns_rdataclass_ismeta(viewclass))
+			CHECK(ISC_R_FAILURE);
+
+		dns_rdataclass_format(viewclass, buf, sizeof(buf));
 		vname = cfg_obj_asstring(cfg_tuple_get(vconfig, "name"));
-		tresult = configure_view(vclass, vname, config, vconfig, mctx);
+		tresult = configure_view(buf, vname, config, vconfig, mctx);
 		if (tresult != ISC_R_SUCCESS)
 			result = tresult;
 	}
@@ -459,6 +499,8 @@ load_zones_fromconfig(const cfg_obj_t *config, isc_mem_t *mctx) {
 		if (tresult != ISC_R_SUCCESS)
 			result = tresult;
 	}
+
+cleanup:
 	return (result);
 }
 

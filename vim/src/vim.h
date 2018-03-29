@@ -85,28 +85,15 @@
 #endif
 
 /*
- * MACOS_CLASSIC compiling for MacOS prior to MacOS X
- * MACOS_X_UNIX  compiling for MacOS X (using os_unix.c)
- * MACOS_X       compiling for MacOS X (using os_unix.c)
- * MACOS	 compiling for either one
+ * MACOS_X	    compiling for Mac OS X
+ * MACOS_X_DARWIN   integrating the darwin feature into MACOS_X
  */
-#if defined(macintosh) && !defined(MACOS_CLASSIC)
-# define MACOS_CLASSIC
-#endif
-#if defined(MACOS_X_UNIX)
+#if defined(MACOS_X_DARWIN) && !defined(MACOS_X)
 # define MACOS_X
-# ifndef HAVE_CONFIG_H
-#  define UNIX
-# endif
-#endif
-#if defined(MACOS_X) || defined(MACOS_CLASSIC)
-# define MACOS
-#endif
-#if defined(MACOS_X) && defined(MACOS_CLASSIC)
-    Error: To compile for both MACOS X and Classic use a Classic Carbon
 #endif
 /* Unless made through the Makefile enforce GUI on Mac */
-#if defined(MACOS) && !defined(HAVE_CONFIG_H)
+#if defined(MACOS_X) && !defined(HAVE_CONFIG_H)
+# define UNIX
 # define FEAT_GUI_MAC
 #endif
 
@@ -164,15 +151,9 @@
 #  endif
 # endif
 #endif
-#ifdef MACOS
-# if defined(__POWERPC__) || defined(MACOS_X) || defined(__fourbyteints__) \
-  || defined(__MRC__) || defined(__SC__) || defined(__APPLE_CC__)/* MPW Compilers */
-#  define VIM_SIZEOF_INT 4
-# else
-#  define VIM_SIZEOF_INT 2
-# endif
+#if defined(MACOS_X) && !defined(HAVE_CONFIG_H)
+#  define VIM_SIZEOF_INT __SIZEOF_INT__
 #endif
-
 
 /*
  * #defines for optionals and features
@@ -180,7 +161,7 @@
  */
 #include "feature.h"
 
-#if defined(MACOS_X_UNIX)
+#if defined(MACOS_X_DARWIN)
 # if defined(FEAT_SMALL) && !defined(FEAT_CLIPBOARD)
 #  define FEAT_CLIPBOARD
 # endif
@@ -227,7 +208,7 @@
 #endif
 
 /* The Mac conversion stuff doesn't work under X11. */
-#if defined(FEAT_MBYTE) && defined(MACOS_X)
+#if defined(FEAT_MBYTE) && defined(MACOS_X_DARWIN)
 # define MACOS_CONVERT
 #endif
 
@@ -297,10 +278,7 @@
 # include "os_mint.h"
 #endif
 
-#if defined(MACOS)
-# if defined(__MRC__) || defined(__SC__) /* MPW Compilers */
-#  define HAVE_SETENV
-# endif
+#if defined(MACOS_X)
 # include "os_mac.h"
 #endif
 
@@ -435,13 +413,8 @@ typedef off_t off_T;
  * The characters and attributes cached for the screen.
  */
 typedef char_u schar_T;
-#ifdef FEAT_SYN_HL
 typedef unsigned short sattr_T;
-# define MAX_TYPENR 65535
-#else
-typedef unsigned char sattr_T;
-# define MAX_TYPENR 255
-#endif
+#define MAX_TYPENR 65535
 
 /*
  * The u8char_T can hold one decoded UTF-8 character.
@@ -680,7 +653,9 @@ extern int (*dyn_libintl_putenv)(const char *envstring);
 #define HL_UNDERLINE		0x08
 #define HL_UNDERCURL		0x10
 #define HL_STANDOUT		0x20
-#define HL_ALL			0x3f
+#define HL_NOCOMBINE		0x40
+#define HL_STRIKETHROUGH	0x80
+#define HL_ALL			0xff
 
 /* special attribute addition: Put message in history */
 #define MSG_HIST		0x1000
@@ -719,9 +694,10 @@ extern int (*dyn_libintl_putenv)(const char *envstring);
 #define SHOWMATCH	(0x700 + INSERT) /* show matching paren */
 #define CONFIRM		0x800	/* ":confirm" prompt */
 #define SELECTMODE	0x1000	/* Select mode, only for mappings */
+#define TERMINAL        0x2000  /* Terminal mode */
 
-#define MAP_ALL_MODES	(0x3f | SELECTMODE)	/* all mode bits used for
-						 * mapping */
+/* all mode bits used for mapping */
+#define MAP_ALL_MODES	(0x3f | SELECTMODE | TERMINAL)
 
 /* directions */
 #define FORWARD			1
@@ -808,6 +784,7 @@ extern int (*dyn_libintl_putenv)(const char *envstring);
 #define EXPAND_USER_ADDR_TYPE	44
 #define EXPAND_PACKADD		45
 #define EXPAND_MESSAGES		46
+#define EXPAND_MAPCLEAR		47
 
 /* Values for exmode_active (0 is no exmode) */
 #define EXMODE_NORMAL		1
@@ -860,23 +837,11 @@ extern int (*dyn_libintl_putenv)(const char *envstring);
 #define FINDFILE_DIR	1	/* only directories */
 #define FINDFILE_BOTH	2	/* files and directories */
 
-#ifdef FEAT_WINDOWS
-# define W_WINCOL(wp)	(wp->w_wincol)
-# define W_WIDTH(wp)	(wp->w_width)
-# define W_ENDCOL(wp)	(wp->w_wincol + wp->w_width)
-# define W_VSEP_WIDTH(wp) (wp->w_vsep_width)
+#define W_ENDCOL(wp)	(wp->w_wincol + wp->w_width)
+#ifdef FEAT_MENU
+# define W_WINROW(wp)	(wp->w_winrow + wp->w_winbar_height)
 #else
-# define W_WINCOL(wp)	0
-# define W_WIDTH(wp)	Columns
-# define W_ENDCOL(wp)	Columns
-# define W_VSEP_WIDTH(wp) 0
-#endif
-#ifdef FEAT_WINDOWS
-# define W_STATUS_HEIGHT(wp) (wp->w_status_height)
 # define W_WINROW(wp)	(wp->w_winrow)
-#else
-# define W_STATUS_HEIGHT(wp) 0
-# define W_WINROW(wp)	0
 #endif
 
 #ifdef NO_EXPANDPATH
@@ -1308,6 +1273,8 @@ enum auto_event
     EVENT_BUFWRITEPOST,		/* after writing a buffer */
     EVENT_BUFWRITEPRE,		/* before writing a buffer */
     EVENT_BUFWRITECMD,		/* write buffer using command */
+    EVENT_CMDLINEENTER,		/* after entering the command line */
+    EVENT_CMDLINELEAVE,		/* before leaving the command line */
     EVENT_CMDWINENTER,		/* after entering the cmdline window */
     EVENT_CMDWINLEAVE,		/* before leaving the cmdline window */
     EVENT_COLORSCHEME,		/* after loading a colorscheme */
@@ -1430,10 +1397,12 @@ typedef enum
     , HLF_TP	    /* tabpage line */
     , HLF_TPS	    /* tabpage line selected */
     , HLF_TPF	    /* tabpage line filler */
-    , HLF_CUC	    /* 'cursurcolumn' */
-    , HLF_CUL	    /* 'cursurline' */
+    , HLF_CUC	    /* 'cursorcolumn' */
+    , HLF_CUL	    /* 'cursorline' */
     , HLF_MC	    /* 'colorcolumn' */
     , HLF_QFL	    /* quickfix window line currently selected */
+    , HLF_ST	    /* status lines of terminal windows */
+    , HLF_STNC	    /* status lines of not-current terminal windows */
     , HLF_COUNT	    /* MUST be the last one */
 } hlf_T;
 
@@ -1443,7 +1412,8 @@ typedef enum
 		  'n', 'N', 'r', 's', 'S', 'c', 't', 'v', 'V', 'w', 'W', \
 		  'f', 'F', 'A', 'C', 'D', 'T', '-', '>', \
 		  'B', 'P', 'R', 'L', \
-		  '+', '=', 'x', 'X', '*', '#', '_', '!', '.', 'o', 'q'}
+		  '+', '=', 'x', 'X', '*', '#', '_', '!', '.', 'o', 'q', \
+		  'z', 'Z'}
 
 /*
  * Boolean constants
@@ -1906,6 +1876,7 @@ typedef int sock_T;
 # define CURSOR_MOVED		0x100
 # define MOUSE_FOLD_CLOSE	0x200	/* clicked on '-' in fold column */
 # define MOUSE_FOLD_OPEN	0x400	/* clicked on '+' in fold column */
+# define MOUSE_WINBAR		0x800	/* in window toolbar */
 
 /* flags for jump_to_mouse() */
 # define MOUSE_FOCUS		0x01	/* need to stay in this window */
@@ -2007,7 +1978,12 @@ typedef int sock_T;
 #define VV_TYPE_NONE	78
 #define VV_TYPE_JOB	79
 #define VV_TYPE_CHANNEL	80
-#define VV_LEN		81	/* number of v: vars */
+#define VV_TERMRFGRESP	81
+#define VV_TERMRBGRESP	82
+#define VV_TERMU7RESP	83
+#define VV_TERMSTYLERESP 84
+#define VV_TERMBLINKRESP 85
+#define VV_LEN		86	/* number of v: vars */
 
 /* used for v_number in VAR_SPECIAL */
 #define VVAL_FALSE	0L
@@ -2140,6 +2116,11 @@ typedef enum {
 # define number_width(x) 7
 #endif
 
+/* This must come after including proto.h */
+#if !(defined(FEAT_MBYTE) && defined(WIN3264))
+# define mch_open(n, m, p)	open((n), (m), (p))
+# define mch_fopen(n, p)	fopen((n), (p))
+#endif
 
 #include "globals.h"	    /* global variables and messages */
 
@@ -2355,9 +2336,10 @@ typedef enum {
 # ifdef instr
 #  undef instr
 # endif
-  /* bool may cause trouble on MACOS but is required on a few other systems
-   * and for Perl */
-# if defined(bool) && defined(MACOS) && !defined(FEAT_PERL)
+  /* bool may cause trouble on some old versions of Mac OS X but is required
+   * on a few other systems and for Perl */
+# if (defined(MACOS_X) && !defined(MAC_OS_X_VERSION_10_6)) \
+				       && defined(bool) && !defined(FEAT_PERL)
 #  undef bool
 # endif
 

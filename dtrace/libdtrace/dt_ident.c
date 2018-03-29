@@ -384,7 +384,8 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		dt_node_type_assign(dnp,
 		    prp->pr_argv[ap->dn_value].dtt_ctfp,
 		    prp->pr_argv[ap->dn_value].dtt_type,
-		    prp->pr_argv[ap->dn_value].dtt_flags & DTT_FL_USER ? B_TRUE : B_FALSE);
+		    prp->pr_argv[ap->dn_value].dtt_flags & DTT_FL_USER ?
+		    B_TRUE : B_FALSE);
 
 	} else if ((dxp = dt_xlator_lookup(dtp,
 	    nnp, xnp, DT_XLATE_FUZZY)) != NULL || (
@@ -412,7 +413,8 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		dnp->dn_ident->di_ctfp = xidp->di_ctfp;
 		dnp->dn_ident->di_type = xidp->di_type;
 
-		dt_node_type_assign(dnp, DT_DYN_CTFP(dtp), DT_DYN_TYPE(dtp), B_FALSE);
+		dt_node_type_assign(dnp, DT_DYN_CTFP(dtp), DT_DYN_TYPE(dtp),
+		    B_FALSE);
 
 	} else {
 		xyerror(D_ARGS_XLATOR, "translator for %s[%lld] from %s to %s "

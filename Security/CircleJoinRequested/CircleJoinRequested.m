@@ -82,7 +82,7 @@ bool processApplicantsAfterUnlock = false;
 bool _unlockedSinceBoot = false;
 bool _hasPostedFollowupAndStillInError = false;
 bool _isAccountICDP = false;
-
+bool _executeProcessEventsOnce = false;
 
 NSString *castleKeychainUrl = @"prefs:root=APPLE_ACCOUNT&path=ICLOUD_SERVICE/com.apple.Dataclass.KeychainSync/ADVANCED";
 NSString *rejoinICDPUrl     = @"prefs:root=APPLE_ACCOUNT&aaaction=CDP&command=rejoin";
@@ -808,14 +808,17 @@ static bool processEvents()
                 }
             });
             state.lastCircleStatus = circleStatus;
+            _executeProcessEventsOnce = true;
             return false;
         }
         else if(circleStatus == kSOSCCInCircle){
             secnotice("cjr", "follow up should be resolved");
+            _executeProcessEventsOnce = true;
             _hasPostedFollowupAndStillInError = false;
         }
         else{
             secnotice("cjr", "followup not resolved");
+            _executeProcessEventsOnce = true;
             return false;
         }
     }
@@ -1059,7 +1062,7 @@ int main (int argc, const char * argv[]) {
         });
         
 		int falseInARow = 0;
-		while (falseInARow < 2) {
+		while (falseInARow < 2 && !_executeProcessEventsOnce) {
 			if (processEvents()) {
                 secnotice("cjr", "Processed events!!!");
 				falseInARow = 0;

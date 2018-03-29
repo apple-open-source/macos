@@ -80,9 +80,9 @@ class IOFWUserAsyncStreamListener: public IOFWAsyncStreamListener
 public:
 	// --- OSObject ----------
 #if IOFIREWIREUSERCLIENTDEBUG > 0
-    virtual bool 					serialize(OSSerialize *s) const;
+    virtual bool 					serialize(OSSerialize *s) const APPLE_KEXT_OVERRIDE;
 #endif
-	virtual void					free() ;
+	virtual void					free(void) APPLE_KEXT_OVERRIDE;
 	
 	static void						exporterCleanup( OSObject * self, IOFWUserObjectExporter * exporter );
 

@@ -34,6 +34,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		8C0BF12A1F58E51E00706493 /* enable_asan_mode in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8C0BF1291F58E51D00706493 /* enable_asan_mode */; };
 		BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA5511B6136C9D780012B9B5 /* Info.plist */; };
 		BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */ = {isa = PBXBuildFile; fileRef = BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */; };
 		BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */; };
@@ -59,6 +60,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		8C0BF1281F58E4B400706493 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/bin";
+			dstSubfolderSpec = 0;
+			files = (
+				8C0BF12A1F58E51E00706493 /* enable_asan_mode in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		BA2BD8FF136D27FE00FF78C0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -72,6 +83,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8C0BF1291F58E51D00706493 /* enable_asan_mode */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = enable_asan_mode; sourceTree = "<group>"; };
 		BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = linker_arguments_changed.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CompatibilityHacks.c; sourceTree = "<group>"; };
@@ -117,6 +129,7 @@
 				BA5511B7136C9D780012B9B5 /* init.c */,
 				BA5511B9136C9D780012B9B5 /* optionallibs */,
 				BA5511BA136C9D780012B9B5 /* requiredlibs */,
+				8C0BF1291F58E51D00706493 /* enable_asan_mode */,
 				C64EE1D6136F644700676C52 /* xcodescripts */,
 				BA5511C5136C9E2E0012B9B5 /* Products */,
 				BA2FABC7136DBF6F004383E5 /* Generated Files */,
@@ -162,6 +175,7 @@
 				BA5511C0136C9E2E0012B9B5 /* Sources */,
 				BA5511C1136C9E2E0012B9B5 /* Frameworks */,
 				BA5511C2136C9E2E0012B9B5 /* Headers */,
+				8C0BF1281F58E4B400706493 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -295,10 +309,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -307,10 +317,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

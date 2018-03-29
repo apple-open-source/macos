@@ -16,7 +16,7 @@
 
 #include <Security/SecKeyPriv.h>
 
-#include <utilities/der_plist.h>
+#include <Security/der_plist.h>
 #include <utilities/der_plist_internal.h>
 #include <corecrypto/ccder.h>
 
@@ -58,7 +58,6 @@ extern const CFStringRef kSOSTestV2Settings;
 extern const CFStringRef kSOSRateLimitingCounters;
 extern const CFStringRef kSOSAccountPeerLastSentTimestamp;
 extern const CFStringRef kSOSAccountRenegotiationRetryCount;
-extern const CFStringRef kOTRConfigVersion;
 extern const CFStringRef kSOSInitialSyncTimeoutV0;
 
 #define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
@@ -73,7 +72,7 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @class SOSCircleStorageTransport;
 @class SOSCKCircleStorage;
 
-@interface SOSAccount : NSObject
+@interface SOSAccount : NSObject <SOSControlProtocol>
 
 @property   (nonatomic, retain)     NSDictionary                *gestalt;
 @property   (nonatomic, retain)     NSData                      *backup_key;
@@ -124,7 +123,6 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 
 -(id) init;
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
-- (xpc_endpoint_t)xpcControlEndpoint;
 
 void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     CFStringRef ds_name,
@@ -207,7 +205,6 @@ bool SOSAccountIsPeerInBackupAndCurrentInView(SOSAccount* account, SOSPeerInfoRe
 bool SOSDeleteV0Keybag(CFErrorRef *error);
 void SOSAccountForEachBackupView(SOSAccount* account,  void (^operation)(const void *value));
 bool SOSAccountUpdatePeerInfo(SOSAccount* account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error));
-CFStringRef SOSAccountCreateCompactDescription(SOSAccount*  a);
 
 // Currently permitted backup rings.
 void SOSAccountForEachBackupRingName(SOSAccount* account, void (^operation)(CFStringRef value));
@@ -215,7 +212,7 @@ void SOSAccountForEachRingName(SOSAccount* account, void (^operation)(CFStringRe
 
 // My Circle
 bool SOSAccountHasCircle(SOSAccount* account, CFErrorRef* error);
-SOSCircleRef SOSAccountEnsureCircle(SOSAccount* a, CFStringRef name, CFErrorRef *error);
+SOSCircleRef CF_RETURNS_RETAINED SOSAccountEnsureCircle(SOSAccount* a, CFStringRef name, CFErrorRef *error);
 
 void AppendCircleKeyName(CFMutableArrayRef array, CFStringRef name);
 
@@ -227,7 +224,7 @@ SOSFullPeerInfoRef CopyCloudKeychainIdentity(SOSPeerInfoRef cloudPeer, CFErrorRe
 
 bool SOSAccountIsAccountIdentity(SOSAccount* account, SOSPeerInfoRef peer_info, CFErrorRef *error);
 bool SOSAccountFullPeerInfoVerify(SOSAccount* account, SecKeyRef privKey, CFErrorRef *error);
-SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error);
+CF_RETURNS_RETAINED SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error);
 
 // Credentials
 bool SOSAccountHasPublicKey(SOSAccount* account, CFErrorRef* error);
@@ -244,7 +241,7 @@ void SOSAccountAssertDSID(SOSAccount* account, CFStringRef dsid);
 //
 
 SecKeyRef SOSAccountCopyDeviceKey(SOSAccount* account, CFErrorRef *error);
-SecKeyRef GeneratePermanentFullECKey(int keySize, CFStringRef name, CFErrorRef* error);
+SecKeyRef CF_RETURNS_RETAINED GeneratePermanentFullECKey(int keySize, CFStringRef name, CFErrorRef* error);
 
 // Testing
 void SOSAccountSetLastDepartureReason(SOSAccount* account, enum DepartureReason reason);
@@ -312,7 +309,7 @@ bool SOSAccountIsNew(SOSAccount* account, CFErrorRef *error);
 bool SOSAccountCheckForAlwaysOnViews(SOSAccount* account);
 // UUID, no setter just getter and ensuring value.
 void SOSAccountEnsureUUID(SOSAccount* account);
-CFStringRef SOSAccountCopyUUID(SOSAccount* account);
+CFStringRef CF_RETURNS_RETAINED SOSAccountCopyUUID(SOSAccount* account);
 const uint8_t* der_decode_cloud_parameters(CFAllocatorRef allocator,
                                            CFIndex algorithmID, SecKeyRef* publicKey,
                                            CFDataRef *parameters,

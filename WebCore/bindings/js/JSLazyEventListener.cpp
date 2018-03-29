@@ -36,9 +36,9 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, eventListenerCounter, ("JSLazyEventListener"));
 
@@ -76,12 +76,9 @@ JSLazyEventListener::~JSLazyEventListener()
 #endif
 }
 
-JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* executionContext) const
+JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext& executionContext) const
 {
     ASSERT(is<Document>(executionContext));
-    if (!executionContext)
-        return nullptr;
-
     ASSERT(!m_code.isNull());
     ASSERT(!m_eventParameterName.isNull());
     if (m_code.isNull() || m_eventParameterName.isNull())
@@ -91,7 +88,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     // element's document. The script execution context may be different from the node's document if the
     // node's document was created by JavaScript.
     // [1] https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
-    Document& document = m_originalNode ? m_originalNode->document() : downcast<Document>(*executionContext);
+    Document& document = m_originalNode ? m_originalNode->document() : downcast<Document>(executionContext);
 
     if (!document.frame())
         return nullptr;
@@ -100,10 +97,10 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
         return nullptr;
 
     ScriptController& script = document.frame()->script();
-    if (!script.canExecuteScripts(AboutToExecuteScript) || script.isPaused())
+    if (!script.canExecuteScripts(AboutToCreateEventListener) || script.isPaused())
         return nullptr;
 
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(executionContext, isolatedWorld());
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(&executionContext, isolatedWorld());
     if (!globalObject)
         return nullptr;
 
@@ -115,6 +112,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     MarkedArgumentBuffer args;
     args.append(jsNontrivialString(exec, m_eventParameterName));
     args.append(jsStringWithCache(exec, m_code));
+    ASSERT(!args.hasOverflowed());
 
     // We want all errors to refer back to the line on which our attribute was
     // declared, regardless of any newlines in our JavaScript source text.
@@ -171,7 +169,7 @@ RefPtr<JSLazyEventListener> JSLazyEventListener::create(const CreationArguments&
     TextPosition position;
     String sourceURL;
     if (Frame* frame = arguments.document.frame()) {
-        if (!frame->script().canExecuteScripts(AboutToExecuteScript))
+        if (!frame->script().canExecuteScripts(AboutToCreateEventListener))
             return nullptr;
         position = frame->script().eventHandlerPosition();
         sourceURL = arguments.document.url().string();

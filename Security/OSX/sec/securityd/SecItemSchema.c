@@ -234,6 +234,51 @@ SECDB_ATTR(v10_5epoch,       "epoch",         Number,     SecDbFlags( ,L, , , , 
 SECDB_ATTR(v10_5signature,   "signature",     Blob,       SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_5version,     "version",       Number,     SecDbFlags( ,L, , , , , , , , ,Z, ,N,U,  , ), NULL, NULL);
 
+SECDB_ATTR(v11_1osversion,   "osversion",     String,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v11_1lastunlock,  "lastunlock",    String,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
+SECDB_ATTR(v11_2actualKeyclass, "actualKeyclass", String, SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
+const SecDbClass v11_2_metadatakeys_class = {
+    .name = CFSTR("metadatakeys"),
+    .itemclass = false,
+    .attrs = {
+        &v10keyclass,
+        &v11_2actualKeyclass,
+        &v6data,
+        0
+    }
+};
+
+const SecDbClass v11_1_ckdevicestate_class = {
+    .name = CFSTR("ckdevicestate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10_2device,
+        &v11_1osversion,
+        &v11_1lastunlock,
+        &v10_2peerid,
+        &v10_2circleStatus,
+        &v10_2keyState,
+        &v10_2currentTLK,
+        &v10_2currentClassA,
+        &v10_2currentClassC,
+        &v10_1encRecord,
+        0
+    }
+};
+
+const SecDbClass v11_metadatakeys_class = {
+    .name = CFSTR("metadatakeys"),
+    .itemclass = false,
+    .attrs = {
+        &v10keyclass,
+        &v6data,
+        0
+    }
+};
+
 const SecDbClass v10_5_tlkshare_class = {
     .name = CFSTR("tlkshare"),
     .itemclass = false,
@@ -894,6 +939,111 @@ const SecDbClass v_identity_class = {
     },
 };
 
+/*
+ * Version 11.2
+ */
+const SecDbSchema v11_2_schema = {
+    .majorVersion = 11,
+    .minorVersion = 2,
+    .classes = {
+        &v10_1_genp_class,
+        &v10_1_inet_class,
+        &v10_1_cert_class,
+        &v10_1_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v10_4_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_1_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 11.1
+ */
+const SecDbSchema v11_1_schema = {
+    .majorVersion = 11,
+    .minorVersion = 1,
+    .classes = {
+        &v10_1_genp_class,
+        &v10_1_inet_class,
+        &v10_1_cert_class,
+        &v10_1_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v10_4_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_1_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 11
+ */
+const SecDbSchema v11_schema = {
+    .majorVersion = 11,
+    .minorVersion = 0,
+    .classes = {
+        &v10_1_genp_class,
+        &v10_1_inet_class,
+        &v10_1_cert_class,
+        &v10_1_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v10_4_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v10_3_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_metadatakeys_class,
+        0
+    }
+};
+
 
 /*
  * Version 10.5
@@ -928,7 +1078,6 @@ const SecDbSchema v10_5_schema = {
         0
     }
 };
-
 
 /*
  * Version 10.4
@@ -2299,6 +2448,9 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v11_2_schema,
+    &v11_1_schema,
+    &v11_schema,
     &v10_5_schema,
     &v10_4_schema,
     &v10_3_schema,

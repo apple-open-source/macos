@@ -1555,6 +1555,167 @@ enum
     
     /* Specific Sensor Type Data Fields */
     
+    /* Location Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Location                                = 0x0400,
+    kHIDUsage_Snsr_Data_Location_Reserved                       = 0x0401,
+    kHIDUsage_Snsr_Data_Location_AltitudeAntennaSeaLevel        = 0x0402,
+    kHIDUsage_Snsr_Data_Location_DifferentialReferenceStationID = 0x0403,
+    kHIDUsage_Snsr_Data_Location_AltitudeEllipsoidError         = 0x0404,
+    kHIDUsage_Snsr_Data_Location_AltitudeEllipsoid              = 0x0405,
+    kHIDUsage_Snsr_Data_Location_AltitudeSeaLevelError          = 0x0406,
+    kHIDUsage_Snsr_Data_Location_AltitudeSeaLevel               = 0x0407,
+    kHIDUsage_Snsr_Data_Location_DifferentialGPSDataAge         = 0x0408,
+    kHIDUsage_Snsr_Data_Location_ErrorRadius                    = 0x0409,
+    
+    kHIDUsage_Snsr_Data_Location_FixQuality                     = 0x040A,
+    kHIDUsage_Snsr_Data_Location_FixQualityNoFix                = 0x0870,
+    kHIDUsage_Snsr_Data_Location_FixQualityGPS                  = 0x0871,
+    kHIDUsage_Snsr_Data_Location_FixQualityDGPS                 = 0x0872,
+    
+    kHIDUsage_Snsr_Data_Location_FixType                        = 0x040B,
+    kHIDUsage_Snsr_Data_Location_FixTypeNoFix                   = 0x0880,
+    kHIDUsage_Snsr_Data_Location_FixTypeGPSSPSMode              = 0x0881,
+    kHIDUsage_Snsr_Data_Location_FixTypeDGPSSPSMode             = 0x0882,
+    kHIDUsage_Snsr_Data_Location_FixTypeGPSPPSMode              = 0x0883,
+    kHIDUsage_Snsr_Data_Location_FixTypeRealTimeKinematic       = 0x0884,
+    kHIDUsage_Snsr_Data_Location_FixTypeFloatRTK                = 0x0885,
+    kHIDUsage_Snsr_Data_Location_FixTypeEstimated               = 0x0886,
+    kHIDUsage_Snsr_Data_Location_FixTypeManualInputMode         = 0x0887,
+    kHIDUsage_Snsr_Data_Location_FixTypeSimulatorMode           = 0x0888,
+    
+    kHIDUsage_Snsr_Data_Location_GeoidalSeparation              = 0x040C,
+    
+    kHIDUsage_Snsr_Data_Location_GPSOperationMode               = 0x040D,
+    kHIDUsage_Snsr_Data_Location_GPSOperationModeManual         = 0x0890,
+    kHIDUsage_Snsr_Data_Location_GPSOperationModeAutomatic      = 0x0891,
+    
+    kHIDUsage_Snsr_Data_Location_GPSSelectionMode               = 0x040E,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeAutonomous     = 0x08A0,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeDGPS           = 0x08A1,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeEstimated      = 0x08A2,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeManualInput    = 0x08A3,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeSimulator      = 0x08A4,
+    kHIDUsage_Snsr_Data_Location_GPSSelectionModeDataNotValid   = 0x08A5,
+    
+    kHIDUsage_Snsr_Data_Location_GPSStatus                      = 0x040F,
+    kHIDUsage_Snsr_Data_Location_GPSStatusDataValid             = 0x08B0,
+    kHIDUsage_Snsr_Data_Location_GPSStatusDataNotValid          = 0x08B1,
+    
+    kHIDUsage_Snsr_Data_Location_PositionDilutionOfPrecision    = 0x0410,
+    kHIDUsage_Snsr_Data_Location_HorizontalDilutionOfPrecision  = 0x0411,
+    kHIDUsage_Snsr_Data_Location_VerticalDilutionOfPrecision    = 0x0412,
+    kHIDUsage_Snsr_Data_Location_Latitude                       = 0x0413,
+    kHIDUsage_Snsr_Data_Location_Longitude                      = 0x0414,
+    kHIDUsage_Snsr_Data_Location_TrueHeading                    = 0x0415,
+    kHIDUsage_Snsr_Data_Location_MagneticHeading                = 0x0416,
+    kHIDUsage_Snsr_Data_Location_MagneticVariation              = 0x0417,
+    kHIDUsage_Snsr_Data_Location_Speed                          = 0x0418,
+    kHIDUsage_Snsr_Data_Location_SatellitesInView               = 0x0419,
+    kHIDUsage_Snsr_Data_Location_SatellitesInViewAzimuth        = 0x041A,
+    kHIDUsage_Snsr_Data_Location_SatellitesInViewElevation      = 0x041B,
+    kHIDUsage_Snsr_Data_Location_SatellitesInViewIDs            = 0x041C,
+    kHIDUsage_Snsr_Data_Location_SatellitesInViewPRNs           = 0x041D,
+    kHIDUsage_Snsr_Data_Location_SatellitesInViewSNRatios       = 0x041E,
+    kHIDUsage_Snsr_Data_Location_SatellitesUsedCount            = 0x041F,
+    kHIDUsage_Snsr_Data_Location_SatellitesUsedPRNs             = 0x0420,
+    kHIDUsage_Snsr_Data_Location_NMEASentence                   = 0x0421,
+    kHIDUsage_Snsr_Data_Location_AddressLine1                   = 0x0422,
+    kHIDUsage_Snsr_Data_Location_AddressLine2                   = 0x0423,
+    kHIDUsage_Snsr_Data_Location_City                           = 0x0424,
+    kHIDUsage_Snsr_Data_Location_StateOrProvince                = 0x0425,
+    kHIDUsage_Snsr_Data_Location_CountryOrRegion                = 0x0426,
+    kHIDUsage_Snsr_Data_Location_PostalCode                     = 0x0427,
+    /* 0x0428 - 0x0429 Reserved */
+    
+    /* Location Sensor Properties */
+    kHIDUsage_Snsr_Property_Location                            = 0x042A,
+    kHIDUsage_Snsr_Property_Location_DesiredAccuracy            = 0x042B,
+    kHIDUsage_Snsr_Property_Location_AccuracyDefault            = 0x0860,
+    kHIDUsage_Snsr_Property_Location_AccuracyHigh               = 0x0861,
+    kHIDUsage_Snsr_Property_Location_AccuracyMedium             = 0x0862,
+    kHIDUsage_Snsr_Property_Location_AccuracyLow                = 0x0863,
+    /* 0x042C - 0x042F Reserved */
+    
+    /* Environmental Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Environmental                           = 0x0430,
+    kHIDUsage_Snsr_Data_Environmental_AtmosphericPressure       = 0x0431,
+    kHIDUsage_Snsr_Data_Environmental_Reserved                  = 0x0432,
+    kHIDUsage_Snsr_Data_Environmental_RelativeHumidity          = 0x0433,
+    kHIDUsage_Snsr_Data_Environmental_Temperature               = 0x0434,
+    kHIDUsage_Snsr_Data_Environmental_WindDirection             = 0x0435,
+    kHIDUsage_Snsr_Data_Environmental_WindSpeed                 = 0x0436,
+    /* 0x0437 - 0x043F Reserved */
+    
+    /* Environmental Sensor Properties */
+    kHIDUsage_Snsr_Property_Environmental                       = 0x0440,
+    kHIDUsage_Snsr_Property_Environmental_ReferencePressure     = 0x0441,
+    /* 0x0442 - 0x044F Reserved */
+    
+    /* Motion Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Motion                                  = 0x0450,
+    kHIDUsage_Snsr_Data_Motion_State                            = 0x0451,
+    kHIDUsage_Snsr_Data_Motion_Acceleration                     = 0x0452,
+    kHIDUsage_Snsr_Data_Motion_AccelerationAxisX                = 0x0453,
+    kHIDUsage_Snsr_Data_Motion_AccelerationAxisY                = 0x0454,
+    kHIDUsage_Snsr_Data_Motion_AccelerationAxisZ                = 0x0455,
+    kHIDUsage_Snsr_Data_Motion_AngularVelocity                  = 0x0456,
+    kHIDUsage_Snsr_Data_Motion_AngularVelocityXAxis             = 0x0457,
+    kHIDUsage_Snsr_Data_Motion_AngularVelocityYAxis             = 0x0458,
+    kHIDUsage_Snsr_Data_Motion_AngularVelocityZAxis             = 0x0459,
+    kHIDUsage_Snsr_Data_Motion_AngularPosition                  = 0x045A,
+    kHIDUsage_Snsr_Data_Motion_AngularPositionXAxis             = 0x045B,
+    kHIDUsage_Snsr_Data_Motion_AngularPositionYAxis             = 0x045C,
+    kHIDUsage_Snsr_Data_Motion_AngularPositionZAxis             = 0x045D,
+    kHIDUsage_Snsr_Data_Motion_Speed                            = 0x045E,
+    kHIDUsage_Snsr_Data_Motion_Intensity                        = 0x045F,
+    /* 0x0460 - 0x046F Reserved */
+    
+    /* Orientation Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Orientation                                 = 0x0470,
+    kHIDUsage_Snsr_Data_Orientation_Heading                         = 0x0471,
+    kHIDUsage_Snsr_Data_Orientation_HeadingXAxis                    = 0x0472,
+    kHIDUsage_Snsr_Data_Orientation_HeadingYAxis                    = 0x0473,
+    kHIDUsage_Snsr_Data_Orientation_HeadingZAxis                    = 0x0474,
+    kHIDUsage_Snsr_Data_Orientation_HeadingCompensatedMagneticNorth = 0x0475,
+    kHIDUsage_Snsr_Data_Orientation_HeadingCompensatedTrueNorth     = 0x0476,
+    kHIDUsage_Snsr_Data_Orientation_HeadingMagneticNorth            = 0x0477,
+    kHIDUsage_Snsr_Data_Orientation_HeadingTrueNorth                = 0x0478,
+    kHIDUsage_Snsr_Data_Orientation_Distance                        = 0x0479,
+    kHIDUsage_Snsr_Data_Orientation_DistanceXAxis                   = 0x047A,
+    kHIDUsage_Snsr_Data_Orientation_DistanceYAxis                   = 0x047B,
+    kHIDUsage_Snsr_Data_Orientation_DistanceZAxis                   = 0x047C,
+    kHIDUsage_Snsr_Data_Orientation_DistanceOutOfRange              = 0x047D,
+    kHIDUsage_Snsr_Data_Orientation_Tilt                            = 0x047E,
+    kHIDUsage_Snsr_Data_Orientation_TiltXAxis                       = 0x047F,
+    kHIDUsage_Snsr_Data_Orientation_TiltYAxis                       = 0x0480,
+    kHIDUsage_Snsr_Data_Orientation_TiltZAxis                       = 0x0481,
+    kHIDUsage_Snsr_Data_Orientation_RotationMatrix                  = 0x0482,
+    kHIDUsage_Snsr_Data_Orientation_Quaternion                      = 0x0483,
+    kHIDUsage_Snsr_Data_Orientation_MagneticFlux                    = 0x0484,
+    kHIDUsage_Snsr_Data_Orientation_MagneticFluxXAxis               = 0x0485,
+    kHIDUsage_Snsr_Data_Orientation_MagneticFluxYAxis               = 0x0486,
+    kHIDUsage_Snsr_Data_Orientation_MagneticFluxZAxis               = 0x0487,
+    /* 0x0488 - 0x048F Reserved */
+    
+    /* Mechanical Sensor Data Field */
+    kHIDUsage_Snsr_Data_Mechanical                              = 0x0490,
+    kHIDUsage_Snsr_Data_Mechanical_BooleanSwitchState           = 0x0491,
+    kHIDUsage_Snsr_Data_Mechanical_BooleanSwitchArrayStates     = 0x0492,
+    kHIDUsage_Snsr_Data_Mechanical_MultivalueSwitchValue        = 0x0493,
+    kHIDUsage_Snsr_Data_Mechanical_Force                        = 0x0494,
+    kHIDUsage_Snsr_Data_Mechanical_AbsolutePressure             = 0x0495,
+    kHIDUsage_Snsr_Data_Mechanical_GaugePressure                = 0x0496,
+    kHIDUsage_Snsr_Data_Mechanical_Strain                       = 0x0497,
+    kHIDUsage_Snsr_Data_Mechanical_Weight                       = 0x0498,
+    /* 0x0499 - 0x49F Reserved */
+    
+    /* Mechanical Sensor Properties */
+    kHIDUsage_Snsr_Property_Mechanical                          = 0x04A0,
+    kHIDUsage_Snsr_Property_Mechanical_VibrationState           = 0x04A1,
+    kHIDUsage_Snsr_Property_Mechanical_ForwardVibrationSpeed    = 0x04A2,
+    kHIDUsage_Snsr_Property_Mechanical_BackwardVibrationSpeed   = 0x04A3,
+    /* 0x04A4 - 0x04AF Reserved */
+    
     /* Biometric Sensor Data Fields */
     kHIDUsage_Snsr_Data_Biometric                               = 0x04B0,
     kHIDUsage_Snsr_Data_Biometric_HumanPresence                 = 0x04B1,
@@ -1563,6 +1724,89 @@ enum
     kHIDUsage_Snsr_Data_Biometric_HumanTouchState               = 0x04B4,
     /* 0x04B5 - 0x04CF Reserved */
     
+    /* Light Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Light                                   = 0x04D0,
+    kHIDUsage_Snsr_Data_Light_Illuminance                       = 0x04D1,
+    kHIDUsage_Snsr_Data_Light_ColorTemperature                  = 0x04D2,
+    kHIDUsage_Snsr_Data_Light_Chromaticity                      = 0x04D3,
+    kHIDUsage_Snsr_Data_Light_ChromaticityX                     = 0x04D4,
+    kHIDUsage_Snsr_Data_Light_ChromaticityY                     = 0x04D5,
+    kHIDUsage_Snsr_Data_Light_ConsumerIRSentenceReceive         = 0x04D6,
+    /* 0x04D7 - 0x04DF Reserved */
+    
+    /* Light Sensor Properties */
+    kHIDUsage_Snsr_Property_Light                               = 0x04E0,
+    kHIDUsage_Snsr_Property_Light_ConsumerIRSentenceSend        = 0x04E1,
+    /* 0x04E2 - 0x04EF Reserved */
+    
+    /* Scanner Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Scanner                                 = 0x04F0,
+    kHIDUsage_Snsr_Data_Scanner_RFIDTag40Bit                    = 0x04F1,
+    kHIDUsage_Snsr_Data_Scanner_NFCSentenceReceive              = 0x04F2,
+    /* 0x04F3 - 0x04F7 Reserved */
+    
+    /* Scanner Sensor Properties */
+    kHIDUsage_Snsr_Property_Scanner                             = 0x04F8,
+    kHIDUsage_Snsr_Property_Scanner_NFCSentenceSend             = 0x0F49,
+    /* 0x04FA - 0x04FF Reserved */
+    
+    /* Electrical Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Electrical                              = 0x0500,
+    kHIDUsage_Snsr_Data_Electrical_Capacitance                  = 0x0501,
+    kHIDUsage_Snsr_Data_Electrical_Current                      = 0x0502,
+    kHIDUsage_Snsr_Data_Electrical_ElectricalPower              = 0x0503,
+    kHIDUsage_Snsr_Data_Electrical_Inductance                   = 0x0504,
+    kHIDUsage_Snsr_Data_Electrical_Resistance                   = 0x0505,
+    kHIDUsage_Snsr_Data_Electrical_Voltage                      = 0x0506,
+    kHIDUsage_Snsr_Data_Electrical_Frequency                    = 0x0507,
+    kHIDUsage_Snsr_Data_Electrical_Period                       = 0x0508,
+    kHIDUsage_Snsr_Data_Electrical_PercentOfRange               = 0x0509,
+    /* 0x050A - 0x051F Reserved */
+    
+    /* Time Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Time                                    = 0x0520,
+    kHIDUsage_Snsr_Data_Time_Year                               = 0x0521,
+    kHIDUsage_Snsr_Data_Time_Month                              = 0x0522,
+    kHIDUsage_Snsr_Data_Time_Day                                = 0x0523,
+    
+    kHIDUsage_Snsr_Data_Time_DayOfWeek                          = 0x0524,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekSunday                    = 0x08C0,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekMonday                    = 0x08C1,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekTuesday                   = 0x08C2,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekWednesday                 = 0x08C3,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekThursday                  = 0x08C4,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekFriday                    = 0x08C5,
+    kHIDUsage_Snsr_Data_Time_DayOfWeekSaturday                  = 0x08C6,
+    
+    kHIDUsage_Snsr_Data_Time_Hour                               = 0x0525,
+    kHIDUsage_Snsr_Data_Time_Minute                             = 0x0526,
+    kHIDUsage_Snsr_Data_Time_Second                             = 0x0527,
+    kHIDUsage_Snsr_Data_Time_Millisecond                        = 0x0528,
+    kHIDUsage_Snsr_Data_Time_Timestamp                          = 0x0529,
+    kHIDUsage_Snsr_Data_Time_JulianDayOfYear                    = 0x052A,
+    /* 0x052B - 0x052F Reserved */
+    
+    /* Time Sensor Properties */
+    kHIDUsage_Snsr_Property_Time                                = 0x0530,
+    kHIDUsage_Snsr_Property_Time_TimeZoneOffsetFromUTC          = 0x0531,
+    kHIDUsage_Snsr_Property_Time_TimeZoneName                   = 0x0532,
+    kHIDUsage_Snsr_Property_Time_DaylightSavingsTimeObserved    = 0x0533,
+    kHIDUsage_Snsr_Property_Time_TimeTrimAdjustment             = 0x0534,
+    kHIDUsage_Snsr_Property_Time_ArmAlarm                       = 0x0535,
+    /* 0x0536 - 0x053F Reserved */
+    
+    /* Custom Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Custom                                  = 0x0540,
+    kHIDUsage_Snsr_Data_Custom_Usage                            = 0x0541,
+    kHIDUsage_Snsr_Data_Custom_BooleanArray                     = 0x0542,
+    kHIDUsage_Snsr_Data_Custom_Value                            = 0x0543,
+    kHIDUsage_Snsr_Data_Custom_Value1                           = 0x0544,
+    kHIDUsage_Snsr_Data_Custom_Value2                           = 0x0545,
+    kHIDUsage_Snsr_Data_Custom_Value3                           = 0x0546,
+    kHIDUsage_Snsr_Data_Custom_Value4                           = 0x0547,
+    kHIDUsage_Snsr_Data_Custom_Value5                           = 0x0548,
+    kHIDUsage_Snsr_Data_Custom_Value6                           = 0x0549,
+    /* 0x054A - 0x055F Reserved */
 };
 
 /* Power Device Page (0x84) */

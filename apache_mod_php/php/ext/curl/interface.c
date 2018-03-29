@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -218,6 +218,17 @@ static int php_curl_option_url(php_curl *ch, const char *url, const size_t len) 
 		php_url_free(uri);
 #endif
 	}
+
+#if LIBCURL_VERSION_NUM > 0x073800 && defined(PHP_WIN32)
+	if (len > sizeof("file://") - 1 && '/' != url[sizeof("file://") - 1] && !strncmp("file://", url, sizeof("file://") - 1) && len < MAXPATHLEN - 2) {
+		char _tmp[MAXPATHLEN] = {0};
+
+		memmove(_tmp, "file:///", sizeof("file:///") - 1);
+		memmove(_tmp + sizeof("file:///") - 1, url + sizeof("file://") - 1, len - sizeof("file://") + 1);
+
+		return php_curl_option_str(ch, CURLOPT_URL, _tmp, len + 1, 0);
+	}
+#endif
 
 	return php_curl_option_str(ch, CURLOPT_URL, url, len, 0);
 }

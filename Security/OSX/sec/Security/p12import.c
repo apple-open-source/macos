@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <libDER/oidsPriv.h>
+#include <libDER/oids.h>
 #include <security_asn1/nssUtils.h>
 #include <security_asn1/SecAsn1Templates.h>
 #include <security_asn1/pkcs12Templates.h>

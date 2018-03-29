@@ -309,6 +309,8 @@ typedef struct {
 
 typedef struct {
     IOHIDAmbientLightSensorEventData base;
+    IOHIDDouble colorTemperature;
+    IOHIDDouble illuminance;
 } __IOHIDAmbientLightSensorEventData;
 
 typedef struct {

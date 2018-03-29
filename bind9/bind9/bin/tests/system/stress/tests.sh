@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2012, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000, 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -19,14 +19,6 @@ SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
 
 status=0
-
-if $PERL -e 'use Net::DNS;' 2>/dev/null
-then
-    :
-else
-    echo "I:This test requires the Net::DNS library." >&2
-    exit 1
-fi
 
 (
 $SHELL -c "while true
@@ -48,4 +40,4 @@ echo "I:killing reload loop"
 kill `cat reload.pid`
 
 echo "I:exit status: $status"
-exit $status
+[ $status -eq 0 ] || exit 1

@@ -26,12 +26,11 @@
 #include "config.h"
 #include "NetworkCacheData.h"
 
-#if ENABLE(NETWORK_CACHE)
-
 #include <WebCore/FileSystem.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 
 namespace WebKit {
@@ -139,7 +138,7 @@ static Salt makeSalt()
 
 std::optional<Salt> readOrMakeSalt(const String& path)
 {
-    auto cpath = WebCore::fileSystemRepresentation(path);
+    auto cpath = WebCore::FileSystem::fileSystemRepresentation(path);
     auto fd = open(cpath.data(), O_RDONLY, 0);
     Salt salt;
     auto bytesRead = read(fd, salt.data(), salt.size());
@@ -159,5 +158,3 @@ std::optional<Salt> readOrMakeSalt(const String& path)
 
 } // namespace NetworkCache
 } // namespace WebKit
-
-#endif // #if ENABLE(NETWORK_CACHE)

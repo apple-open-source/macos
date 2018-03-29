@@ -2493,7 +2493,7 @@ int msdosfs_vnop_pathconf(struct vnop_pathconf_args *ap)
 		*ap->a_retval = 1;
 		break;
 	case _PC_FILESIZEBITS:
-		*ap->a_retval = 32;
+		*ap->a_retval = 33;
 		break;
 	default:
 		error = EINVAL;

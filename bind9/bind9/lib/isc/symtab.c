@@ -301,30 +301,9 @@ isc_symtab_undefine(isc_symtab_t *symtab, const char *key, unsigned int type) {
 
 	return (ISC_R_SUCCESS);
 }
-isc_result_t
-isc_symtab_getundefineaction(isc_symtab_t *symtab,
-			     isc_symtabaction_t *undefine_action,
-			     void **undefine_arg)
-{
+
+unsigned int
+isc_symtab_count(isc_symtab_t *symtab) {
 	REQUIRE(VALID_SYMTAB(symtab));
-	REQUIRE(undefine_action != NULL && *undefine_action == NULL);
-	REQUIRE(undefine_arg != NULL && *undefine_arg == NULL);
-
-	*undefine_action = symtab->undefine_action;
-	*undefine_arg = symtab->undefine_arg;
-
-	return (ISC_R_SUCCESS);
-}
-
-isc_result_t
-isc_symtab_setundefineaction(isc_symtab_t *symtab,
-			     isc_symtabaction_t undefine_action,
-			     void *undefine_arg)
-{
-	REQUIRE(VALID_SYMTAB(symtab));
-
-	symtab->undefine_action = undefine_action;
-	symtab->undefine_arg = undefine_arg;
-
-	return (ISC_R_SUCCESS);
+	return (symtab->count);
 }

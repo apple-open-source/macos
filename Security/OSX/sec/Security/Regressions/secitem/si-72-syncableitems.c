@@ -187,6 +187,9 @@ static void tests(void)
 
 		CFReleaseSafe(query);
 	}
+
+    CFReleaseSafe(account);
+    CFReleaseSafe(passwordData);
 }
 
 int si_72_syncableitems(int argc, char * const *argv)

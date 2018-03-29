@@ -26,14 +26,15 @@
 #include "config.h"
 #include "JSDOMWrapper.h"
 
+#include "DOMWindow.h"
 #include "DOMWrapperWorld.h"
 #include "JSDOMWindow.h"
 #include "WebCoreJSClientData.h"
 #include <runtime/Error.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSDOMObject);
 
@@ -44,12 +45,12 @@ JSDOMWindow& JSDOMObject::domWindow() const
     return *domWindow;
 }
 
-Subspace* outputConstraintSubspaceFor(VM& vm)
+CompleteSubspace* outputConstraintSubspaceFor(VM& vm)
 {
     return &static_cast<JSVMClientData*>(vm.clientData)->outputConstraintSpace();
 }
 
-Subspace* globalObjectOutputConstraintSubspaceFor(VM& vm)
+CompleteSubspace* globalObjectOutputConstraintSubspaceFor(VM& vm)
 {
     return &static_cast<JSVMClientData*>(vm.clientData)->globalObjectOutputConstraintSpace();
 }

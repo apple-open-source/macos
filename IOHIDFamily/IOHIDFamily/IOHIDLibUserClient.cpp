@@ -42,6 +42,7 @@
 #include "IOHIDDevice.h"
 #include "IOHIDEventQueue.h"
 #include "IOHIDDebug.h"
+#include <IOKit/hidsystem/IOHIDUsageTables.h>
 #include "IOHIDPrivateKeys.h"
 #include <AssertMacros.h>
 
@@ -661,6 +662,11 @@ IOReturn IOHIDLibUserClient::messageGated(UInt32 type, IOService * provider __un
     };
     
     return kIOReturnSuccess;
+}
+
+IOReturn IOHIDLibUserClient::setProperties(OSObject *properties)
+{
+    return fNub ? fNub->setProperties(properties) : kIOReturnOffline;
 }
 
 IOReturn IOHIDLibUserClient::registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon)

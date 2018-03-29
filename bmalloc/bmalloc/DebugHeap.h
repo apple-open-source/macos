@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
 
 #include "StaticMutex.h"
 #include <mutex>
+#include <unordered_map>
+
 #if BOS(DARWIN)
 #include <malloc/malloc.h>
 #endif
@@ -41,11 +43,19 @@ public:
     void* memalign(size_t alignment, size_t, bool crashOnFailure);
     void* realloc(void*, size_t);
     void free(void*);
+    
+    void* memalignLarge(size_t alignment, size_t);
+    void freeLarge(void* base);
 
 private:
 #if BOS(DARWIN)
     malloc_zone_t* m_zone;
 #endif
+    
+    // This is the debug heap. We can use whatever data structures we like. It doesn't matter.
+    size_t m_pageSize;
+    std::mutex m_lock;
+    std::unordered_map<void*, size_t> m_sizeMap;
 };
 
 } // namespace bmalloc

@@ -39,7 +39,6 @@ class SchemeRegistry {
 public:
     WEBCORE_EXPORT static void registerURLSchemeAsLocal(const String&);
     static void removeURLSchemeRegisteredAsLocal(const String&);
-    static const URLSchemesMap& localSchemes();
 
     WEBCORE_EXPORT static bool shouldTreatURLSchemeAsLocal(const String&);
     WEBCORE_EXPORT static bool isBuiltinScheme(const String&);
@@ -98,6 +97,11 @@ public:
     // Schemes whose requests should be partitioned in the cache
     WEBCORE_EXPORT static void registerURLSchemeAsCachePartitioned(const String& scheme);
     static bool shouldPartitionCacheForURLScheme(const String& scheme);
+
+    // Schemes besides http(s) that service workers are allowed to handle
+    WEBCORE_EXPORT static void registerURLSchemeServiceWorkersCanHandle(const String& scheme);
+    WEBCORE_EXPORT static bool canServiceWorkersHandleURLScheme(const String& scheme);
+    static bool isServiceWorkerContainerCustomScheme(const String& scheme);
 
     static bool isUserExtensionScheme(const String& scheme);
 };

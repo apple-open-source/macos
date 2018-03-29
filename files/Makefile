@@ -84,7 +84,11 @@ ifneq "$(CONTENT_PLATFORM)" "ios_sim"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
 	$(_v) $(CHMOD) -h 0755 "$(Destination)/tmp"
 	$(_v) $(LN) -fs private/var "$(Destination)/var"
+ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/var"
+else
+	$(_v) $(CHOWN) -h root:admin "$(Destination)/var"
+endif
 
 	$(TOUCH) "$(Destination)/.file"
 	$(_v) $(CHOWN) root:nogroup "$(Destination)/.file"

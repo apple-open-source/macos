@@ -27,6 +27,7 @@
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
 #import "CKKSProcessReceivedKeysOperation.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 #if OCTAGON
 
@@ -115,9 +116,8 @@
                 if([key wrapsSelf]) {
                     tlk = key;
                 } else {
-                    ckkserror("ckkskey", ckks, "current TLK doesn't wrap itself: %@", key);
-                    // TODO: re-fetch?
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateReady withError:error];
+                    ckkserror("ckkskey", ckks, "current TLK doesn't wrap itself: %@ %@", key, key.parentKeyUUID);
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateUnhealthy withError:error];
                     return true;
                 }
             }
@@ -125,8 +125,7 @@
 
         if(!tlk) {
             ckkserror("ckkskey", ckks, "couldn't find active TLK: %@", currentTLKPointer);
-            // TODO: re-fetch?
-            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateReady withError:error];
+            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateUnhealthy withError:error];
             return true;
         }
 
@@ -145,12 +144,7 @@
             } else {
                 // Otherwise, something has gone horribly wrong. enter error state.
                 ckkserror("ckkskey", ckks, "CKKS claims %@ is not a valid TLK: %@", tlk, error);
-                NSError* newError = nil;
-                if(error) {
-                    newError = [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit", NSUnderlyingErrorKey: error}];
-                } else {
-                    newError = [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"invalid TLK from CloudKit (unknown error)"}];
-                }
+                NSError* newError = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"invalid TLK from CloudKit" underlying:error];
                 [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:newError];
                 return true;
             }
@@ -167,15 +161,30 @@
             if(error != nil || ![topKey.uuid isEqual: tlk.uuid]) {
                 ckkserror("ckkskey", ckks, "new key %@ is orphaned (%@)", key, error);
                 // TODO: possibly re-fetch. Maybe not an actual error state.
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError: error ? error : [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"orphaned key in hierarchy", NSUnderlyingErrorKey: error}]];
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError
+                                                  withError:[NSError errorWithDomain:CKKSErrorDomain
+                                                                                code:CKKSOrphanedKey
+                                                                         description:[NSString stringWithFormat:@"orphaned key(%@) in hierarchy", topKey]
+                                                                          underlying:error]];
                 return true;
+
             }
 
             // Okay, it wraps to the TLK. Can we unwrap it?
             if(![key unwrapViaKeyHierarchy:&error] || error != nil) {
-                ckkserror("ckkskey", ckks, "new key %@ claims to wrap to TLK, but we can't unwrap it: %@", topKey, error);
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError: error ? error : [NSError errorWithDomain: @"securityd" code:0 userInfo:@{NSLocalizedDescriptionKey: @"orphaned/couldn't unwrap key in hierarchy", NSUnderlyingErrorKey: error}]];
-                return true;
+                if(error && [ckks.lockStateTracker isLockedError:error]) {
+                    ckksnotice("ckkskey", ckks, "Couldn't unwrap new key (%@), but keybag appears to be locked. Entering waitforunlock.", key);
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:error];
+                    return true;
+                } else {
+                    ckkserror("ckkskey", ckks, "new key %@ claims to wrap to TLK, but we can't unwrap it: %@", topKey, error);
+                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError
+                                                      withError:[NSError errorWithDomain:CKKSErrorDomain
+                                                                                    code:CKKSOrphanedKey
+                                                                             description:[NSString stringWithFormat:@"unwrappable key(%@) in hierarchy: %@", topKey, error]
+                                                                              underlying:error]];
+                    return true;
+                }
             }
 
             ckksnotice("ckkskey", ckks, "New key %@ wraps to tlk %@", key, tlk);

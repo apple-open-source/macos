@@ -433,7 +433,7 @@ static OSStatus tsCopyCertsCommon(
 
 static void tsAddConditionalCerts(CFMutableArrayRef certArray)
 {
-#if TARGET_OS_MAC && !TARGET_IPHONE_SIMULATOR && !TARGET_OS_IPHONE && !TARGET_OS_NANO
+#if TARGET_OS_OSX
 	struct certmap_entry_s {
 		CFStringRef bundleId;
 		const UInt8* data;
@@ -1079,10 +1079,8 @@ void SecTrustSettingsSetTrustedCertificateForSSLHost(
 	Boolean hasPolicyConstraint = false;
 	Boolean hasPolicyValue = false;
 	Boolean policyConstraintChanged = false;
-	Boolean changed = false;
 	CFIndex indexOfEntryWithAllowedErrorForExpiredCert = kCFNotFound;
 	CFIndex indexOfEntryWithAllowedErrorForHostnameMismatch = kCFNotFound;
-	CFIndex indexOfEntryWithAllowedErrorNotSet = kCFNotFound;
 	CFIndex i, count;
 	int32_t trustSettingsResultCode = kSecTrustSettingsResultTrustAsRoot;
 	OSStatus status = errSecSuccess;
@@ -1166,11 +1164,9 @@ void SecTrustSettingsSetTrustedCertificateForSSLHost(
 					indexOfEntryWithAllowedErrorForExpiredCert = i;
 				} else if (eOld == CSSMERR_APPLETP_HOSTNAME_MISMATCH) {
 					indexOfEntryWithAllowedErrorForHostnameMismatch = i;
-				} else if (eOld == CSSM_OK) {
-					indexOfEntryWithAllowedErrorNotSet = i;
 				}
 				if (trustSettingsResultCode != rOld) {
-					changed = policyConstraintChanged = true;  // we are changing existing policy constraint's result
+					policyConstraintChanged = true;  // we are changing existing policy constraint's result
 				}
 			}
 		}

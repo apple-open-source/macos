@@ -12,6 +12,7 @@
 #import "IOHIDUserDeviceTestController.h"
 #import "IOHIDDeviceTestController.h"
 #import "IOHIDUnitTestDescriptors.h"
+#import <IOKit/hid/IOHIDLibPrivate.h>
 
 
 static uint8_t descriptorForKeyboard[] = {
@@ -286,6 +287,48 @@ static void SetReportAsync (
     status = IOHIDDeviceSetValue(self.elementDeviceController.device, element, elementValue);
     XCTAssert(status == kIOReturnSuccess || status == kIOReturnUnsupported, "IOHIDDeviceSetValue: %x", status);
     
+}
+
+- (void)testElementExponent {
+    IOHIDElementRef element = NULL;
+    IOHIDElementStruct elementStruct = { 0 };
+    IOHIDValueRef value = NULL;
+    
+    CFDataRef dummyData = CFDataCreateMutable(kCFAllocatorDefault, 1);
+    XCTAssert(dummyData);
+    
+    element = _IOHIDElementCreateWithParentAndData(kCFAllocatorDefault, NULL, dummyData, &elementStruct, 0);
+    XCTAssert(element);
+    
+    // size of 1 byte to hold value
+    elementStruct.size = 1;
+    
+    // logical min/max
+    elementStruct.min = 0;
+    elementStruct.max = 100;
+    
+    // physical min/max
+    elementStruct.scaledMin = 0;
+    elementStruct.scaledMax = 100;
+    
+    // 10^3
+    elementStruct.unitExponent = 0x3;
+    
+    value = IOHIDValueCreateWithIntegerValue(kCFAllocatorDefault, element, 0, 1);
+    XCTAssert(value);
+    
+    double result = IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeExponent);
+    XCTAssert(result == 1000);
+    
+    // 10^-3
+    elementStruct.unitExponent = 0xD;
+    
+    result = IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeExponent);
+    XCTAssert(result == .001);
+    
+    CFRelease(element);
+    CFRelease(value);
+    CFRelease(dummyData);
 }
 
 - (void)testHIDDeviceReport {

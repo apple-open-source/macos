@@ -1,51 +1,624 @@
-2017-08-09  Jason Marcell  <jmarcell@apple.com>
+2018-01-07  David Kilzer  <ddkilzer@apple.com>
 
-        Cherry-pick r220205. rdar://problem/33810980
+        Enable -Wcast-qual for WebInspectorUI, WebKitLegacy, WebKit projects
+        <https://webkit.org/b/181256>
+        <rdar://problem/36281730>
 
-    2017-08-03  Per Arne Vollan  <pvollan@apple.com>
+        Reviewed by Darin Adler.
 
-            [Win] WebKit COM header file is not placed in the correct location.
-            https://bugs.webkit.org/show_bug.cgi?id=175101
+        * PlatformMac.cmake:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        - Rename WebNSDataExtras.m to WebNSDataExtras.mm and change file
+          type to Objective-C++.
 
-            Reviewed by Brent Fulgham.
+2018-01-03  Ting-Wei Lan  <lantw44@gmail.com>
 
-            After the transition to WebKitLegacy, the generated WebKit header files should still
-            be placed in the WebKit folder, so WebKit clients will find the header files in the
-            same place.
+        Replace hard-coded paths in shebangs with #!/usr/bin/env
+        https://bugs.webkit.org/show_bug.cgi?id=181040
 
-            * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+        Reviewed by Alex Christensen.
+
+        * scripts/generate-webkitversion.pl:
+
+2017-12-28  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Remove std::chrono completely
+        https://bugs.webkit.org/show_bug.cgi?id=181186
+
+        Reviewed by Alex Christensen.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::deleteAllDatabases):
+
+2017-12-28  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][CMake] Use add_custom_command to copy each forwarding header files
+        https://bugs.webkit.org/show_bug.cgi?id=180921
+
+        Reviewed by Brent Fulgham.
+
+        * PlatformWin.cmake: Use WEBKIT_MAKE_FORWARDING_HEADERS.
+
+2017-12-14  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Drop Thread::tryCreate
+        https://bugs.webkit.org/show_bug.cgi?id=180808
+
+        Reviewed by Darin Adler.
+
+        * Storage/StorageThread.cpp:
+        (WebCore::StorageThread::start):
+        * Storage/StorageThread.h:
+
+2017-12-12  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WTF] Thread::create should have Thread::tryCreate
+        https://bugs.webkit.org/show_bug.cgi?id=180333
+
+        Reviewed by Darin Adler.
+
+        * Storage/StorageThread.cpp:
+        (WebCore::StorageThread::start):
+
+2017-12-05  Stephan Szabo  <stephan.szabo@sony.com>
+
+        Switch windows build to Visual Studio 2017
+        https://bugs.webkit.org/show_bug.cgi?id=172412
+
+        Reviewed by Per Arne Vollan.
+
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2017-11-27  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake][Win] Conditionally select DLL CRT or static CRT
+        https://bugs.webkit.org/show_bug.cgi?id=170594
+
+        Reviewed by Alex Christensen.
+
+        * PlatformWin.cmake:
+
+2017-11-24  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] WebPreferences IDL not regenerating
+        https://bugs.webkit.org/show_bug.cgi?id=179960
+
+        Reviewed by Darin Adler.
+
+        WebKitLegacy shouldn't include the forwarding header of
+        WebKitLegacy itself.
+
+        * CMakeLists.txt: Add ${FORWARDING_HEADERS_DIR} and remove
+        ${FORWARDING_HEADERS_DIR}/JavaScriptCore and
+        ${FORWARDING_HEADERS_DIR}/WebKitLegacy from
+        WebKitLegacy_INCLUDE_DIRECTORIES.
+
+2017-11-14  Alex Christensen  <achristensen@webkit.org>
+
+        Remove Cocoa CFURLConnection loading code
+        https://bugs.webkit.org/show_bug.cgi?id=179688
+
+        Reviewed by Antti Koivisto.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::scheduleLoad):
+
+2017-11-06  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Add WebKitQuartzCoreAdditions library.
+        https://bugs.webkit.org/show_bug.cgi?id=179331
+
+        Reviewed by Alex Christensen.
+
+        This library should be added to the OpenSource repository.
+
+        * CMakeLists.txt:
+
+2017-11-06  Alex Christensen  <achristensen@webkit.org>
+
+        Make ResourceLoader::willSendRequestInternal asynchronous
+        https://bugs.webkit.org/show_bug.cgi?id=179251
+
+        Reviewed by Andy Estes.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::loadResource):
+        (WebResourceLoadScheduler::schedulePluginStreamLoad):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-11-02  Christopher Reid  <chris.reid@sony.com>
+
+        Add a FileSystem namespace to FileSystem.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=179063
+
+        Reviewed by Darin Adler.
+
+        * Storage/StorageAreaSync.cpp:
+        * Storage/StorageSyncManager.cpp:
+        * Storage/StorageTracker.cpp:
+
+2017-10-31  Alex Christensen  <achristensen@webkit.org>
+
+        Use asynchronous ResourceHandleClient calls for WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=160677
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+
+2017-10-16  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r223271.
+
+        This change introduced LayoutTest failures on WK1.
+
+        Reverted changeset:
+
+        "Use asynchronous ResourceHandleClient calls for WebKit1"
+        https://bugs.webkit.org/show_bug.cgi?id=160677
+        https://trac.webkit.org/changeset/223271
+
+2017-10-12  Alex Christensen  <achristensen@webkit.org>
+
+        Use asynchronous ResourceHandleClient calls for WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=160677
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+
+2017-10-10  Sam Weinig  <sam@webkit.org>
+
+        Replace copyKeysToVector/copyValuesToVector with copyToVector(map.keys())/copyToVector(map.values())
+        https://bugs.webkit.org/show_bug.cgi?id=178102
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::servePendingRequests):
+
+2017-10-09  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Link error: cannot open input file 'WebKitLegacyGUID.lib'
+        https://bugs.webkit.org/show_bug.cgi?id=178087
+
+        Reviewed by Alexey Proskuryakov.
+
+        For compatibility reasons, the library still has the name WebKitGUID.lib.
+
+        * PlatformWin.cmake:
+
+2017-10-05  Darin Adler  <darin@apple.com>
+
+        Remove additional WebKitSystemInterface remnants
+        https://bugs.webkit.org/show_bug.cgi?id=177948
+
+        Reviewed by Andy Estes.
+
+        * PlatformMac.cmake: Removed reference to deleted file WebSystemInterface.mm.
+
+2017-10-04  Alex Christensen  <achristensen@webkit.org>
+
+        Stop linking with WebKitSystemInterface
+        https://bugs.webkit.org/show_bug.cgi?id=177915
+
+        Reviewed by Antti Koivisto.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2017-10-02  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Link error: cannot open file 'WebKitGUID.lib'
+        https://bugs.webkit.org/show_bug.cgi?id=177759
+
+        Reviewed by Alex Christensen.
+
+        For backward compatibility reasons, this library should not be renamed from
+        WebKitGUID.lib to WebKitLegacyGUID.lib.
+
+        * PlatformWin.cmake:
+
+2017-09-29  Chris Dumez  <cdumez@apple.com>
+
+        http/tests/preconnect/link-rel-preconnect-https.html is flaky
+        https://bugs.webkit.org/show_bug.cgi?id=177673
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::preconnectTo):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-09-28  Chris Dumez  <cdumez@apple.com>
+
+        Add support for <link rel=preconnect>
+        https://bugs.webkit.org/show_bug.cgi?id=177474
+        <rdar://problem/33141380>
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::preconnectTo):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-09-26  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] WebKitCOMAPI.h is not copied after build has finished.
+        https://bugs.webkit.org/show_bug.cgi?id=177505
+
+        Reviewed by Brent Fulgham.
+
+        The file is located in the WebKitLegacy forwarding headers folder, not the WebKit folder.
+
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2017-09-25  Timothy Horton  <timothy_horton@apple.com>
+
+        Fix the macOS WebKit CMake build
+
+        * CMakeLists.txt:
+        Before r222194, this -umbrella flag mentioned "WebKit" twice:
+        first, the name of the target to affect; second, the name of the
+        umbrella framework. In r222194, the targets were renamed. It turns
+        out that a global find and replace isn't a great way to do this,
+        because it caught the name of the umbrella framework too.
+
+        Put it back; the umbrella framework will always be named "WebKit".
+
+        This makes it once again possible to link WebKit (before, it was
+        complaining about us linking directly to WebKitLegacy instead of the
+        nonsensical WebKitLegacy umbrella framework).
+
+2017-09-25  Chris Dumez  <cdumez@apple.com>
+
+        Make StoredCredentials an enum class and rename its header
+        https://bugs.webkit.org/show_bug.cgi?id=177455
+
+        Reviewed by Youenn Fablet.
+
+        Make StoredCredentials an enum class and rename its header for clarity. This was error-prone because 0 meant
+        "allow" and and 1 meant "do not allow". It was trivial to convert it to a boolean by mistake and get the
+        opposite behavior.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::loadResourceSynchronously):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-09-25  Timothy Horton  <timothy_horton@apple.com>
+
+        Make progress on getting Mac CMake building again
+        https://bugs.webkit.org/show_bug.cgi?id=177443
+
+        Unreviewed, just "fixing" the build.
+
+        * PlatformMac.cmake:
+        Set up dependencies correctly for our mig-generated files.
+        MAIN_DEPENDENCY is for VS, not what it sounds like.
+
+        Add mig-generated files to WebKitLegacy, not WebKit (I think this was
+        missed in the WebKit2 rename).
+
+2017-09-21  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Compile error, generate-webkitversion.pl script not found.
+        https://bugs.webkit.org/show_bug.cgi?id=177310
+
+        Reviewed by Brent Fulgham.
+
+        The script is located using the WebKitLegacy folder cmake variable, which needs
+        to be set in the project file. 
+ 
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2017-09-18  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        [CMake] Rename WebKit target to WebKitLegacy and rename WebKit2 target to WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=174558
+
+        Reviewed by Alex Christensen.
+
+        With help from Stephan Szabo, thanks!
+
+        * CMakeLists.txt:
+        * PlatformMac.cmake:
+        * PlatformWin.cmake:
+
+2017-09-16  Tim Horton  <timothy_horton@apple.com>
+
+        Fix the Tools build with CMake on macOS
+        https://bugs.webkit.org/show_bug.cgi?id=177030
+
+        Reviewed by Geoffrey Garen.
+
+        * PlatformMac.cmake:
+        Add some forwarding headers.
+
+2017-09-12  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Link errors when building WebKit from .proj files.
+        https://bugs.webkit.org/show_bug.cgi?id=176813
+
+        Reviewed by Brent Fulgham.
+
+        Add missing libraries to WebKit build.
+
+        * PlatformWin.cmake:
+
+2017-08-31  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Make USE_CF conditional within Windows
+        https://bugs.webkit.org/show_bug.cgi?id=176173
+
+        Reviewed by Alex Christensen.
+
+        * PlatformWin.cmake:
+
+2017-08-30  Andy Estes  <aestes@apple.com>
+
+        [Mac] Upstream Carbon-related WebKitSystemInterface functions
+        https://bugs.webkit.org/show_bug.cgi?id=176087
+
+        Reviewed by Alex Christensen.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2017-08-29  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Use find_package for zlib
+        https://bugs.webkit.org/show_bug.cgi?id=176075
+
+        Reviewed by Alex Christensen.
+
+        * PlatformWin.cmake:
+
+2017-08-29  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Use find_package for libxml2 and libxstl
+        https://bugs.webkit.org/show_bug.cgi?id=176042
+
+        Reviewed by Konstantin Tokarev.
+
+        * PlatformWin.cmake:
+
+2017-08-24  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Use find_package for SQLite
+        https://bugs.webkit.org/show_bug.cgi?id=175803
+
+        Reviewed by Konstantin Tokarev.
+
+        * PlatformWin.cmake:
+
+2017-08-20  Chris Dumez  <cdumez@apple.com>
+
+        Simplify calls to LoaderStrategy::startPingLoad()
+        https://bugs.webkit.org/show_bug.cgi?id=175756
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::startPingLoad):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-18  Chris Dumez  <cdumez@apple.com>
+
+        [Beacon] Improve error reporting
+        https://bugs.webkit.org/show_bug.cgi?id=175723
+
+        Reviewed by Darin Adler.
+
+        Have Ping loads such as beacons report errors via their completion handler.
+        The Beacon API is using this error to log a console message when beacon loads
+        fail, provided that the page is still alive.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::startPingLoad):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-18  Chris Dumez  <cdumez@apple.com>
+
+        [Beacon] Add support for quota limitation
+        https://bugs.webkit.org/show_bug.cgi?id=175443
+        <rdar://problem/33729002>
+
+        Reviewed by Youenn Fablet.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::startPingLoad):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-17  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r220817): We should only copy the original request headers for Ping loads
+        https://bugs.webkit.org/show_bug.cgi?id=175679
+
+        Reviewed by Youenn Fablet.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-17  Don Olmstead  <don.olmstead@sony.com>
+
+        [PAL] Relocate SessionID to root
+        https://bugs.webkit.org/show_bug.cgi?id=175684
+
+        Reviewed by Alex Christensen.
+
+        * Storage/WebDatabaseProvider.cpp:
+
+2017-08-17  Don Olmstead  <don.olmstead@sony.com>
+
+        [PAL] Move SessionID into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=174192
+
+        Reviewed by Antti Koivisto.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::idbConnectionToServerForSession):
+        * Storage/WebDatabaseProvider.h:
+
+2017-08-16  Chris Dumez  <cdumez@apple.com>
+
+        Cross origin Beacon requests with a ArrayBuffer / ArrayBufferView payload should not do a CORS preflight
+        https://bugs.webkit.org/show_bug.cgi?id=175628
+        <rdar://problem/33919278>
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-16  Yoshiaki Jitsukawa  <Yoshiaki.Jitsukawa@sony.com>
+
+        [PAL] Move spi/ios and spi/win directories into PAL
+        https://bugs.webkit.org/show_bug.cgi?id=175171
+
+        Reviewed by Antti Koivisto.
+
+        * Storage/StorageTracker.cpp:
+
+2017-08-10  Dan Bernstein  <mitz@apple.com>
+
+        Restored svn:ignore values that went missing when the project got renamed.
+
+        * WebKitLegacy.xcodeproj: Added property svn:ignore.
+
+2017-08-10  Chris Dumez  <cdumez@apple.com>
+
+        [Beacon] Do connect-src CSP check on redirects as well
+        https://bugs.webkit.org/show_bug.cgi?id=175410
+        <rdar://problem/33815470>
+
+        Reviewed by Youenn Fablet.
+
+        Update createPingHandle() to take in ContentSecurityPolicy
+        object in but no behavior change for WK1.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-08  Chris Dumez  <cdumez@apple.com>
+
+        [Beacon] Add support for CORS-preflighting for WK2 / NETWORK_SESSION
+        https://bugs.webkit.org/show_bug.cgi?id=175264
+        <rdar://problem/33547793>
+
+        Reviewed by Youenn Fablet.
+
+        createPingHandle() now takes new parameters but there is currently no behavior
+        change on WebKit1.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::createPingHandle):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2017-08-03  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] WebKit COM header file is not placed in the correct location.
+        https://bugs.webkit.org/show_bug.cgi?id=175101
+
+        Reviewed by Brent Fulgham.
+
+        After the transition to WebKitLegacy, the generated WebKit header files should still
+        be placed in the WebKit folder, so WebKit clients will find the header files in the
+        same place.
+
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
 
 2017-08-02  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Cherry-pick r219602. rdar://problem/33537767
+        Build-fix for Windows in Visual Studio after directory rename.
 
-    2017-07-17  Konstantin Tokarev  <annulen@yandex.ru>
+        Reviewed by Per Arne Vollan.
 
-            [cmake] Set library types before their targets are created
-            https://bugs.webkit.org/show_bug.cgi?id=174600
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+        We still build WebKit.dll, not WebKitLegacy.dll.
 
-            Reviewed by Michael Catanzaro.
+2017-07-31  Sam Weinig  <sam@webkit.org>
 
-            Since r219560 library targets are created before PlatformXXX.cmake
-            files are processed, however library type must be passed in
-            add_library() call and cannot be changed afterwards. Set these
-            variables in OptionsXXX.cmake.
+        Remove unnecessary exceptions from storage code
+        https://bugs.webkit.org/show_bug.cgi?id=174572
 
-            * PlatformMac.cmake:
-            * PlatformWin.cmake:
+        Reviewed by Chris Dumez.
 
-2017-08-02  Matthew Hanson  <matthew_hanson@apple.com>
+        * Storage/StorageAreaImpl.cpp:
+        (WebKit::StorageAreaImpl::canAccessStorage): Deleted.
+        * Storage/StorageAreaImpl.h:
+        Remove canAccessStorage. It is no longer called.
 
-        Cherry-pick r220128. rdar://problem/33537767
+2017-07-14  Filip Pizlo  <fpizlo@apple.com>
 
-    2017-08-02  Matthew Hanson  <matthew_hanson@apple.com>
+        It should be easy to decide how WebKit yields
+        https://bugs.webkit.org/show_bug.cgi?id=174298
 
-            Build-fix for Windows in Visual Studio after directory rename.
+        Reviewed by Saam Barati.
 
-            Reviewed by Per Arne Vollan.
+        * Storage/StorageTracker.h:
 
-            * WebKitLegacy.vcxproj/WebKitLegacy.proj:
-            We still build WebKit.dll, not WebKitLegacy.dll.
+2017-07-21  Konstantin Tokarev  <annulen@yandex.ru>
+
+        Unreviewed, fix Mac cmake build after r219733
+
+        * PlatformMac.cmake:
+
+2017-07-21  Konstantin Tokarev  <annulen@yandex.ru>
+
+        [cmake][Mac] Unreviewed, fix linking WebKitSystemInterface
+
+        After r219560 link_directories() in PlatformXXX.cmake files does not
+        affect corresponding targets.
+
+        * PlatformMac.cmake:
+
+2017-07-21  Brady Eidson  <beidson@apple.com>
+
+        Get rid of WebCore IconDatabase code.
+        https://bugs.webkit.org/show_bug.cgi?id=174700
+
+        Reviewed by Tim Horton.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2017-07-17  Konstantin Tokarev  <annulen@yandex.ru>
+
+        [cmake] Set library types before their targets are created
+        https://bugs.webkit.org/show_bug.cgi?id=174600
+
+        Reviewed by Michael Catanzaro.
+
+        Since r219560 library targets are created before PlatformXXX.cmake
+        files are processed, however library type must be passed in
+        add_library() call and cannot be changed afterwards. Set these
+        variables in OptionsXXX.cmake.
+
+        * PlatformMac.cmake:
+        * PlatformWin.cmake:
+
+2017-07-17  Darin Adler  <darin@apple.com>
+
+        Improve use of NeverDestroyed
+        https://bugs.webkit.org/show_bug.cgi?id=174348
+
+        Reviewed by Sam Weinig.
+
+        * Storage/StorageThread.cpp:
+        (WebCore::StorageThread::releaseFastMallocFreeMemoryInAllThreads):
+        Simplify code by using a modern for loop and passing a function without wrapping
+        it in a lambda.
+
+2017-07-17  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        [CMake] Macros in WebKitMacros.cmake should be prefixed with WEBKIT_ namespace
+        https://bugs.webkit.org/show_bug.cgi?id=174547
+
+        Reviewed by Alex Christensen.
+
+        * CMakeLists.txt:
 
 2017-07-17  Konstantin Tokarev  <annulen@yandex.ru>
 

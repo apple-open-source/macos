@@ -125,6 +125,7 @@
 		11DA8BFA1E84C29300664706 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC791E7769D000CF1891 /* IOKit.framework */; };
 		22B9840916FBA91100BB59FC /* swd.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B9840816FBA91100BB59FC /* swd.c */; };
 		22B9840A16FBABC800BB59FC /* com.apple.powerd.swd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */; };
+		48232D7E2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 48232D7D2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd */; };
 		482AAA601DD2F9F9001C14E3 /* SmbusHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 482AAA5E1DD2F9F9001C14E3 /* SmbusHandler.cpp */; };
 		484C4E861EDE2C70005B4487 /* BatteryData.c in Sources */ = {isa = PBXBuildFile; fileRef = 481801D41ECE17F500467D4B /* BatteryData.c */; };
 		484EA0F216BEEB8400E70CF3 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
@@ -279,7 +280,6 @@
 		72A8C49E173AE7A400562BA6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A8C49D173AE7A400562BA6 /* IOKit.framework */; };
 		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
-		72E815540CFE470B00CF547E /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A9E691B70564519800938E2D /* Localizable.strings */; };
 		72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */; };
 		72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
 		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
@@ -735,10 +735,12 @@
 		481801D41ECE17F500467D4B /* BatteryData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BatteryData.c; sourceTree = "<group>"; };
 		481801D51ECE17F500467D4B /* BatteryData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryData.h; sourceTree = "<group>"; };
 		481D3D3A1B166D5000201979 /* libsystemstats.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsystemstats.dylib; path = usr/lib/libsystemstats.dylib; sourceTree = SDKROOT; };
+		48232D7D2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libDiagnosticMessagesClient.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/libDiagnosticMessagesClient.tbd; sourceTree = DEVELOPER_DIR; };
 		482AAA5E1DD2F9F9001C14E3 /* SmbusHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SmbusHandler.cpp; path = AppleSmartBatteryManager/SmbusHandler.cpp; sourceTree = "<group>"; };
 		482AAA5F1DD2F9F9001C14E3 /* SmbusHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SmbusHandler.h; path = AppleSmartBatteryManager/SmbusHandler.h; sourceTree = "<group>"; };
 		4851F9A81C6431A000125DBE /* PMtests.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMtests.h; sourceTree = "<group>"; };
 		4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "IOPSCreatePowerSource-simple.c"; sourceTree = "<group>"; };
+		4854695320177C0E0015467A /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		48644FB71B7D5B0500AC7C92 /* pmtool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmtool; sourceTree = BUILT_PRODUCTS_DIR; };
 		48644FC11B7D5B2800AC7C92 /* pmtool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmtool.c; path = pmtool/pmtool.c; sourceTree = SOURCE_ROOT; };
 		48644FC21B7D5B2800AC7C92 /* pmtool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pmtool.h; path = pmtool/pmtool.h; sourceTree = SOURCE_ROOT; };
@@ -911,6 +913,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48232D7E2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd in Frameworks */,
 				4878DC821E776A1E00CF1891 /* libsystemstats.dylib in Frameworks */,
 				4878DC801E7769EC00CF1891 /* Security.framework in Frameworks */,
 				4878DC831E776A4C00CF1891 /* libIOReport.a in Frameworks */,
@@ -1217,6 +1220,7 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				48232D7D2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd */,
 				48A48D911EF4D16B0016FE7B /* CoreFoundation.framework */,
 				48A48D861EF4309A0016FE7B /* AggregateDictionary.framework */,
 				4878DC811E776A1E00CF1891 /* libsystemstats.dylib */,
@@ -1314,6 +1318,7 @@
 			children = (
 				11DA8BE91E84C20F00664706 /* sleepwakenotification-test.c */,
 				4851F9A81C6431A000125DBE /* PMtests.h */,
+				4854695320177C0E0015467A /* entitlements.plist */,
 				48D667331C99D6D70006F1C8 /* energyprefs.c */,
 				4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */,
 				72A694E418EA2CD500D5D682 /* iopmruntests.py */,
@@ -1935,7 +1940,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D81001D31755326000140DD3 /* com.apple.powerd-embedded.plist in Resources */,
-				72E815540CFE470B00CF547E /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3935,6 +3939,8 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = BATS/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -3973,6 +3979,8 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = BATS/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4011,6 +4019,8 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = BATS/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -4044,6 +4054,8 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = BATS/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;

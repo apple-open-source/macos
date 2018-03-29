@@ -26,6 +26,8 @@
 #ifndef _SECURITY_TOOL_H_
 #define _SECURITY_TOOL_H_ 1
 
+#define SHOW_USAGE_MESSAGE 2
+
 #ifdef __cplusplus
 extern "C" {
 #endif

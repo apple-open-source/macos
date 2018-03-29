@@ -122,8 +122,7 @@ static OSStatus privKeyForPubKeyHash(CFDictionaryRef context, SecKeyRef *privKey
 
 	CFStringRef pin = getPin(context);
 	if (pin) {
-		CFRef<CFDictionaryRef> LAParams = makeCFDictionary(1, CFSTR("useDaemon"), kCFBooleanFalse);
-		CFRef<CFTypeRef> LAContext = LACreateNewContextWithACMContext(LAParams.as<CFDataRef>(), error.take());
+		CFRef<CFTypeRef> LAContext = LACreateNewContextWithACMContext(NULL, error.take());
 		if (!LAContext) {
 			secinfo("TokenLogin", "Failed to LA Context: %@", error.get());
 			return errSecParam;

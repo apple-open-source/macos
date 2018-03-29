@@ -28,6 +28,9 @@
 #import "ArgumentCodersCF.h"
 #import "SandboxUtilities.h"
 #import "XPCServiceEntryPoint.h"
+#import <WebCore/Process.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
@@ -81,6 +84,21 @@ bool XPCServiceInitializerDelegate::getClientIdentifier(String& clientIdentifier
     return true;
 }
 
+bool XPCServiceInitializerDelegate::getProcessIdentifier(ProcessIdentifier& identifier)
+{
+    String processIdentifierString = xpc_dictionary_get_string(m_initializerMessage, "process-identifier");
+    if (processIdentifierString.isEmpty())
+        return false;
+
+    bool ok;
+    auto parsedIdentifier = processIdentifierString.toUInt64Strict(&ok);
+    if (!ok)
+        return false;
+
+    identifier = makeObjectIdentifier<ProcessIdentifierType>(parsedIdentifier);
+    return true;
+}
+
 bool XPCServiceInitializerDelegate::getClientProcessName(String& clientProcessName)
 {
     clientProcessName = xpc_dictionary_get_string(m_initializerMessage, "ui-process-name");
@@ -96,6 +114,12 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
     String inspectorProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "inspector-process");
     if (!inspectorProcess.isEmpty())
         extraInitializationData.add(ASCIILiteral("inspector-process"), inspectorProcess);
+
+#if ENABLE(SERVICE_WORKER)
+    String serviceWorkerProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "service-worker-process");
+    if (!serviceWorkerProcess.isEmpty())
+        extraInitializationData.add(ASCIILiteral("service-worker-process"), serviceWorkerProcess);
+#endif
 
     if (!isClientSandboxed()) {
         String userDirectorySuffix = xpc_dictionary_get_string(extraDataInitializationDataObject, "user-directory-suffix");

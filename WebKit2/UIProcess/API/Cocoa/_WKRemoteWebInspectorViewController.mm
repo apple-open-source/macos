@@ -29,7 +29,6 @@
 #if PLATFORM(MAC) && WK_API_ENABLED
 
 #import "RemoteWebInspectorProxy.h"
-#import "WKWebInspectorWKWebView.h"
 
 using namespace WebKit;
 
@@ -99,6 +98,8 @@ static String debuggableTypeString(WKRemoteWebInspectorDebuggableType debuggable
     switch (debuggableType) {
     case WKRemoteWebInspectorDebuggableTypeJavaScript:
         return ASCIILiteral("javascript");
+    case WKRemoteWebInspectorDebuggableTypeServiceWorker:
+        return ASCIILiteral("service-worker");
     case WKRemoteWebInspectorDebuggableTypeWeb:
         return ASCIILiteral("web");
     }

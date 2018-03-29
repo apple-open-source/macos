@@ -21,6 +21,7 @@
 .Op Fl -legacy
 .Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
+.Op Fl -personalize
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -32,6 +33,7 @@
 .Op Fl -legacy
 .Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
+.Op Fl -personalize
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -187,6 +189,10 @@ on EFI-based systems, and in general should be avoided. Instead, use
 to set
 .Qo boot-args Qc
 , which will work with both Open Firmware- and EFI-based systems.
+.It Fl -personalize
+Attempts to do a personalization operation on the target, which validates the SecureBoot
+bundle and ensures that the relevant boot files are signed and valid for this particular
+machine.  This may require network access, in order to check the signatures.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -217,6 +223,8 @@ Same as for Folder Mode.
 .It Fl -legacydrivehint Ar device
 Same as for Folder Mode.
 .It Fl -options
+Same as for Folder Mode.
+.It Fl -personalize
 Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output

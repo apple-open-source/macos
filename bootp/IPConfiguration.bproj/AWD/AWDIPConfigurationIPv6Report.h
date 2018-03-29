@@ -26,6 +26,9 @@
     uint32_t _expiredPrefixCount;
     AWDIPConfigurationInterfaceType _interfaceType;
     uint32_t _prefixCount;
+    uint32_t _prefixPreferredLifetimeSeconds;
+    uint32_t _prefixValidLifetimeSeconds;
+    uint32_t _routerLifetimeSeconds;
     uint32_t _routerSolicitationCount;
     BOOL _autoconfAddressAcquired;
     BOOL _autoconfAddressDeprecated;
@@ -54,6 +57,9 @@
         int expiredPrefixCount:1;
         int interfaceType:1;
         int prefixCount:1;
+        int prefixPreferredLifetimeSeconds:1;
+        int prefixValidLifetimeSeconds:1;
+        int routerLifetimeSeconds:1;
         int routerSolicitationCount:1;
         int autoconfAddressAcquired:1;
         int autoconfAddressDeprecated:1;
@@ -160,6 +166,15 @@
 
 @property (nonatomic) BOOL hasDnsConfigurationAcquisitionSeconds;
 @property (nonatomic) uint32_t dnsConfigurationAcquisitionSeconds;
+
+@property (nonatomic) BOOL hasPrefixPreferredLifetimeSeconds;
+@property (nonatomic) uint32_t prefixPreferredLifetimeSeconds;
+
+@property (nonatomic) BOOL hasPrefixValidLifetimeSeconds;
+@property (nonatomic) uint32_t prefixValidLifetimeSeconds;
+
+@property (nonatomic) BOOL hasRouterLifetimeSeconds;
+@property (nonatomic) uint32_t routerLifetimeSeconds;
 
 // Performs a shallow copy into other
 - (void)copyTo:(AWDIPConfigurationIPv6Report *)other;

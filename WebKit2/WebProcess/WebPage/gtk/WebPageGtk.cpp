@@ -74,7 +74,7 @@ void WebPage::platformDetach()
 
 void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
 {
-    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No) {
+    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No || !frame.view() || frame.view()->needsLayout()) {
         result.isMissingPostLayoutData = true;
         return;
     }
@@ -117,11 +117,6 @@ void WebPage::updateAccessibilityTree()
     webPageAccessibilityObjectRefresh(m_accessibilityObject.get());
 }
 #endif
-
-void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
-{
-    notImplemented();
-}
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
 {

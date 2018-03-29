@@ -202,6 +202,8 @@ static void fillItem(CFMutableDictionaryRef item, uint32_t num)
             CFDictionarySetValue(item, attr, value);
         CFReleaseSafe(value);
     });
+
+    CFDictionarySetValue(item, kSecValueData, (__bridge CFDataRef)[NSData dataWithBytes:"some data" length:9]);
 }
 
 static void tests(bool isPasscodeSet)

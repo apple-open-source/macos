@@ -33,6 +33,10 @@
     BOOL finished;
 }
 
++ (instancetype)operationWithBlock:(void (^)(void))block;
++ (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSGroupOperation* strongOp))block;
+
 @property NSOperationQueue* operationQueue;
 
 - (instancetype)init;

@@ -70,7 +70,7 @@
 				<command>Kernel Flags</command>, and causes the system to boot to verbose text logging before
 				starting the graphical user interface.</dd>
 
-                        <dt><command>Command-R</command></dt><dd>Boot in Recovery Mode.  This causes the system to boot into special Recovery System image, which can be used used to restore the system from Time Machine Backup, re-install OS X, or use Disk Utility to repair or erase disks.</dd>
+                        <dt><command>Command-R</command></dt><dd>Boot in Recovery Mode.  This causes the system to boot into special Recovery System image, which can be used to restore the system from Time Machine Backup, re-install OS X, or use Disk Utility to repair or erase disks.</dd>
 			
 		</dl>
 

@@ -606,8 +606,8 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
                 status = kIOReturnSuccess;
                 break;
 
-            case kIOMessageFWSBP2ReconnectComplete:
-            case kIOMessageFWSBP2ReconnectFailed:
+            case (UInt32)kIOMessageFWSBP2ReconnectComplete:
+            case (UInt32)kIOMessageFWSBP2ReconnectFailed:
                 params = (FWSBP2ReconnectParams*)arg;
                 entries = params->reconnectStatusBlockLength;
                 if( entries > sizeof(FWSBP2StatusBlock) )

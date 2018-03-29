@@ -52,20 +52,23 @@
     return nil;
 }
 
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup {
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                            fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
+                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup {
 
     if(self = [super init]) {
         _ckks = ckks;
         _ckoperationGroup = ckoperationGroup;
-        self.zoneID = ckks.zoneID;
+        _fetchReasons = fetchReasons;
+        _zoneID = ckks.zoneID;
 
-        self.resync = false;
+        _resync = false;
 
-        self.modifications = [[NSMutableDictionary alloc] init];
-        self.deletions = [[NSMutableDictionary alloc] init];
+        _modifications = [[NSMutableDictionary alloc] init];
+        _deletions = [[NSMutableDictionary alloc] init];
 
         // Can't fetch unless the zone is created.
-        [self addNullableDependency:ckks.viewSetupOperation];
+        [self addNullableDependency:ckks.zoneSetupOperation];
     }
     return self;
 }
@@ -175,15 +178,15 @@
                 return false;
             }
 
-            ckksnotice("ckksfetch", ckks, "Beginning fetch(%@) starting at change token %@", ckks.zoneName, ckse.changeToken);
-
-            options.previousServerChangeToken = ckse.changeToken;
-
-            if(ckse.changeToken == nil) {
-                // First sync is special.
+            // If this is the first sync, or an API fetch, use QoS userInitated
+            if(ckse.changeToken == nil || [self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest]) {
                 qos = NSQualityOfServiceUserInitiated;
             }
+
+            options.previousServerChangeToken = ckse.changeToken;
         }
+
+        ckksnotice("ckksfetch", ckks, "Beginning fetch(%@) starting at change token %@ with QoS %d", ckks.zoneName, options.previousServerChangeToken, (int)qos);
 
         self.fetchRecordZoneChangesOperation = [[ckks.fetchRecordZoneChangesOperationClass alloc] initWithRecordZoneIDs: @[ckks.zoneID] optionsByRecordZoneID:@{ckks.zoneID: options}];
 
@@ -256,7 +259,7 @@
             }
 
             ckksnotice("ckksfetch", blockCKKS, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ changed=%lu deleted=%lu error=%@", serverChangeToken, clientChangeTokenData,
-                (unsigned long)strongSelf.deletions.count,
+                (unsigned long)strongSelf.modifications.count,
                 (unsigned long)strongSelf.deletions.count,
                 recordZoneError);
 
@@ -330,6 +333,8 @@
                         return false;
                     }
 
+                    ckksnotice("ckksfetch", blockCKKS, "Finished processing fetch for %@", recordZoneID);
+
                     return true;
                 }];
             }
@@ -350,7 +355,7 @@
                 strongSelf.error = operationError;
             }
 
-            //[CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventFetchAllChanges zone:ckks.zoneName count:strongSelf.fetchedItems];
+            [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventFetchAllChanges zone:ckks.zoneName count:strongSelf.fetchedItems];
 
 
             // Trigger the fake 'we're done' operation.

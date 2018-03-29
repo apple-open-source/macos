@@ -219,14 +219,6 @@ bool SOSRingIsSame(SOSRingRef ring1, SOSRingRef ring2) {
     require_action_quiet(name1 && name2, errOut, secnotice("ring", "Cannot get both names to consider rings the same"));
     if(CFEqualSafe(name1, name2) != true) return false;
 
-#if 0
-    // Not considering this for now - upgraded version can still be the "same ring".
-    uint32_t version1 = SOSRingGetVersion(ring1);
-    uint32_t version2 = SOSRingGetVersion(ring2);
-    require_action_quiet(version1 && version2, errOut, secnotice("ring", "Cannot get both versions to consider rings the same"));
-    if(version1 != version2) return false;
-#endif
-
     uint32_t type1 = SOSRingGetType(ring1);
     uint32_t type2 = SOSRingGetVersion(ring2);
     require_action_quiet(type1 && type2, errOut, secnotice("ring", "Cannot get both types to consider rings the same"));
@@ -579,12 +571,6 @@ bool SOSRingResetToEmpty_Internal(SOSRingRef ring, CFErrorRef *error) {
 
 // MARK: PeerIDs in Ring
 
-#if 0
-static inline bool isHiddenPeer(SOSPeerInfoRef peer) {
-    return SOSPeerInfoIsRetirementTicket(peer) || SOSPeerInfoIsCloudIdentity(peer);
-}
-#endif
-
 int SOSRingCountPeers(SOSRingRef ring) {
     SOSRingAssertStable(ring);
     return (int) CFSetGetCount(SOSRingGetPeerIDs(ring));
@@ -618,10 +604,17 @@ static CFDataRef SOSRingCreateHash(const struct ccdigest_info *di, SOSRingRef ri
     if(dersize == 0) {
         return false;
     }
-    uint8_t der[dersize];
-    der_encode_plist(ring->signedInformation, error, der, der+dersize);
+    uint8_t *der = malloc(dersize);
+    if (der == NULL) {
+        return false;
+    }
+    if (der_encode_plist(ring->signedInformation, error, der, der+dersize) == NULL) {
+        free(der);
+        return false;
+    }
 
     ccdigest(di, dersize, der, hash_result);
+    free(der);
     return CFDataCreate(NULL, hash_result, di->output_size);
 }
 
@@ -828,117 +821,6 @@ static CFStringRef SOSRingCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef 
     return description;
 }
 
-//
-// Peer Retirement
-//
-
 #define SIGLEN 128
-#if 0
-static CFDataRef sosSignHash(SecKeyRef privkey, const struct ccdigest_info *di, uint8_t *hbuf) {
-    OSStatus stat;
-    size_t siglen = SIGLEN;
-    uint8_t sig[siglen];
-    if((stat = SecKeyRawSign(privkey, kSecPaddingNone, hbuf, di->output_size, sig, &siglen)) != 0) {
-        return NULL;
-    }
-    return CFDataCreate(NULL, sig, (CFIndex)siglen);
-}
-#endif
-#if 0
-static void WithBufferSpace(size_t space, void (^action)(uint8_t *buffer, size_t length)) {
-    if (space == 0) {
-        action(NULL, space);
-    } else if (space <= 2048) {
-        uint8_t buffer[space];
-
-        action(buffer, space);
-    } else {
-        uint8_t* buffer = malloc(space);
-
-        action(buffer, space);
-
-        free(buffer);
-    }
-}
-
-static CFDataRef CFDictionaryHashCreate(CFDictionaryRef dict, CFErrorRef *error) {
-
-    __block CFDataRef result = NULL;
-
-    require_quiet(dict, errOut);
-
-    WithBufferSpace(der_sizeof_dictionary(dict, error), ^(uint8_t *der, size_t len) {
-        if (len > 0) {
-            const struct ccdigest_info *di = ccsha256_di();
-            uint8_t hash_result[di->output_size];
-            der_encode_dictionary(dict, error, der, der+len);
-
-            ccdigest(di, len, der, hash_result);
-            result = CFDataCreate(ALLOCATOR, hash_result, di->output_size);
-        }
-    });
-
-errOut:
-    return NULL;
-}
-#endif
-/*
- CFDictionary:
-    signatures: CFDictionary of key = hash(pubkey), value = signature(privkey, (DER(payload))
-    payload: CFDictionary passed in
 
 
- */
-#if 0
-static CFStringRef sPayload = CFSTR("payload");
-static CFStringRef sSignature = CFSTR("signature");
-
-static bool SOSCFSignedDictionarySetSignature(SecKeyRef priv, CFDictionaryRef sd, CFErrorRef *error) {
-    CFDictionaryRef payload = CFDictionaryGetValue(sd, sPayload);
-    CFMutableDictionaryRef signatures = (CFMutableDictionaryRef) CFDictionaryGetValue(sd, sSignature);
-    CFDataRef hash = CFDictionaryHashCreate(payload, error);
-    CFDataRef signature = SOSHashSign(priv, hash, error);
-    CFReleaseNull(hash);
-    CFStringRef pubhash = SOSCopyIDOfKey(priv, error);
-    require_quiet(signature && pubhash, errOut);
-    CFDictionaryAddValue(signatures, pubhash, signature);
-    return true;
-errOut:
-    return false;
-}
-#endif
-#if 0
-static CFDictionaryRef SOSCFSignedDictionaryCreate(SecKeyRef priv, CFDictionaryRef payload, CFErrorRef *error) {
-    CFMutableDictionaryRef signatures = CFDictionaryCreateMutableForCFTypes(ALLOCATOR);
-    CFMutableDictionaryRef retval = CFDictionaryCreateMutableForCFTypes(ALLOCATOR);
-    require_quiet(signatures && retval, errOut);
-
-    CFDictionaryAddValue(retval, sSignature, signatures);
-    CFDictionaryAddValue(retval, sPayload, payload);
-    SOSCFSignedDictionarySetSignature(priv, retval, error);
-    return retval;
-errOut:
-    CFReleaseNull(signatures);
-    CFReleaseNull(retval);
-    return NULL;
-}
-#endif
-
-#if 0
-CFDictionaryRef SOSRingCreateRetirementTicket(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-    CFDictionaryRef retval = NULL;
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(fpi));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-    CFDataRef resignationDate = SOSDateCreate();
-    GENCOUNT!!!
-
-    CFDataRef sig = SOSDERAndSignStuff(priv, keys, values, 2, error);
-    retval = CFDictionaryCreate(ALLOCATOR, <#const void **keys#>, <#const void **values#>, <#CFIndex numValues#>, <#const CFDictionaryKeyCallBacks *keyCallBacks#>, <#const CFDictionaryValueCallBacks *valueCallBacks#>)
-    return pi;
-
-exit_stage_right:
-    CFReleaseNull(priv);
-    CFReleaseNull(resignationDate);
-    return retval;
-}
-#endif

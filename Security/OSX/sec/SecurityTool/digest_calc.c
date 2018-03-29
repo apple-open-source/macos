@@ -45,7 +45,7 @@ extern int command_digest(int argc, char * const *argv)
     char data [getpagesize()];
     
     if (argc < 3)
-        return 2; /* Return 2 triggers usage message. */
+        return SHOW_USAGE_MESSAGE;
     
     if (strcasecmp("sha1", argv[1]) == 0)
     {
@@ -64,7 +64,7 @@ extern int command_digest(int argc, char * const *argv)
         
     }
     else
-        return 2; /* Return 2 triggers usage message. */
+        return SHOW_USAGE_MESSAGE;
     
     ccdigest_di_decl(di, ctx);
     ccdigest_init(di, ctx);

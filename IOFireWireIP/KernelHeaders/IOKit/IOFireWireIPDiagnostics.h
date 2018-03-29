@@ -35,7 +35,7 @@ private:
 public:
 	
 	static OSObject * createDiagnostics( IOFireWireIP* );
-	virtual bool serialize( OSSerialize * s ) const;
+	virtual bool serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 	
 protected:
 	

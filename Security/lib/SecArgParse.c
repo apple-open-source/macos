@@ -145,7 +145,7 @@ bool options_parse(int argc, char * const *argv, struct arguments* args) {
         realargs.arguments[i+1] = args->arguments[i];
     }
 
-    struct option* long_options = (struct option*) malloc((noptions+1) * sizeof(struct option));
+    struct option* long_options = (struct option*) calloc((noptions+1), sizeof(struct option));
     size_t short_options_length = 2* noptions * sizeof(char) + 2; // 2: one for -h, one for the null terminator
     char* short_options = (char*) malloc(short_options_length);
 
@@ -165,7 +165,7 @@ bool options_parse(int argc, char * const *argv, struct arguments* args) {
                 struct option* long_option = &long_options[option_index];
 
                 for(size_t i = 0; i < noptions; i++) {
-                    if(realargs.arguments[i].longname && strncmp(long_option->name, realargs.arguments[i].longname, strlen(realargs.arguments[i].longname)) == 0) {
+                    if(realargs.arguments[i].longname && long_option->name && strncmp(long_option->name, realargs.arguments[i].longname, strlen(realargs.arguments[i].longname)) == 0) {
                         trigger(realargs.arguments[i], optarg);
                     }
                 }
@@ -185,7 +185,8 @@ bool options_parse(int argc, char * const *argv, struct arguments* args) {
                 }
             }
             if(i == noptions) {
-                return false;
+                success = false;
+                goto out;
             }
         }
     }

@@ -204,6 +204,8 @@ protected:
 
 	virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 );
 	virtual IOReturn messageGated(UInt32 type, IOService * provider, void * argument = 0 );
+	
+	virtual IOReturn setProperties(OSObject *properties) APPLE_KEXT_OVERRIDE;
 
 	virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
 	virtual IOReturn registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32 refCon );

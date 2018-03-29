@@ -35,6 +35,7 @@
 #include <WebCore/Color.h>
 #include <WebCore/Element.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/HTMLVideoElement.h>
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/RenderLayer.h>
@@ -42,6 +43,7 @@
 #include <WebCore/RenderObject.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/Settings.h>
+#include <WebCore/TypedElementDescendantIterator.h>
 
 using namespace WebCore;
 
@@ -109,7 +111,9 @@ void WebFullScreenManager::willEnterFullScreen()
 {
     ASSERT(m_element);
     m_element->document().webkitWillEnterFullScreenForElement(m_element.get());
+#if !PLATFORM(IOS)
     m_page->hidePageBanners();
+#endif
     m_element->document().updateLayout();
     m_page->forceRepaintWithoutCallback();
     m_finalFrame = screenRectOfContents(m_element.get());
@@ -120,14 +124,29 @@ void WebFullScreenManager::didEnterFullScreen()
 {
     ASSERT(m_element);
     m_element->document().webkitDidEnterFullScreenForElement(m_element.get());
+
+#if ENABLE(VIDEO)
+    m_pipStandbyElement = descendantsOfType<HTMLVideoElement>(*m_element).first();
+    if (m_pipStandbyElement)
+        m_pipStandbyElement->setVideoFullscreenStandby(true);
+#endif
 }
 
 void WebFullScreenManager::willExitFullScreen()
 {
     ASSERT(m_element);
+
+#if ENABLE(VIDEO)
+    if (m_pipStandbyElement)
+        m_pipStandbyElement->setVideoFullscreenStandby(false);
+    m_pipStandbyElement = nullptr;
+#endif
+
     m_finalFrame = screenRectOfContents(m_element.get());
     m_element->document().webkitWillExitFullScreenForElement(m_element.get());
+#if !PLATFORM(IOS)
     m_page->showPageBanners();
+#endif
     m_page->injectedBundleFullScreenClient().beganExitFullScreen(m_page.get(), m_finalFrame, m_initialFrame);
 }
 

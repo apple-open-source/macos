@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007-2012, 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007-2012, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -98,4 +98,10 @@ void
 verifyzone(dns_db_t *db, dns_dbversion_t *ver,
 		   dns_name_t *origin, isc_mem_t *mctx,
 		   isc_boolean_t ignore_kskflag, isc_boolean_t keyset_kskonly);
+
+#ifdef _WIN32
+void InitSockets(void);
+void DestroySockets(void);
+#endif
+
 #endif /* DNSSEC_DNSSECTOOL_H */

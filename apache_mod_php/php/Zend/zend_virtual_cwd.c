@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -44,6 +44,19 @@
 # ifndef IO_REPARSE_TAG_DEDUP
 #  define IO_REPARSE_TAG_DEDUP   0x80000013
 # endif
+
+# ifndef IO_REPARSE_TAG_CLOUD
+#  define IO_REPARSE_TAG_CLOUD    (0x9000001AL)
+# endif
+/* IO_REPARSE_TAG_CLOUD_1 through IO_REPARSE_TAG_CLOUD_F have values of 0x9000101AL
+   to 0x9000F01AL, they can be checked against the mask. */
+#ifndef IO_REPARSE_TAG_CLOUD_MASK
+#define IO_REPARSE_TAG_CLOUD_MASK (0x0000F000L)
+#endif
+
+#ifndef IO_REPARSE_TAG_ONEDRIVE
+#define IO_REPARSE_TAG_ONEDRIVE   (0x80000021L)
+#endif
 
 # ifndef VOLUME_NAME_NT
 #  define VOLUME_NAME_NT 0x2
@@ -445,10 +458,14 @@ static void cwd_globals_dtor(virtual_cwd_globals *cwd_g) /* {{{ */
 }
 /* }}} */
 
-CWD_API void virtual_cwd_startup(void) /* {{{ */
+void virtual_cwd_main_cwd_init(uint8_t reinit) /* {{{ */
 {
 	char cwd[MAXPATHLEN];
 	char *result;
+
+	if (reinit) {
+		free(main_cwd_state.cwd);
+	}
 
 #ifdef NETWARE
 	result = getcwdpath(cwd, NULL, 1);
@@ -461,10 +478,10 @@ CWD_API void virtual_cwd_startup(void) /* {{{ */
 			++c;
 		}
 	}
-#else
-#ifdef ZEND_WIN32
+#elif defined(ZEND_WIN32)
 	ZeroMemory(&cwd, sizeof(cwd));
-#endif
+	result = php_win32_ioutil_getcwd(cwd, sizeof(cwd));
+#else
 	result = getcwd(cwd, sizeof(cwd));
 #endif
 	if (!result) {
@@ -478,7 +495,12 @@ CWD_API void virtual_cwd_startup(void) /* {{{ */
 	}
 #endif
 	main_cwd_state.cwd = strdup(cwd);
+}
+/* }}} */
 
+CWD_API void virtual_cwd_startup(void) /* {{{ */
+{
+	virtual_cwd_main_cwd_init(0);
 #ifdef ZTS
 	ts_allocate_id(&cwd_globals_id, sizeof(virtual_cwd_globals), (ts_allocate_ctor) cwd_globals_ctor, (ts_allocate_dtor) cwd_globals_dtor);
 #else
@@ -927,7 +949,7 @@ static int tsrm_realpath_r(char *path, int start, int len, int *ll, time_t *t, i
 				return -1;
 			}
 
-			hLink = CreateFileW(pathw, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS, NULL);
+			hLink = CreateFileW(pathw, 0, 0, NULL, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS, NULL);
 			if(hLink == INVALID_HANDLE_VALUE) {
 				free_alloca(tmp, use_heap);
 				FREE_PATHW()
@@ -1020,7 +1042,11 @@ static int tsrm_realpath_r(char *path, int start, int len, int *ll, time_t *t, i
 					return -1;
 				}
 			}
-			else if (pbuffer->ReparseTag == IO_REPARSE_TAG_DEDUP) {
+			else if (pbuffer->ReparseTag == IO_REPARSE_TAG_DEDUP ||
+					/* Starting with 1709. */
+					(pbuffer->ReparseTag & IO_REPARSE_TAG_CLOUD_MASK) != 0 && 0x90001018L != pbuffer->ReparseTag ||
+					IO_REPARSE_TAG_CLOUD == pbuffer->ReparseTag ||
+					IO_REPARSE_TAG_ONEDRIVE == pbuffer->ReparseTag) {
 				isabsolute = 1;
 				substitutename = malloc((len + 1) * sizeof(char));
 				if (!substitutename) {

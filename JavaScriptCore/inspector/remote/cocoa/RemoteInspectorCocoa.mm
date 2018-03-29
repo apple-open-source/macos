@@ -392,6 +392,11 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
         [listing setObject:target.name() forKey:WIRTitleKey];
         [listing setObject:WIRTypeJavaScript forKey:WIRTypeKey];
         break;
+    case RemoteInspectionTarget::Type::ServiceWorker:
+        [listing setObject:target.url() forKey:WIRURLKey];
+        [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:WIRTypeServiceWorker forKey:WIRTypeKey];
+        break;
     case RemoteInspectionTarget::Type::Web:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
@@ -678,13 +683,16 @@ void RemoteInspector::receivedAutomationSessionRequestMessage(NSDictionary *user
     NSString *suggestedSessionIdentifier = userInfo[WIRSessionIdentifierKey];
     BAIL_IF_UNEXPECTED_TYPE(suggestedSessionIdentifier, [NSString class]);
 
+    NSDictionary *forwardedCapabilities = userInfo[WIRSessionCapabilitiesKey];
+    BAIL_IF_UNEXPECTED_TYPE_ALLOWING_NIL(forwardedCapabilities, [NSDictionary class]);
+
     if (!m_client)
         return;
 
     if (!m_clientCapabilities || !m_clientCapabilities->remoteAutomationAllowed)
         return;
 
-    m_client->requestAutomationSession(suggestedSessionIdentifier);
+    m_client->requestAutomationSessionWithCapabilities(suggestedSessionIdentifier, forwardedCapabilities);
 }
 
 } // namespace Inspector

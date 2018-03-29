@@ -345,7 +345,6 @@ static OSStatus decrypt_please(const uint8_t *data_to_decrypt, size_t length) {
                           status = errSecDecode, "Unable to get message contents");
 
     /* verify the output matches expected results */
-
     require_action_string(sizeof(encrypted_string) == content->Length, out,
                           status = -1, "Output size differs from expected");
     require_noerr_action_string(memcmp(encrypted_string, content->Data, content->Length), out,
@@ -446,7 +445,7 @@ static void encrypt_tests(SecCertificateRef certificate) {
     is(encrypt_please(certificate, SEC_OID_DES_EDE3_CBC, 192),
        errSecSuccess, "Encrypt with 3DES");
     is(encrypt_please(certificate, SEC_OID_RC2_CBC, 128),
-       SEC_ERROR_INVALID_ALGORITHM, "Encrypt with 128-bit RC2");
+       errSecDecode, "Encrypt with 128-bit RC2");
     is(encrypt_please(certificate, SEC_OID_AES_128_CBC, 128),
        errSecSuccess, "Encrypt with 128-bit AES");
     is(encrypt_please(certificate, SEC_OID_AES_192_CBC, 192),
@@ -462,7 +461,7 @@ static void decrypt_tests(bool isRsa) {
        errSecSuccess, "Decrypt 3DES");
     is(decrypt_please((isRsa) ? rsa_RC2 : ec_RC2,
                       (isRsa) ? sizeof(rsa_RC2) : sizeof(ec_RC2)),
-       SEC_ERROR_INVALID_ALGORITHM, "Decrypt 128-bit RC2");
+       errSecDecode, "Decrypt 128-bit RC2");
     is(decrypt_please((isRsa) ? rsa_AES_128 : ec_AES_128,
                       (isRsa) ? sizeof(rsa_AES_128) : sizeof(ec_AES_128)),
        errSecSuccess, "Decrypt 128-bit AES");

@@ -15,5 +15,7 @@
 	<true/>
 	<key>application-identifier</key>
 	<string>com.apple.security</string>
+	<key>com.apple.private.keychain.keychaincontrol</key>
+	<true/>
 </dict>
 </plist>

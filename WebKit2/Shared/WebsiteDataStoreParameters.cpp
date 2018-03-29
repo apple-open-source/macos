@@ -27,6 +27,7 @@
 #include "WebsiteDataStoreParameters.h"
 
 #include "WebCoreArgumentCoders.h"
+#include "WebsiteDataStore.h"
 
 namespace WebKit {
 
@@ -36,28 +37,59 @@ WebsiteDataStoreParameters::~WebsiteDataStoreParameters()
 
 void WebsiteDataStoreParameters::encode(IPC::Encoder& encoder) const
 {
-    encoder << sessionID;
+    encoder << networkSessionParameters;
     encoder << uiProcessCookieStorageIdentifier;
     encoder << cookieStoragePathExtensionHandle;
     encoder << pendingCookies;
+    encoder << cacheStorageDirectory;
+    encoder << cacheStoragePerOriginQuota;
+    encoder << cacheStorageDirectoryExtensionHandle;
 }
 
-bool WebsiteDataStoreParameters::decode(IPC::Decoder& decoder, WebsiteDataStoreParameters& parameters)
+std::optional<WebsiteDataStoreParameters> WebsiteDataStoreParameters::decode(IPC::Decoder& decoder)
 {
-    if (!decoder.decode(parameters.sessionID))
-        return false;
+    std::optional<NetworkSessionCreationParameters> networkSessionParameters;
+    decoder >> networkSessionParameters;
+    if (!networkSessionParameters)
+        return std::nullopt;
 
-    if (!decoder.decode(parameters.uiProcessCookieStorageIdentifier))
-        return false;
+    std::optional<Vector<uint8_t>> uiProcessCookieStorageIdentifier;
+    decoder >> uiProcessCookieStorageIdentifier;
+    if (!uiProcessCookieStorageIdentifier)
+        return std::nullopt;
 
-    if (!decoder.decode(parameters.cookieStoragePathExtensionHandle))
-        return false;
+    std::optional<SandboxExtension::Handle> cookieStoragePathExtensionHandle;
+    decoder >> cookieStoragePathExtensionHandle;
+    if (!cookieStoragePathExtensionHandle)
+        return std::nullopt;
 
-    if (!decoder.decode(parameters.pendingCookies))
-        return false;
+    std::optional<Vector<WebCore::Cookie>> pendingCookies;
+    decoder >> pendingCookies;
+    if (!pendingCookies)
+        return std::nullopt;
 
-    return true;
+    std::optional<String> cacheStorageDirectory;
+    decoder >> cacheStorageDirectory;
+    if (!cacheStorageDirectory)
+        return std::nullopt;
+
+    std::optional<uint64_t> cacheStoragePerOriginQuota;
+    decoder >> cacheStoragePerOriginQuota;
+    if (!cacheStoragePerOriginQuota)
+        return std::nullopt;
+
+    std::optional<SandboxExtension::Handle> cacheStorageDirectoryExtensionHandle;
+    decoder >> cacheStorageDirectoryExtensionHandle;
+    if (!cacheStorageDirectoryExtensionHandle)
+        return std::nullopt;
+    
+    return {{ WTFMove(*uiProcessCookieStorageIdentifier), WTFMove(*cookieStoragePathExtensionHandle), WTFMove(*pendingCookies), WTFMove(*cacheStorageDirectory), WTFMove(*cacheStoragePerOriginQuota), WTFMove(*cacheStorageDirectoryExtensionHandle), WTFMove(*networkSessionParameters)}};
 }
 
+WebsiteDataStoreParameters WebsiteDataStoreParameters::privateSessionParameters(PAL::SessionID sessionID)
+{
+    ASSERT(sessionID.isEphemeral());
+    return { { }, { }, { }, { }, WebsiteDataStore::defaultCacheStoragePerOriginQuota, { }, { sessionID, { }, { }, AllowsCellularAccess::Yes }};
+}
 
 } // namespace WebKit

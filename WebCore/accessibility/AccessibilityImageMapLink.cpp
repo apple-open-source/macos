@@ -31,6 +31,7 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityRenderObject.h"
+#include "AccessibleNode.h"
 #include "Document.h"
 #include "HTMLNames.h"
 #include "RenderBoxModelObject.h"
@@ -45,9 +46,7 @@ AccessibilityImageMapLink::AccessibilityImageMapLink()
 {
 }
 
-AccessibilityImageMapLink::~AccessibilityImageMapLink()
-{
-}    
+AccessibilityImageMapLink::~AccessibilityImageMapLink() = default;
 
 Ref<AccessibilityImageMapLink> AccessibilityImageMapLink::create()
 {
@@ -68,13 +67,13 @@ AccessibilityObject* AccessibilityImageMapLink::parentObject() const
 AccessibilityRole AccessibilityImageMapLink::roleValue() const
 {
     if (!m_areaElement)
-        return WebCoreLinkRole;
+        return AccessibilityRole::WebCoreLink;
     
-    const AtomicString& ariaRole = getAttribute(roleAttr);
+    const AtomicString& ariaRole = stringValueForProperty(AXPropertyName::Role);
     if (!ariaRole.isEmpty())
         return AccessibilityObject::ariaRoleToWebCoreRole(ariaRole);
 
-    return WebCoreLinkRole;
+    return AccessibilityRole::WebCoreLink;
 }
     
 Element* AccessibilityImageMapLink::actionElement() const
@@ -99,20 +98,20 @@ void AccessibilityImageMapLink::accessibilityText(Vector<AccessibilityText>& tex
 {
     String description = accessibilityDescription();
     if (!description.isEmpty())
-        textOrder.append(AccessibilityText(description, AlternativeText));
+        textOrder.append(AccessibilityText(description, AccessibilityTextSource::Alternative));
 
     const AtomicString& titleText = getAttribute(titleAttr);
     if (!titleText.isEmpty())
-        textOrder.append(AccessibilityText(titleText, TitleTagText));
+        textOrder.append(AccessibilityText(titleText, AccessibilityTextSource::TitleTag));
 
     const AtomicString& summary = getAttribute(summaryAttr);
     if (!summary.isEmpty())
-        textOrder.append(AccessibilityText(summary, SummaryText));
+        textOrder.append(AccessibilityText(summary, AccessibilityTextSource::Summary));
 }
     
 String AccessibilityImageMapLink::accessibilityDescription() const
 {
-    const AtomicString& ariaLabel = getAttribute(aria_labelAttr);
+    const AtomicString& ariaLabel = stringValueForProperty(AXPropertyName::Label);
     if (!ariaLabel.isEmpty())
         return ariaLabel;
     const AtomicString& alt = getAttribute(altAttr);

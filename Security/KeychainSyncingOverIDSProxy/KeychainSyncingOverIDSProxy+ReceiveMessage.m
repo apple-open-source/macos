@@ -49,13 +49,14 @@
 #import "KeychainSyncingOverIDSProxy+SendMessage.h"
 #import "IDSProxy.h"
 
+
 static NSString *const kIDSNumberOfFragments = @"NumberOfIDSMessageFragments";
 static NSString *const kIDSFragmentIndex = @"kFragmentIndex";
 static NSString *const kIDSMessageRecipientID = @"RecipientPeerID";
 static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
+static NSString *const kIDSMessageSendersDeviceID = @"SendersDeviceID";
 
 @implementation KeychainSyncingOverIDSProxy (ReceiveMessage)
-
 
 -(int) countNumberOfValidObjects:(NSMutableArray*)fragmentsForDeviceID
 {
@@ -71,19 +72,19 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
 -(BOOL) checkForFragmentation:(NSDictionary*)message id:(NSString*)fromID data:(NSData*)messageData
 {
     BOOL handOffMessage = false;
-    
+
     if([message valueForKey:kIDSNumberOfFragments] != nil){
         NSNumber *idsNumberOfFragments = [message objectForKey:kIDSNumberOfFragments];
         NSNumber *index = [message objectForKey:kIDSFragmentIndex];
         NSString *uuidString = [message objectForKey:(__bridge NSString*)kIDSMessageUniqueID];
-        
+
         if([KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages == nil)
             [KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages = [NSMutableDictionary dictionary];
-        
+
         NSMutableDictionary *uniqueMessages = [[KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages objectForKey: fromID];
         if(uniqueMessages == nil)
             uniqueMessages = [NSMutableDictionary dictionary];
-        
+
         NSMutableArray *fragmentsForDeviceID = [uniqueMessages objectForKey: uuidString];
         if(fragmentsForDeviceID == nil){
             fragmentsForDeviceID = [ [NSMutableArray alloc] initWithCapacity: [idsNumberOfFragments longValue]];
@@ -91,22 +92,22 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
                 [fragmentsForDeviceID addObject:[NSNull null]];
             }
         }
-        
+
         [fragmentsForDeviceID replaceObjectAtIndex: [index intValue] withObject:messageData ];
         [uniqueMessages setObject: fragmentsForDeviceID forKey:uuidString];
         [[KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages setObject:uniqueMessages forKey: fromID];
-        
+
         if([self countNumberOfValidObjects:fragmentsForDeviceID] == [idsNumberOfFragments longValue])
             handOffMessage = true;
         else
             handOffMessage = false;
-        
+
     }
     else //no fragmentation in the message, ready to hand off to securityd
         handOffMessage = true;
-    
+
     return handOffMessage;
-    
+
 }
 
 -(NSMutableDictionary*) combineMessage:(NSString*)ID peerID:(NSString*)peerID uuid:(NSString*)uuid
@@ -114,7 +115,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     NSString *dataKey = [ NSString stringWithUTF8String: kMessageKeyIDSDataMessage ];
     NSString *deviceIDKey = [ NSString stringWithUTF8String: kMessageKeyDeviceID ];
     NSString *peerIDKey = [ NSString stringWithUTF8String: kMessageKeyPeerID ];
-    
+
     NSMutableDictionary *arrayOfFragmentedMessagesByUUID = [[KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages objectForKey:ID];
     NSMutableArray *messagesForUUID = [arrayOfFragmentedMessagesByUUID objectForKey:uuid];
     NSMutableData* completeMessage = [NSMutableData data];
@@ -127,7 +128,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     //we've combined the message, now remove it from the fragmented messages dictionary
     [arrayOfFragmentedMessagesByUUID removeObjectForKey:uuid];
 
-    return [NSMutableDictionary dictionaryWithObjectsAndKeys: completeMessage, dataKey, deviceID, deviceIDKey, peerID, peerIDKey, nil];
+    return [NSMutableDictionary dictionaryWithObjectsAndKeys: completeMessage, dataKey, ID, deviceIDKey, peerID, peerIDKey, nil];
 }
 
 -(void) handleTestMessage:(NSString*)operation id:(NSString*)ID messageID:(NSString*)uniqueID senderPeerID:(NSString*)senderPeerID
@@ -168,7 +169,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
             NSDictionary* messsageDictionary = @{(__bridge NSString*)kIDSOperationType:operationString, (__bridge NSString*)kIDSMessageToSendKey:messageString};
             
             // We can always hold on to a message and our remote peers would bother everyone
-            [self sendIDSMessage:messsageDictionary name:ID peer:@"me"];
+            [self sendIDSMessage:messsageDictionary name:ID peer:@"me" senderDeviceID:NULL];
             
             free(messageCharS);
             
@@ -207,7 +208,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     }
 }
 
-- (void)sendACK:(NSString*)ID peerID:(NSString*)sendersPeerID uniqueID:(NSString*)uniqueID
+- (void)sendACK:(NSString*)ID peerID:(NSString*)sendersPeerID uniqueID:(NSString*)uniqueID senderDeviceID:(NSString*)senderDeviceID
 {
     char* messageCharS;
     NSString* messageString = @"ACK";
@@ -217,7 +218,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
 
     NSDictionary* messageDictionary = @{(__bridge NSString*)kIDSOperationType:operationString, (__bridge NSString*)kIDSMessageToSendKey:messageString, (__bridge NSString*)kIDSMessageUniqueID:uniqueID};
 
-    [self sendIDSMessage:messageDictionary name:ID peer:sendersPeerID];
+    [self sendIDSMessage:messageDictionary name:ID peer:sendersPeerID senderDeviceID:senderDeviceID];
 
     free(messageCharS);
 
@@ -249,23 +250,26 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         NSString* operationTypeAsString = nil;
         NSMutableDictionary *messageDictionary = nil;
         NSString *useAck = nil;
-        NSString *ID = nil;
+        NSString *senderDeviceID = nil;
         NSArray *devices = [self->_service devices];
         for(NSUInteger i = 0; i < [ devices count ]; i++){
             IDSDevice *device = devices[i];
             if( [(IDSCopyIDForDevice(device)) containsString: fromID] == YES){
-                ID = device.uniqueID;
+                senderDeviceID = device.uniqueID;
                 break;
             }
         }
-        secnotice("IDS Transport", "Received message from: %@: %@ ", ID, message);
+        [[KeychainSyncingOverIDSProxy idsProxy] printMessage:message state:[NSString stringWithFormat:@"received message from: %@", senderDeviceID]];
         NSString *sendersPeerID = [message objectForKey: sendersPeerIDKey];
         
         if(sendersPeerID == nil)
             sendersPeerID = [NSString string];
-        
-        
-        require_action_quiet(ID, fail, hadError = true; errorMessage = CFSTR("require the sender's device ID"));
+
+        if(!senderDeviceID){
+            senderDeviceID = message[kIDSMessageSendersDeviceID];
+            secnotice("IDS Transport", "Their device ID!: %@", senderDeviceID);
+        }
+        require_action_quiet(senderDeviceID, fail, hadError = true; errorMessage = CFSTR("require the sender's device ID"));
         
         operationTypeAsString = [message objectForKey: (__bridge NSString*)kIDSOperationType];
         messageDictionary = [message objectForKey: (__bridge NSString*)kIDSMessageToSendKey];
@@ -276,12 +280,12 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         if(useAck != nil && [useAck compare:@"YES"] == NSOrderedSame)
             require_quiet(messageID != nil, fail);
         
-        secnotice("IDS Transport","from peer %@, operation type as string: %@, as integer: %d", ID, operationTypeAsString, [operationTypeAsString intValue]);
+        secnotice("IDS Transport","from peer %@, operation: %@", senderDeviceID, operationTypeAsString);
         operationType = [operationTypeAsString intValue];
         
         if(operationType != kIDSKeychainSyncIDSFragmentation)
         {
-            [self handleTestMessage:operationTypeAsString id:ID messageID:messageID senderPeerID:sendersPeerID];
+            [self handleTestMessage:operationTypeAsString id:senderDeviceID messageID:messageID senderPeerID:sendersPeerID];
         }
         else{
             
@@ -289,20 +293,19 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
                 myPeerID = (NSString*)key;
                 messageData = (NSData*)obj;
             }];
-            
-            if(useAck != nil && [useAck compare:@"YES"] == NSOrderedSame)
-                [self sendACK:ID peerID:myPeerID uniqueID:messageID];
-            
-            BOOL readyToHandOffToSecD = [self checkForFragmentation:message id:ID data:messageData];
+
+            BOOL readyToHandOffToSecD = [self checkForFragmentation:message id:senderDeviceID data:messageData];
             
             NSMutableDictionary *messageAndFromID = nil;
             
             if(readyToHandOffToSecD && ([message objectForKey:kIDSFragmentIndex])!= nil){
+                secnotice("IDS Transport", "combing message");
                 NSString* uuid = [message objectForKey:(__bridge NSString*)kIDSMessageUniqueID];
-                messageAndFromID = [self combineMessage:ID peerID:myPeerID uuid:uuid];
+                messageAndFromID = [self combineMessage:senderDeviceID peerID:myPeerID uuid:uuid];
+                //update next sequence number
             }
             else if(readyToHandOffToSecD){
-                messageAndFromID = [NSMutableDictionary dictionaryWithObjectsAndKeys: messageData, dataKey, ID, deviceIDKey, myPeerID, peerIDKey, nil];
+                messageAndFromID = [NSMutableDictionary dictionaryWithObjectsAndKeys: messageData, dataKey, senderDeviceID, deviceIDKey, myPeerID, peerIDKey, nil];
             }
             else
                 return;
@@ -316,8 +319,10 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
                     [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
                 });
             }
-            else
-                [self sendMessageToSecurity:messageAndFromID fromID:fromID];
+            else{
+                [self sendMessageToSecurity:messageAndFromID fromID:fromID shouldSendAck:useAck peerID:myPeerID messageID:messageID deviceID:senderDeviceID];
+
+            }
         }
         
     fail:
@@ -347,7 +352,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
          dispatch_sync(self.dataQueue, ^{
              [self.unhandledMessageBuffer removeObjectForKey: fromID];
          });
-         [self sendMessageToSecurity:messageAndFromID fromID:fromID];
+         [self sendMessageToSecurity:messageAndFromID fromID:fromID shouldSendAck:nil peerID:nil messageID:nil deviceID:nil];
      }];
 }
 
@@ -365,7 +370,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     return true;
 }
 
--(void)sendMessageToSecurity:(NSMutableDictionary*)messageAndFromID fromID:(NSString*)fromID
+-(void)sendMessageToSecurity:(NSMutableDictionary*)messageAndFromID fromID:(NSString*)fromID shouldSendAck:(NSString *)useAck peerID:(NSString*)peerID messageID:(NSString*)messageID deviceID:(NSString*)senderDeviceID
 {
     __block CFErrorRef cf_error = NULL;
     __block HandleIDSMessageReason success = kHandleIDSMessageSuccess;
@@ -428,6 +433,9 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         }
         else{
             secnotice("IDS Transport","IDSProxy handled this message %@, from: %@", messageAndFromID, fromID);
+
+            if(useAck != nil && [useAck compare:@"YES"] == NSOrderedSame)
+                [self sendACK:senderDeviceID peerID:peerID uniqueID:messageID senderDeviceID:senderDeviceID];
             return (NSMutableDictionary*)messageAndFromID;
         }
 

@@ -492,7 +492,7 @@ keychain_find_identity(int argc, char * const *argv)
 					else if (!strcmp(optarg, "macappstore"))
 						policyFlags |= 1 << 11;
 					else {
-						result = 2; /* @@@ Return 2 triggers usage message. */
+						result = SHOW_USAGE_MESSAGE;
 						goto cleanup;
 					}
 				}

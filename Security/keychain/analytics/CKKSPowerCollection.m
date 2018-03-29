@@ -27,12 +27,46 @@
 
 #if OCTAGON
 
+CKKSPowerEvent* const kCKKSPowerEventOutgoingQueue = (CKKSPowerEvent*)@"processOutgoingQueue";
+CKKSPowerEvent* const kCKKSPowerEventIncommingQueue = (CKKSPowerEvent*)@"processIncomingQueue";
+CKKSPowerEvent* const kCKKSPowerEventTLKShareProcessing = (CKKSPowerEvent*)@"TLKShareProcessing";
+CKKSPowerEvent* const kCKKSPowerEventScanLocalItems = (CKKSPowerEvent*)@"scanLocalItems";
+CKKSPowerEvent* const kCKKSPowerEventFetchAllChanges = (CKKSPowerEvent*)@"fetchAllChanges";
+
+OTPowerEvent* const kOTPowerEventRestore = (OTPowerEvent *)@"restoreBottledPeer";
+OTPowerEvent* const kOTPowerEventEnroll = (OTPowerEvent *)@"enrollBottledPeer";
+
+
 @interface CKKSPowerCollection ()
 @property (strong) NSMutableDictionary<NSString *,NSNumber *> *store;
 @property (strong) NSMutableDictionary<NSString *,NSNumber *> *delete;
 @end
 
 @implementation CKKSPowerCollection
+
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone
+{
+    SecPLLogRegisteredEvent(@"CKKSSyncing", @{
+        @"operation" : operation,
+        @"zone" : zone
+    });
+}
+
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone count:(NSUInteger)count
+{
+    SecPLLogRegisteredEvent(@"CKKSSyncing", @{
+        @"operation" : operation,
+        @"zone" : zone,
+        @"count" : @(count)
+    });
+}
+
++ (void)OTPowerEvent:(NSString *)operation
+{
+    SecPLLogRegisteredEvent(@"OctagonTrust", @{
+        @"operation" : operation
+    });
+}
 
 - (instancetype)init
 {

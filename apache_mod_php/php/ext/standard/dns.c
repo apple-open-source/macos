@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -131,13 +131,13 @@ static zend_string *php_gethostbyname(char *name);
    Get the host name of the current machine */
 PHP_FUNCTION(gethostname)
 {
-	char buf[HOST_NAME_MAX];
+	char buf[HOST_NAME_MAX + 1];
 
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
 
-	if (gethostname(buf, sizeof(buf) - 1)) {
+	if (gethostname(buf, sizeof(buf))) {
 		php_error_docref(NULL, E_WARNING, "unable to fetch host [%d]: %s", errno, strerror(errno));
 		RETURN_FALSE;
 	}

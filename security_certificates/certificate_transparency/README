@@ -1,0 +1,10 @@
+The trusted CT logs are listed in log_list.json. That list is converted to a plist used by trustd by BuildTrustedCTLogsPlist.rb.
+
+Each log is listed in the "logs" array as a dictionary. Each log must have the following keys to support building the plist:
+   -"state", the value of which is 0, 1, 2, or 3, for included logs, frozen (by the operator) logs, logs pending inclusion, and logs that we have disqualified, respectively.
+   -"key", the value of which is a Base64-encoded Subject Public Key Info
+   -"operated_by", the value of which is an array containing the operator id from the "operators" array
+If the log is frozen, the entry in the log dictionary must also contain the "final_sth" key, the value of which is a dictionary. That dictionary must contain the "timestamp" key with the current NTP Time [RFC5905], measured since the epoch (January 1, 1970, 00:00), ignoring leap seconds, in milliseconds. This dictionary should also contain the final tree size and the final tree head siganture.
+If the log is disqualified, the entry in the log dictionary must also contain the "disqualified_at" key containing the current NTP Time [RFC5905], measured since the epoch (January 1, 1970, 00:00), ignoring leap seconds, in milliseconds.
+
+If a log is added from a new operator, the new operator should be added to the "operators" array.

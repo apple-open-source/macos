@@ -43,6 +43,15 @@ enum {
     kKextcacheExitNoStart
 };
 
+/*
+ * OSKext bundle filter for kexts included in the immutable kernel:
+ * this filter is meant to mirror the kextfind query used by KernelCacheBuilder.
+ */
+#define kImmutableKernelKextFilter (kOSKextOSBundleRequiredRootFlag | \
+                                    kOSKextOSBundleRequiredLocalRootFlag | \
+                                    kOSKextOSBundleRequiredNetworkRootFlag | \
+                                    kOSKextOSBundleRequiredConsoleFlag)
+
 #pragma mark Command-line Option Definitions
 /*******************************************************************************
 * Command-line options. This data is used by getopt_long_only().
@@ -63,6 +72,9 @@ enum {
 #define kOptNameSafeBoot                "safe-boot"
 #define kOptNameSafeBootAll             "safe-boot-all"
 
+#define kOptNameImmutableKexts          "immutable-kexts"
+#define kOptNameImmutableKextsAll       "immutable-kexts-all"
+
 /* Prelinked-kernel-generation flags.
  */
 #define kOptNamePrelinkedKernel         "prelinked-kernel"
@@ -70,6 +82,7 @@ enum {
 #define kOptNameKernel                  "kernel"
 #define kOptNameAllLoaded               "all-loaded"
 #define kOptNameSymbols                 "symbols"
+#define kOptNameBuildImmutable          "build-immutable-kernel"
 
 /* Embedded prelinked-kernel-generation flags.
  */
@@ -89,6 +102,11 @@ enum {
 #define kOptNameInstaller               "Installer"
 #define kOptNameCachesOnly              "caches-only"
 #define kOptNameEarlyBoot               "Boot"
+
+/* Staging flags.
+ */
+#define kOptNameClearStaging            "clear-staging"
+#define kOptNamePruneStaging            "prune-staging"
 
 /* Misc flags.
  */
@@ -125,6 +143,7 @@ enum {
 #define kOptCheckUpdate           'U'
 #endif /* !NO_BOOT_ROOT */
 // 'v' in kext_tools_util.h
+#define kOptBuildImmutable        'X'
 #define kOptNoAuthentication      'z'
 
 /* Options with no single-letter variant.  */
@@ -143,11 +162,15 @@ enum {
 #define kLongOptInstaller                (-14)
 #define kLongOptCachesOnly               (-15)
 #define kLongOptEarlyBoot                (-16)
+#define kLongOptImmutableKexts           (-17)
+#define kLongOptImmutableKextsAll        (-18)
+#define kLongOptClearStaging             (-19)
+#define kLongOptPruneStaging             (-20)
 
 #if !NO_BOOT_ROOT
-#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStu:U:vz"
+#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStu:U:vXz"
 #else
-#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvz"
+#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvXz"
 #endif /* !NO_BOOT_ROOT */
 /* Some options are now obsolete:
  *     -F (fork)
@@ -180,6 +203,8 @@ struct option sOptInfo[] = {
     { kOptNameNetworkRootAll,        no_argument,        NULL,     kOptNetworkRootAll, },
     { kOptNameSafeBoot,              no_argument,        NULL,     kOptSafeBoot },
     { kOptNameSafeBootAll,           no_argument,        NULL,     kOptSafeBootAll },
+    { kOptNameImmutableKexts,        no_argument,        &longopt, kLongOptImmutableKexts },
+    { kOptNameImmutableKextsAll,     no_argument,        &longopt, kLongOptImmutableKextsAll },
 
     { kOptNamePrelinkedKernel,       optional_argument,  NULL,     kOptPrelinkedKernel },
     { kOptNameSystemPrelinkedKernel, no_argument,        &longopt, kLongOptSystemPrelinkedKernel },
@@ -200,8 +225,12 @@ struct option sOptInfo[] = {
     { kOptNameEarlyBoot,             no_argument,        &longopt, kLongOptEarlyBoot },
 #endif /* !NO_BOOT_ROOT */
 
+    { kOptNameBuildImmutable,        no_argument,        NULL,     kOptBuildImmutable },
     { kOptNameNoAuthentication,      no_argument,        NULL,     kOptNoAuthentication },
     { kOptNameTests,                 no_argument,        NULL,     kOptTests },
+
+    { kOptNameClearStaging,          no_argument,        &longopt, kLongOptClearStaging },
+    { kOptNamePruneStaging,          no_argument,        &longopt, kLongOptPruneStaging },
 
 #if !NO_BOOT_ROOT
     { NULL,                          required_argument,  NULL,     kOptCheckUpdate },
@@ -212,8 +241,8 @@ struct option sOptInfo[] = {
 };
 
 typedef struct {
-    OSKextRequiredFlags requiredFlagsRepositoriesOnly;  // -l/-n/-s
-    OSKextRequiredFlags requiredFlagsAll;              // -L/-N/-S
+    OSKextRequiredFlags requiredFlagsRepositoriesOnly;  // -l/-n/-s/-immutable-kexts
+    OSKextRequiredFlags requiredFlagsAll;              // -L/-N/-S/-immutable-kexts-all
 
     Boolean   updateSystemCaches;   // -system-caches
     Boolean   lowPriorityFlag;      // -F
@@ -254,6 +283,8 @@ typedef struct {
     CFMutableArrayRef  targetArchs;
     Boolean            explicitArch;  // user-provided instead of inferred host arches
 
+    bool               buildImmutableKernel; // -X, -build-immutable-kernel
+
     CFArrayRef         allKexts;         // directories + named
     CFArrayRef         repositoryKexts;  // all from directories (may include named)
     CFArrayRef         namedKexts;
@@ -263,6 +294,9 @@ typedef struct {
     struct timeval     extensionsDirTimes[2];   // access and mod times of extensions directory with most recent change
     Boolean     compress;
     Boolean     uncompress;
+
+    Boolean   clearStaging;
+    Boolean   pruneStaging;
 
     AuthOptions_t      authenticationOptions;
 } KextcacheArgs;

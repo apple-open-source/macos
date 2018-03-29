@@ -32,6 +32,8 @@
 #include <Security/SecItemPriv.h>
 #include <securityd/SecItemDb.h>
 #include <securityd/SecItemServer.h>
+#include <utilities/SecFileLocations.h>
+#include <Security/SecureObjectSync/SOSInternal.h>
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
@@ -46,7 +48,7 @@
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
 #import "keychain/ckks/CKKSManifest.h"
-#import "keychain/ckks/CKKSAnalyticsLogger.h"
+#import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CKKSHealKeyHierarchyOperation.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 
@@ -54,69 +56,9 @@
 
 #import "keychain/ckks/tests/CKKSTests.h"
 
-@implementation CloudKitKeychainSyncingTestsBase
-
-- (ZoneKeys*)keychainZoneKeys {
-    return self.keys[self.keychainZoneID];
-}
-
-// Override our base class
--(NSSet*)managedViewList {
-    return [NSSet setWithObject:@"keychain"];
-}
-
-+ (void)setUp {
-    SecCKKSEnable();
-    SecCKKSResetSyncing();
-    [super setUp];
-}
-
-- (void)setUp {
-    [super setUp];
-
-    self.keychainZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"keychain" ownerName:CKCurrentUserDefaultName];
-    self.keychainZone = [[FakeCKZone alloc] initZone: self.keychainZoneID];
-
-    [self.ckksZones addObject:self.keychainZoneID];
-
-    // Wait for the ViewManager to be brought up
-    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:4*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
-
-    self.keychainView = [[CKKSViewManager manager] findView:@"keychain"];
-    XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
-
-    // Check that your environment is set up correctly
-    XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
-    XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
-}
-
-+ (void)tearDown {
-    [super tearDown];
-    SecCKKSResetSyncing();
-}
-
-- (void)tearDown {
-    // Fetch status, to make sure we can
-    NSDictionary* status = [self.keychainView status];
-    (void)status;
-
-    [self.keychainView halt];
-    [self.keychainView waitUntilAllOperationsAreFinished];
-
-    self.keychainView = nil;
-    self.keychainZoneID = nil;
-
-    [super tearDown];
-}
-
-- (FakeCKZone*)keychainZone {
-    return self.zones[self.keychainZoneID];
-}
-
-- (void)setKeychainZone: (FakeCKZone*) zone {
-    self.zones[self.keychainZoneID] = zone;
-}
-
+// break abstraction
+@interface CKKSLockStateTracker ()
+@property (nullable) NSDate* lastUnlockedTime;
 @end
 
 @implementation CloudKitKeychainSyncingTests
@@ -137,7 +79,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:4*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should have arrived at ready");
 
     [self addGenericPassword: @"data" account: @"account-delete-me"];
 
@@ -407,6 +349,10 @@
         XCTAssertNil(error, "Shouldn't error saving new OQE to database");
         return true;
     }];
+
+    NSError *error = NULL;
+    XCTAssertEqual([CKKSOutgoingQueueEntry countByState:SecCKKSStateInFlight zone:self.keychainZoneID error:&error], 1,
+                   "Expected on inflight entry in outgoing queue: %@", error);
 
     // When CKKS restarts, it should find and re-upload this item
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -784,6 +730,62 @@
     [self.keychainView waitUntilAllOperationsAreFinished];
 }
 
+- (void)testReceiveCloudKitConflictOnJustAddedItems {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.keychainView waitUntilAllOperationsAreFinished];
+
+    // Place a hold on processing the outgoing queue.
+    self.keychainView.holdOutgoingQueueOperation = [CKKSResultOperation named:@"outgoing-queue-hold" withBlock:^{
+        secnotice("ckks", "Outgoing queue hold released.");
+    }];
+
+    [self addGenericPassword:@"localchange" account:@"account-delete-me"];
+
+    // Pull out the new item's UUID.
+    __block NSString* itemUUID = nil;
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID ?: [[CKRecordZoneID alloc] initWithZoneName:@"keychain"
+                                                                                                                           ownerName:CKCurrentUserDefaultName]
+                                                               error:&error];
+        XCTAssertNil(error, "no error fetching uuids");
+        XCTAssertEqual(uuids.count, 1u, "There's exactly one outgoing queue entry");
+        itemUUID = uuids[0];
+
+        XCTAssertNotNil(itemUUID, "Have a UUID for our new item");
+        return false;
+    }];
+
+    // Add a second item: this item should be uploaded after the failure of the first item
+    [self addGenericPassword:@"localchange" account:@"account-delete-me-2"];
+
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName: itemUUID]];
+
+    // Also, this write will increment the class C current pointer's etag
+    CKRecordID* currentClassCID = [[CKRecordID alloc] initWithRecordName: @"classC" zoneID: self.keychainZoneID];
+    CKRecord* currentClassC = self.keychainZone.currentDatabase[currentClassCID];
+    XCTAssertNotNil(currentClassC, "Should have the class C current key pointer record");
+    [self.keychainZone addCKRecordToZone:[currentClassC copy]];
+    XCTAssertNotEqualObjects(currentClassC.etag, self.keychainZone.currentDatabase[currentClassCID].etag, "Etag should have changed");
+
+    [self expectCKAtomicModifyItemRecordsUpdateFailure: self.keychainZoneID];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    // Allow the outgoing queue operation to proceed
+    [self.operationQueue addOperation:self.keychainView.holdOutgoingQueueOperation];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self.keychainView waitUntilAllOperationsAreFinished];
+
+    [self checkGenericPassword:@"data" account:@"account-delete-me"];
+    [self checkGenericPassword:@"localchange" account:@"account-delete-me-2"];
+}
+
+
 -(void)testReceiveUnknownField {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
@@ -994,7 +996,7 @@
     [self startCKKSSubsystem];
 
     // Should enter 'ready'
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:180*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     // Now, lock and allow fetches again
@@ -1124,6 +1126,168 @@
     OCMVerifyAllWithDelay(self.mockCKKSViewManager, 10);
 }
 
+- (void)testResetCloudKitZoneFromNoTLK {
+    self.silentZoneDeletesAllowed = true;
+
+    // If CKKS sees a zone it's never going to be able to read, it should reset that zone
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    // explicitly do not save a fake device status here
+    self.keychainZone.flag = true;
+
+    // It'll eventually upload a new key hierarchy
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:8*NSEC_PER_SEC], @"Key state should become 'resetzone'");
+
+    // But then, it'll fire off the reset and reach 'ready'
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    // And the zone should have been cleared and re-made
+    XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
+}
+
+- (void)testResetCloudKitZoneFromNoTLKWithOtherWaitForTLKDevices {
+    self.silentZoneDeletesAllowed = true;
+
+    // If CKKS sees a zone it's never going to be able to read, it should reset that zone
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    // Save a fake device status here, but modify its key state to be 'waitfortlk': it has no idea what the TLK is either
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+
+    for(CKRecord* record in self.keychainZone.currentDatabase.allValues) {
+        if([record.recordType isEqualToString:SecCKRecordDeviceStateType]) {
+            record[SecCKRecordKeyState] = CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK);
+        }
+    }
+
+    self.keychainZone.flag = true;
+
+    // It'll eventually upload a new key hierarchy
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:8*NSEC_PER_SEC], @"Key state should become 'resetzone'");
+
+    // But then, it'll fire off the reset and reach 'ready'
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    // And the zone should have been cleared and re-made
+    XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
+}
+
+- (void)testResetCloudKitZoneFromNoTLKIgnoringInactiveDevices {
+    self.silentZoneDeletesAllowed = true;
+
+    // If CKKS sees a zone it's never going to be able to read, it should reset that zone
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    // Save a fake device status here, but modify its creation and modification times to be months ago
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+
+    // Put a 'in-circle' TLKShare record, but also modify its creation and modification times
+    CKKSSOSSelfPeer* untrustedPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"untrusted-peer"
+                                                                  encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+    [self putTLKShareInCloudKit:self.keychainZoneKeys.tlk from:untrustedPeer to:untrustedPeer zoneID:self.keychainZoneID];
+
+    for(CKRecord* record in self.keychainZone.currentDatabase.allValues) {
+        if([record.recordType isEqualToString:SecCKRecordDeviceStateType] || [record.recordType isEqualToString:SecCKRecordTLKShareType]) {
+            record.creationDate = [NSDate distantPast];
+            record.modificationDate = [NSDate distantPast];
+        }
+    }
+
+    self.keychainZone.flag = true;
+
+    // It'll eventually upload a new key hierarchy
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:8*NSEC_PER_SEC], @"Key state should become 'resetzone'");
+
+    // But then, it'll fire off the reset and reach 'ready'
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    // And the zone should have been cleared and re-made
+    XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
+}
+
+- (void)testDoNotResetCloudKitZoneFromWaitForTLKDueToRecentDeviceState {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // CKKS shouldn't reset this zone, due to a recent device status claiming to have TLKs
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+
+    NSDateComponents* offset = [[NSDateComponents alloc] init];
+    [offset setDay:-5];
+    NSDate* updateTime = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:[NSDate date] options:0];
+    for(CKRecord* record in self.keychainZone.currentDatabase.allValues) {
+        if([record.recordType isEqualToString:SecCKRecordDeviceStateType] || [record.recordType isEqualToString:SecCKRecordTLKShareType]) {
+            record.creationDate = updateTime;
+            record.modificationDate = updateTime;
+        }
+    }
+
+    self.keychainZone.flag = true;
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], @"Key state should become 'waitfortlk'");
+
+    XCTAssertTrue(self.keychainZone.flag, "Zone flag should not have been reset to false");
+}
+
+- (void)testDoNotCloudKitZoneFromWaitForTLKDueToRecentButUntrustedDeviceState {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // CKKS should reset this zone, even though to a recent device status claiming to have TLKs. The device isn't trusted
+    self.silentZoneDeletesAllowed = true;
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+    [self.currentPeers removeObject:self.remoteSOSOnlyPeer];
+
+    self.keychainZone.flag = true;
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], @"Key state should become 'waitfortlk'");
+    XCTAssertTrue(self.keychainZone.flag, "Zone flag should not have been reset to false");
+
+    // And ensure it doesn't go on to 'reset'
+    XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:100*NSEC_PER_MSEC], @"Key state should not become 'resetzone'");
+}
+
+- (void)testResetCloudKitZoneFromWaitForTLKDueToLessRecentAndUntrustedDeviceState {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // CKKS should reset this zone, even though to a recent device status claiming to have TLKs. The device isn't trusted
+    self.silentZoneDeletesAllowed = true;
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+    [self.currentPeers removeObject:self.remoteSOSOnlyPeer];
+
+    NSDateComponents* offset = [[NSDateComponents alloc] init];
+    [offset setDay:-5];
+    NSDate* updateTime = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:[NSDate date] options:0];
+    for(CKRecord* record in self.keychainZone.currentDatabase.allValues) {
+        if([record.recordType isEqualToString:SecCKRecordDeviceStateType] || [record.recordType isEqualToString:SecCKRecordTLKShareType]) {
+            record.creationDate = updateTime;
+            record.modificationDate = updateTime;
+        }
+    }
+
+    self.keychainZone.flag = true;
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:8*NSEC_PER_SEC], @"Key state should become 'resetzone'");
+
+    // Then we should reset.
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    // And the zone should have been cleared and re-made
+    XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
+}
+
 - (void)testAcceptExistingKeyHierarchy {
     // Test starts with no keys in CKKS database, but one in our fake CloudKit.
     // Test also begins with the TLK having arrived in the local keychain (via SOS)
@@ -1162,6 +1326,9 @@
 - (void)testAcceptExistingAndUseKeyHierarchy {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+    // But, CKKS shouldn't ever reset the zone
+    self.keychainZone.flag = true;
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:5*NSEC_PER_SEC], "Key state should have become waitfortlk");
@@ -1187,6 +1354,7 @@
                    expecting:errSecSuccess
                      message:@"Adding class A item"];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertTrue(self.keychainZone.flag, "Keychain zone shouldn't have been reset");
 }
 
 - (void)testAcceptExistingKeyHierarchyDespiteLocked {
@@ -1259,7 +1427,7 @@
     XCTAssertNotNil(self.keychainZoneKeys.classA, "Have class A key for zone");
     XCTAssertNotNil(self.keychainZoneKeys.classC, "Have class C key for zone");
 
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithAccountKeys: ^bool {
         [self.keychainView _onqueueKeyStateMachineRequestProcess];
         return true;
     }];
@@ -1342,6 +1510,14 @@
     // Make life easy on this test; testAcceptKeyConflictAndUploadReencryptedItem will check the case when we don't receive the notification
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
+    // Just in extra case of threading issues, force a reexamination of the key hierarchy
+    [self.keychainView dispatchSyncWithAccountKeys: ^bool {
+        [self.keychainView _onqueueAdvanceKeyStateMachineToState: nil withError: nil];
+        return true;
+    }];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
     // Verify that there are six local keys, and three local current key records
     [self.keychainView dispatchSync: ^bool{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
@@ -1419,6 +1595,46 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
+- (void)testAcceptKeyConflictAndUploadReencryptedItems {
+    // Test starts with no keys in database, a key hierarchy in our fake CloudKit, and the TLK safely in the local keychain.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    [self.keychainView waitUntilAllOperationsAreFinished];
+
+    // We expect a single record to be uploaded.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // Do not trigger a notification here. This should cause a conflict updating the current key records
+
+    // We expect a single record to be uploaded, but that the write will be rejected
+    // We then expect that item to be reuploaded with the current key
+
+    [self expectCKAtomicModifyItemRecordsUpdateFailure: self.keychainZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-rolled-key"];
+    [self addGenericPassword: @"data" account: @"account-delete-me-rolled-key-2"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    [self expectCKModifyItemRecords:2 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under rolled class C key in hierarchy"]];
+
+    // New key arrives via SOS!
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+}
+
 - (void)testRecoverFromRequestKeyRefetchWithoutRolling {
     // Simply requesting a key state refetch shouldn't roll the key hierarchy.
 
@@ -1439,7 +1655,7 @@
     self.silentFetchesAllowed = false;
     [self expectCKFetch];
 
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithAccountKeys: ^bool {
         [self.keychainView _onqueueKeyStateMachineRequestFetch];
         return true;
     }];
@@ -1478,6 +1694,45 @@
     [self expectCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-2"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+}
+
+- (void)testRecoverMultipleItemsFromIncrementedCurrentKeyPointerEtag {
+    // CloudKit sometimes reports the current key pointers have changed (etag mismatch), but their content hasn't.
+    // In this case, CKKS shouldn't roll the TLK.
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing]; // just to be sure it's fetched
+
+    // Items should upload.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    [self waitForCKModifications];
+
+    // Bump the etag on the class C current key record, but don't change any data
+    CKRecordID* currentClassCID = [[CKRecordID alloc] initWithRecordName: @"classC" zoneID: self.keychainZoneID];
+    CKRecord* currentClassC = self.keychainZone.currentDatabase[currentClassCID];
+    XCTAssertNotNil(currentClassC, "Should have the class C current key pointer record");
+
+    [self.keychainZone addCKRecordToZone:[currentClassC copy]];
+    XCTAssertNotEqualObjects(currentClassC.etag, self.keychainZone.currentDatabase[currentClassCID].etag, "Etag should have changed");
+
+    // Add another item. This write should fail, then CKKS should recover without rolling the key hierarchy or issuing a fetch.
+    self.keychainView.holdOutgoingQueueOperation = [CKKSGroupOperation named:@"outgoing-hold" withBlock: ^{
+        secnotice("ckks", "releasing outgoing-queue hold");
+    }];
+
+    self.silentFetchesAllowed = false;
+    [self expectCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
+    [self expectCKModifyItemRecords:2 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-2"];
+    [self addGenericPassword: @"data" account: @"account-delete-me-3"];
+
+    [self.operationQueue addOperation: self.keychainView.holdOutgoingQueueOperation];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
@@ -1541,6 +1796,8 @@
 - (void)testOnboardOldItemsWithExistingKeyHierarchyLateTLK {
     // Test starts key hierarchy in our fake CloudKit, and CKKS blocked.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+    self.keychainZone.flag = true;
 
     // Add one item without a UUID...
     SecCKKSTestSetDisableAutomaticUUID(true);
@@ -1564,6 +1821,7 @@
     [self expectCKModifyItemRecords: 2 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertTrue(self.keychainZone.flag, "Keychain zone shouldn't have been reset");
 }
 
 - (void)testResync {
@@ -1595,7 +1853,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForCKModifications];
     // One TLK share record
-    XCTAssertEqual(self.keychainZone.currentDatabase.count, SYSTEM_DB_RECORD_COUNT+passwordCount+1, "Have 6+passwordCount objects in cloudkit");
+    XCTAssertEqual(self.keychainZone.currentDatabase.count, SYSTEM_DB_RECORD_COUNT+passwordCount+1, "Have SYSTEM_DB_RECORD_COUNT+passwordCount+1 objects in cloudkit");
 
     // Now, corrupt away!
     // Extract all passwordCount items for Corruption
@@ -1724,6 +1982,92 @@
         return true;
     }];
 }
+
+- (void)testResyncItemsMissingFromLocalKeychain {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    // We want:
+    //   one password correctly synced between local keychain and CloudKit
+    //   one password incorrectly disappeared from local keychain, but in mirror table
+    //   one password sitting in the outgoing queue
+    //   one password sitting in the incoming queue
+
+    // Add and sync two passwords
+    [self addGenericPassword: @"data" account: @"first"];
+    [self addGenericPassword: @"data" account: @"second"];
+
+    [self checkGenericPassword: @"data" account: @"first"];
+    [self checkGenericPassword: @"data" account: @"second"];
+
+    [self expectCKModifyItemRecords:2 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+
+    // Now, place an item in the outgoing queue
+
+    //[self addGenericPassword: @"data" account: @"third"];
+    //[self checkGenericPassword: @"data" account: @"third"];
+
+    // Now, corrupt away!
+    // Extract all passwordCount items for Corruption
+    NSArray<CKRecord*>* items = [self.keychainZone.currentDatabase.allValues filteredArrayUsingPredicate: [NSPredicate predicateWithFormat:@"self.recordType like %@", SecCKRecordItemType]];
+    XCTAssertEqual(items.count, 2u, "Have %lu Items in cloudkit", (unsigned long)2u);
+
+    // For the first record, surreptitiously remove from local keychain
+    CKRecord* remove = items[0];
+    NSString* removeAccount = [[self decryptRecord:remove] objectForKey:(__bridge id)kSecAttrAccount];
+    XCTAssertNotNil(removeAccount, "received an account for the local delete object");
+
+    NSURL* kcpath = (__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"keychain-2-debug.db");
+    sqlite3* db;
+    sqlite3_open([[kcpath path] UTF8String], &db);
+    NSString* query = [NSString stringWithFormat:@"DELETE FROM genp WHERE uuid=\"%@\"", remove.recordID.recordName];
+    char* sqlerror = NULL;
+    XCTAssertEqual(SQLITE_OK, sqlite3_exec(db, [query UTF8String], NULL, NULL, &sqlerror), "SQL deletion shouldn't error");
+    XCTAssertTrue(sqlerror == NULL, "No error string should have been returned: %s", sqlerror);
+    if(sqlerror) {
+        sqlite3_free(sqlerror);
+        sqlerror = NULL;
+    }
+    sqlite3_close(db);
+
+    // The second record is kept in-sync
+
+    // Now, add an in-flight change (for record 3)
+    [self holdCloudKitModifications];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addGenericPassword:@"data" account:@"third"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    // For the fourth, add a new record but prevent incoming queue processing
+    self.keychainView.holdIncomingQueueOperation = [CKKSResultOperation named:@"hold-incoming" withBlock:^{}];
+
+    CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"fourth"];
+    [self.keychainZone addToZone:ckr];
+    [self.keychainView notifyZoneChange:nil];
+
+    // Now, where are we....
+    CKKSScanLocalItemsOperation* scanLocal = [self.keychainView scanLocalItems:@"test-scan"];
+    [scanLocal waitUntilFinished];
+
+    XCTAssertEqual(scanLocal.missingLocalItemsFound, 1u, "Should have found one missing item");
+
+    // Allow everything to proceed
+    [self releaseCloudKitModificationHold];
+    [self.operationQueue addOperation:self.keychainView.holdIncomingQueueOperation];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    // And ensure that all four items are present again
+    [self findGenericPassword: @"first"  expecting: errSecSuccess];
+    [self findGenericPassword: @"second" expecting: errSecSuccess];
+    [self findGenericPassword: @"third"  expecting: errSecSuccess];
+    [self findGenericPassword: @"fourth" expecting: errSecSuccess];
+}
+
 - (void)testResyncLocal {
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
@@ -1792,7 +2136,7 @@
         CFErrorRef cfcferror = NULL;
 
         bool ret = SecServerImportKeychainInPlist(dbt, SecSecurityClientGet(), KEYBAG_NONE, KEYBAG_NONE,
-                                                  (__bridge CFDictionaryRef)@{}, kSecBackupableItemFilter, &cfcferror);
+                                                  (__bridge CFDictionaryRef)@{}, kSecBackupableItemFilter, false, &cfcferror);
 
         XCTAssertNil(CFBridgingRelease(cfcferror), "Shouldn't error importing a 'backup'");
         XCTAssert(ret, "Importing a 'backup' should have succeeded");
@@ -1800,15 +2144,15 @@
     });
     XCTAssertNil(CFBridgingRelease(cferror), "Shouldn't error mucking about in the db");
 
-    // And they're gone!
-    [self findGenericPassword:@"first" expecting:errSecItemNotFound];
-    [self findGenericPassword:@"second" expecting:errSecItemNotFound];
+    // Restore is additive so original items stick around
+    [self findGenericPassword:@"first" expecting:errSecSuccess];
+    [self findGenericPassword:@"second" expecting:errSecSuccess];
 
     // Allow the local resync to continue...
     [self.operationQueue addOperation:self.keychainView.holdLocalSynchronizeOperation];
     [self.keychainView waitForOperationsOfClass:[CKKSLocalSynchronizeOperation class]];
 
-    // And they're back!
+    // Items are still here!
     [self checkGenericPassword: @"data" account: @"first"];
     [self checkGenericPassword: @"data" account: @"second"];
 }
@@ -2268,16 +2612,17 @@
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
 }
 
-- (void)disabledtestRecoverDeletedTLKAndPause {
-    // If the TLK disappears halfway through, well, that's no good. But we should make it into waitfortlk.
+- (void)testRecoverDeletedTLK {
+    // If the TLK disappears halfway through, well, that's no good. But we should recover using TLK sharing
 
     // Test starts with nothing in database. We expect some sort of TLK/key hierarchy upload.
     [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should have returned to ready");
 
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
 
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"account0"];
     [self.keychainView waitUntilAllOperationsAreFinished];
@@ -2288,14 +2633,8 @@
                                                                             (id)kSecClass : (id)kSecClassInternetPassword,
                                                                             (id)kSecAttrNoLegacy : @YES,
                                                                             (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                                                                            (id)kSecAttrSynchronizable : (id)kCFBooleanFalse,
-                                                                            }), @"Deleting local keys");
-    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef)@{
-                                                                            (id)kSecClass : (id)kSecClassInternetPassword,
-                                                                            (id)kSecAttrNoLegacy : @YES,
-                                                                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                                                                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
-                                                                            }), @"Deleting TLK");
+                                                                            (id)kSecAttrSynchronizable : (id)kSecAttrSynchronizableAny,
+                                                                            }), @"Deleting CKKS keys");
     SecCKKSTestSetDisableKeyNotifications(false);
 
     // Trigger a notification (with hilariously fake data)
@@ -2303,9 +2642,107 @@
     [self.keychainView notifyZoneChange:nil];
 
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
-    [self.keychainView waitForOperationsOfClass:[CKKSHealKeyHierarchyOperation class]];
 
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS re-entered waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should return to 'ready'");
+
+    [self.keychainView waitForFetchAndIncomingQueueProcessing]; // Do this again, to allow for non-atomic key state machinery switching
+
+    [self findGenericPassword: @"account0" expecting:errSecSuccess];
+}
+
+- (void)testRecoverMissingRolledKey {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    NSString* accountShouldExist = @"under-rolled-key";
+    NSString* accountWillExist = @"under-rolled-key-later";
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:accountShouldExist];
+    [self.keychainZone addToZone: ckr];
+
+    CKRecord* ckrAddedLater = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:accountWillExist];
+    CKKSKey* pastClassCKey = self.keychainZoneKeys.classC;
+
+    [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should have returned to ready");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
+    [self findGenericPassword:accountWillExist expecting:errSecItemNotFound];
+
+    // Now, find and delete the class C key that ckrAddedLater is under
+    NSError* error = nil;
+    XCTAssertTrue([pastClassCKey deleteKeyMaterialFromKeychain:&error], "Should be able to delete old key material from keychain");
+    XCTAssertNil(error, "Should be no error deleting old key material from keychain");
+
+    [self.keychainZone addToZone:ckrAddedLater];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+
+    [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
+    [self findGenericPassword:accountWillExist expecting:errSecSuccess];
+
+    XCTAssertTrue([pastClassCKey loadKeyMaterialFromKeychain:&error], "Class C key should be back in the keychain");
+    XCTAssertNil(error, "Should be no error loading key from keychain");
+}
+
+- (void)testRecoverMissingRolledClassAKeyWhileLocked {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    NSString* accountShouldExist = @"under-rolled-key";
+    NSString* accountWillExist = @"under-rolled-key-later";
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:accountShouldExist key:self.keychainZoneKeys.classA];
+    [self.keychainZone addToZone: ckr];
+
+    CKRecord* ckrAddedLater = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:accountWillExist key:self.keychainZoneKeys.classA];
+    CKKSKey* pastClassAKey = self.keychainZoneKeys.classA;
+
+    [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should have returned to ready");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
+    [self findGenericPassword:accountWillExist expecting:errSecItemNotFound];
+
+    // Now, find and delete the class C key that ckrAddedLater is under
+    NSError* error = nil;
+    XCTAssertTrue([pastClassAKey deleteKeyMaterialFromKeychain:&error], "Should be able to delete old key material from keychain");
+    XCTAssertNil(error, "Should be no error deleting old key material from keychain");
+
+    // now, lock the keychain
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    [self.keychainZone addToZone:ckrAddedLater];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+
+    // Item should still not exist due to the lock state....
+    [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
+    [self findGenericPassword:accountWillExist expecting:errSecItemNotFound];
+
+    self.aksLockState = false;
+    [self.lockStateTracker recheck];
+
+    // And now it does
+    [self.keychainView waitUntilAllOperationsAreFinished];
+    [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
+    [self findGenericPassword:accountWillExist expecting:errSecSuccess];
+
+    XCTAssertTrue([pastClassAKey loadKeyMaterialFromKeychain:&error], "Class A key should be back in the keychain");
+    XCTAssertNil(error, "Should be no error loading key from keychain");
 }
 
 - (void)testRecoverFromBadCurrentKeyPointer {
@@ -2332,10 +2769,56 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
+- (void)testRecoverFromIncorrectCurrentTLKPointer {
+    // The current key pointers in cloudkit shouldn't ever point to wrong entries. But, if they do, CKKS must recover.
+
+    // Test starts with a rolled hierarchy, and CKPs pointing to the wrong items
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    CKKSCurrentKeyPointer* oldTLKCKP = self.keychainZoneKeys.currentTLKPointer;
+    CKRecord* oldTLKPointer = [self.keychainZone.currentDatabase[self.keychainZoneKeys.currentTLKPointer.storedCKRecord.recordID] copy];
+
+    [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    ZoneKeys* newZoneKeys = [self.keychainZoneKeys copy];
+
+    // And put the oldTLKPointer back
+    [self.zones[self.keychainZoneID] addToZone:oldTLKPointer];
+    self.keychainZoneKeys.currentTLKPointer = oldTLKCKP;
+
+    // Make sure it stuck:
+    XCTAssertNotEqualObjects(self.keychainZoneKeys.currentTLKPointer,
+                             newZoneKeys.currentTLKPointer,
+                             "current TLK pointer should now not point to proper TLK");
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    // The CKKS subsystem should figure out the issue, and fix it (while uploading itself a TLK Share)
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:80*NSEC_PER_SEC], "Key state should have become ready");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self waitForCKModifications];
+
+    XCTAssertEqualObjects(self.keychainZoneKeys.currentTLKPointer,
+                          newZoneKeys.currentTLKPointer,
+                          "current TLK pointer should now point to proper TLK");
+    XCTAssertEqualObjects(self.keychainZoneKeys.currentClassAPointer,
+                          newZoneKeys.currentClassAPointer,
+                          "current Class A pointer should now point to proper Class A key");
+    XCTAssertEqualObjects(self.keychainZoneKeys.currentClassCPointer,
+                          newZoneKeys.currentClassCPointer,
+                          "current Class C pointer should now point to proper Class C key");
+}
 
 - (void)testRecoverFromCloudKitFetchFail {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     // The first two CKRecordZoneChanges should fail with a 'network unavailable' error.
     [self.keychainZone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}]];
@@ -2363,9 +2846,72 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
+- (void)testRecoverFromCloudKitFetchNetworkFailAfterReady {
+    // Test starts with nothing in database, but one in our fake CloudKit.
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered ready");
+    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateReady, "CKKS entered ready");
+
+    // Network is unavailable
+    self.reachabilityFlags = 0;
+    [self.reachabilityTracker recheck];
+
+    CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
+    [self.keychainZone addToZone:ckr];
+
+    [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
+
+    // Say network is available
+    self.reachabilityFlags = kSCNetworkReachabilityFlagsReachable;
+    [self.reachabilityTracker recheck];
+
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+
+    [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
+}
+
+- (void)testRecoverFromCloudKitFetchNetworkFailBeforeReady {
+    // Test starts with nothing in database, but one in our fake CloudKit.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
+    [self.keychainZone addToZone:ckr];
+
+    // Network is unavailable
+    self.reachabilityFlags = 0;
+    [self.reachabilityTracker recheck];
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitializing] wait:8*NSEC_PER_SEC], "CKKS entered initializing");
+    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateInitializing, "CKKS entered initializing");
+
+    // Now, save the TLK to the keychain (to simulate it coming in later via SOS).
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+
+    [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
+
+    // Say network is available
+    self.reachabilityFlags = kSCNetworkReachabilityFlagsReachable;
+    [self.reachabilityTracker recheck];
+
+    [self.keychainView waitUntilAllOperationsAreFinished];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+
+    [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
+}
+
+
 - (void)testRecoverFromCloudKitFetchFailWithDelay {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     // The first  CKRecordZoneChanges should fail with a 'delay' error.
     self.silentFetchesAllowed = false;
@@ -2440,6 +2986,8 @@
     // Save a new device state record with some fake etag
     [self.keychainView dispatchSync: ^bool {
         CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:self.ckDeviceID
+                                                                       osVersion:@"fake-record"
+                                                                  lastUnlockTime:[NSDate date]
                                                                     circlePeerID:self.circlePeerID
                                                                     circleStatus:kSOSCCInCircle
                                                                         keyState:SecCKKSZoneKeyStateWaitForTLK
@@ -2521,10 +3069,11 @@
     [self addGenericPassword: @"data" account: @"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
-    // The first  CKRecordZoneChanges should fail with a 'CKErrorUserDeletedZone' error.
+    // The first CKRecordZoneChanges should fail with a 'CKErrorUserDeletedZone' error. This will cause a local reset, ending up with zone re-creation.
+    self.zones[self.keychainZoneID] = nil; // delete the zone
     [self.keychainZone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorUserDeletedZone userInfo:@{}]];
 
-    // We expect a key hierarchy upload, and then the class C item upload
+    // We expect CKKS to recreate the zone, then perform a key hierarchy upload, and then the class C item upload
     [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
@@ -2544,9 +3093,10 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
-- (void)testRecoverFromCloudKitZoneNotFoundZoneDeletionSuccess {
+- (void)testRecoverFromCloudKitZoneNotFoundWithoutZoneDeletion {
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
@@ -2560,26 +3110,21 @@
     [self addGenericPassword: @"data" account: @"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
-    [self waitForCKModifications];
-    self.zones[self.keychainZoneID] = nil; // delete the autocreated zone
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS should enter 'ready'");
 
-    // The next CKRecordZoneChanges should fail with a 'zone not found' error.
-    // BUT: when it goes to delete the zone as part of the reset, that should succeed. So, we won't delete the zone here.
-    NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
-                                                                  code:CKErrorZoneNotFound
-                                                              userInfo:@{}];
-    NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
-                                                      code:CKErrorPartialFailure
-                                                  userInfo:@{CKPartialErrorsByItemIDKey: @{self.keychainZoneID:zoneNotFoundError}}];
-    [self.keychainZone failNextFetchWith:error];
+    [self waitForCKModifications];
+    [self.keychainView waitForOperationsOfClass:[CKKSScanLocalItemsOperation class]];
+
+    // The next CKRecordZoneChanges will fail with a 'zone not found' error.
+    self.zones[self.keychainZoneID] = nil; // delete the zone
 
     // We expect CKKS to reset itself and recover, then a key hierarchy upload, and then the class C item upload
     [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
     [self.keychainView notifyZoneChange:nil];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 80);
+    [self waitForCKModifications];
 
     // And check that a new upload occurs.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
@@ -2593,42 +3138,30 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
-- (void)testRecoverFromCloudKitZoneNotFoundZoneDeletionFail {
-    // Test starts with nothing in database, but one in our fake CloudKit.
-    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+- (void)testRecoverFromCloudKitZoneNotFoundFetchBeforeSigninOccurs {
+    self.zones[self.keychainZoneID] = nil; // delete the autocreated zone
 
-    // Spin up CKKS subsystem.
+    // Before CKKS sign-in, it receives a fetch rpc
+    XCTestExpectation *fetchReturns = [self expectationWithDescription:@"fetch returned"];
+    [self.injectedManager rpcFetchAndProcessChanges:nil reply:^(NSError *result) {
+        XCTAssertNil(result, "Should be no error fetching and processing changes");
+        [fetchReturns fulfill];
+    }];
+
+    // start 'login'. CKKS Should upload a key hierarchy
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
 
-    // Now, save the TLK to the keychain (to simulate it coming in later via SOS).
-    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
-    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS should enter 'ready'");
 
     // We expect a single record to be uploaded
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
-    [self waitForCKModifications];
-    self.zones[self.keychainZoneID] = nil; // delete the autocreated zone
-
-    // We expect CKKS to reset itself and recover, then a key hierarchy upload, and then the class C item upload
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
-
-    [self.keychainView notifyZoneChange:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-
-    // And check that a new upload occurs.
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
-
-    [self addGenericPassword:@"asdf"
-                     account:@"account-class-A"
-                    viewHint:nil
-                      access:(id)kSecAttrAccessibleWhenUnlocked
-                   expecting:errSecSuccess
-                     message:@"Adding class A item"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    // The fetch should have come back by now
+    [self waitForExpectations: @[fetchReturns] timeout:5];
 }
 
 - (void)testNoCloudKitAccount {
@@ -2671,6 +3204,11 @@
     self.silentFetchesAllowed = false;
     [self startCKKSSubsystem];
 
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, CKKSErrorDomain, "Account tracker error should be in CKKSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, CKKSNotHSA2, "Account tracker error should be upset about HSA2");
+
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     // There should be no uploads, even when we save keychain items and enter/exit circle
@@ -2702,6 +3240,11 @@
     self.silentFetchesAllowed = false;
     [self startCKKSSubsystem];
 
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, (__bridge NSString*)kSOSErrorDomain, "Account tracker error should be in SOSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, kSOSErrorNotInCircle, "Account tracker error should be upset about out-of-circle");
+
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
     [self addGenericPassword: @"data" account: @"account-delete-me"];
@@ -2727,17 +3270,30 @@
     self.accountStatus = CKAccountStatusNoAccount;
     self.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    // Before we inform CKKS of its account state....
+    XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK shouldn't know the account state");
+
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0,    [self.keychainView.loggedOut wait:500*NSEC_PER_MSEC], "Should have been told of a 'logout' event on startup");
     XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:100*NSEC_PER_MSEC], "'login' event shouldn't have happened");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
 
     [self.keychainView waitUntilAllOperationsAreFinished];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, CKKSErrorDomain, "Account tracker error should be in CKKSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, CKKSNotLoggedIn, "Account tracker error should just be 'no account'");
+
     // simulate a cloudkit login and NSNotification callback
     self.accountStatus = CKAccountStatusAvailable;
     [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, (__bridge NSString*)kSOSErrorDomain, "Account tracker error should be in SOSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, kSOSErrorNotInCircle, "Account tracker error should be upset about out-of-circle");
 
     // No writes yet, since we're not in circle
     [self.keychainView waitUntilAllOperationsAreFinished];
@@ -2749,8 +3305,11 @@
     self.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
+    XCTAssertNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's an account");
+
     XCTAssertEqual(0,    [self.keychainView.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
     XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForCKModifications];
@@ -2767,9 +3326,11 @@
     // Test starts with nothing in database. We expect some sort of TLK/key hierarchy upload.
     [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
 
+    XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK shouldn't know the account state");
     [self startCKKSSubsystem];
     XCTAssertEqual(0,    [self.keychainView.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
     XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -2787,9 +3348,14 @@
     self.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, CKKSErrorDomain, "Account tracker error should be in CKKSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, CKKSNotLoggedIn, "Account tracker error should just believe we're not logged in");
+
     // Test that there are no items in the database after logout
     XCTAssertEqual(0,    [self.keychainView.loggedOut wait:2000*NSEC_PER_MSEC], "Should have been told of a 'logout'");
     XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:100*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
     [self checkNoCKKSData: self.keychainView];
 
     // There should be no further uploads, even when we save keychain items
@@ -2798,6 +3364,7 @@
 
     [self.keychainView waitUntilAllOperationsAreFinished];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:8*NSEC_PER_SEC], "CKKS entered 'logged out'");
 
     // simulate a cloudkit login
     // We should expect CKKS to re-find the key hierarchy it already uploaded, and then send up the two records we added during the pause
@@ -2807,14 +3374,17 @@
     [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
     self.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    XCTAssertNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's an account");
 
     XCTAssertEqual(0,    [self.keychainView.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
     XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Let everything settle...
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered 'ready'");
+    [self waitForCKModifications];
 
     // Logout again
     self.accountStatus = CKAccountStatusNoAccount;
@@ -2825,6 +3395,7 @@
     // Test that there are no items in the database after logout
     XCTAssertEqual(0,    [self.keychainView.loggedOut wait:2000*NSEC_PER_MSEC], "Should have been told of a 'logout'");
     XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:100*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
     [self checkNoCKKSData: self.keychainView];
 
     // There should be no further uploads, even when we save keychain items
@@ -2845,8 +3416,117 @@
 
     XCTAssertEqual(0,    [self.keychainView.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
     XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Let everything settle...
+    [self.keychainView waitUntilAllOperationsAreFinished];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered 'ready'");
+
+    // Logout again
+    self.accountStatus = CKAccountStatusNoAccount;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    self.circleStatus = kSOSCCNotInCircle;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    // Test that there are no items in the database after logout
+    XCTAssertEqual(0,    [self.keychainView.loggedOut wait:2000*NSEC_PER_MSEC], "Should have been told of a 'logout'");
+    XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:100*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:8*NSEC_PER_SEC], "CKKS entered 'logged out'");
+    [self checkNoCKKSData: self.keychainView];
+
+    // Force zone into error state
+    self.keychainView.keyHierarchyState = SecCKKSZoneKeyStateError;
+
+    self.accountStatus = CKAccountStatusAvailable;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    self.circleStatus = kSOSCCInCircle;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    XCTestExpectation *operationRun = [self expectationWithDescription:@"operation run"];
+    NSOperation* op = [NSBlockOperation named:@"test" withBlock:^{
+        [operationRun fulfill];
+    }];
+
+    [op addDependency:self.keychainView.keyStateReadyDependency];
+    [self.operationQueue addOperation:op];
+
+    XCTAssertEqual(0,    [self.keychainView.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
+    XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForExpectations: @[operationRun] timeout:5];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered 'ready'");
+}
+
+- (void)testCloudKitLogoutDueToGreyMode {
+    // Test starts with nothing in database. We expect some sort of TLK/key hierarchy upload.
+    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK shouldn't know the account state");
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0,    [self.keychainView.loggedIn wait:8*NSEC_PER_SEC], "Should have been told of a 'login'");
+    XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:10*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // simulate a cloudkit grey mode switch and NSNotification callback. CKKS should treat this as a logout
+    self.iCloudHasValidCredentials = false;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+
+    XCTAssertNotNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's no account");
+    XCTAssertEqualObjects(self.accountStateTracker.currentAccountError.domain, CKKSErrorDomain, "Account tracker error should be in CKKSErrorDomain");
+    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, CKKSiCloudGreyMode, "Account tracker error should be upset about grey mode");
+
+    // Test that there are no items in the database after logout
+    XCTAssertEqual(0,    [self.keychainView.loggedOut wait:8*NSEC_PER_SEC], "Should have been told of a 'logout'");
+    XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:10*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
+    [self checkNoCKKSData: self.keychainView];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:8*NSEC_PER_SEC], "CKKS entered 'logged out'");
+
+    // There should be no further uploads, even when we save keychain items
+    [self addGenericPassword: @"data" account: @"account-delete-me-2"];
+    [self addGenericPassword: @"data" account: @"account-delete-me-3"];
+
+    [self.keychainView waitUntilAllOperationsAreFinished];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Also, fetches shouldn't occur
+    self.silentFetchesAllowed = false;
+    NSOperation* op = [self.keychainView.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting];
+    CKKSResultOperation* timeoutOp = [CKKSResultOperation named:@"timeout" withBlock:^{}];
+    [timeoutOp addDependency:op];
+    [timeoutOp timeout:4*NSEC_PER_SEC];
+    [self.operationQueue addOperation:timeoutOp];
+    [timeoutOp waitUntilFinished];
+
+    // CloudKit figures its life out. We expect the two passwords from before to be uploaded
+    [self expectCKModifyItemRecords:2 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    self.silentFetchesAllowed = true;
+    self.iCloudHasValidCredentials = true;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+
+    XCTAssertNil(self.accountStateTracker.currentAccountError, "Account state tracker should believe there's an account");
+
+    XCTAssertEqual(0,    [self.keychainView.loggedIn wait:8*NSEC_PER_SEC], "Should have been told of a 'login'");
+    XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:10*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0,    [self.keychainView.accountStateKnown wait:10*NSEC_PER_MSEC], "CKK should know the account state");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // And fetching still works!
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D00" withAccount:@"account0"]];
+    [self.keychainView notifyZoneChange:nil];
+    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self findGenericPassword: @"account0" expecting:errSecSuccess];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "CKKS entered 'ready'");
 }
 
 - (void)testCloudKitLoginRace {
@@ -2895,364 +3575,6 @@
     [partialKVMock stopMocking];
 }
 
-- (void)testDeviceStateUploadGood {
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-
-    [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
-
-    __weak __typeof(self) weakSelf = self;
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    // Check that all the things matches
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    ZoneKeys* zoneKeys = strongSelf.keys[strongSelf.keychainZoneID];
-                    XCTAssertNotNil(zoneKeys, "Have zone keys for %@", strongSelf.keychainZoneID);
-
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
-
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassA] recordID].recordName, zoneKeys.classA.uuid, "Correct class A uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassC] recordID].recordName, zoneKeys.classC.uuid, "Correct class C uuid");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-}
-
-- (void)testDeviceStateUploadRateLimited {
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-
-    [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
-
-    __weak __typeof(self) weakSelf = self;
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    // Check that all the things matches
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    ZoneKeys* zoneKeys = strongSelf.keys[strongSelf.keychainZoneID];
-                    XCTAssertNotNil(zoneKeys, "Have zone keys for %@", strongSelf.keychainZoneID);
-
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
-
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassA] recordID].recordName, zoneKeys.classA.uuid, "Correct class A uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassC] recordID].recordName, zoneKeys.classC.uuid, "Correct class C uuid");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-    [op waitUntilFinished];
-
-    // Check that an immediate rate-limited retry doesn't upload anything
-    op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    [op waitUntilFinished];
-
-    // But not rate-limiting works just fine!
-    [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord:nil
-           runAfterModification:nil];
-    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-    [op waitUntilFinished];
-
-    // And now, if the update is old enough, that'll work too
-    [self.keychainView dispatchSync:^bool {
-        NSError* error = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.accountStateTracker.ckdeviceID zoneID:self.keychainZoneID error:&error];
-        XCTAssertNil(error, "No error fetching device state entry");
-        XCTAssertNotNil(cdse, "Fetched device state entry");
-
-        CKRecord* record = cdse.storedCKRecord;
-
-        NSDate* m = record.modificationDate;
-        XCTAssertNotNil(m, "Have modification date");
-
-        // Four days ago!
-        NSDateComponents* offset = [[NSDateComponents alloc] init];
-        [offset setHour:-4 * 24];
-        NSDate* m2 = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:m options:0];
-
-        XCTAssertNotNil(m2, "Made modification date");
-
-        record.modificationDate = m2;
-        [cdse setStoredCKRecord:record];
-
-        [cdse saveToDatabase:&error];
-        XCTAssertNil(error, "No error saving device state entry");
-
-        return true;
-    }];
-
-    // And now the rate-limiting doesn't get in the way
-    [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord:nil
-           runAfterModification:nil];
-    op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 12);
-    [op waitUntilFinished];
-}
-
-- (void)testDeviceStateUploadRateLimitedAfterNormalUpload {
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-
-    [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
-
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
-    [self addGenericPassword:@"password" account:@"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-
-    // Check that an immediate rate-limited retry doesn't upload anything
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    [op waitUntilFinished];
-}
-
-- (void)testDeviceStateUploadWaitsForKeyHierarchy {
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-
-    // Ask to wait for quite a while if we don't become ready
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:20*NSEC_PER_SEC ckoperationGroup:nil];
-
-    __weak __typeof(self) weakSelf = self;
-    // Expect a ready upload
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    ZoneKeys* zoneKeys = strongSelf.keys[strongSelf.keychainZoneID];
-                    XCTAssertNotNil(zoneKeys, "Have zone keys for %@", strongSelf.keychainZoneID);
-
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
-
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassA] recordID].recordName, zoneKeys.classA.uuid, "Correct class A uuid");
-                    XCTAssertEqualObjects([record[SecCKRecordCurrentClassC] recordID].recordName, zoneKeys.classC.uuid, "Correct class C uuid");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    // And allow the key state to progress
-    [self startCKKSSubsystem];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-}
-
-- (void)testDeviceStateReceive {
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-
-    ZoneKeys* zoneKeys = self.keys[self.keychainZoneID];
-    XCTAssertNotNil(zoneKeys, "Have zone keys for %@", self.keychainZoneID);
-
-    [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
-
-    CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"otherdevice"
-                                                                circlePeerID:@"asdfasdf"
-                                                                circleStatus:kSOSCCInCircle
-                                                                    keyState:SecCKKSZoneKeyStateReady
-                                                              currentTLKUUID:zoneKeys.tlk.uuid
-                                                           currentClassAUUID:zoneKeys.classA.uuid
-                                                           currentClassCUUID:zoneKeys.classC.uuid
-                                                                      zoneID:self.keychainZoneID
-                                                             encodedCKRecord:nil];
-    CKRecord* record = [cdse CKRecordWithZoneID:self.keychainZoneID];
-    [self.keychainZone addToZone:record];
-
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
-
-    [self.keychainView dispatchSync: ^bool {
-        NSError* error = nil;
-        NSArray<CKKSDeviceStateEntry*>* cdses = [CKKSDeviceStateEntry allInZone:self.keychainZoneID error:&error];
-        XCTAssertNil(error, "No error fetching CDSEs");
-        XCTAssertNotNil(cdses, "An array of CDSEs was returned");
-        XCTAssert(cdses.count >= 1u, "At least one CDSE came back");
-
-        CKKSDeviceStateEntry* item = nil;
-        for(CKKSDeviceStateEntry* dbcdse in cdses) {
-            if([dbcdse.device isEqualToString:@"otherdevice"]) {
-                item = dbcdse;
-            }
-        }
-        XCTAssertNotNil(item, "Found a cdse for otherdevice");
-
-        XCTAssertEqualObjects(cdse, item, "Saved item matches pre-cloudkit item");
-
-        XCTAssertEqualObjects(item.circlePeerID,      @"asdfasdf",          "correct peer id");
-        XCTAssertEqualObjects(item.keyState, SecCKKSZoneKeyStateReady,      "correct key state");
-        XCTAssertEqualObjects(item.currentTLKUUID,    zoneKeys.tlk.uuid,    "correct tlk uuid");
-        XCTAssertEqualObjects(item.currentClassAUUID, zoneKeys.classA.uuid, "correct classA uuid");
-        XCTAssertEqualObjects(item.currentClassCUUID, zoneKeys.classC.uuid, "correct classC uuid");
-
-        return false;
-    }];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-}
-
-- (void)testDeviceStateUploadBadKeyState {
-    // This test has stuff in CloudKit, but no TLKs. It should become very sad.
-    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
-
-    [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
-
-    __weak __typeof(self) weakSelf = self;
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    // Check that all the things matches
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device is in waitfortlk");
-
-                    XCTAssertNil(record[SecCKRecordCurrentTLK]   , "No TLK");
-                    XCTAssertNil(record[SecCKRecordCurrentClassA], "No class A key");
-                    XCTAssertNil(record[SecCKRecordCurrentClassC], "No class C key");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-}
-
-- (void)testDeviceStateUploadBadKeyStateAfterRestart {
-    // This test has stuff in CloudKit, but no TLKs. It should become very sad.
-    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
-
-    [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
-
-    // And restart CKKS...
-    self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
-
-    __weak __typeof(self) weakSelf = self;
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    // Check that all the things matches
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device is in waitfortlk");
-
-                    XCTAssertNil(record[SecCKRecordCurrentTLK]   , "No TLK");
-                    XCTAssertNil(record[SecCKRecordCurrentClassA], "No class A key");
-                    XCTAssertNil(record[SecCKRecordCurrentClassC], "No class C key");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-}
-
-
-- (void)testDeviceStateUploadBadCircleState {
-    self.circleStatus = kSOSCCNotInCircle;
-    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
-
-    // This test has stuff in CloudKit, but no TLKs.
-    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
-
-    [self startCKKSSubsystem];
-
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitializing] wait:8*NSEC_PER_SEC], "CKKS entered initializing");
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateInitializing, "CKKS entered intializing");
-
-    __weak __typeof(self) weakSelf = self;
-    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord: ^BOOL (CKRecord* record){
-                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                    // Check that all the things matches
-                    __strong __typeof(weakSelf) strongSelf = weakSelf;
-                    XCTAssertNotNil(strongSelf, "self exists");
-
-                    XCTAssertNil(record[SecCKRecordCirclePeerID], "no peer ID if device is not in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCNotInCircle], "device is not in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateInitializing), "Device is in keystate:initializing");
-
-                    XCTAssertNil(record[SecCKRecordCurrentTLK]   , "No TLK");
-                    XCTAssertNil(record[SecCKRecordCurrentClassA], "No class A key");
-                    XCTAssertNil(record[SecCKRecordCurrentClassC], "No class C key");
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-           runAfterModification:nil];
-
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-
-    [op waitUntilFinished];
-    XCTAssertNil(op.error, "No error uploading 'out of circle' device state");
-}
-
 - (void)testNotStuckAfterReset {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
@@ -3273,19 +3595,8 @@
 }
 
 - (void)testCKKSControlBringup {
-    xpc_endpoint_t endpoint = SecServerCreateCKKSEndpoint();
-    XCTAssertNotNil(endpoint, "Received endpoint");
-
     NSXPCInterface *interface = CKKSSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(CKKSControlProtocol)]);
     XCTAssertNotNil(interface, "Received a configured CKKS interface");
-
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
-    [listenerEndpoint _setEndpoint:endpoint];
-
-    NSXPCConnection* connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
-    XCTAssertNotNil(connection , "Received an active connection");
-
-    connection.remoteObjectInterface = interface;
 }
 
 @end

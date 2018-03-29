@@ -34,6 +34,7 @@
 #include "Document.h"
 #include "RenderStyle.h"
 #include "SVGURIReference.h"
+#include "StyleCachedImage.h"
 #include "StyleGeneratedImage.h"
 #include "TransformFunctions.h"
 
@@ -52,7 +53,8 @@ static void loadPendingImage(Document& document, const StyleImage* styleImage, c
     // FIXME: Why does shape-outside have different policy than other properties?
     if (loadPolicy == LoadPolicy::ShapeOutside) {
         options.mode = FetchOptions::Mode::Cors;
-        options.allowCredentials = DoNotAllowStoredCredentials;
+        options.credentials = FetchOptions::Credentials::SameOrigin;
+        options.storedCredentialsPolicy = StoredCredentialsPolicy::DoNotUse;
         options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
     }
 

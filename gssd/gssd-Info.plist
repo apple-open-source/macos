@@ -2,11 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>NetAuth</string>
+		<string>com.apple.coreservices.appleidauthentication</string>
+		<string>com.apple.coreservices.appleidauthentication.keychainaccessgroup</string>
+		<string>com.apple.sharing.appleidauthentication</string>
+	</array>
 	<key>Application-Group</key>
 	<array>
 		<string>NetAuth</string>
 		<string>com.apple.coreservices.appleidauthentication</string>
 		<string>com.apple.coreservices.appleidauthentication.keychainaccessgroup</string>
+		<string>com.apple.sharing.appleidauthentication</string>
 	</array>
 </dict>
 </plist>

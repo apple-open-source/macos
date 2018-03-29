@@ -28,22 +28,34 @@
 
 #if ENABLE(ASSEMBLER)
 
+#include "Options.h"
+#include "ProbeContext.h"
 #include <wtf/PrintStream.h>
+#include <wtf/ScopedLambda.h>
 
 namespace JSC {
 
 const double MacroAssembler::twoToThe32 = (double)0x100000000ull;
 
-#if ENABLE(MASM_PROBE)
-static void stdFunctionCallback(ProbeContext* context)
+void MacroAssembler::jitAssert(const ScopedLambda<Jump(void)>& functor)
 {
-    auto func = static_cast<const std::function<void(ProbeContext*)>*>(context->arg);
+    if (Options::enableJITDebugAssetions()) {
+        Jump passed = functor();
+        breakpoint();
+        passed.link(this);
+    }
+}
+
+#if ENABLE(MASM_PROBE)
+static void stdFunctionCallback(Probe::Context& context)
+{
+    auto func = context.arg<const std::function<void(Probe::Context&)>*>();
     (*func)(context);
 }
     
-void MacroAssembler::probe(std::function<void(ProbeContext*)> func)
+void MacroAssembler::probe(std::function<void(Probe::Context&)> func)
 {
-    probe(stdFunctionCallback, new std::function<void(ProbeContext*)>(func));
+    probe(stdFunctionCallback, new std::function<void(Probe::Context&)>(func));
 }
 #endif // ENABLE(MASM_PROBE)
 

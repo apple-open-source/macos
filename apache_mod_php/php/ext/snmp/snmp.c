@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -38,9 +38,9 @@
 #if HAVE_SNMP
 
 #include <sys/types.h>
+#include <errno.h>
 #ifdef PHP_WIN32
 #include <winsock2.h>
-#include <errno.h>
 #include <process.h>
 #include "win32/time.h"
 #elif defined(NETWARE)
@@ -49,17 +49,11 @@
 #else
 #include <sys/socket.h>
 #endif
-#include <errno.h>
 #include <sys/timeval.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#ifndef _OSD_POSIX
-#include <sys/errno.h>
-#else
-#include <errno.h>  /* BS2000/OSD uses <errno.h>, not <sys/errno.h> */
-#endif
 #include <netdb.h>
 #endif
 #ifdef HAVE_UNISTD_H

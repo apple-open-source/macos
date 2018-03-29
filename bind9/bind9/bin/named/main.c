@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -48,12 +48,16 @@
 #include <dns/view.h>
 
 #include <dst/result.h>
+#ifdef PKCS11CRYPTO
+#include <pk11/result.h>
+#endif
 
 #include <dlz/dlz_dlopen_driver.h>
 
 #ifdef HAVE_GPERFTOOLS_PROFILER
 #include <gperftools/profiler.h>
 #endif
+
 
 /*
  * Defining NS_MAIN provides storage declarations (rather than extern)
@@ -70,12 +74,10 @@
 #include <named/server.h>
 #include <named/lwresd.h>
 #include <named/main.h>
+#include <named/seccomp.h>
 #ifdef HAVE_LIBSCF
 #include <named/ns_smf_globals.h>
 #endif
-
-#include <notify.h>
-#include <notify_keys.h>
 
 #ifdef OPENSSL
 #include <openssl/opensslv.h>
@@ -103,9 +105,10 @@
 #define BACKTRACE_MAXFRAME 128
 #endif
 
-extern unsigned int dns_zone_mkey_hour;
-extern unsigned int dns_zone_mkey_day;
-extern unsigned int dns_zone_mkey_month;
+LIBISC_EXTERNAL_DATA extern int isc_dscp_check_value;
+LIBDNS_EXTERNAL_DATA extern unsigned int dns_zone_mkey_hour;
+LIBDNS_EXTERNAL_DATA extern unsigned int dns_zone_mkey_day;
+LIBDNS_EXTERNAL_DATA extern unsigned int dns_zone_mkey_month;
 
 static isc_boolean_t	want_stats = ISC_FALSE;
 static char		program_name[ISC_DIR_NAMEMAX] = "named";
@@ -301,11 +304,13 @@ static void
 lwresd_usage(void) {
 	fprintf(stderr,
 		"usage: lwresd [-4|-6] [-c conffile | -C resolvconffile] "
-		"[-d debuglevel]\n"
-		"              [-f|-g] [-n number_of_cpus] [-p port] "
-		"[-P listen-port] [-s]\n"
-		"              [-t chrootdir] [-u username] [-i pidfile]\n"
-		"              [-m {usage|trace|record|size|mctx}]\n");
+		"[-d debuglevel] [-f|-g]\n"
+		"              [-i pidfile] [-n number_of_cpus] "
+		"[-p port] [-P listen-port]\n"
+		"              [-s] [-S sockets] [-t chrootdir] [-u username] "
+		"[-U listeners]\n"
+		"              [-m {usage|trace|record|size|mctx}]\n"
+		"usage: lwresd [-v|-V]\n");
 }
 
 static void
@@ -318,8 +323,10 @@ usage(void) {
 		"usage: named [-4|-6] [-c conffile] [-d debuglevel] "
 		"[-E engine] [-f|-g]\n"
 		"             [-n number_of_cpus] [-p port] [-s] "
-		"[-t chrootdir] [-u username]\n"
-		"             [-m {usage|trace|record|size|mctx}]\n");
+		"[-S sockets] [-t chrootdir]\n"
+		"             [-u username] [-U listeners] "
+		"[-m {usage|trace|record|size|mctx}]\n"
+		"usage: named [-v|-V]\n");
 }
 
 static void
@@ -384,6 +391,7 @@ static struct flag_def {
 	const char *name;
 	unsigned int value;
 } mem_debug_flags[] = {
+	{ "none", 0},
 	{ "trace",  ISC_MEM_DEBUGTRACE },
 	{ "record", ISC_MEM_DEBUGRECORD },
 	{ "usage", ISC_MEM_DEBUGUSAGE },
@@ -394,6 +402,8 @@ static struct flag_def {
 
 static void
 set_flags(const char *arg, struct flag_def *defs, unsigned int *ret) {
+	isc_boolean_t clear = ISC_FALSE;
+
 	for (;;) {
 		const struct flag_def *def;
 		const char *end = strchr(arg, ',');
@@ -404,16 +414,21 @@ set_flags(const char *arg, struct flag_def *defs, unsigned int *ret) {
 		for (def = defs; def->name != NULL; def++) {
 			if (arglen == (int)strlen(def->name) &&
 			    memcmp(arg, def->name, arglen) == 0) {
+				if (def->value == 0)
+					clear = ISC_TRUE;
 				*ret |= def->value;
 				goto found;
 			}
 		}
 		ns_main_earlyfatal("unrecognized flag '%.*s'", arglen, arg);
 	 found:
-		if (*end == '\0')
+		if (clear || (*end == '\0'))
 			break;
 		arg = end + 1;
 	}
+
+	if (clear)
+		*ret = 0;
 }
 
 static void
@@ -424,10 +439,12 @@ parse_command_line(int argc, char *argv[]) {
 
 	save_command_line(argc, argv);
 
-	/* PLEASE keep options synchronized when main is hooked! */
-#define CMDLINE_FLAGS "46c:C:d:E:fFgi:lm:n:N:p:P:sS:t:T:U:u:vVx:"
+	/*
+	 * NS_MAIN_ARGS is defined in main.h, so that it can be used
+	 * both by named and by ntservice hooks.
+	 */
 	isc_commandline_errprint = ISC_FALSE;
-	while ((ch = isc_commandline_parse(argc, argv, CMDLINE_FLAGS)) != -1) {
+	while ((ch = isc_commandline_parse(argc, argv, NS_MAIN_ARGS)) != -1) {
 		switch (ch) {
 		case '4':
 			if (ns_g_disable4)
@@ -462,6 +479,9 @@ parse_command_line(int argc, char *argv[]) {
 			ns_g_debuglevel = parse_int(isc_commandline_argument,
 						    "debug level");
 			break;
+		case 'D':
+			/* Descriptive comment for 'ps'. */
+			break;
 		case 'E':
 			ns_g_engine = isc_commandline_argument;
 			break;
@@ -478,6 +498,10 @@ parse_command_line(int argc, char *argv[]) {
 			break;
 		case 'l':
 			ns_g_lwresdonly = ISC_TRUE;
+			break;
+		case 'M':
+			if (strcmp(isc_commandline_argument, "external") == 0)
+				isc_mem_defaultflags = 0;
 			break;
 		case 'm':
 			set_flags(isc_commandline_argument, mem_debug_flags,
@@ -519,8 +543,15 @@ parse_command_line(int argc, char *argv[]) {
 			break;
 		case 'T':	/* NOT DOCUMENTED */
 			/*
+			 * force the server to behave (or misbehave) in
+			 * specified ways for testing purposes.
+			 *
 			 * clienttest: make clients single shot with their
 			 * 	       own memory context.
+			 * delay=xxxx: delay client responses by xxxx ms to
+			 *	       simulate remote servers.
+			 * dscp=x:     check that dscp values are as
+			 * 	       expected and assert otherwise.
 			 */
 			if (!strcmp(isc_commandline_argument, "clienttest"))
 				ns_g_clienttest = ISC_TRUE;
@@ -539,10 +570,16 @@ parse_command_line(int argc, char *argv[]) {
 			else if (!strncmp(isc_commandline_argument,
 					  "maxudp=", 7))
 				maxudp = atoi(isc_commandline_argument + 7);
+			else if (!strncmp(isc_commandline_argument,
+					  "delay=", 6))
+				ns_g_delay = atoi(isc_commandline_argument + 6);
 			else if (!strcmp(isc_commandline_argument, "nosyslog"))
 				ns_g_nosyslog = ISC_TRUE;
 			else if (!strcmp(isc_commandline_argument, "nonearest"))
 				ns_g_nonearest = ISC_TRUE;
+			else if (!strncmp(isc_commandline_argument, "dscp=", 5))
+				isc_dscp_check_value =
+					   atoi(isc_commandline_argument + 5);
 			else if (!strncmp(isc_commandline_argument,
 					  "mkeytimers=", 11))
 			{
@@ -576,6 +613,12 @@ parse_command_line(int argc, char *argv[]) {
 					ns_main_earlyfatal("bad mkeytimer");
 			} else if (!strcmp(isc_commandline_argument, "notcp"))
 				ns_g_notcp = ISC_TRUE;
+			else if (!strncmp(isc_commandline_argument, "tat=", 4))
+				ns_g_tat_interval =
+					   atoi(isc_commandline_argument + 4);
+			else if (!strcmp(isc_commandline_argument,
+					 "keepstderr"))
+				ns_g_keepstderr = ISC_TRUE;
 			else
 				fprintf(stderr, "unknown -T flag '%s\n",
 					isc_commandline_argument);
@@ -589,16 +632,17 @@ parse_command_line(int argc, char *argv[]) {
 			ns_g_username = isc_commandline_argument;
 			break;
 		case 'v':
-			printf("%s %s", ns_g_product, ns_g_version);
-			if (*ns_g_description != 0)
-				printf(" %s", ns_g_description);
-			printf("\n");
+			printf("%s %s%s%s <id:%s>\n",
+			       ns_g_product, ns_g_version,
+			       (*ns_g_description != '\0') ? " " : "",
+			       ns_g_description, ns_g_srcid);
 			exit(0);
 		case 'V':
-			printf("%s %s", ns_g_product, ns_g_version);
-			if (*ns_g_description != 0)
-				printf(" %s", ns_g_description);
-			printf(" <id:%s> built by %s with %s\n", ns_g_srcid,
+			printf("%s %s%s%s <id:%s>\n", ns_g_product, ns_g_version,
+			       (*ns_g_description != '\0') ? " " : "",
+			       ns_g_description, ns_g_srcid);
+			printf("running on %s\n", ns_os_uname());
+			printf("built by %s with %s\n",
 			       ns_g_builder, ns_g_configargs);
 #ifdef __clang__
 			printf("compiled by CLANG %s\n", __VERSION__);
@@ -620,18 +664,27 @@ parse_command_line(int argc, char *argv[]) {
 #ifdef OPENSSL
 			printf("compiled with OpenSSL version: %s\n",
 			       OPENSSL_VERSION_TEXT);
-#ifndef WIN32
+#if !defined(LIBRESSL_VERSION_NUMBER) && \
+    OPENSSL_VERSION_NUMBER >= 0x10100000L /* 1.1.0 or higher */
+			printf("linked to OpenSSL version: %s\n",
+			       OpenSSL_version(OPENSSL_VERSION));
+
+#else
 			printf("linked to OpenSSL version: %s\n",
 			       SSLeay_version(SSLEAY_VERSION));
-#endif
+#endif /* OPENSSL_VERSION_NUMBER >= 0x10100000L */
 #endif
 #ifdef HAVE_LIBXML2
 			printf("compiled with libxml2 version: %s\n",
 			       LIBXML_DOTTED_VERSION);
-#ifndef WIN32
 			printf("linked to libxml2 version: %s\n",
 			       xmlParserVersion);
 #endif
+#if defined(HAVE_JSON) && defined(JSON_C_VERSION)
+			printf("compiled with libjson-c version: %s\n",
+			       JSON_C_VERSION);
+			printf("linked to libjson-c version: %s\n",
+			       json_c_version());
 #endif
 			exit(0);
 		case 'F':
@@ -641,7 +694,7 @@ parse_command_line(int argc, char *argv[]) {
 			usage();
 			if (isc_commandline_option == '?')
 				exit(0);
-			p = strchr(CMDLINE_FLAGS, isc_commandline_option);
+			p = strchr(NS_MAIN_ARGS, isc_commandline_option);
 			if (p == NULL || *++p != ':')
 				ns_main_earlyfatal("unknown option '-%c'",
 						   isc_commandline_option);
@@ -670,6 +723,8 @@ create_managers(void) {
 	isc_result_t result;
 	unsigned int socks;
 
+	INSIST(ns_g_cpus_detected > 0);
+
 #ifdef ISC_PLATFORM_USETHREADS
 	if (ns_g_cpus == 0)
 		ns_g_cpus = ns_g_cpus_detected;
@@ -686,10 +741,8 @@ create_managers(void) {
 	if (ns_g_udpdisp == 0) {
 		if (ns_g_cpus_detected == 1)
 			ns_g_udpdisp = 1;
-		else if (ns_g_cpus_detected < 4)
-			ns_g_udpdisp = 2;
 		else
-			ns_g_udpdisp = ns_g_cpus_detected / 2;
+			ns_g_udpdisp = ns_g_cpus_detected - 1;
 	}
 	if (ns_g_udpdisp > ns_g_cpus)
 		ns_g_udpdisp = ns_g_cpus;
@@ -752,10 +805,6 @@ static void
 destroy_managers(void) {
 	ns_lwresd_shutdown();
 
-	isc_entropy_detach(&ns_g_entropy);
-	if (ns_g_fallbackentropy != NULL)
-		isc_entropy_detach(&ns_g_fallbackentropy);
-
 	/*
 	 * isc_taskmgr_destroy() will block until all tasks have exited,
 	 */
@@ -798,6 +847,60 @@ dump_symboltable(void) {
 		}
 	}
 }
+
+#ifdef HAVE_LIBSECCOMP
+static void
+setup_seccomp() {
+	scmp_filter_ctx ctx;
+	unsigned int i;
+	int ret;
+
+	/* Make sure the lists are in sync */
+	INSIST((sizeof(scmp_syscalls) / sizeof(int)) ==
+	       (sizeof(scmp_syscall_names) / sizeof(const char *)));
+
+	ctx = seccomp_init(SCMP_ACT_KILL);
+	if (ctx == NULL) {
+		isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
+			      NS_LOGMODULE_MAIN, ISC_LOG_WARNING,
+			      "libseccomp activation failed");
+		return;
+	}
+
+	for (i = 0 ; i < sizeof(scmp_syscalls)/sizeof(*(scmp_syscalls)); i++) {
+		ret = seccomp_rule_add(ctx, SCMP_ACT_ALLOW,
+				       scmp_syscalls[i], 0);
+		if (ret < 0)
+			isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
+				      NS_LOGMODULE_MAIN, ISC_LOG_WARNING,
+				      "libseccomp rule failed: %s",
+				      scmp_syscall_names[i]);
+
+		else
+			isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
+				      NS_LOGMODULE_MAIN, ISC_LOG_DEBUG(9),
+				      "added libseccomp rule: %s",
+				      scmp_syscall_names[i]);
+	}
+
+	ret = seccomp_load(ctx);
+	if (ret < 0) {
+		isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
+			      NS_LOGMODULE_MAIN, ISC_LOG_WARNING,
+			      "libseccomp unable to load filter");
+	} else {
+		isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
+			      NS_LOGMODULE_MAIN, ISC_LOG_NOTICE,
+			      "libseccomp sandboxing active");
+	}
+
+	/*
+	 * Release filter in ctx. Filters already loaded are not
+	 * affected.
+	 */
+	seccomp_release(ctx);
+}
+#endif /* HAVE_LIBSECCOMP */
 
 static void
 setup(void) {
@@ -900,8 +1003,13 @@ setup(void) {
 				   isc_result_totext(result));
 
 	isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL, NS_LOGMODULE_MAIN,
-		      ISC_LOG_NOTICE, "starting %s %s%s", ns_g_product,
-		      ns_g_version, saved_command_line);
+		      ISC_LOG_NOTICE, "starting %s %s%s%s <id:%s>%s",
+		      ns_g_product, ns_g_version,
+		      *ns_g_description ? " " : "", ns_g_description,
+		      ns_g_srcid, saved_command_line);
+
+	isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL, NS_LOGMODULE_MAIN,
+		      ISC_LOG_NOTICE, "running on %s", ns_os_uname());
 
 	isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL, NS_LOGMODULE_MAIN,
 		      ISC_LOG_NOTICE, "built with %s", ns_g_configargs);
@@ -1012,14 +1120,24 @@ setup(void) {
 #endif
 
 	ns_server_create(ns_g_mctx, &ns_g_server);
+
+#ifdef HAVE_LIBSECCOMP
+	setup_seccomp();
+#endif /* HAVE_LIBSECCOMP */
 }
 
 static void
 cleanup(void) {
-
 	destroy_managers();
 
+	if (ns_g_mapped != NULL)
+		dns_acl_detach(&ns_g_mapped);
+
 	ns_server_destroy(&ns_g_server);
+
+	isc_entropy_detach(&ns_g_entropy);
+	if (ns_g_fallbackentropy != NULL)
+		isc_entropy_detach(&ns_g_fallbackentropy);
 
 	ns_builtin_deinit();
 
@@ -1138,7 +1256,6 @@ main(int argc, char *argv[]) {
 #ifdef HAVE_LIBSCF
 	char *instance = NULL;
 #endif
-	int nctoken;
 
 #ifdef HAVE_GPERFTOOLS_PROFILER
 	(void) ProfilerStart(NULL);
@@ -1174,6 +1291,9 @@ main(int argc, char *argv[]) {
 	dns_result_register();
 	dst_result_register();
 	isccc_result_register();
+#ifdef PKCS11CRYPTO
+	pk11_result_register();
+#endif
 
 	parse_command_line(argc, argv);
 
@@ -1194,12 +1314,6 @@ main(int argc, char *argv[]) {
 		ns_main_earlyfatal("isc_mem_create() failed: %s",
 				   isc_result_totext(result));
 	isc_mem_setname(ns_g_mctx, "main", NULL);
-
-	/*
-	 * register for a SIGHUP when there's a network configuration change
-	 */
-	nctoken = -1;
-	notify_register_signal(kNotifySCNetworkChange, SIGHUP, &nctoken);
 
 	setup();
 

@@ -2,14 +2,14 @@
  * Copyright (c) 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -35,7 +35,7 @@
  * (2) uses bootcaches.plist to describe what caches a system needs.
  *     All top-level keys are assumed required (which means the mkext could
  *     get fancier in the future if an old-fashioned mkext was still okay).
- *     If keys exist that can't be understood or don't parse correctly, 
+ *     If keys exist that can't be understood or don't parse correctly,
  *     we bail on watching that volume.
  *
  * 3. intelligently respond to notifications
@@ -63,12 +63,12 @@
  *
  * given that we read bootcaches.plist, we don't trust anything in it
  * ... but we push the checking off to kextcache, which ensures
- * (via dev_t/safecalls) that it is only operating on a single volume and 
+ * (via dev_t/safecalls) that it is only operating on a single volume and
  * not being redirected to other volumes, etc.  We have had Security review.
  *
  * To make sure mkexts have the correct owners, kextd enables owners
  * for the duration of kextcache's locks.
- *  
+ *
  */
 
 // system includes
@@ -118,7 +118,7 @@ extern uint32_t notify_get_event(int token, int *ev, char *buf, int *len);
 #define kMaxUpdateFailures  5   // consecutive failures
 #define kMaxUpdateAttempts  25  // reset after failure->success
 // XXX after 25 successful updates, touching /S/L/E becomes lame
-// 6227955 dictates the failure->success reset metric 
+// 6227955 dictates the failure->success reset metric
 // should instead detect 25 back-to-back attempts
 
 // 6775045 / 5350761: basic MessageTracer logging
@@ -226,7 +226,7 @@ static void debug_chld(int signum) __attribute__((unused))
     else
     if ((childpid = waitpid(-1, &status, WNOHANG)) == -1)
         twrite("DEBUG: SIGCHLD received, but no children available?\n");
-    else 
+    else
     if (!WIFEXITED(status))
         twrite("DEBUG: child quit on signal?\n");
     else
@@ -243,7 +243,7 @@ static void debug_chld(int signum) __attribute__((unused))
  * kextd_watch_volumes sets everything up (on the current runloop)
  * cleanup of the file-glabal static objects is done in kextd_stop_volwatch()
  *****************************************************************************/
-int kextd_watch_volumes(int sourcePriority)
+int kextd_watch_volumes(void)
 {
     int rval;
     char *errmsg;
@@ -273,15 +273,6 @@ int kextd_watch_volumes(int sourcePriority)
     errmsg = "error setting up ports and sources";
     rl = CFRunLoopGetCurrent();
     if (!rl)    goto finish;
-
-    // change notifications will eventually come in through this port/source
-    sFsysChangedPort = CFMachPortCreate(nil, fsys_changed, NULL, NULL);
-    // we have to keep these objects so we can unschedule them later?
-    if (!sFsysChangedPort)      goto finish;
-    sFsysChangedSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault,
-    sFsysChangedPort, sourcePriority++);
-    if (!sFsysChangedSource)    goto finish;
-    CFRunLoopAddSource(rl, sFsysChangedSource, kCFRunLoopDefaultMode);
 
     // in general, being on the runloop means we could be called ...
     // and we are thus careful about our ordering.  In practice, however,
@@ -321,8 +312,8 @@ int kextd_watch_volumes(int sourcePriority)
     // 5519500: schedule a timer to re-enable autobuilds and reconsider volumes
     // should sign up for IOSystemLoadAdvisory() once it can avoid the movie
     sAutoUpdateDelayer = CFRunLoopTimerCreate(kCFAllocatorDefault,
-        CFAbsoluteTimeGetCurrent() + kAutoUpdateDelay, 0,
-        0, sourcePriority++, checkAutoUpdate, NULL);
+                            CFAbsoluteTimeGetCurrent() + kAutoUpdateDelay, 0,
+                            0, 0, checkAutoUpdate, NULL);
     if (!sAutoUpdateDelayer) {
         goto finish;
     }
@@ -427,7 +418,7 @@ void kextd_stop_volwatch()
 static void destroy_watchedVol(struct watchedVol *watched)
 {
     CFIndex ntokens;
-    int token;      
+    int token;
     int errnum;
 
     // assert that ->delayer, and ->lock have already been cleaned up
@@ -444,7 +435,7 @@ static void destroy_watchedVol(struct watchedVol *watched)
             }
         }
         CFRelease(watched->tokens);
-    }    
+    }
     if (watched->caches)    destroyCaches(watched->caches);
     free(watched);
 }
@@ -499,7 +490,7 @@ finish:
     if (!rval && watched) {
         destroy_watchedVol(watched);
     }
-    
+
     return rval;
 }
 
@@ -512,7 +503,7 @@ finish:
 // that and thinks we shouldn't be releasing those references in the case
 // where *port = (CFMachPortRef)CFArrayGetValueAtIndex(watched->waiters,i);
 static int
-cleanupPort(CFMachPortRef *port) 
+cleanupPort(CFMachPortRef *port)
 {
     mach_port_t lport;
 
@@ -552,7 +543,7 @@ static int signalWaiter(CFMachPortRef waiter, int status)
             safe_mach_error_string(rval));
     }
     return rval;
-} 
+}
 
 // sRebootWaiter must be set; sRebootLock is released if held
 static void handleRebootHandoff()
@@ -567,7 +558,7 @@ static void handleRebootHandoff()
         goto finish;
     }
 
-    // signal the waiter 
+    // signal the waiter
     if (signalWaiter(sRebootWaiter, KERN_SUCCESS) == 0) {
         // on success, make the waiter the locker
         sRebootLock = sRebootWaiter;
@@ -589,7 +580,7 @@ static void handleWatchedHandoff(struct watchedVol *watched)
     // release existing lock
     if (watched->lock)
         cleanupPort(&watched->lock);
- 
+
     // see if we have any waiters
     // XX should have a loop that can try multiple waiters
     if (watched->waiters && CFArrayGetCount(watched->waiters)) {
@@ -618,19 +609,45 @@ static void handleWatchedHandoff(struct watchedVol *watched)
  * - initiates an initial volume check
  *****************************************************************************/
 // set up notifications for a single path
-static int watch_path(char *path, mach_port_t port, struct watchedVol* watched)
+static int watch_path(char *path, struct watchedVol* watched)
 {
     int rval = ELAST + 1;   // cheesy
     char key[PATH_MAX];
     int token = 0;
     int errnum;
     uint64_t state;
+    mach_port_t fsPort = (sFsysChangedPort != NULL) ?
+                            CFMachPortGetPort(sFsysChangedPort) : MACH_PORT_NULL;
 
     // generate key, register for token, monitor, record pointer in token
     if (strlcpy(key, kWatchKeyBase, PATH_MAX) >= PATH_MAX)  goto finish;
     if (strlcat(key, path, PATH_MAX) >= PATH_MAX)  goto finish;
-    if (notify_register_mach_port(key, &port, NOTIFY_REUSE, &token))
-        goto finish;
+
+    /* If this is the first notification we're registering for, then ask notifyd
+     * for a port and wrap the port up as a source for the runloop */
+    if (!sFsysChangedPort) {
+        if (notify_register_mach_port(key, &fsPort, 0, &token) != NOTIFY_STATUS_OK) {
+            goto finish;
+        }
+
+        CFRunLoopRef rl = CFRunLoopGetCurrent();
+        if (!rl)    goto finish;
+        // change notifications will eventually come in through this port/source
+        sFsysChangedPort = CFMachPortCreateWithPort(nil, fsPort, fsys_changed, NULL, NULL);
+
+        // we have to keep these objects so we can unschedule them later?
+        if (!sFsysChangedPort)      goto finish;
+        sFsysChangedSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault,
+                                sFsysChangedPort, 0);
+        if (!sFsysChangedSource)    goto finish;
+        CFRunLoopAddSource(rl, sFsysChangedSource, kCFRunLoopDefaultMode);
+
+    /* Otherwise, just re-use the port that notifyd already gave us, since
+     * everything has already been set up */
+    } else if (notify_register_mach_port(key, &fsPort, NOTIFY_REUSE, &token) != NOTIFY_STATUS_OK) {
+            goto finish;
+    }
+
     state = (intptr_t)watched;
     if (notify_set_state(token, state))  goto finish;
     if (notify_monitor_file(token, path, /* flags; 0 means "all" */ 0)) goto finish;
@@ -645,7 +662,7 @@ static int watch_path(char *path, mach_port_t port, struct watchedVol* watched)
     CFArrayAppendValue(watched->tokens, (void*)(intptr_t)token);
 
     rval = 0;
-    
+
 finish:
     if (rval && token != -1 && (errnum = notify_cancel(token)))
     OSKextLog(/* kext */ NULL,
@@ -655,7 +672,7 @@ finish:
     return rval;
 }
 
-#define WATCH(watched, fullp, relpath, fsPort) do { \
+#define WATCH(watched, fullp, relpath) do { \
         /* MAKEROOTPATH */ \
         COMPILE_TIME_ASSERT(sizeof(fullp) == PATH_MAX); \
         if (strlcpy(fullp, watched->caches->root, PATH_MAX) >= PATH_MAX) \
@@ -663,7 +680,7 @@ finish:
         if (strlcat(fullp, relpath, PATH_MAX) >= PATH_MAX) \
             goto finish; \
         \
-        if (watch_path(fullp, fsPort, watched)) \
+        if (watch_path(fullp, watched)) \
             goto finish; \
     } while(0)
 #define kInstallCommitPath "/private/var/run/installd.commit.pid"
@@ -675,10 +692,8 @@ finish:
  * directory.  NOTE - "valid" currently means files named "kernel.SUFFIX"
  *****************************************************************************/
 static void
-watch_kernels(
-              struct watchedVol *  watched,
-              const char *         kernelPath,
-              mach_port_t          fsPort )
+watch_kernels(struct watchedVol *  watched,
+              const char *         kernelPath)
 {
     CFURLRef                kernelURL       = NULL; // must release
     CFURLRef                kernelsDirURL   = NULL; // must release
@@ -687,11 +702,11 @@ watch_kernels(
     CFStringRef             tempCFString    = NULL; // must release
     CFArrayRef              resultArray     = NULL; // must release
     char                    tempPath[PATH_MAX];
-    
+
     if (kernelPath == NULL || watched == NULL || watched->caches == NULL) {
         goto finish;
     }
-    
+
     /* back up to the parent directory and enumerate from there */
     if (strlcpy(tempPath,
                 watched->caches->root,
@@ -701,7 +716,7 @@ watch_kernels(
                 kernelPath,
                 sizeof(tempPath)) >= sizeof(tempPath))
         goto finish;
-    
+
     kernelURL = CFURLCreateFromFileSystemRepresentation(
                                                         NULL,
                                                         (const UInt8 *)tempPath,
@@ -710,20 +725,20 @@ watch_kernels(
     if (kernelURL == NULL) {
         goto finish;
     }
-    
+
     kernelsDirURL = CFURLCreateCopyDeletingLastPathComponent(NULL, kernelURL );
     if (kernelsDirURL == NULL) {
         goto finish;
     }
-    
+
     // watch /System/Library/Kernels directory
     if (CFURLGetFileSystemRepresentation(kernelsDirURL,
                                          true /*resolve*/,
                                          (UInt8*)tempPath,
                                          sizeof(tempPath)) ) {
-        watch_path(tempPath, fsPort, watched);
+        watch_path(tempPath, watched);
     }
-    
+
     myEnumerator = CFURLEnumeratorCreateForDirectoryURL(
                                                         NULL,
                                                         kernelsDirURL,
@@ -732,7 +747,7 @@ watch_kernels(
     if (myEnumerator == NULL) {
         goto finish;
     }
-    
+
     while (CFURLEnumeratorGetNextURL(myEnumerator,
                                      &enumURL,
                                      NULL) == kCFURLEnumeratorSuccess) {
@@ -763,22 +778,22 @@ watch_kernels(
         if (resultArray && CFArrayGetCount(resultArray) > 1) {
             continue;
         }
-        
+
         if (CFURLGetFileSystemRepresentation(enumURL,
                                              true /*resolve*/,
                                              (UInt8*)tempPath,
                                              sizeof(tempPath)) ) {
-            watch_path(tempPath, fsPort, watched);
+            watch_path(tempPath, watched);
         }
     } // while loop
-    
+
 finish:
     SAFE_RELEASE(kernelURL);
     SAFE_RELEASE(kernelsDirURL);
     SAFE_RELEASE(myEnumerator);
     SAFE_RELEASE(tempCFString);
     SAFE_RELEASE(resultArray);
-    
+
     return;
 }
 #endif
@@ -787,7 +802,6 @@ finish:
 static void vol_appeared(DADiskRef disk, void *launchCtx)
 {
     int result = 0; // for now, ignore inability to get basic data (4528851)
-    mach_port_t fsPort;
     CFDictionaryRef ddesc = NULL;
     CFURLRef volURL;
     CFBooleanRef traitVal;
@@ -858,63 +872,60 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
 
     result = -1;    // anything after this is an error
     caches = watched->caches;
-    // set up notifications on the change port
-    fsPort = CFMachPortGetPort(sFsysChangedPort);
-    if (fsPort == MACH_PORT_NULL)               goto finish;
 
     /* for path in { bootcaches.plist, installd.commit.pid, exts, kernel,
      * locSrcs, rpspaths[], booters, miscpaths[] }
      * rpspaths contains mkext, bootconfig; miscpaths the label file
      * cache paths are relative; WATCH() makes absolute */
-    WATCH(watched, path, kBootCachesPath, fsPort);
-    WATCH(watched, path, kInstallCommitPath, fsPort);
-    
+    WATCH(watched, path, kBootCachesPath);
+    WATCH(watched, path, kInstallCommitPath);
+
     /* support multiple extensions directories - 11860417 */
     char    *bufptr;
     bufptr = caches->exts;
     for (i = 0; i < caches->nexts; i++) {
-        WATCH(watched, path, bufptr, fsPort);
+        WATCH(watched, path, bufptr);
         bufptr += (strlen(bufptr) + 1);
     }
-    
+
     // newer systems kernelpath is /System/Library/Kernels/kernel
     // older systems kernelpath is /mach_kernel
-    WATCH(watched, path, caches->kernelpath, fsPort);
+    WATCH(watched, path, caches->kernelpath);
 #if DEV_KERNEL_SUPPORT
     // look for other kernels and watch them too.
     if (caches->kernelsCount > 0) {
-        watch_kernels(watched, caches->kernelpath, fsPort);
-     
+        watch_kernels(watched, caches->kernelpath);
+
         // watch any other prelinkedkernel files (prelinkedkernel.SUFFIX)
         if (watched->caches->extraKernelCachePaths) {
             for (i = 0; i < watched->caches->nekcp; i++) {
-                WATCH(watched, path, caches->extraKernelCachePaths[i].rpath, fsPort);
+                WATCH(watched, path, caches->extraKernelCachePaths[i].rpath);
            }
         }
     }
 #endif
-    
-    WATCH(watched, path, caches->locSource, fsPort);
-    WATCH(watched, path, caches->bgImage, fsPort);
+
+    WATCH(watched, path, caches->locSource);
+    WATCH(watched, path, caches->bgImage);
     // XXX commenting out until 9498428 makes watching this file
     // more efficient (and probably replaces locPref with an array).
-    // WATCH(watched, path, caches->locPref, fsPort);
+    // WATCH(watched, path, caches->locPref);
 
     // loop over RPS paths
     for (i = 0; i < caches->nrps; i++) {
-        WATCH(watched, path, caches->rpspaths[i].rpath, fsPort);
+        WATCH(watched, path, caches->rpspaths[i].rpath);
     }
 
     if (caches->efibooter.rpath[0]) {
-        WATCH(watched, path, caches->efibooter.rpath, fsPort);
+        WATCH(watched, path, caches->efibooter.rpath);
     }
     if (caches->ofbooter.rpath[0]) {
-        WATCH(watched, path, caches->ofbooter.rpath, fsPort);
+        WATCH(watched, path, caches->ofbooter.rpath);
     }
 
     // loop over misc paths
     for (i = 0; i < caches->nmisc; i++) {
-        WATCH(watched, path, caches->miscpaths[i].rpath, fsPort);
+        WATCH(watched, path, caches->miscpaths[i].rpath);
     }
 
     // we handled any pre-existing entry for volUUID above
@@ -960,7 +971,7 @@ finish:
  * vol_changed updates our structures if the mountpoint changed
  * - includes the initial mount after a device appears 
  * - thus we only call appeared and disappeared as appropriate
- *   
+ *
  * Multiple notifications fire multiple times as disks come and go.
  * Depending on how predictable it is, we might be able to get away
  * with just using vol_changed to see when the volume is mounted.
@@ -1148,7 +1159,7 @@ static void vol_disappeared(DADiskRef disk, void* ctx)
         CFRunLoopTimerInvalidate(watched->delayer);     // refcount->0
         watched->delayer = NULL;
     }
-    // see if any lockers are waiting 
+    // see if any lockers are waiting
     // (off the list of watched vols so no new requests can come in)
     if (watched->waiters) {
         CFIndex i = CFArrayGetCount(watched->waiters);
@@ -1275,7 +1286,7 @@ is_dadisk_busy(DADiskRef disk, void *ctx)
         // It would open a window when we weren't watching but it is similar
         // to the window before we start watching?
     }
-    
+
     result = 0;
 
 finish:
@@ -1467,7 +1478,7 @@ finish:
 }
 
 /******************************************************************************
- * check_now, called after the timer expires, calls check_rebuild() 
+ * check_now, called after the timer expires, calls check_rebuild()
  * It does not look at updterrs because if something changed, we're willing
  * to look at it again.
  *****************************************************************************/
@@ -1509,7 +1520,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
 #endif
 
     // if we came in some other way and there's a timer pending, cancel it
-    if (watched->delayer) {  
+    if (watched->delayer) {
         CFRunLoopTimerInvalidate(watched->delayer);  // runloop holds last ref
         watched->delayer = NULL;
     }
@@ -1526,7 +1537,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
     // (it was 'goto' or ever-deeper nesting)
     if (check_kext_boot_cache_file(watched->caches,
                                    watched->caches->kext_boot_cache_file->rpath,
-                                   watched->caches->kernelpath)) {
+                                   watched->caches->kernelpath, NULL)) {
         if (isPrelinkedKernelAutoRebuildDisabled()) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
@@ -1542,14 +1553,19 @@ static Boolean check_rebuild(struct watchedVol *watched)
     if (watched->caches->extraKernelCachePaths) {
         int             i;
         cachedPath *    cp;
-        
+
         tmpKernelPath = malloc(PATH_MAX);
-        
+        if (tmpKernelPath == NULL) {
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                "Could not allocate memory for tmpKernelPath!");
+            goto finish;
+        }
+
         for (i = 0; i < watched->caches->nekcp; i++) {
-            
+
             cp = &watched->caches->extraKernelCachePaths[i];
             SAFE_FREE_NULL(suffixPtr);
-            
+
             suffixPtr = getPathExtension(cp->rpath);
             if (suffixPtr == NULL)
                 continue;
@@ -1561,7 +1577,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
                 continue;
             if (check_kext_boot_cache_file(watched->caches,
                                            cp->rpath,
-                                           tmpKernelPath)) {
+                                           tmpKernelPath, NULL)) {
                 if (isPrelinkedKernelAutoRebuildDisabled()) {
                     OSKextLog(/* kext */ NULL,
                               kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
@@ -1575,7 +1591,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
         }
     }
 #endif
-    
+
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
 
@@ -1605,10 +1621,7 @@ dorebuild:
 
     if (0 == strcmp(watched->caches->root, "/") &&
             plistCachesNeedRebuild(gKernelArchInfo)) {
-
-        handleSignal(SIGHUP);
-        // xxx - why are you not just calling rescanExtensions()?
-        // X someday SIGHUP may call back to rebuild_caches() to force update
+        rescanExtensions();
     }
 
 finish:
@@ -1701,7 +1714,7 @@ kern_return_t _kextmanager_lock_reboot(mach_port_t p, mach_port_t replyPort,
         rval = KERN_SUCCESS;    // for MiG
         goto finish;
     }
-    
+
     if (gClientUID != 0) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
@@ -1710,7 +1723,7 @@ kern_return_t _kextmanager_lock_reboot(mach_port_t p, mach_port_t replyPort,
         rval = KERN_SUCCESS;    // for MiG
         goto finish;
     }
-    
+
     // shutdown/reboot proceed on result == EALREADY
     if (sRebootLock) {
         result = EALREADY;
@@ -1721,7 +1734,7 @@ kern_return_t _kextmanager_lock_reboot(mach_port_t p, mach_port_t replyPort,
         goto finish;
     }
 
-    // check all the volumes we are watching and 
+    // check all the volumes we are watching and
     // if any new volumes have become eligible
     if (checkAllWatched(busyVol) || reconsiderVolumes(busyVol)) {
         result = EBUSY;
@@ -1766,7 +1779,7 @@ finish:
             "'%s' updating, delaying reboot.", busyVol);
 
         // 6775045 / 5350761: basic MessageTracer logging
-        logMTMessage(kMTBeginShutdownDelay, "failure", 
+        logMTMessage(kMTBeginShutdownDelay, "failure",
                 "kext caches need update at shutdown; delaying");
     }
 
@@ -1788,7 +1801,7 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
     struct statfs sfs;
     Boolean createdLock = false;
 
-    OSKextLog(/* kext */ NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag, 
+    OSKextLog(/* kext */ NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
               "%s(..%d..)...", __FUNCTION__, client);
 
     if (!lockStatus) {
@@ -1963,7 +1976,7 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
             "'%s' isn't locked.", watched->caches->root);
         goto finish;
     }
-    
+
     if (client != CFMachPortGetPort(watched->lock)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
@@ -1994,7 +2007,7 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
 
     OSKextLog(NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
              "%d unlocked %s", client, watched->caches->root);
- 
+
     // disable owners if we enabled them for the locker (updateMount() logs)
     if (watched->origMntFlags) {
         (void)updateMount(watched->caches->root, watched->origMntFlags);
@@ -2101,7 +2114,7 @@ static void port_died(CFMachPortRef cfport, void *info)
             (void)updateMount(watched->caches->root, watched->origMntFlags);
             watched->origMntFlags = 0;
         }
-        
+
         // if locked, is anyone waiting?
         if (watched->lock) {
             OSKextLog(/* kext */ NULL,
@@ -2126,12 +2139,12 @@ static void port_died(CFMachPortRef cfport, void *info)
         }
 
         for (i = CFArrayGetCount(watched->waiters); i-- > 0;) {
-            CFMachPortRef waiter; 
+            CFMachPortRef waiter;
 
             waiter = (CFMachPortRef)CFArrayGetValueAtIndex(watched->waiters,i);
             if (mport == CFMachPortGetPort(waiter)) {
                 cleanupPort(&waiter);       // --retainCount
-                // (dropping the "extra" reference left by createWatchedPort() in 
+                // (dropping the "extra" reference left by createWatchedPort() in
                 // _kextmanager_lock_volume().  CFArray doesn't require the extra
                 // reference, but we also use this for watched->lock, sReboot*, etc.
                 CFArrayRemoveValueAtIndex(watched->waiters, i); // release
@@ -2272,7 +2285,7 @@ updateVolForMedia(const void *object, char *mediaDesc, int matchSize,
     struct watchedVol * watched = NULL;  // do not free
 
     // nothing to do if we're not watching yet
-    if (!sFsysWatchDict)    goto finish;    
+    if (!sFsysWatchDict)    goto finish;
 
     errorMessage = "change notification missing object.";
     if (!object) {
@@ -2295,7 +2308,7 @@ updateVolForMedia(const void *object, char *mediaDesc, int matchSize,
     if (!matchingDict) {
         goto finish;
     }
-    CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), 
+    CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey),
                          matchPropertyDict);
 
     errorMessage = NULL;    // it might have gone away

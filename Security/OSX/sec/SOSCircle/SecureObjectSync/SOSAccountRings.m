@@ -170,6 +170,7 @@ SOSRingRef SOSAccountCopyRingNamed(SOSAccount* a, CFStringRef ringName, CFErrorR
         secerror("Non ring in ring table: %@, purging!", found);
         SOSAccountRemoveRing(a, ringName);
     }
+    CFReleaseNull(found); // I'm very skeptical of this function...
     found = NULL;
     return found;
 }

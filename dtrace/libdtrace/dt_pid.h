@@ -54,6 +54,25 @@ struct dt_libproc_fn {
 		int, proc_sym_f *, void *);
 };
 
+typedef struct dt_pid_probe {
+	dtrace_hdl_t *dpp_dtp;
+	dt_pcb_t *dpp_pcb;
+	dt_proc_t *dpp_dpr;
+	struct ps_prochandle *dpp_pr;
+	fasttrap_provider_type_t dpp_provider_type;
+	const char *dpp_mod;
+	char *dpp_func;
+	const char *dpp_name;
+	const char *dpp_obj;
+	uintptr_t dpp_pc;
+	size_t dpp_size;
+	Lmid_t dpp_lmid;
+	uint_t dpp_nmatches;
+	uint64_t dpp_stret[4];
+	GElf_Sym dpp_last;
+	uint_t dpp_last_taken;
+} dt_pid_probe_t;
+
 extern struct dt_libproc_fn dt_libproc_funcs[DT_PR_MAX];
 
 #define	DT_PROC_ERR	(-1)

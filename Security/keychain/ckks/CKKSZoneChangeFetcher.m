@@ -39,12 +39,32 @@ CKKSFetchBecause* const CKKSFetchBecauseCurrentItemFetchRequest = (CKKSFetchBeca
 CKKSFetchBecause* const CKKSFetchBecauseInitialStart = (CKKSFetchBecause*) @"initialfetch";
 CKKSFetchBecause* const CKKSFetchBecauseSecuritydRestart = (CKKSFetchBecause*) @"restart";
 CKKSFetchBecause* const CKKSFetchBecausePreviousFetchFailed = (CKKSFetchBecause*) @"fetchfailed";
+CKKSFetchBecause* const CKKSFetchBecauseNetwork = (CKKSFetchBecause*) @"network";
 CKKSFetchBecause* const CKKSFetchBecauseKeyHierarchy = (CKKSFetchBecause*) @"keyhierarchy";
 CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing";
+CKKSFetchBecause* const CKKSFetchBecauseResync = (CKKSFetchBecause*) @"resync";
+
+#pragma mark - CKKSZoneChangeFetchDependencyOperation
+@interface CKKSZoneChangeFetchDependencyOperation : CKKSResultOperation
+@property CKKSZoneChangeFetcher* owner;
+@end
+
+@implementation CKKSZoneChangeFetchDependencyOperation
+- (NSError* _Nullable)descriptionError {
+    return [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
+                               code:CKKSResultDescriptionPendingSuccessfulFetch
+                        description:@"Fetch failed"
+                         underlying:self.owner.lastCKFetchError];
+}
+@end
+
+#pragma mark - CKKSZoneChangeFetcher
 
 @interface CKKSZoneChangeFetcher ()
 @property NSString* name;
 @property dispatch_queue_t queue;
+
+@property NSError* lastCKFetchError;
 
 @property CKKSFetchAllRecordZoneChangesOperation* currentFetch;
 @property CKKSResultOperation* currentProcessResult;
@@ -70,21 +90,22 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
 
         _name = [NSString stringWithFormat:@"zone-change-fetcher-%@", _zoneID.zoneName];
         _queue = dispatch_queue_create([_name UTF8String], DISPATCH_QUEUE_SERIAL);
-        [self newSuccesfulFetchDependency];
+        _successfulFetchDependency = [self createSuccesfulFetchDependency];
 
         _newRequests = false;
 
         // If we're testing, for the initial delay, use 0.2 second. Otherwise, 2s.
-        dispatch_time_t initialDelay = (SecCKKSTestsEnabled() ? 200 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
+        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 200 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
 
         // If we're testing, for the initial delay, use 2 second. Otherwise, 30s.
-        dispatch_time_t continuingDelay = (SecCKKSTestsEnabled() ? 2 * NSEC_PER_SEC : 30 * NSEC_PER_SEC);
+        dispatch_time_t continuingDelay = (SecCKKSReduceRateLimiting() ? 2 * NSEC_PER_SEC : 30 * NSEC_PER_SEC);
 
         __weak __typeof(self) weakSelf = self;
         _fetchScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat:@"zone-change-fetch-scheduler-%@", self.zoneID.zoneName]
                                                            initialDelay:initialDelay
                                                         continuingDelay:continuingDelay
                                                        keepProcessAlive:false
+                                              dependencyDescriptionCode:CKKSResultDescriptionPendingZoneChangeFetchScheduling
                                                                   block:^{
                                                                       [weakSelf maybeCreateNewFetch];
                                                                   }];
@@ -150,15 +171,20 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
 
     ckksnotice("ckksfetcher", self.zoneID, "Starting a new fetch for %@", self.zoneID.zoneName);
 
-    NSSet* lastFetchReasons = self.currentFetchReasons;
+    NSMutableSet<CKKSFetchBecause*>* lastFetchReasons = self.currentFetchReasons;
     self.currentFetchReasons = [[NSMutableSet alloc] init];
     if(self.newResyncRequests) {
-        [lastFetchReasons setByAddingObject:@"resync"];
+        [lastFetchReasons addObject:CKKSFetchBecauseResync];
     }
 
     CKOperationGroup* operationGroup = [CKOperationGroup CKKSGroupWithName: [[lastFetchReasons sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"description" ascending:YES]]] componentsJoinedByString:@","]];
 
-    CKKSFetchAllRecordZoneChangesOperation* fetchAllChanges = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView: ckks ckoperationGroup:operationGroup];
+    CKKSFetchAllRecordZoneChangesOperation* fetchAllChanges = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithCKKSKeychainView:ckks
+                                                                                                                          fetchReasons:lastFetchReasons
+                                                                                                                      ckoperationGroup:operationGroup];
+    if ([lastFetchReasons containsObject:CKKSFetchBecauseNetwork]) {
+        [fetchAllChanges addNullableDependency: ckks.reachabilityTracker.reachablityDependency]; // wait on network, if its unavailable
+    }
     [fetchAllChanges addNullableDependency: self.holdOperation];
     fetchAllChanges.resync = self.newResyncRequests;
     self.newResyncRequests = false;
@@ -180,6 +206,8 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
         }
 
         dispatch_sync(strongSelf.queue, ^{
+            self.lastCKFetchError = fetchAllChanges.error;
+
             if(!fetchAllChanges.error) {
                 // success! notify the listeners.
                 [blockckks scheduleOperation: dependency];
@@ -189,14 +217,15 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
                     [strongSelf.fetchScheduler trigger];
                 }
             } else {
+                // The operation errored. Chain the dependency on the current one...
+                [dependency addSuccessDependency: strongSelf.successfulFetchDependency];
+                [blockckks scheduleOperation: dependency];
+
                 if([blockckks isFatalCKFetchError: fetchAllChanges.error]) {
                     ckkserror("ckksfetcher", strongSelf.zoneID, "Notified that %@ is a fatal error. Not restarting fetch.", fetchAllChanges.error);
                     return;
                 }
 
-                // The operation errored. Chain the dependency on the current one...
-                [dependency addSuccessDependency: strongSelf.successfulFetchDependency];
-                [blockckks scheduleOperation: dependency];
 
                 // And in a bit, try the fetch again.
                 NSNumber* delaySeconds = fetchAllChanges.error.userInfo[CKErrorRetryAfterKey];
@@ -209,7 +238,12 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
 
                 // Add the failed fetch reasons to the new fetch reasons
                 [strongSelf.currentFetchReasons unionSet:lastFetchReasons];
-                [strongSelf.currentFetchReasons addObject:CKKSFetchBecausePreviousFetchFailed];
+                // If its a network error, make next try depend on network availability
+                if ([blockckks.reachabilityTracker isNetworkError:fetchAllChanges.error]) {
+                    [strongSelf.currentFetchReasons addObject:CKKSFetchBecauseNetwork];
+                } else {
+                    [strongSelf.currentFetchReasons addObject:CKKSFetchBecausePreviousFetchFailed];
+                }
                 strongSelf.newRequests = true;
                 strongSelf.newResyncRequests |= fetchAllChanges.resync;
                 [strongSelf.fetchScheduler trigger];
@@ -226,11 +260,11 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
 
     // creata a new fetch dependency, for all those who come in while this operation is executing
     self.newRequests = false;
-    [self newSuccesfulFetchDependency];
+    self.successfulFetchDependency = [self createSuccesfulFetchDependency];
 }
 
--(void)newSuccesfulFetchDependency {
-    CKKSResultOperation* dep = [[CKKSResultOperation alloc] init];
+-(CKKSZoneChangeFetchDependencyOperation*)createSuccesfulFetchDependency {
+    CKKSZoneChangeFetchDependencyOperation* dep = [[CKKSZoneChangeFetchDependencyOperation alloc] init];
     __weak __typeof(dep) weakDep = dep;
 
     // Since these dependencies might chain, when one runs, break the chain.
@@ -244,8 +278,10 @@ CKKSFetchBecause* const CKKSFetchBecauseTesting = (CKKSFetchBecause*) @"testing"
         }
     }];
     dep.name = @"successful-fetch-dependency";
+    dep.descriptionErrorCode = CKKSResultDescriptionPendingSuccessfulFetch;
+    dep.owner = self;
 
-    self.successfulFetchDependency = dep;
+    return dep;
 }
 
 - (void)holdFetchesUntil:(CKKSResultOperation*)holdOperation {

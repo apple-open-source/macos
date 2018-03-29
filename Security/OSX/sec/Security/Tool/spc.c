@@ -648,7 +648,7 @@ extern int command_spc(int argc, char * const *argv)
 				break;
 			case 'h':
 			default:
-				return 2;
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 
@@ -660,11 +660,11 @@ extern int command_spc(int argc, char * const *argv)
         // get plist from argv[0] url
     } else if (argc == 0) {
         machine_authentication(NULL, NULL);
-    } else return 2;
+    } else return SHOW_USAGE_MESSAGE;
 #endif
 
     if (argc != 1)
-        return 2;
+        return SHOW_USAGE_MESSAGE;
 
     int result = -1;
     CFDictionaryRef dict = NULL;

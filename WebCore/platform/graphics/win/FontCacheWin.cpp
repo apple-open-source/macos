@@ -39,12 +39,13 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/StringView.h>
+#include <wtf/text/win/WCharStringExtras.h>
 #include <wtf/win/GDIObject.h>
 
 #if USE(CG)
-#include "CoreGraphicsSPI.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
+#include <pal/spi/cg/CoreGraphicsSPI.h>
 #endif
 
 #if USE(DIRECT2D)
@@ -113,7 +114,7 @@ WEBCORE_EXPORT void appendLinkedFonts(WCHAR* linkedFonts, unsigned length, Vecto
         unsigned j = i;
         while (j < length && linkedFonts[j])
             j++;
-        result->append(String(linkedFonts + i, j - i));
+        result->append(wcharToString(linkedFonts + i, j - i));
         i = j + 1;
     }
 }
@@ -132,17 +133,17 @@ static const Vector<String>* getLinkedFonts(String& family)
         return result;
 
     DWORD linkedFontsBufferSize = 0;
-    if (::RegQueryValueEx(fontLinkKey, family.charactersWithNullTermination().data(), 0, nullptr, nullptr, &linkedFontsBufferSize) == ERROR_FILE_NOT_FOUND) {
+    if (::RegQueryValueEx(fontLinkKey, stringToNullTerminatedWChar(family).data(), 0, nullptr, nullptr, &linkedFontsBufferSize) == ERROR_FILE_NOT_FOUND) {
         WTFLogAlways("The font link key %s does not exist in the registry.", family.utf8().data());
         return result;
     }
 
-    WCHAR* linkedFonts = reinterpret_cast<WCHAR*>(malloc(linkedFontsBufferSize));
-    if (::RegQueryValueEx(fontLinkKey, family.charactersWithNullTermination().data(), 0, nullptr, reinterpret_cast<BYTE*>(linkedFonts), &linkedFontsBufferSize) == ERROR_SUCCESS) {
-        unsigned length = linkedFontsBufferSize / sizeof(*linkedFonts);
-        appendLinkedFonts(linkedFonts, length, result);
+    static const constexpr unsigned InitialBufferSize { 256 / sizeof(WCHAR) };
+    Vector<WCHAR, InitialBufferSize> linkedFonts(roundUpToMultipleOf<sizeof(WCHAR)>(linkedFontsBufferSize) / sizeof(WCHAR));
+    if (::RegQueryValueEx(fontLinkKey, stringToNullTerminatedWChar(family).data(), 0, nullptr, reinterpret_cast<BYTE*>(linkedFonts.data()), &linkedFontsBufferSize) == ERROR_SUCCESS) {
+        unsigned length = linkedFontsBufferSize / sizeof(WCHAR);
+        appendLinkedFonts(linkedFonts.data(), length, result);
     }
-    free(linkedFonts);
     RegCloseKey(fontLinkKey);
     return result;
 }
@@ -286,7 +287,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
         SelectObject(hdc, hfont);
         WCHAR name[LF_FACESIZE];
         GetTextFace(hdc, LF_FACESIZE, name);
-        familyName = name;
+        familyName = nullTerminatedWCharToString(name);
 
         if (containsCharacter || currentFontContainsCharacter(hdc, character))
             break;
@@ -331,7 +332,7 @@ Vector<String> FontCache::systemFontFamilies()
 
 RefPtr<Font> FontCache::fontFromDescriptionAndLogFont(const FontDescription& fontDescription, const LOGFONT& font, AtomicString& outFontFamilyName)
 {
-    AtomicString familyName = String(font.lfFaceName, wcsnlen(font.lfFaceName, LF_FACESIZE));
+    AtomicString familyName = wcharToString(font.lfFaceName, wcsnlen(font.lfFaceName, LF_FACESIZE));
     RefPtr<Font> fontData = fontForFamily(fontDescription, familyName);
     if (fontData)
         outFontFamilyName = familyName;
@@ -340,8 +341,9 @@ RefPtr<Font> FontCache::fontFromDescriptionAndLogFont(const FontDescription& fon
 
 Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescription)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, fallbackFontName, ());
-    if (!fallbackFontName.isEmpty())
+    static NeverDestroyed<AtomicString> fallbackFontName;
+
+    if (!fallbackFontName.get().isEmpty())
         return *fontForFamily(fontDescription, fallbackFontName);
 
     // FIXME: Would be even better to somehow get the user's default font here.  For now we'll pick
@@ -360,7 +362,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     RefPtr<Font> simpleFont;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(fallbackFonts); ++i) {
         if (simpleFont = fontForFamily(fontDescription, fallbackFonts[i])) {
-            fallbackFontName = fallbackFonts[i];
+            fallbackFontName.get() = fallbackFonts[i];
             return *simpleFont;
         }
     }
@@ -586,7 +588,7 @@ static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMET
     return 1;
 }
 
-Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString& familyName)
+Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString& familyName, AllowUserInstalledFonts)
 {
     HWndDC hdc(0);
 

@@ -43,7 +43,8 @@ static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused,
                                     IOOptionBits            options);
-static void                 __IOHIDUserDeviceRelease( CFTypeRef object );
+static void                 __IOHIDUserDeviceExtRelease( CFTypeRef object );
+static void                 __IOHIDUserDeviceIntRelease( CFTypeRef object );
 static void                 __IOHIDUserDeviceRegister(void);
 static void                 __IOHIDUserDeviceQueueCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
 static void                 __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result);
@@ -53,7 +54,7 @@ static IOReturn             __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef devi
 
 typedef struct __IOHIDUserDevice
 {
-    CFRuntimeBase                   cfBase;   // base CFType information
+    IOHIDObjectBase                 hidBase;
 
     io_service_t                    service;
     io_connect_t                    connect;
@@ -90,18 +91,22 @@ typedef struct __IOHIDUserDevice
 
 } __IOHIDUserDevice, *__IOHIDUserDeviceRef;
 
-static const CFRuntimeClass __IOHIDUserDeviceClass = {
-    0,                          // version
-    "IOHIDUserDevice",          // className
-    NULL,                       // init
-    NULL,                       // copy
-    __IOHIDUserDeviceRelease,   // finalize
-    NULL,                       // equal
-    NULL,                       // hash
-    NULL,                       // copyFormattingDesc
-    NULL,
-    NULL,
-    NULL
+static const IOHIDObjectClass __IOHIDUserDeviceClass = {
+    {
+        _kCFRuntimeCustomRefCount,      // version
+        "IOHIDUserDevice",              // className
+        NULL,                           // init
+        NULL,                           // copy
+        __IOHIDUserDeviceExtRelease,    // finalize
+        NULL,                           // equal
+        NULL,                           // hash
+        NULL,                           // copyFormattingDesc
+        NULL,                           // copyDebugDesc
+        NULL,                           // reclaim
+        _IOHIDObjectExtRetainCount      // refcount
+    },
+    _IOHIDObjectIntRetainCount,
+    __IOHIDUserDeviceIntRelease
 };
 
 static pthread_once_t   __deviceTypeInit            = PTHREAD_ONCE_INIT;
@@ -121,7 +126,7 @@ typedef struct __IOHIDDeviceHandleReportAsyncContext {
 void __IOHIDUserDeviceRegister(void)
 {
     IOMasterPort(bootstrap_port, &__masterPort);
-    __kIOHIDUserDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDUserDeviceClass);
+    __kIOHIDUserDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDUserDeviceClass.cfClass);
 }
 
 //------------------------------------------------------------------------------
@@ -133,30 +138,44 @@ IOHIDUserDeviceRef __IOHIDUserDeviceCreate(
                                 IOOptionBits                options)
 {
     IOHIDUserDeviceRef  device = NULL;
-    void *          offset  = NULL;
-    uint32_t        size;
+    uint32_t            size;
     
     /* allocate service */
     size  = sizeof(__IOHIDUserDevice) - sizeof(CFRuntimeBase);
-    device = (IOHIDUserDeviceRef)_CFRuntimeCreateInstance(allocator, IOHIDUserDeviceGetTypeID(), size, NULL);
+    device = (IOHIDUserDeviceRef)_IOHIDObjectCreateInstance(allocator, IOHIDUserDeviceGetTypeID(), size, NULL);
     
     if (!device)
         return NULL;
-
-    offset = device;
-    bzero(offset + sizeof(CFRuntimeBase), size);
     
     device->options = options;
     
     HIDDEBUGTRACE(kHID_UserDev_Create, device, 0, 0, 0);
-
+    
     return device;
 }
 
 //------------------------------------------------------------------------------
-// __IOHIDUserDeviceRelease
+// __IOHIDUserDeviceExtRelease
 //------------------------------------------------------------------------------
-void __IOHIDUserDeviceRelease( CFTypeRef object )
+void __IOHIDUserDeviceExtRelease( CFTypeRef object )
+{
+    IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)object;
+    
+    HIDDEBUGTRACE(kHID_UserDev_Release, object, 0, 0, 0);
+    
+    if ( device->queue.dispatchSource ) {
+        dispatch_cancel(device->queue.dispatchSource);
+    }
+    
+    if ( device->queue.port ) {
+        CFMachPortInvalidate(device->queue.port);
+    }
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDUserDeviceIntRelease
+//------------------------------------------------------------------------------
+void __IOHIDUserDeviceIntRelease( CFTypeRef object __unused )
 {
     IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)object;
     
@@ -169,34 +188,25 @@ void __IOHIDUserDeviceRelease( CFTypeRef object )
 #else
         mach_vm_address_t   mappedMem = (mach_vm_address_t)device->queue.data;
 #endif
-        IOConnectUnmapMemory (  device->connect, 
-                                0, 
-                                mach_task_self(), 
-                                mappedMem);
+        IOConnectUnmapMemory (  device->connect,
+                              0,
+                              mach_task_self(),
+                              mappedMem);
         device->queue.data = NULL;
-    }
-    
-    if ( device->queue.dispatchSource ) {
-        dispatch_release(device->queue.dispatchSource);
-        device->queue.dispatchSource = NULL;
     }
     
     if ( device->queue.source ) {
         CFRelease(device->queue.source);
         device->queue.source = NULL;
     }
-
+    
     if ( device->queue.port ) {
-        mach_port_t port = CFMachPortGetPort(device->queue.port);
-        
-        CFMachPortInvalidate(device->queue.port);
-        CFRelease(device->queue.port);
-
         mach_port_mod_refs(mach_task_self(),
-                   port,
-                   MACH_PORT_RIGHT_RECEIVE,
-                   -1);
-
+                           CFMachPortGetPort(device->queue.port),
+                           MACH_PORT_RIGHT_RECEIVE,
+                           -1);
+        
+        CFRelease(device->queue.port);
         device->queue.port = NULL;
     }
     
@@ -219,7 +229,6 @@ void __IOHIDUserDeviceRelease( CFTypeRef object )
         IOObjectRelease(device->service);
         device->service = 0;
     }
-   
 }
 
 //------------------------------------------------------------------------------
@@ -451,6 +460,14 @@ void IOHIDUserDeviceScheduleWithDispatchQueue(IOHIDUserDeviceRef device, dispatc
             CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
             CFRelease(device);
         });
+        
+        _IOHIDObjectInternalRetain(device);
+        dispatch_source_set_cancel_handler(device->queue.dispatchSource, ^{
+            dispatch_release(device->queue.dispatchSource);
+            device->queue.dispatchSource = NULL;
+            IOConnectSetNotificationPort(device->connect, 0, MACH_PORT_NULL, (uintptr_t)NULL);
+            _IOHIDObjectInternalRelease(device);
+        });
     }
     
     IONotificationPortSetDispatchQueue(device->async.port, queue);
@@ -476,11 +493,8 @@ void IOHIDUserDeviceUnscheduleFromDispatchQueue(IOHIDUserDeviceRef device, dispa
     if ( !device->queue.port || device->dispatchQueue != queue)
         return;
     
-    IOConnectSetNotificationPort(device->connect, 0, MACH_PORT_NULL, (uintptr_t)NULL);
-    
     if ( device->queue.dispatchSource ) {
-        dispatch_release(device->queue.dispatchSource);
-        device->queue.dispatchSource = NULL;
+        dispatch_cancel(device->queue.dispatchSource);
     }
     
     if ( device->async.port ) {

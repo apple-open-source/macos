@@ -72,7 +72,7 @@ static const char *
 basename(const char * str)
 {
     const char *last_slash = strrchr(str, '/');
-    
+
     if (last_slash == NULL)
         return (str);
     else
@@ -106,45 +106,45 @@ usage(const char *cmd)
     struct option_desc *option_desc;
     char * usage_str = (char *)malloc(BUF_MAX);
     size_t usage_len;
-    
+
     if (usage_str == NULL)
         err(1, "%s: malloc(%d)", __func__, BUF_MAX);
-    
+
     usage_len = snprintf(usage_str, BUF_MAX, "# usage: %s ", basename(cmd));
-    
+
     for (option_desc = option_desc_list; option_desc->option != NULL; option_desc++) {
         int len;
-        
+
         if (option_desc->required)
             len = snprintf(usage_str + usage_len, BUF_MAX - usage_len, "%s ", option_desc->option);
         else
             len = snprintf(usage_str + usage_len, BUF_MAX - usage_len, "[%s] ", option_desc->option);
         if (len < 0)
             err(1, "%s: snprintf(", __func__);
-        
+
         usage_len += len;
         if (usage_len > BUF_MAX)
             break;
     }
     printf("%s\n", usage_str);
     printf("options:\n");
-    
+
     for (option_desc = option_desc_list; option_desc->option != NULL; option_desc++) {
         printf(" %-20s # %s\n", option_desc->option, option_desc->description);
     }
-    
+
 }
 
 int
 main(int argc, char * const argv[]) {
     int ch;
     int error;
-    
+
     if (argc == 1) {
         usage(argv[0]);
         exit(0);
     }
-    
+
     while ((ch = getopt(argc, argv, "hf:l:r:t:p:m:M:L:R:")) != -1) {
         switch (ch) {
             case 'h':
@@ -167,12 +167,12 @@ main(int argc, char * const argv[]) {
             case 'l':
                 if ((error = getaddrinfo(optarg, NULL, NULL, &p_localaddr)))
                     errx(1, "getaddrinfo returned error: %s", gai_strerror(error));
-                
+
                 break;
             case 'r':
                 if ((error = getaddrinfo(optarg, NULL, NULL, &p_remoteaddr)))
                     errx(1, "getaddrinfo returned error: %s", gai_strerror(error));
-                
+
                 break;
             case 'm':
                 ip_act_mask = (uint32_t)atoi(optarg);
@@ -197,34 +197,34 @@ main(int argc, char * const argv[]) {
                     errx(1, "Protocol not supported.");
                 }
                 break;
-                
+
             case 'L':
-                local_port = (uint16_t)atoi(optarg);
+                local_port = htons((uint16_t)atoi(optarg));
                 break;
             case 'R':
-                remote_port = (uint16_t)atoi(optarg);
+                remote_port = htons((uint16_t)atoi(optarg));
                 break;
             case 'M':
                 proto_act_mask = (uint32_t)atoi(optarg);
                 break;
-                
+
             default:
                 warnx("# syntax error, unknow option '%d'", ch);
                 usage(argv[0]);
                 exit(0);
         }
     }
-    
+
     if (p_localaddr && p_remoteaddr) {
         if (p_localaddr->ai_family!=p_remoteaddr->ai_family) {
             errx(1, "The address families for local and remote address"
                  " when both present, must be equal");
         }
     }
-    
-    
+
+
     doit();
-    
+
     return (0);
 }
 
@@ -233,18 +233,18 @@ int
 doit()
 {
     struct sockaddr_ctl addr;
-    
+
     sf = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
     if (sf == -1) {
         err(1, "socket()");
     }
-    
+
     /* Connect the socket */
     bzero(&addr, sizeof(addr));
     addr.sc_len = sizeof(addr);
     addr.sc_family = AF_SYSTEM;
     addr.ss_sysaddr = AF_SYS_CONTROL;
-    
+
     {
         struct ctl_info info;
         memset(&info, 0, sizeof(info));
@@ -256,20 +256,20 @@ doit()
         addr.sc_id = info.ctl_id;
         addr.sc_unit = 1;
     }
-    
+
     if (connect(sf, (struct sockaddr *)&addr, sizeof(struct sockaddr_ctl)) == -1) {
         err(1, "connect()");
     }
-    
+
     if (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_DIRECTION,
                    &dir, sizeof(uint32_t)) == -1) {
         err(1, "setsockopt could not set direction.");
     }
-    
+
     /* Set the IP addresses for the flow */
     if (p_localaddr) {
         l_saddr = *((struct sockaddr_storage *)(p_localaddr->ai_addr));
-        
+
         if (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_LOCAL_IP,
                        &l_saddr, sizeof(struct sockaddr_storage)) == -1) {
             err(1, "setsockopt could not set local address.");
@@ -277,10 +277,10 @@ doit()
         freeaddrinfo(p_localaddr);
         p_localaddr = NULL;
     }
-    
+
     if (p_remoteaddr) {
         r_saddr = *((struct sockaddr_storage *)(p_remoteaddr->ai_addr));
-        
+
         if (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_REMOTE_IP,
                        &r_saddr, sizeof(struct sockaddr_storage)) == -1) {
             err(1, "setsockopt could not set remote address.");
@@ -288,42 +288,42 @@ doit()
         freeaddrinfo(p_remoteaddr);
         p_remoteaddr = NULL;
     }
-    
+
     /* Set ports for the flow */
     if (local_port && (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_LOCAL_PORT,
                                   &local_port, sizeof(uint16_t)) == -1)) {
         err(1, "setsockopt could not set local port.");
-        
+
     }
-    
+
     if (remote_port && (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_REMOTE_PORT,
                                    &remote_port, sizeof(uint16_t)) == -1)) {
         err(1, "setsockopt could not set remote port.");
-        
+
     }
-    
+
     if (protocol && setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_PROTOCOL,
                                &protocol, sizeof(uint32_t)) == -1) {
         err(1, "setsockopt could not set protocol.");
     }
-    
+
     if (proto_act_mask &&
         (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_PROTO_ACT_MASK,
                     &proto_act_mask, sizeof(uint32_t))==-1)) {
         err(1, "setsockopt could not set protocol action mask.");
     }
-    
+
     if (setsockopt(sf, SYSPROTO_CONTROL, PKT_MNGLR_OPT_ACTIVATE,
                    &activate, sizeof(uint8_t))== -1) {
         err(1, "setsockopt could not activate packet mangler.");
     }
-    
+
     if (!duration) {
         pause();
     } else {
         sleep(duration);
     }
-    
+
     close(sf);
     return 0;
 }

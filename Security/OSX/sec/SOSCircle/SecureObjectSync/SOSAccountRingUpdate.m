@@ -15,22 +15,6 @@
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 #import <Security/SecureObjectSync/SOSAccountTrust.h>
 
-static const char * __unused concordstring[] = {
-    "kSOSConcordanceTrusted",
-    "kSOSConcordanceGenOld",     // kSOSErrorReplay
-    "kSOSConcordanceNoUserSig",  // kSOSErrorBadSignature
-    "kSOSConcordanceNoUserKey",  // kSOSErrorNoKey
-    "kSOSConcordanceNoPeer",     // kSOSErrorPeerNotFound
-    "kSOSConcordanceBadUserSig", // kSOSErrorBadSignature
-    "kSOSConcordanceBadPeerSig", // kSOSErrorBadSignature
-    "kSOSConcordanceNoPeerSig",
-    "kSOSConcordanceWeSigned",
-    "kSOSConcordanceInvalidMembership",
-    "kSOSConcordanceMissingMe",
-    "kSOSConcordanceImNotWorthy",
-};
-
-
 bool SOSAccountIsPeerRetired(SOSAccount* account, CFSetRef peers){
     CFMutableArrayRef peerInfos = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     bool result = false;

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NavigationActionData_h
-#define NavigationActionData_h
+#pragma once
 
 #include "WebEvent.h"
 #include <WebCore/FloatPoint.h>
@@ -39,7 +38,7 @@ namespace WebKit {
 
 struct NavigationActionData {
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, NavigationActionData&);
+    static std::optional<NavigationActionData> decode(IPC::Decoder&);
 
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
     WebEvent::Modifiers modifiers { };
@@ -54,5 +53,3 @@ struct NavigationActionData {
 };
 
 }
-
-#endif // NavigationActionData_h

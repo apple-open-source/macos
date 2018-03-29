@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2011, 2012, 2014, 2016  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id$
+# $Id: tests.sh,v 1.11 2012/02/22 14:22:54 marka Exp $
 
 
 # WARNING: The test labelled "testing request-ixfr option in view vs zone"
@@ -266,4 +266,4 @@ if [ ${ret} != 0 ]; then
 fi
 
 echo "I:exit status: $status"
-exit $status
+[ $status -eq 0 ] || exit 1

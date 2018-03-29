@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2017 The PHP Group                                |
+  | Copyright (c) 1997-2018 The PHP Group                                |
   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -89,7 +89,7 @@ static php_stream_filter_status_t php_mcrypt_filter(
 			php_stream_bucket_delref(bucket);
 		} else {
 			/* Stream cipher */
-			php_stream_bucket_make_writeable(bucket);
+			bucket = php_stream_bucket_make_writeable(bucket);
 			if (data->encrypt) {
 				mcrypt_generic(data->module, bucket->buf, (int)bucket->buflen);
 			} else {

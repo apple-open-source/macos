@@ -67,7 +67,7 @@ LayoutUnit baselineFromFlow(const RenderBlockFlow&);
 const RenderObject& rendererForPosition(const FlowContents&, unsigned);
 
 #if ENABLE(TREE_DEBUGGING)
-void outputLineLayoutForFlow(TextStream&, const RenderBlockFlow&, const Layout&, int depth);
+void outputLineLayoutForFlow(WTF::TextStream&, const RenderBlockFlow&, const Layout&, int depth);
 #endif
 
 }
@@ -106,7 +106,7 @@ inline unsigned findCaretMinimumOffset(const RenderText&, const Layout& layout)
 inline unsigned findCaretMaximumOffset(const RenderText& renderer, const Layout& layout)
 {
     if (!layout.runCount())
-        return renderer.textLength();
+        return renderer.text().length();
     auto& last = layout.runAt(layout.runCount() - 1);
     return last.end;
 }

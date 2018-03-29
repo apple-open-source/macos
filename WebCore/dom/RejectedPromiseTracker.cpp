@@ -46,10 +46,10 @@
 #include <runtime/JSPromise.h>
 #include <runtime/WeakGCMapInlines.h>
 
-using namespace JSC;
-using namespace Inspector;
 
 namespace WebCore {
+using namespace JSC;
+using namespace Inspector;
 
 class UnhandledPromise {
     WTF_MAKE_NONCOPYABLE(UnhandledPromise);
@@ -84,9 +84,7 @@ RejectedPromiseTracker::RejectedPromiseTracker(ScriptExecutionContext& context, 
 {
 }
 
-RejectedPromiseTracker::~RejectedPromiseTracker()
-{
-}
+RejectedPromiseTracker::~RejectedPromiseTracker() = default;
 
 static RefPtr<ScriptCallStack> createScriptCallStackFromReason(ExecState& state, JSValue reason)
 {
@@ -95,12 +93,12 @@ static RefPtr<ScriptCallStack> createScriptCallStackFromReason(ExecState& state,
     // Always capture a stack from the exception if this rejection was an exception.
     if (auto* exception = vm.lastException()) {
         if (exception->value() == reason)
-            return createScriptCallStackFromException(&state, exception, ScriptCallStack::maxCallStackSizeToCapture);
+            return createScriptCallStackFromException(&state, exception);
     }
 
     // Otherwise, only capture a stack if a debugger is open.
     if (state.lexicalGlobalObject()->debugger())
-        return createScriptCallStack(&state, ScriptCallStack::maxCallStackSizeToCapture);
+        return createScriptCallStack(&state);
 
     return nullptr;
 }
@@ -166,14 +164,14 @@ void RejectedPromiseTracker::reportUnhandledRejections(Vector<UnhandledPromise>&
 
         PromiseRejectionEvent::Init initializer;
         initializer.cancelable = true;
-        initializer.promise = &promise;
+        initializer.promise = &domPromise;
         initializer.reason = promise.result(vm);
 
         auto event = PromiseRejectionEvent::create(state, eventNames().unhandledrejectionEvent, initializer);
         auto target = m_context.errorEventTarget();
-        bool needsDefaultAction = target->dispatchEvent(event);
+        target->dispatchEvent(event);
 
-        if (needsDefaultAction)
+        if (!event->defaultPrevented())
             m_context.reportUnhandledPromiseRejection(state, promise, unhandledPromise.callStack());
 
         if (!promise.isHandled(vm))
@@ -195,7 +193,7 @@ void RejectedPromiseTracker::reportRejectionHandled(Ref<DOMPromise>&& rejectedPr
     auto& promise = *rejectedPromise->promise();
 
     PromiseRejectionEvent::Init initializer;
-    initializer.promise = &promise;
+    initializer.promise = rejectedPromise.ptr();
     initializer.reason = promise.result(vm);
 
     auto event = PromiseRejectionEvent::create(state, eventNames().rejectionhandledEvent, initializer);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -135,6 +135,7 @@ log_rr(dns_name_t *name, dns_rdata_t *rdata, isc_uint32_t ttl) {
 	dns_rdataset_t rds;
 	dns_rdata_t rd = DNS_RDATA_INIT;
 
+	dns_rdatalist_init(&rdl);
 	rdl.type = rdata->type;
 	rdl.rdclass = rdata->rdclass;
 	rdl.ttl = ttl;
@@ -143,8 +144,6 @@ log_rr(dns_name_t *name, dns_rdata_t *rdata, isc_uint32_t ttl) {
 		rdl.covers = dns_rdata_covers(rdata);
 	else
 		rdl.covers = dns_rdatatype_none;
-	ISC_LIST_INIT(rdl.rdata);
-	ISC_LINK_INIT(&rdl, link);
 	dns_rdataset_init(&rds);
 	dns_rdata_init(&rd);
 	dns_rdata_clone(rdata, &rd);
@@ -729,7 +728,7 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	isc_result_t result;
 	dns_name_t *question_name;
 	dns_rdataset_t *question_rdataset;
-	dns_zone_t *zone = NULL;
+	dns_zone_t *zone = NULL, *raw = NULL, *mayberaw;
 	dns_db_t *db = NULL;
 	dns_dbversion_t *ver = NULL;
 	dns_rdataclass_t question_class;
@@ -755,6 +754,8 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	char keyname[DNS_NAME_FORMATSIZE];
 	isc_boolean_t is_poll = ISC_FALSE;
 	isc_boolean_t is_dlz = ISC_FALSE;
+	isc_boolean_t is_ixfr = ISC_FALSE;
+	isc_uint32_t begin_serial = 0, current_serial;
 
 	switch (reqtype) {
 	case dns_rdatatype_axfr:
@@ -811,7 +812,8 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 		 * Normal zone table does not have a match.
 		 * Try the DLZ database
 		 */
-		if (client->view->dlzdatabase != NULL) {
+		// Temporary: only searching the first DLZ database
+		if (! ISC_LIST_EMPTY(client->view->dlz_searched)) {
 			result = dns_dlzallowzonexfr(client->view,
 						     question_name,
 						     &client->peeraddr,
@@ -951,8 +953,8 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	CHECK(dns_db_createsoatuple(db, ver, mctx, DNS_DIFFOP_EXISTS,
 				    &current_soa_tuple));
 
+	current_serial = dns_soa_getserial(&current_soa_tuple->rdata);
 	if (reqtype == dns_rdatatype_ixfr) {
-		isc_uint32_t begin_serial, current_serial;
 		isc_boolean_t provide_ixfr;
 
 		/*
@@ -970,7 +972,6 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 			      "IXFR request missing SOA");
 
 		begin_serial = dns_soa_getserial(&soa_rdata);
-		current_serial = dns_soa_getserial(&current_soa_tuple->rdata);
 
 		/*
 		 * RFC1995 says "If an IXFR query with the same or
@@ -1009,10 +1010,10 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 			goto axfr_fallback;
 		}
 		CHECK(result);
+		is_ixfr = ISC_TRUE;
 	} else {
 	axfr_fallback:
-		CHECK(axfr_rrstream_create(mctx, db, ver,
-					   &data_stream));
+		CHECK(axfr_rrstream_create(mctx, db, ver, &data_stream));
 	}
 
 	/*
@@ -1070,10 +1071,35 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 		xfrout_log1(client, question_name, question_class,
 			    ISC_LOG_DEBUG(1), "IXFR poll up to date%s%s",
 			    (xfr->tsigkey != NULL) ? ": TSIG " : "", keyname);
+	else if (is_ixfr)
+		xfrout_log1(client, question_name, question_class,
+			    ISC_LOG_INFO, "%s started%s%s (serial %u -> %u)",
+			    mnemonic, (xfr->tsigkey != NULL) ? ": TSIG " : "",
+			    keyname, begin_serial, current_serial);
 	else
 		xfrout_log1(client, question_name, question_class,
-			    ISC_LOG_INFO, "%s started%s%s", mnemonic,
-			    (xfr->tsigkey != NULL) ? ": TSIG " : "", keyname);
+			    ISC_LOG_INFO, "%s started%s%s (serial %u)",
+			    mnemonic, (xfr->tsigkey != NULL) ? ": TSIG " : "",
+			    keyname, current_serial);
+
+
+	if (zone != NULL) {
+		dns_zone_getraw(zone, &raw);
+		mayberaw = (raw != NULL) ? raw : zone;
+		if ((client->attributes & NS_CLIENTATTR_WANTEXPIRE) != 0 &&
+		    dns_zone_gettype(mayberaw) == dns_zone_slave) {
+			isc_time_t expiretime;
+			isc_uint32_t secs;
+			dns_zone_getexpiretime(zone, &expiretime);
+			secs = isc_time_seconds(&expiretime);
+			if (secs >= client->now && result == ISC_R_SUCCESS) {
+				client->attributes |= NS_CLIENTATTR_HAVEEXPIRE;
+				client->expire = secs - client->now;
+			}
+		}
+		if (raw != NULL)
+			dns_zone_detach(&raw);
+	}
 
 	/*
 	 * Hand the context over to sendstream().  Set xfr to NULL;
@@ -1155,7 +1181,7 @@ xfrout_ctx_create(isc_mem_t *mctx, ns_client_t *client, unsigned int id,
 	xfr->txmem = NULL;
 	xfr->txmemlen = 0;
 	xfr->nmsg = 0;
-	xfr->many_answers = many_answers,
+	xfr->many_answers = many_answers;
 	xfr->sends = 0;
 	xfr->shuttingdown = ISC_FALSE;
 	xfr->mnemonic = NULL;
@@ -1247,6 +1273,7 @@ sendstream(xfrout_ctx_t *xfr) {
 	dns_rdataset_t *msgrds = NULL;
 	dns_compress_t cctx;
 	isc_boolean_t cleanup_cctx = ISC_FALSE;
+	isc_boolean_t is_tcp;
 
 	int n_rrs;
 
@@ -1254,7 +1281,8 @@ sendstream(xfrout_ctx_t *xfr) {
 	isc_buffer_clear(&xfr->txlenbuf);
 	isc_buffer_clear(&xfr->txbuf);
 
-	if ((xfr->client->attributes & NS_CLIENTATTR_TCP) == 0) {
+	is_tcp = ISC_TF((xfr->client->attributes & NS_CLIENTATTR_TCP) != 0);
+	if (!is_tcp) {
 		/*
 		 * In the UDP case, we put the response data directly into
 		 * the client message.
@@ -1285,6 +1313,21 @@ sendstream(xfrout_ctx_t *xfr) {
 			isc_buffer_free(&xfr->lasttsig);
 
 		/*
+		 * Add a EDNS option to the message?
+		 */
+		if ((xfr->client->attributes & NS_CLIENTATTR_WANTOPT) != 0) {
+			dns_rdataset_t *opt = NULL;
+
+			CHECK(ns_client_addopt(xfr->client, msg, &opt));
+			CHECK(dns_message_setopt(msg, opt));
+			/*
+			 * Add to first message only.
+			 */
+			xfr->client->attributes &= ~NS_CLIENTATTR_WANTNSID;
+			xfr->client->attributes &= ~NS_CLIENTATTR_HAVEEXPIRE;
+		}
+
+		/*
 		 * Account for reserved space.
 		 */
 		if (xfr->tsigkey != NULL)
@@ -1310,7 +1353,6 @@ sendstream(xfrout_ctx_t *xfr) {
 			result = dns_message_gettemprdataset(msg, &qrdataset);
 			if (result != ISC_R_SUCCESS)
 				goto failure;
-			dns_rdataset_init(qrdataset);
 			dns_rdataset_makequestion(qrdataset,
 					xfr->client->message->rdclass,
 					xfr->qtype);
@@ -1420,14 +1462,11 @@ sendstream(xfrout_ctx_t *xfr) {
 			msgrdl->covers = dns_rdata_covers(rdata);
 		else
 			msgrdl->covers = dns_rdatatype_none;
-		ISC_LINK_INIT(msgrdl, link);
-		ISC_LIST_INIT(msgrdl->rdata);
 		ISC_LIST_APPEND(msgrdl->rdata, msgrdata, link);
 
 		result = dns_message_gettemprdataset(msg, &msgrds);
 		if (result != ISC_R_SUCCESS)
 			goto failure;
-		dns_rdataset_init(msgrds);
 		result = dns_rdatalist_tordataset(msgrdl, msgrds);
 		INSIST(result == ISC_R_SUCCESS);
 
@@ -1445,9 +1484,17 @@ sendstream(xfrout_ctx_t *xfr) {
 
 		if (! xfr->many_answers)
 			break;
+		/*
+		 * At this stage, at least 1 RR has been rendered into
+		 * the message. Check if we want to clamp this message
+		 * here (TCP only). 20480 was set as an upper limit to
+		 * improve message compression.
+		 */
+		if ((isc_buffer_usedlength(&xfr->buf) >= 20480) && is_tcp)
+			break;
 	}
 
-	if ((xfr->client->attributes & NS_CLIENTATTR_TCP) != 0) {
+	if (is_tcp) {
 		CHECK(dns_compress_init(&cctx, -1, xfr->mctx));
 		dns_compress_setsensitive(&cctx, ISC_TRUE);
 		cleanup_cctx = ISC_TRUE;

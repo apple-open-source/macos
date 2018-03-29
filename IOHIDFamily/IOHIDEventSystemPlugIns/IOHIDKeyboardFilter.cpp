@@ -1162,6 +1162,10 @@ bool isNotRepeated(UInt32 usagePage, UInt32 usage)
         isNotRepeated = true;
     }
     
+    else if (usagePage == kHIDPage_Telephony) {
+        isNotRepeated = true;
+    }
+    
     return isNotRepeated;
 }
 
@@ -2289,6 +2293,8 @@ void IOHIDKeyboardFilter::setCapsLockState(boolean_t state) {
     }
     _capsLockState = state;
     updateCapslockLED();
+#else
+    (void) state;
 #endif
 }
 

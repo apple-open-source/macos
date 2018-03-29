@@ -29,12 +29,13 @@
 #if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmRegistry.h"
-#include "CryptoKeyDataRSAComponents.h"
 #include "CryptoKeyPair.h"
-#include "ExceptionCode.h"
+#include "CryptoKeyRSAComponents.h"
 #include "GCryptUtilities.h"
-#include "NotImplemented.h"
 #include "ScriptExecutionContext.h"
+#include <JavaScriptCore/GenericTypedArrayViewInlines.h>
+#include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
+#include <heap/HeapInlines.h>
 #include <pal/crypto/gcrypt/Handle.h>
 #include <pal/crypto/gcrypt/Utilities.h>
 #include <pal/crypto/tasn1/Utilities.h>
@@ -71,10 +72,10 @@ static Vector<uint8_t> getRSAKeyParameter(gcry_sexp_t keySexp, const char* name)
     return WTFMove(data.value());
 }
 
-RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, CryptoAlgorithmIdentifier hash, bool hasHash, const CryptoKeyDataRSAComponents& keyData, bool extractable, CryptoKeyUsageBitmap usages)
+RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, CryptoAlgorithmIdentifier hash, bool hasHash, const CryptoKeyRSAComponents& keyData, bool extractable, CryptoKeyUsageBitmap usages)
 {
     // When creating a private key, we require the p and q prime information.
-    if (keyData.type() == CryptoKeyDataRSAComponents::Type::Private && !keyData.hasAdditionalPrivateKeyParameters())
+    if (keyData.type() == CryptoKeyRSAComponents::Type::Private && !keyData.hasAdditionalPrivateKeyParameters())
         return nullptr;
 
     // But we don't currently support creating keys with any additional prime information.
@@ -89,7 +90,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, 
         valid &= !keyData.modulus().isEmpty() && !keyData.exponent().isEmpty();
 
         // For private keys, we require the private exponent, as well as p and q prime information.
-        if (keyData.type() == CryptoKeyDataRSAComponents::Type::Private)
+        if (keyData.type() == CryptoKeyRSAComponents::Type::Private)
             valid &= !keyData.privateExponent().isEmpty() && !keyData.firstPrimeInfo().primeFactor.isEmpty() && !keyData.secondPrimeInfo().primeFactor.isEmpty();
 
         if (!valid)
@@ -98,10 +99,10 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, 
 
     CryptoKeyType keyType;
     switch (keyData.type()) {
-    case CryptoKeyDataRSAComponents::Type::Public:
+    case CryptoKeyRSAComponents::Type::Public:
         keyType = CryptoKeyType::Public;
         break;
-    case CryptoKeyDataRSAComponents::Type::Private:
+    case CryptoKeyRSAComponents::Type::Private:
         keyType = CryptoKeyType::Private;
         break;
     }
@@ -261,15 +262,11 @@ static bool supportedAlgorithmIdentifier(const uint8_t* data, size_t size)
     //       of that structure has to contain one of id-sha{1,256,384,512} OIDs that match
     //       the specified hash algorithm
 
-    static const std::array<uint8_t, 21> s_id_rsaEncryption { { "1.2.840.113549.1.1.1" } };
-    static const std::array<uint8_t, 21> s_id_RSAES_OAEP { { "1.2.840.113549.1.1.7" } };
-    static const std::array<uint8_t, 22> s_id_RSASSA_PSS { { "1.2.840.113549.1.1.10" } };
-
-    if (size == s_id_rsaEncryption.size() && !std::memcmp(data, s_id_rsaEncryption.data(), size))
+    if (CryptoConstants::matches(data, size, CryptoConstants::s_rsaEncryptionIdentifier))
         return true;
-    if (size == s_id_RSAES_OAEP.size() && !std::memcmp(data, s_id_RSAES_OAEP.data(), size))
+    if (CryptoConstants::matches(data, size, CryptoConstants::s_RSAES_OAEPIdentifier))
         return false; // Not yet supported.
-    if (size == s_id_RSASSA_PSS.size() && !std::memcmp(data, s_id_RSASSA_PSS.data(), size))
+    if (CryptoConstants::matches(data, size, CryptoConstants::s_RSASSA_PSSIdentifier))
         return false; // Not yet supported.
     return false;
 }
@@ -334,7 +331,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::importPkcs8(CryptoAlgorithmIdentifier identif
         if (!version)
             return nullptr;
 
-        if (version->size() != 1 || version->at(0) != 0x00)
+        if (!CryptoConstants::matches(version->data(), version->size(), CryptoConstants::s_asn1Version0))
             return nullptr;
     }
 
@@ -365,7 +362,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::importPkcs8(CryptoAlgorithmIdentifier identif
         if (!version)
             return nullptr;
 
-        if (version->size() != 1 || version->at(0) != 0x00)
+        if (!CryptoConstants::matches(version->data(), version->size(), CryptoConstants::s_asn1Version0))
             return nullptr;
     }
 
@@ -419,7 +416,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::importPkcs8(CryptoAlgorithmIdentifier identif
 ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportSpki() const
 {
     if (type() != CryptoKeyType::Public)
-        return Exception { INVALID_ACCESS_ERR };
+        return Exception { InvalidAccessError };
 
     PAL::TASN1::Structure rsaPublicKey;
     {
@@ -462,11 +459,11 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportSpki() const
         // - RSA-OAEP:
         //     - this should write out id-RSAES-OAEP, along with setting `algorithm.parameters`
         //       to a RSAES-OAEP-params structure
-        if (!PAL::TASN1::writeElement(spki, "algorithm.algorithm", "1.2.840.113549.1.1.1", 1))
+        if (!PAL::TASN1::writeElement(spki, "algorithm.algorithm", CryptoConstants::s_rsaEncryptionIdentifier.data(), 1))
             return Exception { OperationError };
 
         // Write out the null value under `algorithm.parameters`.
-        if (!PAL::TASN1::writeElement(spki, "algorithm.parameters", "\x05\x00", 2))
+        if (!PAL::TASN1::writeElement(spki, "algorithm.parameters", CryptoConstants::s_asn1NullValue.data(), CryptoConstants::s_asn1NullValue.size()))
             return Exception { OperationError };
 
         // Write out the `RSAPublicKey` data under `subjectPublicKey`. Because this is a
@@ -489,7 +486,7 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportSpki() const
 ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportPkcs8() const
 {
     if (type() != CryptoKeyType::Private)
-        return Exception { INVALID_ACCESS_ERR };
+        return Exception { InvalidAccessError };
 
     PAL::TASN1::Structure rsaPrivateKey;
     {
@@ -602,7 +599,7 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportPkcs8() const
             return Exception { OperationError };
 
         // Write out a null value under `algorithm.parameters`.
-        if (!PAL::TASN1::writeElement(pkcs8, "privateKeyAlgorithm.parameters", "\x05\x00", 2))
+        if (!PAL::TASN1::writeElement(pkcs8, "privateKeyAlgorithm.parameters", CryptoConstants::s_asn1NullValue.data(), CryptoConstants::s_asn1NullValue.size()))
             return Exception { OperationError };
 
         // Write out the `RSAPrivateKey` data under `privateKey`.
@@ -625,24 +622,34 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportPkcs8() const
     return WTFMove(result.value());
 }
 
-std::unique_ptr<KeyAlgorithm> CryptoKeyRSA::buildAlgorithm() const
+auto CryptoKeyRSA::algorithm() const -> KeyAlgorithm
 {
-    String name = CryptoAlgorithmRegistry::singleton().name(algorithmIdentifier());
-    size_t modulusLength = getRSAModulusLength(m_platformKey);
-    Vector<uint8_t> publicExponent = getRSAKeyParameter(m_platformKey, "e");
+    auto modulusLength = getRSAModulusLength(m_platformKey);
+    auto publicExponent = getRSAKeyParameter(m_platformKey, "e");
 
-    if (m_restrictedToSpecificHash)
-        return std::make_unique<RsaHashedKeyAlgorithm>(name, modulusLength, WTFMove(publicExponent), CryptoAlgorithmRegistry::singleton().name(m_hash));
-    return std::make_unique<RsaKeyAlgorithm>(name, modulusLength, WTFMove(publicExponent));
+    if (m_restrictedToSpecificHash) {
+        CryptoRsaHashedKeyAlgorithm result;
+        result.name = CryptoAlgorithmRegistry::singleton().name(algorithmIdentifier());
+        result.modulusLength = modulusLength;
+        result.publicExponent = Uint8Array::create(publicExponent.data(), publicExponent.size());
+        result.hash.name = CryptoAlgorithmRegistry::singleton().name(m_hash);
+        return result;
+    }
+
+    CryptoRsaKeyAlgorithm result;
+    result.name = CryptoAlgorithmRegistry::singleton().name(algorithmIdentifier());
+    result.modulusLength = modulusLength;
+    result.publicExponent = Uint8Array::create(publicExponent.data(), publicExponent.size());
+    return result;
 }
 
-std::unique_ptr<CryptoKeyData> CryptoKeyRSA::exportData() const
+std::unique_ptr<CryptoKeyRSAComponents> CryptoKeyRSA::exportData() const
 {
     ASSERT(extractable());
 
     switch (type()) {
     case CryptoKeyType::Public:
-        return CryptoKeyDataRSAComponents::createPublic(getRSAKeyParameter(m_platformKey, "n"), getRSAKeyParameter(m_platformKey, "e"));
+        return CryptoKeyRSAComponents::createPublic(getRSAKeyParameter(m_platformKey, "n"), getRSAKeyParameter(m_platformKey, "e"));
     case CryptoKeyType::Private: {
         auto parameterMPI =
             [](gcry_sexp_t sexp, const char* name) -> gcry_mpi_t {
@@ -660,11 +667,11 @@ std::unique_ptr<CryptoKeyData> CryptoKeyRSA::exportData() const
         if (!dMPI || !pMPI || !qMPI)
             return nullptr;
 
-        CryptoKeyDataRSAComponents::PrimeInfo firstPrimeInfo;
+        CryptoKeyRSAComponents::PrimeInfo firstPrimeInfo;
         if (auto data = mpiData(pMPI))
             firstPrimeInfo.primeFactor = WTFMove(data.value());
 
-        CryptoKeyDataRSAComponents::PrimeInfo secondPrimeInfo;
+        CryptoKeyRSAComponents::PrimeInfo secondPrimeInfo;
         if (auto data = mpiData(qMPI))
             secondPrimeInfo.primeFactor = WTFMove(data.value());
 
@@ -703,9 +710,9 @@ std::unique_ptr<CryptoKeyData> CryptoKeyRSA::exportData() const
         if (auto data = mpiData(dMPI))
             privateExponent = WTFMove(data.value());
 
-        return CryptoKeyDataRSAComponents::createPrivateWithAdditionalData(
+        return CryptoKeyRSAComponents::createPrivateWithAdditionalData(
             getRSAKeyParameter(m_platformKey, "n"), getRSAKeyParameter(m_platformKey, "e"), WTFMove(privateExponent),
-            WTFMove(firstPrimeInfo), WTFMove(secondPrimeInfo), Vector<CryptoKeyDataRSAComponents::PrimeInfo> { });
+            WTFMove(firstPrimeInfo), WTFMove(secondPrimeInfo), Vector<CryptoKeyRSAComponents::PrimeInfo> { });
     }
     default:
         ASSERT_NOT_REACHED();

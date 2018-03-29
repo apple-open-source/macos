@@ -31,7 +31,7 @@
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #include <Security/SecInternal.h>
-#include <libDER/oidsPriv.h>
+#include <libDER/oids.h>
 
 #include <AssertMacros.h>
 

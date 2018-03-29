@@ -56,7 +56,7 @@ extern CFStringRef sGenerationKey;
 extern CFStringRef sPeerIDsKey;
 extern CFStringRef sRingVersionKey;
 
-SOSRingRef SOSRingAllocate(void);
+CF_RETURNS_RETAINED SOSRingRef SOSRingAllocate(void);
 SOSRingRef SOSRingCreate_Internal(CFStringRef name, SOSRingType type, CFErrorRef *error);
 SOSRingRef SOSRingCopyRing(SOSRingRef original, CFErrorRef *error);
 

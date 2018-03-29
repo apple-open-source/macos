@@ -91,10 +91,9 @@ static Frame* targetFrame(Frame& frame, Event* event)
 {
     if (!event)
         return &frame;
-    Node* node = event->target()->toNode();
-    if (!node)
+    if (!is<Node>(event->target()))
         return &frame;
-    return node->document().frame();
+    return downcast<Node>(*event->target()).document().frame();
 }
 
 static bool applyCommandToFrame(Frame& frame, EditorCommandSource source, EditAction action, Ref<EditingStyle>&& style)
@@ -379,7 +378,7 @@ static bool executeDeleteWordForward(Frame& frame, Event*, EditorCommandSource, 
 
 static bool executeFindString(Frame& frame, Event*, EditorCommandSource, const String& value)
 {
-    return frame.editor().findString(value, CaseInsensitive | WrapAround | DoNotTraverseFlatTree);
+    return frame.editor().findString(value, { CaseInsensitive, WrapAround, DoNotTraverseFlatTree });
 }
 
 static bool executeFontName(Frame& frame, Event*, EditorCommandSource source, const String& value)
@@ -932,8 +931,7 @@ static bool executePrint(Frame& frame, Event*, EditorCommandSource, const String
     Page* page = frame.page();
     if (!page)
         return false;
-    page->chrome().print(frame);
-    return true;
+    return page->chrome().print(frame);
 }
 
 static bool executeRedo(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1451,9 +1449,9 @@ static String valueDefaultParagraphSeparator(Frame& frame, Event*)
 {
     switch (frame.editor().defaultParagraphSeparator()) {
     case EditorParagraphSeparatorIsDiv:
-        return divTag.localName();
+        return divTag->localName();
     case EditorParagraphSeparatorIsP:
-        return pTag.localName();
+        return pTag->localName();
     }
 
     ASSERT_NOT_REACHED();

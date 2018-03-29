@@ -22,6 +22,7 @@
  */
 
 #import <Foundation/Foundation.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 #import <XCTest/XCTest.h>
 #import "keychain/ckks/RateLimiter.h"
 
@@ -163,16 +164,14 @@
     NSDate* limit = nil;
     [self.RL judge:self.obj at:date limitTime:&limit];
 
-    NSMutableData *data = [NSMutableData new];
-    NSKeyedArchiver *encoder = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
-    encoder.requiresSecureCoding = YES;
+    NSKeyedArchiver *encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [self.RL encodeWithCoder:encoder];
-    [encoder finishEncoding];
+    NSData* data = encoder.encodedData;
+
     XCTAssertEqualObjects(self.config, self.RL.config, @"config unmodified after encoding");
     XCTAssertNil(self.RL.assetType, @"assetType still nil after encoding");
 
-    NSKeyedUnarchiver *decoder = [[NSKeyedUnarchiver alloc] initForReadingWithData:data];
-    decoder.requiresSecureCoding = YES;
+    NSKeyedUnarchiver *decoder = [[NSKeyedUnarchiver alloc] initForReadingFromData:data error:nil];
     RateLimiter *RL2 = [[RateLimiter alloc] initWithCoder:decoder];
     XCTAssertNotNil(RL2, @"Received an object from initWithCoder");
     XCTAssertEqualObjects(self.RL.config, RL2.config, @"config is the same after encoding and decoding");

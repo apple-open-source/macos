@@ -1,4 +1,4 @@
- //
+//
 //  SOSAccountTrustClassicIdentity.m
 //  Security
 //
@@ -10,10 +10,19 @@
 #import "Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
 #import "Security/SecureObjectSync/SOSAccountTrustClassic+Identity.h"
 #import "Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
+#if __OBJC2__
+#import "Analytics/Clients/SOSAnalytics.h"
+#endif // __OBJC2__
 
 #import "Security/SecureObjectSync/SOSViews.h"
 
 @implementation SOSAccountTrustClassic (Identity)
+
+-(bool)isLockedError:(NSError *)error {
+    return error &&
+    ([error.domain isEqualToString:(__bridge NSString*)kSecErrorDomain])
+    && error.code == errSecInteractionNotAllowed;
+}
 
 -(bool) updateFullPeerInfo:(SOSAccount*)account minimum:(CFSetRef)minimumViews excluded:(CFSetRef)excludedViews
 {
@@ -62,80 +71,150 @@
     return SOSFullPeerInfoCopyFullPeerInfo(self.fullPeerInfo);
 }
 
-- (SecKeyRef)randomPermanentFullECKey:(int)keysize name:(NSString *)name error:(CFErrorRef*)cferror
+- (SecKeyRef)randomPermanentFullECKey:(int)keysize name:(NSString *)name error:(CFErrorRef*)cferror CF_RETURNS_RETAINED
 {
     return GeneratePermanentFullECKey(keysize, (__bridge CFStringRef)name, cferror);
 }
 
+// Check that cached values of what is in keychain with what we have in the peer info,
+// if they ware the same, we could read the items while this process was alive, assume
+// all is swell.
+#if OCTAGON
+- (bool)haveConfirmedOctagonKeys
+{
+    bool haveSigningKey = false;
+    bool haveEncryptionKey = false;
+
+    SecKeyRef signingKey = SOSFullPeerInfoCopyOctagonPublicSigningKey(self.fullPeerInfo, NULL);
+    if (self.cachedOctagonSigningKey && CFEqualSafe(signingKey, self.cachedOctagonSigningKey)) {
+        haveSigningKey = true;
+    } else {
+        secerror("circleChange: No extant octagon signing key");
+    }
+
+    SecKeyRef encrytionKey = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(self.fullPeerInfo, NULL);
+    if (self.cachedOctagonEncryptionKey && CFEqualSafe(encrytionKey, self.cachedOctagonEncryptionKey)) {
+        haveEncryptionKey = true;
+    } else {
+        secerror("circleChange: No extant octagon encryption key");
+    }
+
+    CFReleaseNull(signingKey);
+    CFReleaseNull(encrytionKey);
+
+    return haveSigningKey && haveEncryptionKey;
+}
+#endif
+
 - (void)ensureOctagonPeerKeys:(SOSKVSCircleStorageTransport*)circleTransport
 {
+#if OCTAGON
     NSString* octagonKeyName;
-    SecKeyRef publicKey;
+    SecKeyRef octagonSigningFullKey = NULL;
+    SecKeyRef octagonEncryptionFullKey = NULL;
 
-    if (SOSFullPeerInfoHaveOctagonKeys(self.fullPeerInfo)) {
+    // check if we already confirmed the keys
+    if ([self haveConfirmedOctagonKeys]) {
         return;
     }
 
     bool changedSelf = false;
 
     CFErrorRef copyError = NULL;
-    publicKey = SOSFullPeerInfoCopyOctagonSigningKey(self.fullPeerInfo, &copyError);
-    if(copyError) {
+    octagonSigningFullKey = SOSFullPeerInfoCopyOctagonSigningKey(self.fullPeerInfo, &copyError);
+    if(copyError && ![self isLockedError:(__bridge NSError *)copyError]) {
         secerror("circleChange: Error fetching Octagon signing key: %@", copyError);
-        CFReleaseNull(copyError);
     }
 
-    if (publicKey == NULL) {
+    // Cache that public key we found, to so that we don't need to make the roundtrip though
+    // keychain to get them item, if we don't find a key, try to create a new key if the error
+    // is specifically "couldn't find key", "couldn't read key", or "something went very very wrong".
+    // Otherwise, log a fatal error.
+
+    if (octagonSigningFullKey) {
+        secnotice("circleChange", "Already have Octagon signing key");
+        CFReleaseNull(self->_cachedOctagonSigningKey);
+        _cachedOctagonSigningKey = SecKeyCopyPublicKey(octagonSigningFullKey);
+    } else if (octagonSigningFullKey == NULL && copyError &&
+        ((CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecItemNotFound) ||
+         (CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecDecode) ||
+         (CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecParam)))
+    {
         octagonKeyName = [NSString stringWithFormat:@"Octagon Peer Signing ID for %@", SOSCircleGetName(self.trustedCircle)];
         CFErrorRef cferror = NULL;
-        SecKeyRef octagonSigningFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
+        octagonSigningFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
         if(cferror || !octagonSigningFullKey) {
-            secerror("circleChange: Error upgrading Octagon signing key: %@", cferror);
+            secerror("circleChange: Error creating Octagon signing key: %@", cferror);
         } else {
             SOSFullPeerInfoUpdateOctagonSigningKey(self.fullPeerInfo, octagonSigningFullKey, &cferror);
             if(cferror) {
                 secerror("circleChange: Error upgrading Octagon signing key: %@", cferror);
+            } else {
+                secnotice("circleChange", "Successfully created new Octagon signing key");
             }
             changedSelf = true;
         }
 
         CFReleaseNull(cferror);
-        CFReleaseNull(octagonSigningFullKey);
+    } else if((octagonSigningFullKey == NULL || copyError) && ![self isLockedError:(__bridge NSError *)copyError]) {
+        secerror("error is too scary, not creating new Octagon signing key: %@", copyError);
+#if __OBJC2__
+            [[SOSAnalytics logger] logResultForEvent:@"SOSCheckOctagonSigningKey" hardFailure:true result:(__bridge NSError*)copyError];
+#endif // __OBJC2__
     }
-    CFReleaseNull(publicKey);
 
     CFReleaseNull(copyError);
-    publicKey = SOSFullPeerInfoCopyOctagonEncryptionKey(self.fullPeerInfo, &copyError);
-    if(copyError) {
+    CFReleaseNull(octagonSigningFullKey);
+
+    // Now do the same thing for encryption key
+
+    CFReleaseNull(copyError);
+    octagonEncryptionFullKey = SOSFullPeerInfoCopyOctagonEncryptionKey(self.fullPeerInfo, &copyError);
+    if(copyError && ![self isLockedError:(__bridge NSError *)copyError]) {
         secerror("circleChange: Error fetching Octagon encryption key: %@", copyError);
-        CFReleaseNull(copyError);
     }
 
-    if (publicKey == NULL) {
+    if (octagonEncryptionFullKey) {
+        secnotice("circleChange", "Already have Octagon encryption key");
+        CFReleaseNull(self->_cachedOctagonEncryptionKey);
+        _cachedOctagonEncryptionKey = SecKeyCopyPublicKey(octagonEncryptionFullKey);
+    } else if (octagonEncryptionFullKey == NULL && copyError &&
+        ((CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecItemNotFound) ||
+         (CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecDecode) ||
+         (CFEqualSafe(CFErrorGetDomain(copyError), kCFErrorDomainOSStatus) && CFErrorGetCode(copyError) == errSecParam)))
+    {
         octagonKeyName = [NSString stringWithFormat:@"Octagon Peer Encryption ID for %@", SOSCircleGetName(self.trustedCircle)];
         CFErrorRef cferror = NULL;
-        SecKeyRef octagonEncryptionFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
+        octagonEncryptionFullKey = [self randomPermanentFullECKey:384 name:octagonKeyName error:&cferror];
         if(cferror || !octagonEncryptionFullKey) {
-            secerror("circleChange: Error upgrading Octagon encryption key: %@", cferror);
+            secerror("circleChange: Error creating Octagon encryption key: %@", cferror);
         } else {
-
             SOSFullPeerInfoUpdateOctagonEncryptionKey(self.fullPeerInfo, octagonEncryptionFullKey, &cferror);
             if(cferror) {
                 secerror("circleChange: Error upgrading Octagon encryption key: %@", cferror);
+            } else {
+                secnotice("circleChange", "Successfully created new Octagon encryption key");
             }
             changedSelf = true;
         }
 
         CFReleaseNull(cferror);
-        CFReleaseNull(octagonEncryptionFullKey);
+
+    } else if((octagonEncryptionFullKey == NULL || copyError) && ![self isLockedError:(__bridge NSError *)copyError]) {
+        secerror("error is too scary, not creating new Octagon encryption key: %@", copyError);
+#if __OBJC2__
+            [[SOSAnalytics logger] logResultForEvent:@"SOSCheckOctagonEncryptionKey" hardFailure:true result:(__bridge NSError*)copyError];
+#endif
     }
-    CFReleaseNull(publicKey);
+    CFReleaseNull(copyError);
+    CFReleaseNull(octagonEncryptionFullKey);
 
     if(changedSelf) {
         [self modifyCircle:circleTransport err:NULL action:^bool (SOSCircleRef circle_to_change) {
             return SOSCircleUpdatePeerInfo(circle_to_change, SOSFullPeerInfoGetPeerInfo(self.fullPeerInfo));
         }];
     }
+#endif /* OCTAGON */
 }
 
 -(bool) ensureFullPeerAvailable:(CFDictionaryRef)gestalt deviceID:(CFStringRef)deviceID backupKey:(CFDataRef)backup err:(CFErrorRef *) error
@@ -157,12 +236,15 @@
             CFSetRef initialViews = SOSViewCopyViewSet(kViewSetInitial);
             
             self.fullPeerInfo = nil;
-            self.fullPeerInfo = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, gestalt, backup, initialViews, full_key, octagonSigningFullKey, octagonEncryptionFullKey, error);
+
+            // setting fullPeerInfo takes an extra ref, so...
+            SOSFullPeerInfoRef fpi = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, gestalt, backup, initialViews, full_key, octagonSigningFullKey, octagonEncryptionFullKey, error);
+            self.fullPeerInfo = fpi;
+            CFReleaseNull(fpi);
 
             CFDictionaryRef v2dictionaryTestUpdates = [self getValueFromExpansion:kSOSTestV2Settings err:NULL];
             if(v2dictionaryTestUpdates) SOSFullPeerInfoUpdateV2Dictionary(self.fullPeerInfo, v2dictionaryTestUpdates, NULL);
             CFReleaseNull(initialViews);
-            CFReleaseNull(full_key);
             
             CFSetRef pendingDefaultViews = SOSViewCopyViewSet(kViewSetDefault);
             [self pendEnableViewSet:pendingDefaultViews];

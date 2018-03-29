@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011-2013  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -22,7 +22,7 @@
 
 /*! \file */
 
-#if defined(BIND9) && defined(ISC_PLATFORM_USETHREADS)
+#if defined(ISC_PLATFORM_USETHREADS)
 void
 isc__taskmgr_pause(isc_taskmgr_t *taskmgr);
 
@@ -34,6 +34,6 @@ isc__taskmgr_ready(isc_taskmgr_t *taskmgr);
 
 isc_result_t
 isc__taskmgr_dispatch(isc_taskmgr_t *taskmgr);
-#endif /* !BIND9 || !ISC_PLATFORM_USETHREADS */
+#endif /* !ISC_PLATFORM_USETHREADS */
 
 #endif /* ISC_TASK_P_H */

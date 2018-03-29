@@ -78,7 +78,7 @@ public:
     virtual void didReachLayoutMilestone(WebKit::WebPageProxy&, WebCore::LayoutMilestones) { }
     
     virtual bool canAuthenticateAgainstProtectionSpaceInFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::WebProtectionSpace*) { return false; }
-    virtual void didReceiveAuthenticationChallengeInFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::AuthenticationChallengeProxy*) { }
+    virtual void didReceiveAuthenticationChallengeInFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::AuthenticationChallengeProxy&) { }
 
     virtual void didStartProgress(WebKit::WebPageProxy&) { }
     virtual void didChangeProgress(WebKit::WebPageProxy&) { }
@@ -89,9 +89,9 @@ public:
     virtual void processDidBecomeResponsive(WebKit::WebPageProxy&) { }
     virtual void processDidCrash(WebKit::WebPageProxy&) { }
 
-    virtual void didChangeBackForwardList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*, Vector<RefPtr<WebKit::WebBackForwardListItem>>) { }
-    virtual bool shouldKeepCurrentBackForwardListItemInList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*) { return true; }
-    virtual void willGoToBackForwardListItem(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*, API::Object*) { }
+    virtual void didChangeBackForwardList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*, Vector<Ref<WebKit::WebBackForwardListItem>>&&) { }
+    virtual bool shouldKeepCurrentBackForwardListItemInList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem&) { return true; }
+    virtual void willGoToBackForwardListItem(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem&, API::Object*) { }
 
     virtual void didNavigateWithNavigationData(WebKit::WebPageProxy&, const WebKit::WebNavigationDataStore&, WebKit::WebFrameProxy&) { }
     virtual void didPerformClientRedirect(WebKit::WebPageProxy&, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy&) { }
@@ -104,7 +104,7 @@ public:
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     virtual WebKit::PluginModuleLoadPolicy pluginLoadPolicy(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy currentPluginLoadPolicy, API::Dictionary*, WTF::String& /* unavailabilityDescription */) { return currentPluginLoadPolicy; }
-    virtual void didFailToInitializePlugin(WebKit::WebPageProxy&, API::Dictionary*) { }
+    virtual void didFailToInitializePlugin(WebKit::WebPageProxy&, API::Dictionary&) { }
     virtual void didBlockInsecurePluginVersion(WebKit::WebPageProxy&, API::Dictionary*) { }
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 

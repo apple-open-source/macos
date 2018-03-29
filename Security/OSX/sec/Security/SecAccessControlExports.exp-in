@@ -2,6 +2,8 @@
 //  sec
 //
 
+_SecAccessConstraintCreateBiometryAny
+_SecAccessConstraintCreateBiometryCurrentSet
 _SecAccessConstraintCreateKofN
 _SecAccessConstraintCreatePasscode
 _SecAccessConstraintCreatePolicy

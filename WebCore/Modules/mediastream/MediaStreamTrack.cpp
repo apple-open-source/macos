@@ -54,7 +54,6 @@ Ref<MediaStreamTrack> MediaStreamTrack::create(ScriptExecutionContext& context, 
 MediaStreamTrack::MediaStreamTrack(ScriptExecutionContext& context, Ref<MediaStreamTrackPrivate>&& privateTrack)
     : ActiveDOMObject(&context)
     , m_private(WTFMove(privateTrack))
-    , m_weakPtrFactory(this)
     , m_taskQueue(context)
 {
     suspendIfNeeded();
@@ -118,8 +117,11 @@ bool MediaStreamTrack::ended() const
     return m_ended || m_private->ended();
 }
 
-Ref<MediaStreamTrack> MediaStreamTrack::clone()
+RefPtr<MediaStreamTrack> MediaStreamTrack::clone()
 {
+    if (!scriptExecutionContext())
+        return nullptr;
+
     return MediaStreamTrack::create(*scriptExecutionContext(), m_private->clone());
 }
 
@@ -168,6 +170,9 @@ MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings(Document& document
         result.deviceId = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(settings.deviceId(), document.deviceIDHashSalt());
     if (settings.supportsGroupId())
         result.groupId = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(settings.groupId(), document.deviceIDHashSalt());
+
+    // FIXME: shouldn't this include displaySurface and logicalSurface?
+
     return result;
 }
 

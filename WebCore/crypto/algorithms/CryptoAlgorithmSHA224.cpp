@@ -28,7 +28,6 @@
 
 #if ENABLE(SUBTLE_CRYPTO)
 
-#include "ExceptionCode.h"
 #include "ScriptExecutionContext.h"
 #include <pal/crypto/CryptoDigest.h>
 
@@ -61,18 +60,6 @@ void CryptoAlgorithmSHA224::digest(Vector<uint8_t>&& message, VectorCallback&& c
             context.deref();
         });
     });
-}
-
-ExceptionOr<void> CryptoAlgorithmSHA224::digest(const CryptoAlgorithmParametersDeprecated&, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback)
-{
-    auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_224);
-    if (!digest) {
-        failureCallback();
-        return { };
-    }
-    digest->addBytes(data.first, data.second);
-    callback(digest->computeHash());
-    return { };
 }
 
 }

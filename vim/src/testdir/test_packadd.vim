@@ -1,9 +1,8 @@
 " Tests for 'packpath' and :packadd
 
-set belloff=all
 
 func SetUp()
-  let s:topdir = expand('%:h') . '/Xdir'
+  let s:topdir = getcwd() . '/Xdir'
   exe 'set packpath=' . s:topdir
   let s:plugdir = s:topdir . '/pack/mine/opt/mytest'
 endfunc

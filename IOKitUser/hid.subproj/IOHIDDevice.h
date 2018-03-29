@@ -458,6 +458,33 @@ IOReturn IOHIDDeviceGetValue(
                                 IOHIDValueRef _Nonnull * _Nonnull   pValue)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
+
+typedef CF_ENUM(uint32_t, IOHIDDeviceGetValueOptions) {
+    kIOHIDDeviceGetValueWithUpdate        = 0x00020000,   //  force value update (get report will be send to the device)
+    kIOHIDDeviceGetValueWithoutUpdate     = 0x00040000    //  get last value
+};
+
+
+/*! @function   IOHIDDeviceGetValueWithOptions
+ @abstract   Gets a value for an element.
+ @discussion This method behaves synchronously and return back immediately
+ for input type element.  If requesting a value for a feature
+ element, this will block until the report has been issued to the
+ device.  If obtaining values for multiple elements you may want
+ to consider using IOHIDDeviceCopyValueMultiple or IOHIDTransaction.
+ @param      device Reference to an IOHIDDevice.
+ @param      element IOHIDElementRef whose value is to be obtained.
+ @param      pValue Pointer to IOHIDValueRef to be obtained.
+ @param      options (see IOHIDDeviceGetValueOptions).
+ @result     Returns kIOReturnSuccess if successful.
+ */
+IOReturn IOHIDDeviceGetValueWithOptions (
+                                        IOHIDDeviceRef                      device,
+                                        IOHIDElementRef                     element,
+                                        IOHIDValueRef  _Nonnull * _Nonnull  pValue,
+                                        uint32_t                            options)
+AVAILABLE_MAC_OS_X_VERSION_10_13_AND_LATER;
+
 /*! @function   IOHIDDeviceCopyValueMultiple
     @abstract   Copies a values for multiple elements.
     @discussion This method behaves synchronously and return back immediately

@@ -106,6 +106,8 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *, con
 
 #define COPYFILE_RUN_IN_PLACE	(1<<26)
 
+#define COPYFILE_DATA_SPARSE	(1<<27)
+
 #define COPYFILE_VERBOSE	(1<<30)
 
 #define	COPYFILE_RECURSE_ERROR	0

@@ -273,7 +273,7 @@ dt_pragma_depends(const char *prname, dt_node_t *cnp)
 				    "failed to add dependency %s:%s\n", lib,
 				    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			}
-	} else {
+		} else {
 			/*
 			 * By this point we have already performed a topological
 			 * sort of the dependencies; we process this directive

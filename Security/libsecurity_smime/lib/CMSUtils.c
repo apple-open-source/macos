@@ -86,6 +86,7 @@ OSStatus cmsRtnToOSStatusDefault(OSStatus smimeRtn,		// from libsecurity_smime
     if(smimeRtn == SECFailure) {
         /* This is a SECStatus. Try to get detailed error info. */
         smimeRtn = PORT_GetError();
+        PORT_SetError(0); // clean up the thread since we're handling this error
         if(smimeRtn == 0) {
             /* S/MIME just gave us generic error; no further info available; punt. */
             dprintf("cmsRtnToOSStatus: SECFailure, no status avilable\n");

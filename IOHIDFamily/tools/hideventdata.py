@@ -587,6 +587,163 @@ def GetEventForName(events, name):
             return event
     return None
 
+#
+# create variable name for field
+#
+def GetVarName(field, fieldName, eventName):
+    remStr = "kIOHIDEventField" + eventName
+    nameString = ''
+    if remStr in fieldName and "Length" not in fieldName:
+        nameString = fieldName.replace(remStr, '')
+    else:
+        nameString = field['name']
+    
+    return nameString.lower()
+
+def getVarType(field):
+    if field['kind'] == "array":
+        return "uint8_t"
+    
+    return "NSNumber"
+
+def getNSSubType(field):
+    if field['kind'] == "array":
+        return "Array"
+    elif field['type'] == "IOFixed" or field['type'] == "IOHIDDouble":
+        return "Float"
+    
+    return "Integer"
+
+def getNSProperties(field):
+    properties = []
+    if "immutable" in field.keys():
+        properties.append("readonly")
+    
+    return properties
+
+def GenHeader(fieldDict, eventName):
+    print "@interface HID%sEvent : HIDEvent\n" % (eventName)
+    
+    for fieldName in fieldDict.keys():
+        varName         = fieldDict[fieldName]['var_name']
+        varType         = fieldDict[fieldName]['var_type']
+        nsProperties    = fieldDict[fieldName]['ns_properties']
+        
+        sys.stdout.write("@property ")
+        if nsProperties:
+            sys.stdout.write("(")
+            for property in nsProperties:
+                sys.stdout.write(property)
+            sys.stdout.write(") ")
+        print "%s *%s;" % (varType, varName)
+    
+    print "\n@end\n\n"
+
+def GenObject(fieldDict, eventName):
+    print "@implementation HID%sEvent\n" % (eventName)
+	
+    for fieldName in fieldDict.keys():
+        varName         = fieldDict[fieldName]['var_name']
+        varType         = fieldDict[fieldName]['var_type']
+        nsSubType       = fieldDict[fieldName]['ns_subtype']
+        nsProperties    = fieldDict[fieldName]['ns_properties']
+        numType         = nsSubType[0].lower() + nsSubType[1:]
+        
+        if numType == 'integer':
+            numType = 'unsignedInt'
+        
+        print "- (%s *)%s {" % (varType, varName)
+        if nsSubType == "Array":
+            print "    return IOHIDEventGetDataValue(self->eventRef, %s);" % (fieldName)
+        else:
+            print "    return [NSNumber numberWith%s:IOHIDEventGet%sValue(self->eventRef, %s)];" % (
+                nsSubType, nsSubType, fieldName)
+        print "}\n"
+        
+        if nsSubType == "Array":
+            print "- (NSString *)%sstr {" % (varName)
+            print "    NSString *%sstr = [[NSString alloc] init];" % (varName)
+            print "    uint8_t *%s = self.%s;\n" % (varName, varName)
+            print "    for (uint32_t i = 0; i < self.length.unsignedIntValue; i++) {"
+            print '        %sstr = [%sstr stringByAppendingString:[NSString stringWithFormat:@"%%02x ", %s[i]]];' % (
+                    varName, varName, varName)
+            print "    }"
+            print "\n    return [%sstr substringToIndex:%sstr.length-1];" % (varName, varName)
+            print "}\n"
+        
+        if "readonly" not in nsProperties:
+            setName = varName[0].upper() + varName[1:]
+            print "- (void)set%s:(%s *)%s {" % (setName, varType, varName)
+            print "    IOHIDEventSet%sValue(self->eventRef, %s, %s.%sValue);" % (
+                nsSubType, fieldName, varName, numType)
+            print "}\n"
+    
+    print "- (NSString *)description {"
+    print '    return [NSString stringWithFormat:@"%@ ',
+    for fieldName in fieldDict.keys():
+        varName         = fieldDict[fieldName]['var_name']
+        
+        if fieldName == fieldDict.keys()[-1]:
+            sys.stdout.write("%s:%%@" % (varName))
+        else:
+            sys.stdout.write("%s:%%@ " % (varName))
+
+    print '", [super description], ',
+    for fieldName in fieldDict.keys():
+        varName         = fieldDict[fieldName]['var_name']
+        nsSubType       = fieldDict[fieldName]['ns_subtype']
+        arrayStr        = ''
+        
+        if nsSubType == "Array":
+            arrayStr = "str"
+        
+        if fieldName == fieldDict.keys()[-1]:
+            sys.stdout.write("self.%s%s" % (varName, arrayStr))
+        else:
+            sys.stdout.write("self.%s%s, " % (varName, arrayStr))
+    
+    print "];\n}\n\n@end\n\n"
+
+def GenObjectData(event):
+    fieldDict = {}
+
+    if hasDeclaration(event):
+        return
+
+    fields = []
+    GetEventFieldsList(event, fields)
+
+    for field in fields:
+        if hasDefinition(field):
+            continue
+
+        fieldName       = GetEventFieldNameString(field)
+        varName         = GetVarName(field, fieldName, event['name'])
+        varType         = getVarType(field)
+        nsSubType       = getNSSubType(field)
+        nsProperties    = getNSProperties(field)
+        
+        if field['kind'] == "array":
+            nsProperties.append("readonly")
+
+        fieldDict[fieldName] = { "var_name": varName, 
+                                 "var_type": varType, 
+                                 "ns_subtype": nsSubType, 
+                                 "ns_properties": nsProperties }
+    
+    return fieldDict
+
+def GenHeaders(events):
+    for event in events:
+        objData = GenObjectData(event)
+        if objData:
+            GenHeader(objData, event['name'])
+
+def GenObjects(events):
+    for event in events:
+        objData = GenObjectData(event)
+        if objData:
+            GenObject(objData, event['name'])
 
 def main(argv):
     file = None
@@ -619,6 +776,10 @@ def main(argv):
             GenAccessMacro(events)
         elif type == "fields":
             GenFieldsDefs(events)
+        elif type == "objectHeaders":
+            GenHeaders(events)
+        elif type == "objects":
+            GenObjects(events)
 
 
 if __name__ == "__main__":

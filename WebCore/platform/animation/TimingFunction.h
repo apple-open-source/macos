@@ -27,15 +27,17 @@
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
-namespace WebCore {
-
+namespace WTF {
 class TextStream;
+}
+
+namespace WebCore {
 
 class TimingFunction : public RefCounted<TimingFunction> {
 public:
     virtual Ref<TimingFunction> clone() const = 0;
 
-    virtual ~TimingFunction() { }
+    virtual ~TimingFunction() = default;
 
     enum TimingFunctionType { LinearFunction, CubicBezierFunction, StepsFunction, SpringFunction };
     TimingFunctionType type() const { return m_type; }
@@ -274,6 +276,6 @@ private:
     double m_initialVelocity;
 };
 
-WEBCORE_EXPORT TextStream& operator<<(TextStream&, const TimingFunction&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const TimingFunction&);
 
 } // namespace WebCore

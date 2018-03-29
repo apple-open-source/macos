@@ -71,7 +71,7 @@
 /* #undef HAVE_BSD_AUTH_H */
 
 /* Define to 1 to enable BSM audit support. */
-/* #undef HAVE_BSM_AUDIT */
+#define HAVE_BSM_AUDIT 1
 
 /* Define to 1 if you have the `clock_gettime' function. */
 #define HAVE_CLOCK_GETTIME 1

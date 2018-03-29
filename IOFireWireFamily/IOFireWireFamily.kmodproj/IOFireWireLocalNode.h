@@ -79,7 +79,7 @@ protected:
 	ExpansionData * reserved;
 
     virtual bool init( IOFireWireLocalNode * primary );
-	virtual	void free();
+	virtual	void free(void) APPLE_KEXT_OVERRIDE;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireLocalNodeAux, 0);
@@ -112,28 +112,28 @@ public:
 		/*
 		* Standard nub initialization
 		*/
-		virtual bool init(OSDictionary * propTable);
-		virtual bool attach(IOService * provider );
+		virtual bool init(OSDictionary * propTable) APPLE_KEXT_OVERRIDE;
+		virtual bool attach(IOService * provider ) APPLE_KEXT_OVERRIDE;
 	
 		virtual void handleClose(   IOService *	  forClient,
-								IOOptionBits	  options ) ;
+								IOOptionBits	  options ) APPLE_KEXT_OVERRIDE;
 		virtual bool handleOpen( 	IOService *	  forClient,
 								IOOptionBits	  options,
-								void *		  arg ) ;
-		virtual bool handleIsOpen(  const IOService * forClient ) const;
+								void *		  arg ) APPLE_KEXT_OVERRIDE;
+		virtual bool handleIsOpen(  const IOService * forClient ) const APPLE_KEXT_OVERRIDE;
 	
 		/*
 		* Trick method to create protocol user clients
 		*/
-		virtual IOReturn setProperties( OSObject * properties );
+		virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
 protected:
 	
-	virtual IOFireWireNubAux * createAuxiliary( void );
+	virtual IOFireWireNubAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
 
 public:
-	virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
-	virtual void free();
+	virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
+	virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 protected:
 	OSSet * fOpenClients;

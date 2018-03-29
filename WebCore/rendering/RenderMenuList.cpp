@@ -27,6 +27,7 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityMenuList.h"
+#include "AccessibleNode.h"
 #include "CSSFontSelector.h"
 #include "Chrome.h"
 #include "Frame.h"
@@ -45,6 +46,7 @@
 #include "StyleResolver.h"
 #include "TextRun.h"
 #include <math.h>
+#include <wtf/IsoMallocInlines.h>
 
 #if PLATFORM(IOS)
 #include "LocalizedStrings.h"
@@ -53,6 +55,8 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMenuList);
 
 #if PLATFORM(IOS)
 static size_t selectedOptionCount(const RenderMenuList& renderMenuList)
@@ -71,11 +75,8 @@ static size_t selectedOptionCount(const RenderMenuList& renderMenuList)
 
 RenderMenuList::RenderMenuList(HTMLSelectElement& element, RenderStyle&& style)
     : RenderFlexibleBox(element, WTFMove(style))
-    , m_buttonText(nullptr)
-    , m_innerBlock(nullptr)
     , m_needsOptionsWidthUpdate(true)
     , m_optionsWidth(0)
-    , m_lastActiveIndex(-1)
 #if !PLATFORM(IOS)
     , m_popupIsVisible(false)
 #endif
@@ -108,9 +109,10 @@ void RenderMenuList::createInnerBlock()
 
     // Create an anonymous block.
     ASSERT(!firstChild());
-    m_innerBlock = createAnonymousBlock();
+    auto newInnerBlock = createAnonymousBlock();
+    m_innerBlock = makeWeakPtr(*newInnerBlock.get());
     adjustInnerStyle();
-    RenderFlexibleBox::addChild(m_innerBlock);
+    RenderFlexibleBox::addChild(WTFMove(newInnerBlock));
 }
 
 void RenderMenuList::adjustInnerStyle()
@@ -135,7 +137,7 @@ void RenderMenuList::adjustInnerStyle()
         // Items in the popup will not respect the CSS text-align and direction properties,
         // so we must adjust our own style to match.
         innerStyle.setTextAlign(LEFT);
-        TextDirection direction = (m_buttonText && m_buttonText->text()->defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
+        TextDirection direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
         innerStyle.setDirection(direction);
 #if PLATFORM(IOS)
     } else if (document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
@@ -143,7 +145,7 @@ void RenderMenuList::adjustInnerStyle()
         TextDirection direction;
         EUnicodeBidi unicodeBidi;
         if (multiple() && selectedOptionCount(*this) != 1) {
-            direction = (m_buttonText && m_buttonText->text()->defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
+            direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
             unicodeBidi = UBNormal;
         } else if (m_optionStyle) {
             direction = m_optionStyle->direction();
@@ -172,23 +174,22 @@ HTMLSelectElement& RenderMenuList::selectElement() const
     return downcast<HTMLSelectElement>(nodeForNonAnonymous());
 }
 
-void RenderMenuList::addChild(RenderObject* newChild, RenderObject* beforeChild)
+void RenderMenuList::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
     createInnerBlock();
-    m_innerBlock->addChild(newChild, beforeChild);
+    auto& child = *newChild;
+    m_innerBlock->addChild(WTFMove(newChild), beforeChild);
     ASSERT(m_innerBlock == firstChild());
 
     if (AXObjectCache* cache = document().existingAXObjectCache())
-        cache->childrenChanged(this, newChild);
+        cache->childrenChanged(this, &child);
 }
 
-void RenderMenuList::removeChild(RenderObject& oldChild)
+RenderPtr<RenderObject> RenderMenuList::takeChild(RenderObject& oldChild)
 {
-    if (&oldChild == m_innerBlock || !m_innerBlock) {
-        RenderFlexibleBox::removeChild(oldChild);
-        m_innerBlock = 0;
-    } else
-        m_innerBlock->removeChild(oldChild);
+    if (!m_innerBlock || &oldChild == m_innerBlock)
+        return RenderFlexibleBox::takeChild(oldChild);
+    return m_innerBlock->takeChild(oldChild);
 }
 
 void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -217,7 +218,7 @@ void RenderMenuList::updateOptionsWidth()
             continue;
 
         String text = downcast<HTMLOptionElement>(*element).textIndentedToRespectGroupLabel();
-        applyTextTransform(style(), text, ' ');
+        text = applyTextTransform(style(), text, ' ');
         if (theme().popupOptionSupportsTextIndent()) {
             // Add in the option's text indent.  We can't calculate percentage values for now.
             float optionWidth = 0;
@@ -295,9 +296,11 @@ void RenderMenuList::setText(const String& s)
     if (m_buttonText)
         m_buttonText->setText(textToUse.impl(), true);
     else {
-        m_buttonText = new RenderText(document(), textToUse);
-        addChild(m_buttonText);
+        auto newButtonText = createRenderer<RenderText>(document(), textToUse);
+        m_buttonText = makeWeakPtr(*newButtonText);
+        addChild(WTFMove(newButtonText));
     }
+
     adjustInnerStyle();
 }
 
@@ -370,9 +373,6 @@ void RenderMenuList::showPopup()
     if (m_popupIsVisible)
         return;
 
-    if (document().page()->chrome().hasOpenedPopup())
-        return;
-
     // Create m_innerBlock here so it ends up as the first child.
     // This is important because otherwise we might try to create m_innerBlock
     // inside the showPopup call and it would fail.
@@ -425,7 +425,11 @@ void RenderMenuList::didSetSelectedIndex(int listIndex)
 
 void RenderMenuList::didUpdateActiveOption(int optionIndex)
 {
-    if (!AXObjectCache::accessibilityEnabled() || !document().existingAXObjectCache())
+    if (!AXObjectCache::accessibilityEnabled())
+        return;
+
+    auto* axCache = document().existingAXObjectCache();
+    if (!axCache)
         return;
 
     if (m_lastActiveIndex == optionIndex)
@@ -436,27 +440,24 @@ void RenderMenuList::didUpdateActiveOption(int optionIndex)
     if (listIndex < 0 || listIndex >= static_cast<int>(selectElement().listItems().size()))
         return;
 
-    if (AXObjectCache* cache = document().existingAXObjectCache()) {
-        if (AccessibilityMenuList* menuList = downcast<AccessibilityMenuList>(cache->get(this)))
-            menuList->didUpdateActiveOption(optionIndex);
-    }
+    if (auto* menuList = downcast<AccessibilityMenuList>(axCache->get(this)))
+        menuList->didUpdateActiveOption(optionIndex);
 }
 
 String RenderMenuList::itemText(unsigned listIndex) const
 {
-    const Vector<HTMLElement*>& listItems = selectElement().listItems();
+    auto& listItems = selectElement().listItems();
     if (listIndex >= listItems.size())
         return String();
 
     String itemString;
-    Element* element = listItems[listIndex];
-    if (is<HTMLOptGroupElement>(*element))
-        itemString = downcast<HTMLOptGroupElement>(*element).groupLabelText();
-    else if (is<HTMLOptionElement>(*element))
-        itemString = downcast<HTMLOptionElement>(*element).textIndentedToRespectGroupLabel();
+    auto& element = *listItems[listIndex];
+    if (is<HTMLOptGroupElement>(element))
+        itemString = downcast<HTMLOptGroupElement>(element).groupLabelText();
+    else if (is<HTMLOptionElement>(element))
+        itemString = downcast<HTMLOptionElement>(element).textIndentedToRespectGroupLabel();
 
-    applyTextTransform(style(), itemString, ' ');
-    return itemString;
+    return applyTextTransform(style(), itemString, ' ');
 }
 
 String RenderMenuList::itemLabel(unsigned) const
@@ -475,7 +476,7 @@ String RenderMenuList::itemAccessibilityText(unsigned listIndex) const
     const Vector<HTMLElement*>& listItems = selectElement().listItems();
     if (listIndex >= listItems.size())
         return String();
-    return listItems[listIndex]->attributeWithoutSynchronization(aria_labelAttr);
+    return AccessibleNode::effectiveStringValueForElement(*listItems[listIndex], AXPropertyName::Label);
 }
     
 String RenderMenuList::itemToolTip(unsigned listIndex) const

@@ -255,15 +255,15 @@ bool SOSTestDeviceEngineLoad(SOSTestDeviceRef td, CFErrorRef *error) {
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
     setup("create message");
     CFErrorRef error = NULL;
-    SOSEnginePeerMessageSentBlock sent = NULL;
+    SOSEnginePeerMessageSentCallback* sent = NULL;
     CFDataRef msgData;
     CFMutableArrayRef attributeList = NULL;
     ok(msgData = SOSEngineCreateMessageToSyncToPeer(td->ds->engine, peerID, &attributeList, &sent, &error),
        "create message to %@: %@", peerID, error);
-    if (sent)
-        sent(true);
 
-    Block_release(sent);
+    SOSEngineMessageCallCallback(sent, true);
+    SOSEngineFreeMessageCallback(sent);
+
     return msgData;
 }
 

@@ -173,10 +173,13 @@ void _IOHIDDictionaryAddSInt32 (CFMutableDictionaryRef dict, CFStringRef key, SI
 CF_EXPORT
 void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SInt64 value);
 
+CF_EXPORT
+void _IOHIDArrayAppendSInt64 (CFMutableArrayRef array, SInt64 value);
+
 typedef struct {
     CFRuntimeBase               cfBase;
-    uint32_t                    extRetainCount;
-    uint32_t                    intRetainCount;
+    volatile uint32_t           ref;
+    volatile uint32_t           xref;
 } IOHIDObjectBase;
 
 typedef struct {
@@ -191,9 +194,28 @@ CFTypeRef _IOHIDObjectInternalRetain (CFTypeRef cf);
 CF_EXPORT
 void _IOHIDObjectInternalRelease (CFTypeRef cf);
 
+CF_EXPORT
+uint32_t _IOHIDObjectExtRetainCount (intptr_t op, CFTypeRef cf);
+
+CF_EXPORT
+uint32_t _IOHIDObjectIntRetainCount (intptr_t op, CFTypeRef cf);
+
 uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isInternal);
 
+CF_EXPORT
 CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * _Nullable category);
+
+typedef void (^IOHIDCFSetBlock) (CFTypeRef value);
+
+void _IOHIDCFSetApplyBlock (CFSetRef set, IOHIDCFSetBlock block);
+
+typedef void (^IOHIDCFDictionaryBlock) (const void * key, const void * value);
+
+void _IOHIDCFDictionaryApplyBlock (CFDictionaryRef set, IOHIDCFDictionaryBlock block);
+
+const void * _IOHIDObjectInternalRetainCallback (CFAllocatorRef allocator, const void * cf);
+
+void _IOHIDObjectInternalReleaseCallback (CFAllocatorRef allocator, const void * cf);
 
 
 CF_IMPLICIT_BRIDGING_DISABLED

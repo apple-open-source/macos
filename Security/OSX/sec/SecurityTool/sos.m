@@ -34,6 +34,7 @@
 #import <Security/SecItemPriv.h>
 #import <Security/SecureObjectSync/SOSTypes.h>
 #import <Security/SecureObjectSync/SOSControlHelper.h>
+#import <ipc/securityd_client.h>
 #import <err.h>
 #import <getopt.h>
 
@@ -48,18 +49,15 @@
 
 @implementation SOSStatus
 
-- (instancetype) initWithEndpoint:(xpc_endpoint_t)endpoint
+- (instancetype) init
 {
     if ((self = [super init]) == NULL)
         return NULL;
 
     NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SOSControlProtocol)];
     _SOSControlSetupInterface(interface);
-    NSXPCListenerEndpoint *listenerEndpoint = [[NSXPCListenerEndpoint alloc] init];
 
-    [listenerEndpoint _setEndpoint:endpoint];
-
-    self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:listenerEndpoint];
+    self.connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydSOSServiceName) options:0];
     if (self.connection == NULL)
         return NULL;
 
@@ -146,11 +144,7 @@ command_sos_stats(__unused int argc, __unused char * const * argv)
     @autoreleasepool {
         int option_index = 0, ch;
 
-        xpc_endpoint_t endpoint = _SecSecuritydCopySOSStatusEndpoint(NULL);
-        if (endpoint == NULL)
-            errx(1, "no SOS endpoint");
-
-        SOSStatus *control = [[SOSStatus alloc] initWithEndpoint:endpoint];
+        SOSStatus *control = [[SOSStatus alloc] init];
 
         bool asPlist = false;
         struct option long_options[] =
@@ -170,7 +164,7 @@ command_sos_stats(__unused int argc, __unused char * const * argv)
                 default:
                 {
                     usage("sos-stats", long_options);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
             }
         }
@@ -216,16 +210,12 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                 default:
                 {
                     usage("sos-control", long_options);
-                    return 2;
+                    return SHOW_USAGE_MESSAGE;
                 }
             }
         }
         
-        xpc_endpoint_t endpoint = _SecSecuritydCopySOSStatusEndpoint(NULL);
-        if (endpoint == NULL)
-            errx(1, "no SOS endpoint");
-        
-        SOSStatus *control = [[SOSStatus alloc] initWithEndpoint:endpoint];
+        SOSStatus *control = [[SOSStatus alloc] init];
         if (control == NULL)
             errx(1, "no SOS control object");
 
@@ -294,13 +284,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
 
 int command_watchdog(int argc, char* const * argv)
 {
-    xpc_endpoint_t endpoint = _SecSecuritydCopySOSStatusEndpoint(NULL);
-    if (!endpoint) {
-        errx(1, "no SOS endpoint");
-        return 0;
-    }
-
-    SOSStatus* control = [[SOSStatus alloc] initWithEndpoint:endpoint];
+    SOSStatus* control = [[SOSStatus alloc] init];
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
     if (argc < 3) {

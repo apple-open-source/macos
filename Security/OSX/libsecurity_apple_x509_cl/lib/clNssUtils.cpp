@@ -50,7 +50,6 @@ void *ArenaAllocator::malloc(size_t len) throw(std::bad_alloc)
 /* intentionally not implemented, should never be called */
 void ArenaAllocator::free(void *p) throw()
 {
-	throw std::bad_alloc();
 }
 	
 void *ArenaAllocator::realloc(void *p, size_t len) throw(std::bad_alloc)

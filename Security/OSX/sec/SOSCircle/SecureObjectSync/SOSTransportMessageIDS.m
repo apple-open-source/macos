@@ -82,6 +82,7 @@ static HandleIDSMessageReason checkMessageValidity(SOSAccount* account, CFString
                     return;
                 }
                 else if(CFStringCompare(fromDeviceID, deviceID, 0) != 0){ //IDSids do not match, ghost
+                    secnotice("ids transport", "deviceIDMisMatch");
                     reason = kHandleIDSmessageDeviceIDMismatch;
                     CFReleaseNull(deviceID);
                     return;
@@ -92,6 +93,9 @@ static HandleIDSMessageReason checkMessageValidity(SOSAccount* account, CFString
                     CFReleaseNull(deviceID);
                     reason = kHandleIDSMessageSuccess;
                     return;
+                }
+                else{
+                    secerror("?? deviceID:%@, pID: %@, fromPeerID: %@, fromDeviceID: %@", deviceID, pID, fromPeerID, fromDeviceID);
                 }
             }
         }
@@ -109,6 +113,7 @@ static HandleIDSMessageReason checkMessageValidity(SOSAccount* account, CFString
     CFStringRef deviceIDKey = CFStringCreateWithCString(kCFAllocatorDefault, kMessageKeyDeviceID, kCFStringEncodingASCII);
     CFStringRef sendersPeerIDKey = CFStringCreateWithCString(kCFAllocatorDefault, kMessageKeySendersPeerID, kCFStringEncodingASCII);
     CFStringRef ourPeerIdKey = CFStringCreateWithCString(kCFAllocatorDefault, kMessageKeyPeerID, kCFStringEncodingASCII);
+    NSString *errMessage = nil;
 
     HandleIDSMessageReason result = kHandleIDSMessageSuccess;
 
@@ -120,10 +125,10 @@ static HandleIDSMessageReason checkMessageValidity(SOSAccount* account, CFString
     CFStringRef peerID = NULL;
     SOSPeerInfoRef theirPeer = NULL;
 
-    require_action_quiet(fromDeviceID, exit, result = kHandleIDSMessageDontHandle);
-    require_action_quiet(fromPeerID, exit, result = kHandleIDSMessageDontHandle);
-    require_action_quiet(messageData && CFDataGetLength(messageData) != 0, exit, result = kHandleIDSMessageDontHandle);
-    require_action_quiet(SOSAccountHasFullPeerInfo(account, error), exit, result = kHandleIDSMessageNotReady);
+    require_action_quiet(fromDeviceID, exit, result = kHandleIDSMessageDontHandle; errMessage = @"Missing device name");
+    require_action_quiet(fromPeerID, exit, result = kHandleIDSMessageDontHandle; errMessage = @"Missing from peer id");
+    require_action_quiet(messageData && CFDataGetLength(messageData) != 0, exit, result = kHandleIDSMessageDontHandle; errMessage = @"no message data");
+    require_action_quiet(SOSAccountHasFullPeerInfo(account, error), exit, result = kHandleIDSMessageNotReady; errMessage = @"no full perinfo");
     require_action_quiet(ourPeerID && [account.peerID isEqual: (__bridge NSString*) ourPeerID], exit, result = kHandleIDSMessageDontHandle; secnotice("IDS Transport","ignoring message for: %@", ourPeerID));
 
     require_quiet((result = checkMessageValidity( account,  fromDeviceID, fromPeerID, &peerID, &theirPeer)) == kHandleIDSMessageSuccess, exit);
@@ -170,6 +175,10 @@ static HandleIDSMessageReason checkMessageValidity(SOSAccount* account, CFString
     }
 
 exit:
+
+    if(errMessage != nil){
+        secerror("%@", errMessage);
+    }
     CFReleaseNull(ourPeerIdKey);
     CFReleaseNull(sendersPeerIDKey);
     CFReleaseNull(deviceIDKey);
@@ -236,9 +245,15 @@ static bool sendToPeer(SOSMessageIDS* transport, bool shouldUseAckModel, CFStrin
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
 
     secnotice("IDS Transport", "Starting");
+
     SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.sendids"), 1);
 
-    SOSCloudKeychainSendIDSMessage(messagetoSend, deviceID, ourPeerID, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [transport SOSTransportMessageIDSGetFragmentationPreference:transport], ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
+    CFStringRef myDeviceID =  CFRetainSafe((__bridge CFStringRef)account.deviceID);
+    if(!myDeviceID){
+        myDeviceID = SOSPeerInfoCopyDeviceID(account.peerInfo);
+    }
+
+    SOSCloudKeychainSendIDSMessage(messagetoSend, deviceID, ourPeerID, myDeviceID, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [transport SOSTransportMessageIDSGetFragmentationPreference:transport], ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
         success = (sync_error == NULL);
         if (sync_error && error) {
             CFRetainAssign(*error, sync_error);
@@ -260,7 +275,7 @@ static bool sendToPeer(SOSMessageIDS* transport, bool shouldUseAckModel, CFStrin
     else{
         secnotice("IDS Transport", "Sent message to peer!");
     }
-    
+    CFReleaseNull(myDeviceID);
     CFReleaseNull(messagetoSend);
     CFReleaseNull(operation);
     CFReleaseNull(operationData);
@@ -357,7 +372,7 @@ static bool sendToPeer(SOSMessageIDS* transport, bool shouldUseAckModel, CFStrin
 {
     SOSAccountTrustClassic* trust = acct.trust;
     CFStringRef deviceID = SOSPeerInfoCopyDeviceID(trust.peerInfo);
-    bool hasDeviceID = deviceID != NULL && CFStringGetLength(deviceID) != 0;
+    bool hasDeviceID = (deviceID != NULL && CFStringGetLength(deviceID) != 0) || account.deviceID;
     CFReleaseNull(deviceID);
 
     if(!hasDeviceID){

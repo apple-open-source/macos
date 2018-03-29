@@ -73,6 +73,7 @@ const char *kMessageKeyDeviceID = "deviceID";
 const char *kMessageKeyPeerID = "peerID";
 const char *kMessageKeySendersPeerID = "sendersPeerID";
 const char *kMessageKeyAccountUUID = "AcctUUID";
+const char *kMessageKeySenderDeviceID = "SendersDeviceID";
 
 const char *kMessageOperationItemChanged = "ItemChanged";
 

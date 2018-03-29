@@ -25,7 +25,10 @@
 
 #if OCTAGON
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CloudKitDependencies.h"
+#import "keychain/ckks/CKKSAPSReceiver.h"
+#import "keychain/ckks/CKKSGroupOperation.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -39,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) NSString* zoneName;
 
 @property CKKSGroupOperation* zoneSetupOperation;
+@property (nullable) CKOperationGroup* zoneSetupOperationGroup; // set this if you want zone creates to use a different operation group
 
 @property bool zoneCreated;
 @property bool zoneSubscribed;
@@ -54,6 +58,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKDatabase* database;
 
 @property (weak) CKKSCKAccountStateTracker* accountTracker;
+@property (weak) CKKSReachabilityTracker* reachabilityTracker;
 
 @property (readonly) CKRecordZone* zone;
 @property (readonly) CKRecordZoneID* zoneID;
@@ -70,7 +75,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithContainer:(CKContainer*)container
                                 zoneName:(NSString*)zoneName
-                          accountTracker:(CKKSCKAccountStateTracker*)tracker
+                          accountTracker:(CKKSCKAccountStateTracker*)accountTracker
+                     reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
     fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
               fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
                      queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
@@ -79,7 +85,7 @@ NS_ASSUME_NONNULL_BEGIN
                       apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass;
 
 
-- (CKKSResultOperation* _Nullable)beginResetCloudKitZoneOperation;
+- (CKKSResultOperation* _Nullable)deleteCloudKitZoneOperation:(CKOperationGroup* _Nullable)ckoperationGroup;
 
 // Called when CloudKit notifies us that we just logged in.
 // That is, if we transition from any state to CKAccountStatusAvailable.
@@ -90,7 +96,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Actually start a cloudkit login. Pass in whether you believe this zone has been created and if this device has
 // subscribed to this zone on the server.
-- (NSOperation* _Nullable)handleCKLogin:(bool)zoneCreated zoneSubscribed:(bool)zoneSubscribed;
+- (CKKSResultOperation* _Nullable)handleCKLogin:(bool)zoneCreated zoneSubscribed:(bool)zoneSubscribed;
 
 // Called when CloudKit notifies us that we just logged out.
 // i.e. we transition from CKAccountStatusAvailable to any other state.
@@ -103,8 +109,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Cancels all operations (no matter what they are).
 - (void)cancelAllOperations;
-// Reissues the call
-- (void)restartCurrentAccountStateOperation;
 
 // Schedules this operation for execution (if the CloudKit account exists)
 - (bool)scheduleOperation:(NSOperation*)op;

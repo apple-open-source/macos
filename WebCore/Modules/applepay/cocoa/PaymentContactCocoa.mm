@@ -29,8 +29,8 @@
 #if ENABLE(APPLE_PAY)
 
 #import "ApplePayPaymentContact.h"
-#import "PassKitSPI.h"
 #import <Contacts/Contacts.h>
+#import <pal/spi/cocoa/PassKitSPI.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/text/StringBuilder.h>
 
@@ -177,7 +177,7 @@ static RetainPtr<PKContact> convert(unsigned version, const ApplePayPaymentConta
     return result;
 }
 
-static ApplePayPaymentContact convert(PKContact *contact)
+static ApplePayPaymentContact convert(unsigned version, PKContact *contact)
 {
     ASSERT(contact);
 
@@ -189,10 +189,16 @@ static ApplePayPaymentContact convert(PKContact *contact)
     NSPersonNameComponents *name = contact.name;
     result.givenName = name.givenName;
     result.familyName = name.familyName;
+    if (name)
+        result.localizedName = [NSPersonNameComponentsFormatter localizedStringFromPersonNameComponents:name style:NSPersonNameComponentsFormatterStyleDefault options:0];
 
-    NSPersonNameComponents *phoneticName = name.phoneticRepresentation;
-    result.phoneticGivenName = phoneticName.givenName;
-    result.phoneticFamilyName = phoneticName.familyName;
+    if (version >= 3) {
+        NSPersonNameComponents *phoneticName = name.phoneticRepresentation;
+        result.phoneticGivenName = phoneticName.givenName;
+        result.phoneticFamilyName = phoneticName.familyName;
+        if (phoneticName)
+            result.localizedPhoneticName = [NSPersonNameComponentsFormatter localizedStringFromPersonNameComponents:name style:NSPersonNameComponentsFormatterStyleDefault options:NSPersonNameComponentsFormatterPhonetic];
+    }
 
     CNPostalAddress *postalAddress = contact.postalAddress;
     if (postalAddress.street.length) {
@@ -216,9 +222,9 @@ PaymentContact PaymentContact::fromApplePayPaymentContact(unsigned version, cons
     return PaymentContact(convert(version, contact).get());
 }
 
-ApplePayPaymentContact PaymentContact::toApplePayPaymentContact() const
+ApplePayPaymentContact PaymentContact::toApplePayPaymentContact(unsigned version) const
 {
-    return convert(m_pkContact.get());
+    return convert(version, m_pkContact.get());
 }
 
 }

@@ -15,53 +15,49 @@
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
 #include "AssertMacros.h"
 #include "utility.h"
+#include <IOKit/hid/IOHIDUsageTables.h>
 
-
-
-NSDictionary * createServiceInfo (IOHIDServiceClientRef service);
-void printService (IOHIDServiceClientRef service);
-
-
-NSNumber * copyServiceNumberPropertyForKey (IOHIDServiceClientRef service, NSString *key, NSNumber *def) {
-    NSNumber * value = (NSNumber *) CFBridgingRelease(IOHIDServiceClientCopyProperty (service,  (__bridge CFStringRef)(key)));
-    if (!value) {
-       value = def;
-    }
-    return value;
+static NSArray *matchingKeys(void) {
+    return @[ @kIOHIDVendorIDKey, @kIOHIDProductIDKey, @kIOHIDTransportKey,
+              @kIOHIDPrimaryUsageKey, @kIOHIDPrimaryUsagePageKey, @kIOHIDLocationIDKey,
+              @kIOHIDTransportKey, @kIOHIDProductKey, @kIOHIDManufacturerKey, @kIOClassKey ];
 }
 
-NSString * copyServiceStringPropertyForKey (IOHIDServiceClientRef service, NSString *key, NSString *def) {
-    NSString * value = (NSString *) CFBridgingRelease(IOHIDServiceClientCopyProperty (service,  (__bridge CFStringRef)(key)));
-    if (!value) {
-       value = def;
-    }
-    return value;
-}
-
-NSDictionary * createServiceInfoDictionary (IOHIDServiceClientRef service) {
-    
+NSDictionary *createServiceInfoDictionary(IOHIDServiceClientRef service) {
     NSMutableDictionary *serviceInfo = [[NSMutableDictionary  alloc] init];
+    
     if (serviceInfo == NULL) {
         return serviceInfo;
     }
-    NSNumber *defNum = @0;
-    NSString *defStr = @"Unknown";
     
-    [serviceInfo setValue:(NSNumber *) CFBridgingRelease(IOHIDServiceClientGetRegistryID (service)) forKey: @"RegistryID"];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDVendorIDKey, defNum) forKey:@kIOHIDVendorIDKey];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDProductIDKey, defNum) forKey:@kIOHIDProductIDKey];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDTransportKey, defNum) forKey:@kIOHIDTransportKey];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDPrimaryUsageKey, defNum) forKey:@kIOHIDPrimaryUsageKey];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDPrimaryUsagePageKey, defNum) forKey:@kIOHIDPrimaryUsagePageKey];
-    [serviceInfo setValue:copyServiceNumberPropertyForKey(service, @kIOHIDLocationIDKey, defNum) forKey:@kIOHIDLocationIDKey];
-    [serviceInfo setValue:copyServiceStringPropertyForKey(service, @kIOHIDTransportKey, defStr) forKey:@kIOHIDTransportKey];
-    [serviceInfo setValue:copyServiceStringPropertyForKey(service, @kIOHIDProductKey, defStr) forKey:@kIOHIDProductKey];
-    [serviceInfo setValue:copyServiceStringPropertyForKey(service, @kIOHIDManufacturerKey, defStr) forKey:@kIOHIDManufacturerKey];
+    [serviceInfo setValue:(NSNumber *)CFBridgingRelease(IOHIDServiceClientGetRegistryID(service)) forKey: @kIORegistryEntryIDKey];
+    
+    for (NSString *key in matchingKeys()) {
+        [serviceInfo setValue:CFBridgingRelease(IOHIDServiceClientCopyProperty(service, (__bridge CFStringRef)key)) forKey:key];
+    }
  
     return serviceInfo;
 }
 
-NSString * createFilterString (const char * str) {
+NSDictionary *createDeviceInfoDictionary(IOHIDDeviceRef device) {
+    NSMutableDictionary *deviceInfo = [[NSMutableDictionary  alloc] init];
+    uint64_t regID;
+    
+    if (deviceInfo == NULL) {
+        return deviceInfo;
+    }
+    
+    IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &regID);
+    [deviceInfo setValue:@(regID) forKey: @kIORegistryEntryIDKey];
+    
+    for (NSString *key in matchingKeys()) {
+        [deviceInfo setValue:IOHIDDeviceGetProperty(device, (__bridge CFStringRef)key) forKey:key];
+    }
+    
+    return deviceInfo;
+}
+
+static NSString *createMatchingString(const char * str) {
     NSError *e = NULL;
     NSMutableString *filterString = [NSMutableString stringWithUTF8String:str];
     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"0[xX][0-9a-f]+" options:NSRegularExpressionCaseInsensitive error:&e];
@@ -78,22 +74,12 @@ NSString * createFilterString (const char * str) {
             start = result.range.location + valueString.length;
         }
     } while (result);
-    //[filterString writeToFile: @"/dev/stdout" atomically: NO];
+    
     return filterString;
 }
 
 NSString * createPropertiesString (const char * str) {
-    return createFilterString (str);
-}
-
-NSDictionary * createFilterDictionary (NSString *str) {
-
-    NSError      *e = NULL;
-    NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:[str dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers  error:&e];
-    if (e) {
-        NSLog(@"NSJSONSerialization %@", e);
-    }
-    return dict;
+    return createMatchingString (str);
 }
 
 id createPropertiesDicitonary (NSString *str) {
@@ -104,4 +90,90 @@ id createPropertiesDicitonary (NSString *str) {
     }
     return value;
 }
+
+static NSDictionary *matchingDictionaryForDeviceString(NSString *matching)
+{
+    NSDictionary *matchingDictionary = nil;
+    
+    if ([[NSString stringWithUTF8String:"keyboard"] containsString:matching]) {
+        matchingDictionary = @{ @(kIOHIDPrimaryUsagePageKey) : @(kHIDPage_GenericDesktop),
+                                @(kIOHIDPrimaryUsageKey) : @(kHIDUsage_GD_Keyboard) };
+    } else if ([[NSString stringWithUTF8String:"mouse"] containsString:matching]) {
+        matchingDictionary = @{ @(kIOHIDPrimaryUsagePageKey) : @(kHIDPage_GenericDesktop),
+                                @(kIOHIDPrimaryUsageKey) : @(kHIDUsage_GD_Mouse) };
+    } else if ([[NSString stringWithUTF8String:"digitizer"] containsString:matching]) {
+        matchingDictionary = @{ @(kIOHIDPrimaryUsagePageKey) : @(kHIDPage_Digitizer) };
+    }
+    
+    return matchingDictionary;
+}
+
+bool setClientMatching(IOHIDEventSystemClientRef client, const char *str) {
+    bool        result          = false;
+    NSError     *error          = nil;
+    NSString    *matchString    = nil;
+    id          matchingObj     = nil;
+    
+    matchString = createMatchingString(str);
+    
+    if ([[matchString substringToIndex:1] isEqual:@"["] ||
+        [[matchString substringToIndex:1] isEqual:@"{"]) {
+        matchingObj = [NSJSONSerialization JSONObjectWithData:[matchString dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers error:&error];
+    } else {
+        matchingObj = matchingDictionaryForDeviceString(matchString);
+    }
+    
+    if (!client || error || !matchingObj) {
+        if (error) {
+            NSLog(@"Serialization error: %@", error);
+        }
+        goto exit;
+    }
+    
+    if ([matchingObj isKindOfClass:[NSDictionary class]]) {
+        IOHIDEventSystemClientSetMatching(client, (__bridge CFDictionaryRef)matchingObj);
+        result = true;
+    } else if ([matchingObj isKindOfClass:[NSArray class]]) {
+        IOHIDEventSystemClientSetMatchingMultiple(client, (__bridge CFArrayRef)matchingObj);
+        result = true;
+    }
+    
+exit:
+    return result;
+}
+
+bool setManagerMatching(IOHIDManagerRef manager, const char *str) {
+    bool        result          = false;
+    NSError     *error          = nil;
+    NSString    *matchString    = nil;
+    id          matchingObj     = nil;
+    
+    matchString = createMatchingString(str);
+    
+    if ([[matchString substringToIndex:1] isEqual:@"["] ||
+        [[matchString substringToIndex:1] isEqual:@"{"]) {
+        matchingObj = [NSJSONSerialization JSONObjectWithData:[matchString dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers error:&error];
+    } else {
+        matchingObj = matchingDictionaryForDeviceString(matchString);
+    }
+    
+    if (!manager || error || !matchingObj) {
+        if (error) {
+            NSLog(@"Serialization error: %@", error);
+        }
+        goto exit;
+    }
+    
+    if ([matchingObj isKindOfClass:[NSDictionary class]]) {
+        IOHIDManagerSetDeviceMatching(manager, (__bridge CFDictionaryRef)matchingObj);
+        result = true;
+    } else if ([matchingObj isKindOfClass:[NSArray class]]) {
+        IOHIDManagerSetDeviceMatchingMultiple(manager, (__bridge CFArrayRef)matchingObj);
+        result = true;
+    }
+    
+exit:
+    return result;
+}
+
 

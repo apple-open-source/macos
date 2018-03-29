@@ -45,7 +45,6 @@
 #include "MainFrame.h"
 #include "Page.h"
 #include "ScriptController.h"
-#include "ScriptGlobalObject.h"
 #include "ScriptState.h"
 #include "Settings.h"
 #include "Timer.h"
@@ -55,9 +54,10 @@
 #include <wtf/Deque.h>
 #include <wtf/text/CString.h>
 
-using namespace Inspector;
 
 namespace WebCore {
+
+using namespace Inspector;
 
 static const char* inspectorAttachedHeightSetting = "inspectorAttachedHeight";
 static const unsigned defaultAttachedHeight = 300;
@@ -152,7 +152,7 @@ void InspectorFrontendClientLocal::windowObjectCleared()
         m_frontendHost->disconnectClient();
     
     m_frontendHost = InspectorFrontendHost::create(this, m_frontendPage);
-    ScriptGlobalObject::set(*execStateFromPage(debuggerWorld(), m_frontendPage), "InspectorFrontendHost", *m_frontendHost);
+    m_frontendHost->addSelfToGlobalObjectInWorld(debuggerWorld());
 }
 
 void InspectorFrontendClientLocal::frontendLoaded()

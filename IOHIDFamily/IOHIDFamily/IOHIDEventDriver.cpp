@@ -558,7 +558,7 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
             if ( !element )
                 continue;
             
-            if ( _relative.elements && _relative.elements->getCount() ){
+            if (_relative.elements && _relative.elements->getCount()) {
                 _relative.elements->setObject(element);
             } else if ( _gameController.capable ) {
                 _gameController.elements->setObject(element);
@@ -568,8 +568,13 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
                 DigitizerTransducer * transducer = OSDynamicCast(DigitizerTransducer, _digitizer.transducers->getObject(0));
                 if ( transducer )
                     transducer->elements->setObject(element);
-            } else if ( _relative.elements ) {
-                _relative.elements->setObject(element);
+            } else {
+                if ( !_relative.elements ) {
+                    _relative.elements = OSArray::withCapacity(4);
+                }
+                if ( _relative.elements ) {
+                    _relative.elements->setObject(element);
+                }
             }
         }
     }
@@ -1352,11 +1357,6 @@ bool IOHIDEventDriver::parseGameControllerElement(IOHIDElement * element)
     
     require(_authenticatedDevice, exit);
     
-    if ( !_gameController.elements ) {
-        _gameController.elements = OSArray::withCapacity(4);
-        require(_gameController.elements, exit);
-    }
-    
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
         case kHIDPage_Button:
@@ -1375,6 +1375,11 @@ bool IOHIDEventDriver::parseGameControllerElement(IOHIDElement * element)
     
     require(store, exit);
     
+    if ( !_gameController.elements ) {
+        _gameController.elements = OSArray::withCapacity(4);
+        require(_gameController.elements, exit);
+    }
+    
     _gameController.elements->setObject(element);
     
 exit:
@@ -1389,11 +1394,6 @@ bool IOHIDEventDriver::parseMultiAxisElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     UInt32 usage        = element->getUsage();
     bool   store        = false;
-    
-    if ( !_multiAxis.elements ) {
-        _multiAxis.elements = OSArray::withCapacity(4);
-        require(_multiAxis.elements, exit);
-    }
     
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
@@ -1417,6 +1417,11 @@ bool IOHIDEventDriver::parseMultiAxisElement(IOHIDElement * element)
     
     require(store, exit);
     
+    if ( !_multiAxis.elements ) {
+        _multiAxis.elements = OSArray::withCapacity(4);
+        require(_multiAxis.elements, exit);
+    }
+    
     _multiAxis.elements->setObject(element);
 
 exit:
@@ -1431,11 +1436,6 @@ bool IOHIDEventDriver::parseRelativeElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     UInt32 usage        = element->getUsage();
     bool   store        = false;
-    
-    if ( !_relative.elements ) {
-        _relative.elements = OSArray::withCapacity(4);
-        require(_relative.elements, exit);
-    }
 
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
@@ -1453,6 +1453,11 @@ bool IOHIDEventDriver::parseRelativeElement(IOHIDElement * element)
     
     require(store, exit);
     
+    if ( !_relative.elements ) {
+        _relative.elements = OSArray::withCapacity(4);
+        require(_relative.elements, exit);
+    }
+    
     _relative.elements->setObject(element);
 
 exit:
@@ -1467,11 +1472,6 @@ bool IOHIDEventDriver::parseScrollElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     UInt32 usage        = element->getUsage();
     bool   store        = false;
-    
-    if ( !_scroll.elements ) {
-        _scroll.elements = OSArray::withCapacity(4);
-        require(_scroll.elements, exit);
-    }
 
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
@@ -1499,6 +1499,11 @@ bool IOHIDEventDriver::parseScrollElement(IOHIDElement * element)
     
     require(store, exit);
     
+    if ( !_scroll.elements ) {
+        _scroll.elements = OSArray::withCapacity(4);
+        require(_scroll.elements, exit);
+    }
+    
     _scroll.elements->setObject(element);
 
 exit:
@@ -1513,11 +1518,6 @@ bool IOHIDEventDriver::parseLEDElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     bool   store        = false;
     
-    if ( !_led.elements ) {
-        _led.elements = OSArray::withCapacity(4);
-        require(_led.elements, exit);
-    }
-    
     switch ( usagePage ) {
         case kHIDPage_LEDs:
             store = true;
@@ -1525,6 +1525,11 @@ bool IOHIDEventDriver::parseLEDElement(IOHIDElement * element)
     }
     
     require(store, exit);
+    
+    if ( !_led.elements ) {
+        _led.elements = OSArray::withCapacity(4);
+        require(_led.elements, exit);
+    }
     
     _led.elements->setObject(element);
     
@@ -1541,11 +1546,6 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     UInt32 usage        = element->getUsage();
     bool   store        = false;
-  
-    if ( !_keyboard.elements ) {
-        _keyboard.elements = OSArray::withCapacity(4);
-        require(_keyboard.elements, exit);
-    }
 
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
@@ -1653,6 +1653,11 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
     
     require(store, exit);
     
+    if ( !_keyboard.elements ) {
+        _keyboard.elements = OSArray::withCapacity(4);
+        require(_keyboard.elements, exit);
+    }
+    
     _keyboard.elements->setObject(element);
 
 exit:
@@ -1684,12 +1689,12 @@ bool IOHIDEventDriver::parseLegacyUnicodeElement(IOHIDElement * element)
     UInt32 usagePage    = element->getUsagePage();
     bool   store        = false;
     
+    require(usagePage==kHIDPage_Unicode, exit);
+    
     if ( !_unicode.legacyElements ) {
         _unicode.legacyElements = OSArray::withCapacity(4);
         require(_unicode.legacyElements, exit);
     }
-    
-    require(usagePage==kHIDPage_Unicode, exit);
     
     _unicode.legacyElements->setObject(element);
     store = true;
@@ -1850,11 +1855,6 @@ bool IOHIDEventDriver::parseBiometricElement(IOHIDElement * element)
     UInt32 usage        = element->getUsage();
     bool   store        = false;
     
-    if (!_biometric.elements) {
-        _biometric.elements = OSArray::withCapacity(4);
-        require(_biometric.elements, exit);
-    }
-    
     switch (usagePage) {
         case kHIDPage_Sensor:
             switch (usage) {
@@ -1867,6 +1867,12 @@ bool IOHIDEventDriver::parseBiometricElement(IOHIDElement * element)
     }
     
     require(store, exit);
+    
+    if (!_biometric.elements) {
+        _biometric.elements = OSArray::withCapacity(4);
+        require(_biometric.elements, exit);
+    }
+    
     _biometric.elements->setObject(element);
     
 exit:

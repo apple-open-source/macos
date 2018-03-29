@@ -296,7 +296,7 @@ extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned
             retval = unix_err(ENOMEM);
         }
     }
-    if (ERR_SUCCESS != retval && MACH_PORT_NULL != replyPort) mach_port_destroy(mach_task_self(), replyPort);
+    if (ERR_SUCCESS != retval && MACH_PORT_NULL != replyPort) mach_port_deallocate(mach_task_self(), replyPort);
     if (error) *error = retval;
     return userNotification;
 }
@@ -327,7 +327,7 @@ extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotific
                         UNCUnpackContents((char *)msg + sizeof(mach_msg_base_t), userNotification->_responseContents);
                     }
                 }
-                mach_port_destroy(mach_task_self(), userNotification->_replyPort);
+                mach_port_deallocate(mach_task_self(), userNotification->_replyPort);
                 userNotification->_replyPort = MACH_PORT_NULL;
             } else {
                 free(msg);
@@ -373,7 +373,7 @@ extern int UNCUserNotificationCancel(UNCUserNotificationRef userNotification) {
 
 extern void UNCUserNotificationFree(UNCUserNotificationRef userNotification) {
     if (userNotification) {
-        if (MACH_PORT_NULL != userNotification->_replyPort) mach_port_destroy(mach_task_self(), userNotification->_replyPort);
+        if (MACH_PORT_NULL != userNotification->_replyPort) mach_port_deallocate(mach_task_self(), userNotification->_replyPort);
         if (userNotification->_sessionID) free(userNotification->_sessionID);
         if (userNotification->_responseContents) free(userNotification->_responseContents);
         if (userNotification->_response) free(userNotification->_response);

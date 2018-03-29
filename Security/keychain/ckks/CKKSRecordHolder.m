@@ -26,6 +26,7 @@
 #include <AssertMacros.h>
 
 #import <Foundation/Foundation.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 #import "CKKSItem.h"
 #import "CKKSSIV.h"
 
@@ -63,8 +64,7 @@
     if(!_encodedCKRecord) {
         return nil;
     }
-    NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingWithData:_encodedCKRecord];
-    coder.requiresSecureCoding = YES;
+    NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:_encodedCKRecord error:nil];
     CKRecord* ckRecord = [[CKRecord alloc] initWithCoder:coder];
     [coder finishDecoding];
 
@@ -79,11 +79,9 @@
     self.zoneID = ckRecord.recordID.zoneID;
     self.ckRecordType = ckRecord.recordType;
 
-    NSMutableData* data = [NSMutableData data];
-    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [ckRecord encodeWithCoder:archiver];
-    [archiver finishEncoding];
-    _encodedCKRecord = data;
+    _encodedCKRecord = archiver.encodedData;
 }
 
 - (CKRecord*) CKRecordWithZoneID: (CKRecordZoneID*) zoneID {

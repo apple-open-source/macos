@@ -21,9 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import "CKKSNearFutureScheduler.h"
 #import "CKKSCondition.h"
 #import "keychain/ckks/NSOperationCategories.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 #include <os/transaction_private.h>
 
 @interface CKKSNearFutureScheduler ()
@@ -31,7 +34,8 @@
 @property dispatch_time_t initialDelay;
 @property dispatch_time_t continuingDelay;
 
-@property NSOperation* operationDependency;
+@property NSInteger operationDependencyDescriptionCode;
+@property CKKSResultOperation* operationDependency;
 @property (nonnull) NSOperationQueue* operationQueue;
 
 @property NSDate* predictedNextFireTime;
@@ -47,21 +51,31 @@
 
 @implementation CKKSNearFutureScheduler
 
--(instancetype)initWithName:(NSString*)name delay:(dispatch_time_t)ns keepProcessAlive:(bool)keepProcessAlive block:(void (^)(void))futureBlock
+-(instancetype)initWithName:(NSString*)name
+                      delay:(dispatch_time_t)ns
+           keepProcessAlive:(bool)keepProcessAlive
+  dependencyDescriptionCode:(NSInteger)code
+                      block:(void (^)(void))futureBlock
 {
-    return [self initWithName:name initialDelay:ns continuingDelay:ns keepProcessAlive:keepProcessAlive block:futureBlock];
+    return [self initWithName:name
+                 initialDelay:ns
+              continuingDelay:ns
+             keepProcessAlive:keepProcessAlive
+    dependencyDescriptionCode:code
+                        block:futureBlock];
 }
 
 -(instancetype)initWithName:(NSString*)name
                initialDelay:(dispatch_time_t)initialDelay
             continuingDelay:(dispatch_time_t)continuingDelay
            keepProcessAlive:(bool)keepProcessAlive
+  dependencyDescriptionCode:(NSInteger)code
                       block:(void (^)(void))futureBlock
 {
     if((self = [super init])) {
         _name = name;
 
-        _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _initialDelay = initialDelay;
         _continuingDelay = continuingDelay;
         _futureBlock = futureBlock;
@@ -73,13 +87,16 @@
         _keepProcessAlive = keepProcessAlive;
 
         _operationQueue = [[NSOperationQueue alloc] init];
+        _operationDependencyDescriptionCode = code;
         _operationDependency = [self makeOperationDependency];
     }
     return self;
 }
 
-- (NSOperation*)makeOperationDependency {
-    return [NSBlockOperation named:[NSString stringWithFormat:@"nfs-%@", self.name] withBlock:^{}];
+- (CKKSResultOperation*)makeOperationDependency {
+    CKKSResultOperation* op = [CKKSResultOperation named:[NSString stringWithFormat:@"nfs-%@", self.name] withBlock:^{}];
+    op.descriptionErrorCode = self.operationDependencyDescriptionCode;
+    return op;
 }
 
 -(NSString*)description {
@@ -198,3 +215,5 @@
 }
 
 @end
+
+#endif // OCTAGON

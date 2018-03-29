@@ -119,8 +119,8 @@ CF_ENUM(OSStatus) {
     errSessionAuthorizationDenied           = -60502, /* you are not allowed to do this */
     errSessionValueNotSet                   = -60503, /* the session attribute you requested has not been set */
 
-    errSessionInternal                      = errAuthorizationInternal,	/* internal error */
-	errSessionInvalidFlags                  = errAuthorizationInvalidFlags /* invalid flags/options */
+    errSessionInternal                      = -60008, /* internal error */
+	errSessionInvalidFlags                  = -60011, /* invalid flags/options */
 };
 
 

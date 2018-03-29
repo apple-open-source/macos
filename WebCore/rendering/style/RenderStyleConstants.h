@@ -27,9 +27,11 @@
 
 #include <initializer_list>
 
-namespace WebCore {
-
+namespace WTF {
 class TextStream;
+}
+
+namespace WebCore {
 
 static const size_t PrintColorAdjustBits = 1;
 enum PrintColorAdjust {
@@ -77,7 +79,7 @@ enum StyleDifferenceContextSensitiveProperty {
 // Static pseudo styles. Dynamic ones are produced on the fly.
 enum PseudoId : unsigned char {
     // The order must be NOP ID, public IDs, and then internal IDs.
-    NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, SCROLLBAR,
+    NOPSEUDO, FIRST_LINE, FIRST_LETTER, MARKER, BEFORE, AFTER, SELECTION, SCROLLBAR,
     // Internal IDs follow:
     SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
     AFTER_LAST_INTERNAL_PSEUDOID,
@@ -475,12 +477,12 @@ enum TextZoom {
 };
 
 enum BreakBetween {
-    AutoBreakBetween, AvoidBreakBetween, AvoidColumnBreakBetween, AvoidPageBreakBetween, AvoidRegionBreakBetween, ColumnBreakBetween, RegionBreakBetween, PageBreakBetween, LeftPageBreakBetween, RightPageBreakBetween, RectoPageBreakBetween, VersoPageBreakBetween
+    AutoBreakBetween, AvoidBreakBetween, AvoidColumnBreakBetween, AvoidPageBreakBetween, ColumnBreakBetween, PageBreakBetween, LeftPageBreakBetween, RightPageBreakBetween, RectoPageBreakBetween, VersoPageBreakBetween
 };
 bool alwaysPageBreak(BreakBetween);
     
 enum BreakInside {
-    AutoBreakInside, AvoidBreakInside, AvoidColumnBreakInside, AvoidPageBreakInside, AvoidRegionBreakInside
+    AutoBreakInside, AvoidBreakInside, AvoidColumnBreakInside, AvoidPageBreakInside
 };
 
 enum HangingPunctuation {
@@ -626,8 +628,6 @@ enum ImageResolutionSnap { ImageResolutionNoSnap = 0, ImageResolutionSnapPixels 
 
 enum Order { LogicalOrder = 0, VisualOrder };
 
-enum RegionFragment { AutoRegionFragment, BreakRegionFragment };
-
 enum ColumnAxis { HorizontalColumnAxis, VerticalColumnAxis, AutoColumnAxis };
 
 enum ColumnProgression { NormalColumnProgression, ReverseColumnProgression };
@@ -727,12 +727,12 @@ enum class ApplePayButtonType {
 };
 #endif
 
-TextStream& operator<<(TextStream&, EFillSizeType);
-TextStream& operator<<(TextStream&, EFillAttachment);
-TextStream& operator<<(TextStream&, EFillBox);
-TextStream& operator<<(TextStream&, EFillRepeat);
-TextStream& operator<<(TextStream&, EMaskSourceType);
-TextStream& operator<<(TextStream&, Edge);
+WTF::TextStream& operator<<(WTF::TextStream&, EFillSizeType);
+WTF::TextStream& operator<<(WTF::TextStream&, EFillAttachment);
+WTF::TextStream& operator<<(WTF::TextStream&, EFillBox);
+WTF::TextStream& operator<<(WTF::TextStream&, EFillRepeat);
+WTF::TextStream& operator<<(WTF::TextStream&, EMaskSourceType);
+WTF::TextStream& operator<<(WTF::TextStream&, Edge);
 
 // These are all minimized combinations of paint-order.
 enum class PaintOrder {
@@ -749,6 +749,10 @@ enum class PaintType {
     Fill,
     Stroke,
     Markers
+};
+
+enum class FontLoadingBehavior {
+    Auto, Block, Swap, Fallback, Optional
 };
 
 extern const float defaultMiterLimit;

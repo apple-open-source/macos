@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2006-2017  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,8 +13,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id$ */
 
 /*! \file
  * \brief
@@ -146,6 +144,7 @@
 #include <isc/mem.h>
 #include <isc/once.h>
 #include <isc/random.h>
+#include <isc/safe.h>
 #include <isc/string.h>
 #include <isc/time.h>
 #include <isc/util.h>
@@ -320,35 +319,39 @@ fix_dce(size_t reallen, size_t * len);
 
 #include "spnego_asn1.c"
 
-static unsigned char gss_krb5_mech_oid_bytes[] = {
-	0x2a, 0x86, 0x48, 0x86, 0xf7, 0x12, 0x01, 0x02, 0x02
+/*
+ * Force the oid arrays to be isc_uint64_t aligned to silence warnings
+ * about the arrays not being properly aligned for (void *).
+ */
+typedef union { unsigned char b[8]; isc_uint64_t _align; } aligned8;
+typedef union { unsigned char b[16]; isc_uint64_t _align[2]; } aligned16;
+
+static aligned16 gss_krb5_mech_oid_bytes = {
+	{ 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x12, 0x01, 0x02, 0x02 }
 };
 
 static gss_OID_desc gss_krb5_mech_oid_desc = {
-	sizeof(gss_krb5_mech_oid_bytes),
-	gss_krb5_mech_oid_bytes
+	9, gss_krb5_mech_oid_bytes.b
 };
 
 static gss_OID GSS_KRB5_MECH = &gss_krb5_mech_oid_desc;
 
-static unsigned char gss_mskrb5_mech_oid_bytes[] = {
-	0x2a, 0x86, 0x48, 0x82, 0xf7, 0x12, 0x01, 0x02, 0x02
+static aligned16 gss_mskrb5_mech_oid_bytes = {
+	{ 0x2a, 0x86, 0x48, 0x82, 0xf7, 0x12, 0x01, 0x02, 0x02 }
 };
 
 static gss_OID_desc gss_mskrb5_mech_oid_desc = {
-	sizeof(gss_mskrb5_mech_oid_bytes),
-	gss_mskrb5_mech_oid_bytes
+	9, gss_mskrb5_mech_oid_bytes.b
 };
 
 static gss_OID GSS_MSKRB5_MECH = &gss_mskrb5_mech_oid_desc;
 
-static unsigned char gss_spnego_mech_oid_bytes[] = {
-	0x2b, 0x06, 0x01, 0x05, 0x05, 0x02
+static aligned8 gss_spnego_mech_oid_bytes = {
+	{ 0x2b, 0x06, 0x01, 0x05, 0x05, 0x02 }
 };
 
 static gss_OID_desc gss_spnego_mech_oid_desc = {
-	sizeof(gss_spnego_mech_oid_bytes),
-	gss_spnego_mech_oid_bytes
+	6, gss_spnego_mech_oid_bytes.b
 };
 
 static gss_OID GSS_SPNEGO_MECH = &gss_spnego_mech_oid_desc;
@@ -372,7 +375,7 @@ gssapi_spnego_decapsulate(OM_uint32 *,
 /* mod_auth_kerb.c */
 
 static int
-cmp_gss_type(gss_buffer_t token, gss_OID oid)
+cmp_gss_type(gss_buffer_t token, gss_OID gssoid)
 {
 	unsigned char *p;
 	size_t len;
@@ -392,10 +395,10 @@ cmp_gss_type(gss_buffer_t token, gss_OID oid)
 	if (*p++ != 0x06)
 		return (GSS_S_DEFECTIVE_TOKEN);
 
-	if (((OM_uint32) *p++) != oid->length)
+	if (((OM_uint32) *p++) != gssoid->length)
 		return (GSS_S_DEFECTIVE_TOKEN);
 
-	return (memcmp(p, oid->elements, oid->length));
+	return (isc_safe_memcompare(p, gssoid->elements, gssoid->length));
 }
 
 /* accept_sec_context.c */
@@ -570,7 +573,7 @@ gss_accept_sec_context_spnego(OM_uint32 *minor_status,
 			      gss_cred_id_t *delegated_cred_handle)
 {
 	NegTokenInit init_token;
-	OM_uint32 major_status;
+	OM_uint32 major_status = GSS_S_COMPLETE;
 	OM_uint32 minor_status2;
 	gss_buffer_desc ibuf, obuf;
 	gss_buffer_t ot = NULL;
@@ -635,16 +638,18 @@ gss_accept_sec_context_spnego(OM_uint32 *minor_status,
 			return (GSS_S_DEFECTIVE_TOKEN);
 		}
 		if (mech_len == GSS_KRB5_MECH->length &&
-		    memcmp(GSS_KRB5_MECH->elements,
-			   mechbuf + sizeof(mechbuf) - mech_len,
-			   mech_len) == 0) {
+		    isc_safe_memequal(GSS_KRB5_MECH->elements,
+				      mechbuf + sizeof(mechbuf) - mech_len,
+				      mech_len))
+		{
 			found = 1;
 			break;
 		}
 		if (mech_len == GSS_MSKRB5_MECH->length &&
-		    memcmp(GSS_MSKRB5_MECH->elements,
-			   mechbuf + sizeof(mechbuf) - mech_len,
-			   mech_len) == 0) {
+		    isc_safe_memequal(GSS_MSKRB5_MECH->elements,
+				      mechbuf + sizeof(mechbuf) - mech_len,
+				      mech_len))
+		{
 			found = 1;
 			if (i == 0)
 				pref = GSS_MSKRB5_MECH;
@@ -684,7 +689,7 @@ gss_accept_sec_context_spnego(OM_uint32 *minor_status,
 	if (ot != NULL && ot->length != 0U)
 		gss_release_buffer(&minor_status2, ot);
 
-	return (ret);
+	return (ret != GSS_S_COMPLETE ? (OM_uint32) ret : major_status);
 }
 
 /* decapsulate.c */
@@ -715,7 +720,7 @@ gssapi_verify_mech_header(u_char ** str,
 	p += foo;
 	if (mech_len != mech->length)
 		return (GSS_S_BAD_MECH);
-	if (memcmp(p, mech->elements, mech->length) != 0)
+	if (!isc_safe_memequal(p, mech->elements, mech->length))
 		return (GSS_S_BAD_MECH);
 	p += mech_len;
 	*str = p;
@@ -1668,7 +1673,7 @@ spnego_reply(OM_uint32 *minor_status,
 		buf = input_token->value;
 		buf_size = input_token->length;
 	} else if ((size_t)mech_len == GSS_KRB5_MECH->length &&
-		   memcmp(GSS_KRB5_MECH->elements, p, mech_len) == 0)
+		   isc_safe_memequal(GSS_KRB5_MECH->elements, p, mech_len))
 		return (gss_init_sec_context(minor_status,
 					     initiator_cred_handle,
 					     context_handle,
@@ -1683,7 +1688,7 @@ spnego_reply(OM_uint32 *minor_status,
 					     ret_flags,
 					     time_rec));
 	else if ((size_t)mech_len == GSS_SPNEGO_MECH->length &&
-		 memcmp(GSS_SPNEGO_MECH->elements, p, mech_len) == 0) {
+		 isc_safe_memequal(GSS_SPNEGO_MECH->elements, p, mech_len)) {
 		ret = gssapi_spnego_decapsulate(minor_status,
 						input_token,
 						&buf,
@@ -1721,9 +1726,9 @@ spnego_reply(OM_uint32 *minor_status,
 			  resp.supportedMech,
 			  &oidlen);
 	if (ret || oidlen != GSS_KRB5_MECH->length ||
-	    memcmp(oidbuf + sizeof(oidbuf) - oidlen,
-		   GSS_KRB5_MECH->elements,
-		   oidlen) != 0) {
+	    !isc_safe_memequal(oidbuf + sizeof(oidbuf) - oidlen,
+			      GSS_KRB5_MECH->elements, oidlen))
+	{
 		free_NegTokenResp(&resp);
 		return GSS_S_BAD_MECH;
 	}

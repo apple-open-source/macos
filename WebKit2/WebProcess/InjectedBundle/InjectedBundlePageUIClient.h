@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InjectedBundlePageUIClient_h
-#define InjectedBundlePageUIClient_h
+#pragma once
 
 #include "APIClient.h"
 #include "APIInjectedBundlePageUIClient.h"
@@ -74,5 +73,3 @@ public:
 };
 
 } // namespace WebKit
-
-#endif // InjectedBundlePageUIClient_h

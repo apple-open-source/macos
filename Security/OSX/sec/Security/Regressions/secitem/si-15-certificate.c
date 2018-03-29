@@ -982,13 +982,76 @@ static void test_copy_email_addresses(void) {
     CFReleaseNull(array);
 }
 
+static void test_copy_extension_value(void) {
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, mail_google_com, sizeof(mail_google_com));
+    CFDataRef extension = NULL, expected = NULL, oid = NULL;
+    bool critical = false;
+
+    /* parameter fails */
+    is(extension = SecCertificateCopyExtensionValue(NULL, CFSTR("1.2.3.4"), &critical), NULL,
+        "NULL cert input succeeded");
+    is(extension = SecCertificateCopyExtensionValue(cert, NULL, &critical), NULL,
+       "NULL OID input succeeded");
+
+    /* Extension not present */
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR("1.2.3.4"), &critical), NULL,
+       "Got extension value for non-present extension OID");
+
+    /* Using decimal OID, extension present and critical */
+    isnt(extension = SecCertificateCopyExtensionValue(cert, CFSTR("2.5.29.19"), &critical), NULL,
+         "Failed to get extension for present extension OID");
+    is(critical, true, "Got wrong criticality for critical extension");
+    uint8_t basic_constraints_value[2] = { 0x30, 0x00 };
+    expected = CFDataCreate(NULL, basic_constraints_value, sizeof(basic_constraints_value));
+    ok(CFEqual(extension, expected), "Got wrong extension value for basic constraints");
+    CFReleaseNull(extension);
+    CFReleaseNull(expected);
+
+    /* Using binary OID, extension present and non critical */
+    uint8_t oidExtendedKeyUsage[3] = { 0x55, 0x01d, 0x25 };
+    oid = CFDataCreate(NULL, oidExtendedKeyUsage, sizeof(oidExtendedKeyUsage));
+    isnt(extension = SecCertificateCopyExtensionValue(cert, oid, &critical), NULL,
+         "Failed to get extension for present extension OID");
+    is(critical, false, "Got wrong criticality for non-critical extension");
+    uint8_t eku_value[] = {
+        0x30, 0x1f, 0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01, 0x06, 0x08, 0x2b, 0x06,
+        0x01, 0x05, 0x05, 0x07, 0x03, 0x02, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x86, 0xf8, 0x42, 0x04,
+        0x01
+    };
+    expected = CFDataCreate(NULL, eku_value, sizeof(eku_value));
+    ok(CFEqual(extension, expected), "Got wrong extension value for extended key usage");
+    CFReleaseNull(oid);
+    CFReleaseNull(extension);
+    CFReleaseNull(expected);
+
+    /* No critical output */
+    isnt(extension = SecCertificateCopyExtensionValue(cert, CFSTR("2.5.29.19"), NULL), NULL,
+         "Failed to get extension for present extension OID");
+    CFReleaseNull(extension);
+
+    /* messed up binary OIDs */
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR("abcd"), NULL), NULL,
+       "letters in OID");
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR("8.1.1.2"), NULL), NULL,
+       "bad first arc");
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR("10.1.1.1"), NULL), NULL,
+       "longer bad first arc");
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR(""), NULL), NULL,
+       "empty string");
+    is(extension = SecCertificateCopyExtensionValue(cert, CFSTR("1.2.1099511627776."), NULL), NULL,
+       "six byte component");
+
+    CFReleaseNull(cert);
+}
+
 int si_15_certificate(int argc, char *const *argv)
 {
-	plan_tests(30);
+	plan_tests(45);
 
 	tests();
     test_common_name();
     test_copy_email_addresses();
+    test_copy_extension_value();
 
 	return 0;
 }

@@ -33,7 +33,6 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/Function.h>
 #include <wtf/Forward.h>
-#include <wtf/Vector.h>
 
 #if USE(CG)
 
@@ -73,6 +72,10 @@ typedef void PlatformPath;
 
 typedef PlatformPath* PlatformPathPtr;
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
     class AffineTransform;
@@ -83,7 +86,6 @@ namespace WebCore {
     class PathTraversalState;
     class RoundedRect;
     class StrokeStyleApplier;
-    class TextStream;
 
     enum PathElementType {
         PathElementMoveToPoint, // The points member will contain 1 value.
@@ -113,7 +115,9 @@ namespace WebCore {
         WEBCORE_EXPORT ~Path();
 
         WEBCORE_EXPORT Path(const Path&);
+        WEBCORE_EXPORT Path(Path&&);
         WEBCORE_EXPORT Path& operator=(const Path&);
+        WEBCORE_EXPORT Path& operator=(Path&&);
         
         static Path polygonPathFromPoints(const Vector<FloatPoint>&);
 
@@ -212,7 +216,7 @@ namespace WebCore {
 #endif
     };
 
-TextStream& operator<<(TextStream&, const Path&);
+WTF::TextStream& operator<<(WTF::TextStream&, const Path&);
 
 }
 

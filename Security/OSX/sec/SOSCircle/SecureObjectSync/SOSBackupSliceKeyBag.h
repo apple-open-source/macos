@@ -39,8 +39,6 @@ typedef int32_t bskb_keybag_handle_t;
 
 typedef struct CF_BRIDGED_TYPE(id) __OpaqueSOSBackupSliceKeyBag *SOSBackupSliceKeyBagRef;
 
-CFTypeRef SOSBackupSliceKeyBageGetTypeID(void);
-
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreate(CFAllocatorRef allocator, CFSetRef peers, CFErrorRef* error);
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateDirect(CFAllocatorRef allocator, CFDataRef aks_bag, CFErrorRef *error);
 

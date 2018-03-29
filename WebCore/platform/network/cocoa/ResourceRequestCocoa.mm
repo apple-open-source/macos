@@ -28,14 +28,13 @@
 
 #if PLATFORM(COCOA)
 
-#import "CFNetworkSPI.h"
 #import "FileSystem.h"
 #import "FormDataStreamMac.h"
 #import "HTTPHeaderNames.h"
 #import "ResourceRequestCFNet.h"
 #import "RuntimeApplicationChecks.h"
-#import "WebCoreSystemInterface.h"
 #import <Foundation/Foundation.h>
+#import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/text/CString.h>
 
 namespace WebCore {
@@ -43,36 +42,8 @@ namespace WebCore {
 NSURLRequest *ResourceRequest::nsURLRequest(HTTPBodyUpdatePolicy bodyPolicy) const
 {
     updatePlatformRequest(bodyPolicy);
-#if USE(CFURLCONNECTION)
-    if (!m_nsRequest)
-        const_cast<ResourceRequest*>(this)->updateNSURLRequest();
-#endif
     return [[m_nsRequest.get() retain] autorelease];
 }
-
-#if USE(CFURLCONNECTION)
-
-void ResourceRequest::clearOrUpdateNSURLRequest()
-{
-    // There is client code that extends NSURLRequest and expects to get back, in the delegate
-    // callbacks, an object of the same type that they passed into WebKit. To keep then running, we
-    // create an object of the same type and return that. See <rdar://9843582>.
-    // Also, developers really really want an NSMutableURLRequest so try to create an
-    // NSMutableURLRequest instead of NSURLRequest.
-    static Class nsURLRequestClass = [NSURLRequest class];
-    static Class nsMutableURLRequestClass = [NSMutableURLRequest class];
-    Class requestClass = [m_nsRequest.get() class];
-    
-    if (!m_cfRequest)
-        return;
-    
-    if (requestClass && requestClass != nsURLRequestClass && requestClass != nsMutableURLRequestClass)
-        m_nsRequest = adoptNS([[requestClass alloc] _initWithCFURLRequest:m_cfRequest.get()]);
-    else
-        m_nsRequest = nullptr;
-}
-
-#else
 
 CFURLRequestRef ResourceRequest::cfURLRequest(HTTPBodyUpdatePolicy bodyPolicy) const
 {
@@ -138,7 +109,7 @@ void ResourceRequest::doUpdateResourceRequest()
     }
 
     if (m_nsRequest) {
-        NSString* cachePartition = [NSURLProtocol propertyForKey:(NSString *)wkCachePartitionKey() inRequest:m_nsRequest.get()];
+        NSString* cachePartition = [NSURLProtocol propertyForKey:(NSString *)_kCFURLCachePartitionKey inRequest:m_nsRequest.get()];
         if (cachePartition)
             m_cachePartition = cachePartition;
     }
@@ -208,14 +179,14 @@ void ResourceRequest::doUpdatePlatformRequest()
     String partition = cachePartition();
     if (!partition.isNull() && !partition.isEmpty()) {
         NSString *partitionValue = [NSString stringWithUTF8String:partition.utf8().data()];
-        [NSURLProtocol setProperty:partitionValue forKey:(NSString *)wkCachePartitionKey() inRequest:nsRequest];
+        [NSURLProtocol setProperty:partitionValue forKey:(NSString *)_kCFURLCachePartitionKey inRequest:nsRequest];
     }
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
     if (m_url.isLocalFile()) {
-        auto fsRepFile = fileSystemRepresentation(m_url.fileSystemPath());
+        auto fsRepFile = FileSystem::fileSystemRepresentation(m_url.fileSystemPath());
         if (!fsRepFile.isNull()) {
-            auto fileDevice = getFileDeviceId(fsRepFile);
+            auto fileDevice = FileSystem::getFileDeviceId(fsRepFile);
             if (fileDevice && fileDevice.value())
                 [nsRequest _setProperty:[NSNumber numberWithInteger:fileDevice.value()] forKey:@"NSURLRequestFileProtocolExpectedDevice"];
         }
@@ -260,10 +231,31 @@ void ResourceRequest::doUpdatePlatformHTTPBody()
 void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
 {
     updatePlatformRequest();
-    m_nsRequest = adoptNS(wkCopyRequestWithStorageSession(storageSession, m_nsRequest.get()));
+    m_nsRequest = adoptNS(copyRequestWithStorageSession(storageSession, m_nsRequest.get()));
 }
 
-#endif // USE(CFURLCONNECTION)
+NSURLRequest *copyRequestWithStorageSession(CFURLStorageSessionRef storageSession, NSURLRequest *request)
+{
+    if (!storageSession || !request)
+        return [request copy];
+
+    auto cfRequest = adoptCF(CFURLRequestCreateMutableCopy(kCFAllocatorDefault, [request _CFURLRequest]));
+    _CFURLRequestSetStorageSession(cfRequest.get(), storageSession);
+    return [[NSURLRequest alloc] _initWithCFURLRequest:cfRequest.get()];
+}
+
+NSCachedURLResponse *cachedResponseForRequest(CFURLStorageSessionRef storageSession, NSURLRequest *request)
+{
+    if (!storageSession)
+        return [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
+
+    auto cache = adoptCF(_CFURLStorageSessionCopyCache(kCFAllocatorDefault, storageSession));
+    auto cachedResponse = adoptCF(CFURLCacheCopyResponseForRequest(cache.get(), [request _CFURLRequest]));
+    if (!cachedResponse)
+        return nil;
+
+    return [[[NSCachedURLResponse alloc] _initWithCFCachedURLResponse:cachedResponse.get()] autorelease];
+}
 
 } // namespace WebCore
 

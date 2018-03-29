@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "WKWebViewConfigurationInternal.h"
+#import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 
 #if WK_API_ENABLED
 
@@ -32,6 +33,7 @@
 #import "VersionChecks.h"
 #import "WKPreferences.h"
 #import "WKProcessPool.h"
+#import "WKRetainPtr.h"
 #import "WKUserContentController.h"
 #import "WKWebView.h"
 #import "WKWebViewContentProviderRegistry.h"
@@ -127,7 +129,6 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     BOOL _allowsInlineMediaPlayback;
     BOOL _inlineMediaPlaybackRequiresPlaysInlineAttribute;
     BOOL _allowsInlineMediaPlaybackAfterFullscreen;
-    BOOL _allowsBlockSelection;
     _WKDragLiftDelay _dragLiftDelay;
 #endif
 
@@ -137,6 +138,8 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     BOOL _mainContentUserGestureOverrideEnabled;
 
 #if PLATFORM(MAC)
+    WKRetainPtr<WKPageGroupRef> _pageGroup;
+    double _cpuLimit;
     BOOL _showsURLsInToolTips;
     BOOL _serviceControlsEnabled;
     BOOL _imageControlsEnabled;
@@ -145,6 +148,10 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     BOOL _initialCapitalizationEnabled;
     BOOL _waitsForPaintAfterViewDidMoveToWindow;
     BOOL _controlledByAutomation;
+
+#if ENABLE(APPLICATION_MANIFEST)
+    RetainPtr<_WKApplicationManifest> _applicationManifest;
+#endif
 
 #if ENABLE(APPLE_PAY)
     BOOL _applePayEnabled;
@@ -192,6 +199,7 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 #endif
 
 #if PLATFORM(MAC)
+    _cpuLimit = 0;
     _printsBackgrounds = NO;
     _respectsImageOrientation = NO;
     _showsURLsInToolTips = NO;
@@ -216,7 +224,6 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 
 #if PLATFORM(IOS)
     _selectionGranularity = WKSelectionGranularityDynamic;
-    _allowsBlockSelection = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitDebugAllowBlockSelection"];
     _dragLiftDelay = toDragLiftDelay([[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitDebugDragLiftDelay"]);
 #endif
 
@@ -229,6 +236,11 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 - (NSString *)description
 {
     return [NSString stringWithFormat:@"<%@: %p; processPool = %@; preferences = %@>", NSStringFromClass(self.class), self, self.processPool, self.preferences];
+}
+
++ (BOOL)supportsSecureCoding
+{
+    return YES;
 }
 
 // FIXME: Encode the process pool, user content controller and website data store.
@@ -263,13 +275,13 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     if (!(self = [self init]))
         return nil;
 
-    self.processPool = [coder decodeObjectForKey:@"processPool"];
-    self.preferences = [coder decodeObjectForKey:@"preferences"];
-    self.userContentController = [coder decodeObjectForKey:@"userContentController"];
-    self.websiteDataStore = [coder decodeObjectForKey:@"websiteDataStore"];
+    self.processPool = decodeObjectOfClassForKeyFromCoder([WKProcessPool class], @"processPool", coder);
+    self.preferences = decodeObjectOfClassForKeyFromCoder([WKPreferences class], @"preferences", coder);
+    self.userContentController = decodeObjectOfClassForKeyFromCoder([WKUserContentController class], @"userContentController", coder);
+    self.websiteDataStore = decodeObjectOfClassForKeyFromCoder([WKWebsiteDataStore class], @"websiteDataStore", coder);
 
     self.suppressesIncrementalRendering = [coder decodeBoolForKey:@"suppressesIncrementalRendering"];
-    self.applicationNameForUserAgent = [coder decodeObjectForKey:@"applicationNameForUserAgent"];
+    self.applicationNameForUserAgent = decodeObjectOfClassForKeyFromCoder([NSString class], @"applicationNameForUserAgent", coder);
     self.allowsAirPlayForMediaPlayback = [coder decodeBoolForKey:@"allowsAirPlayForMediaPlayback"];
 
 #if PLATFORM(IOS)
@@ -333,16 +345,17 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     configuration->_allowsPictureInPictureMediaPlayback = self->_allowsPictureInPictureMediaPlayback;
     configuration->_alwaysRunsAtForegroundPriority = _alwaysRunsAtForegroundPriority;
     configuration->_selectionGranularity = self->_selectionGranularity;
-    configuration->_allowsBlockSelection = self->_allowsBlockSelection;
     configuration->_ignoresViewportScaleLimits = self->_ignoresViewportScaleLimits;
     configuration->_dragLiftDelay = self->_dragLiftDelay;
 #endif
 #if PLATFORM(MAC)
+    configuration->_cpuLimit = self->_cpuLimit;
     configuration->_userInterfaceDirectionPolicy = self->_userInterfaceDirectionPolicy;
     configuration->_showsURLsInToolTips = self->_showsURLsInToolTips;
     configuration->_serviceControlsEnabled = self->_serviceControlsEnabled;
     configuration->_imageControlsEnabled = self->_imageControlsEnabled;
     configuration->_requiresUserActionForEditingControlsManager = self->_requiresUserActionForEditingControlsManager;
+    configuration->_pageGroup = self._pageGroup;
 #endif
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS)
     configuration->_dataDetectorTypes = self->_dataDetectorTypes;
@@ -353,6 +366,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 #if ENABLE(APPLE_PAY)
     configuration->_applePayEnabled = self->_applePayEnabled;
 #endif
+#if ENABLE(APPLICATION_MANIFEST)
+    configuration->_applicationManifest = self->_applicationManifest;
+#endif
     configuration->_needsStorageAccessFromFileURLsQuirk = self->_needsStorageAccessFromFileURLsQuirk;
     configuration->_overrideContentSecurityPolicy = adoptNS([self->_overrideContentSecurityPolicy copyWithZone:zone]);
 
@@ -360,6 +376,8 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     configuration->_mediaContentTypesRequiringHardwareSupport = adoptNS([self._mediaContentTypesRequiringHardwareSupport copyWithZone:zone]);
     configuration->_legacyEncryptedMediaAPIEnabled = self->_legacyEncryptedMediaAPIEnabled;
     configuration->_allowMediaContentTypesRequiringHardwareSupportAsFallback = self->_allowMediaContentTypesRequiringHardwareSupportAsFallback;
+
+    configuration->_groupIdentifier = adoptNS([self->_groupIdentifier copyWithZone:zone]);
 
     return configuration;
 }
@@ -491,29 +509,6 @@ static NSString *defaultApplicationNameForUserAgent()
     _contentProviderRegistry.set(registry);
 }
 #endif
-
-- (void)_validate
-{
-    if (!self.processPool)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.processPool is nil"];
-
-    if (!self.preferences)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.preferences is nil"];
-
-    if (!self.userContentController)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.userContentController is nil"];
-
-    if (!self.websiteDataStore)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.websiteDataStore is nil"];
-
-    if (!self._visitedLinkStore)
-        [NSException raise:NSInvalidArgumentException format:@"configuration._visitedLinkStore is nil"];
-
-#if PLATFORM(IOS)
-    if (!self._contentProviderRegistry)
-        [NSException raise:NSInvalidArgumentException format:@"configuration._contentProviderRegistry is nil"];
-#endif
-}
 
 @end
 
@@ -660,16 +655,6 @@ static NSString *defaultApplicationNameForUserAgent()
     _allowsInlineMediaPlaybackAfterFullscreen = allows;
 }
 
-- (BOOL)_allowsBlockSelection
-{
-    return _allowsBlockSelection;
-}
-
-- (void)_setAllowsBlockSelection:(BOOL)allowsBlockSelection
-{
-    _allowsBlockSelection = allowsBlockSelection;
-}
-
 - (_WKDragLiftDelay)_dragLiftDelay
 {
     return _dragLiftDelay;
@@ -777,6 +762,22 @@ static NSString *defaultApplicationNameForUserAgent()
     _controlledByAutomation = controlledByAutomation;
 }
 
+- (_WKApplicationManifest *)_applicationManifest
+{
+#if ENABLE(APPLICATION_MANIFEST)
+    return _applicationManifest.get();
+#else
+    return nil;
+#endif
+}
+
+- (void)_setApplicationManifest:(_WKApplicationManifest *)applicationManifest
+{
+#if ENABLE(APPLICATION_MANIFEST)
+    _applicationManifest = applicationManifest;
+#endif
+}
+
 #if PLATFORM(MAC)
 - (BOOL)_showsURLsInToolTips
 {
@@ -816,6 +817,26 @@ static NSString *defaultApplicationNameForUserAgent()
 - (void)_setRequiresUserActionForEditingControlsManager:(BOOL)requiresUserAction
 {
     _requiresUserActionForEditingControlsManager = requiresUserAction;
+}
+
+- (WKPageGroupRef)_pageGroup
+{
+    return _pageGroup.get();
+}
+
+- (void)_setPageGroup:(WKPageGroupRef)pageGroup
+{
+    _pageGroup = pageGroup;
+}
+
+- (void)_setCPULimit:(double)cpuLimit
+{
+    _cpuLimit = cpuLimit;
+}
+
+- (double)_cpuLimit
+{
+    return _cpuLimit;
 }
 
 #endif // PLATFORM(MAC)

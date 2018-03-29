@@ -1314,6 +1314,7 @@ peer_final(void *ptr)
     struct peer *peer = ptr;
     CFRELEASE_NULL(peer->bundleID);
     CFRELEASE_NULL(peer->session);
+    free(peer);
 }
 
 static CFStringRef
@@ -1446,7 +1447,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
 {
     struct peer *peer;
 
-    peer = malloc(sizeof(*peer));
+    peer = calloc(1, sizeof(*peer));
     heim_assert(peer != NULL, "out of memory");
     
     peer->peer = peerconn;

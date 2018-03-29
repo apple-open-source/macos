@@ -84,7 +84,7 @@ protected:
 	ExpansionData * reserved;
 
     virtual bool init( IOFireWireNub * primary );
-	virtual	void free();
+	virtual	void free(void) APPLE_KEXT_OVERRIDE;
 
 	virtual UInt32 hopCount( IOFireWireNub * nub );
 	virtual UInt32 hopCount( void );
@@ -168,7 +168,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 /*------------------Methods provided to FireWire device clients-----------------------*/
 public:
@@ -246,7 +246,7 @@ public:
     /*
      * Standard nub initialization
      */
-    virtual bool init(OSDictionary * propTable);
+    virtual bool init(OSDictionary * propTable) APPLE_KEXT_OVERRIDE;
 
     virtual void setNodeFlags( UInt32 flags );
     virtual UInt32 getNodeFlags( void );

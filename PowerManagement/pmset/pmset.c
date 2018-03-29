@@ -3997,7 +3997,7 @@ static void show_thermal_cpu_power_level(void)
     }
 
     print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
-    fprintf(stderr, "CPU Power notify\n"), fflush(stderr);        
+    printf("CPU Power notify\n");
     
     count = CFDictionaryGetCount(cpuStatus);
     keys = (CFStringRef *)malloc(count*sizeof(CFStringRef));

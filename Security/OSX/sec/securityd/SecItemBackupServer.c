@@ -83,7 +83,7 @@ static bool SOSDataSourceWithBackup(SOSDataSourceRef ds, CFDataRef backup, keyba
     __block bool ok = true;
     CFPropertyListRef plist = CFPropertyListCreateWithDERData(kCFAllocatorDefault, backup, kCFPropertyListImmutable, NULL, error);
     CFDictionaryRef bdict = asDictionary(plist, error);
-    ok = bdict;
+    ok = (bdict != NULL);
     if (ok) CFDictionaryForEach(bdict, ^(const void *key, const void *value) {
         CFStringRef className = asString(key, error);
         if (className) {

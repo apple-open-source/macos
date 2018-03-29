@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2017-10-05</string>
+		<key>OpenSourceLicense</key>
+		<string>PHP</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>apache_mod_php.txt</string>
+		<key>OpenSourceSHA256</key>
+		<string>0ee51b9b1ae7eca3e9558f772ce20cbacd1f76420009b3af630c87027f9a41af</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Support for building on Mac OS X</string>
+			<string>Missing man pages</string>
+			<string>Bug fixes for phar</string>
+			<string>Patch for proper building without PCRE JIT support</string>
+			<string>Removed GPLv3 bison-generated parsers</string>
+			<string>Removed install-pear-nozlib.phar</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>php</string>
+		<key>OpenSourceURL</key>
+		<string>http://php.net/downloads.php</string>
+		<key>OpenSourceVersion</key>
+		<string>7.1.10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.php.net/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2012-02-03</string>
+		<key>OpenSourceLicense</key>
+		<string>libjpeg</string>
+		<key>OpenSourceMD5</key>
+		<string>52654eb3b2e60c35731ea8fc87f1bd29</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>libjpeg</string>
+		<key>OpenSourceSHA1</key>
+		<string>f080b2fffc7581f7d19b968092ba9ebc234556ff</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.ijg.org/files/jpegsrc.v8d.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>8d</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.ijg.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2016-12-21</string>
+		<key>OpenSourceLicense</key>
+		<string>PHP</string>
+		<key>OpenSourceMD5</key>
+		<string>5306da5948e195c2e4585c9abd7741f9</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>xdebug</string>
+		<key>OpenSourceSHA1</key>
+		<string>0d31602a6ee2ba6d2e18a6db79bdb9a2a706bcd9</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.xdebug.org/files/xdebug-2.5.0.tgz</string>
+		<key>OpenSourceVersion</key>
+		<string>2.5.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.xdebug.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2017-10-26</string>
+		<key>OpenSourceLicense</key>
+		<string>libpng</string>
+		<key>OpenSourceMD5</key>
+		<string>c379427048bb0882ab1e286ca386260e</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key> 
+		<string>libpng</string> 
+		<key>OpenSourceSHA1</key> 
+		<string>3f489dd39cd7055f9ef68eda16ba11961c044042</string> 
+		<key>OpenSourceURL</key> 
+		<string>https://astuteinternet.dl.sourceforge.net/project/libpng/libpng16/1.6.32/libpng-1.6.32.tar.gz</string> 
+		<key>OpenSourceVersion</key> 
+		<string>1.6.32</string> 
+		<key>OpenSourceWebsiteURL</key> 
+		<string>http://www.libpng.org/</string> 
+	</dict>
+</array>
+</plist>

@@ -451,7 +451,7 @@ static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
 
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate chain");
     is(SecTrustGetCertificateCount(trust), 3, "expected chain of 3");
-    bool did_succeed = (trustResult == kSecTrustResultUnspecified);
+    bool did_succeed = (trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed);
 
     if (failureReason && should_succeed && !did_succeed) {
         *failureReason = SecTrustCopyFailureDescription(trust);
@@ -647,12 +647,260 @@ errOut:
     CFReleaseNull(date);
 }
 
+static void test_evaluate_with_error(void) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    
+    SecCertificateRef cert0 = NULL, cert1 = NULL, cert2 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certificates = NULL, roots = NULL;
+    CFDateRef date = NULL, validDate = NULL;
+    CFErrorRef error = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
+    require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
+
+    const void *v_certs[] = {
+        cert0,
+        cert1
+    };
+    certificates = CFArrayCreate(NULL, v_certs,
+                                 array_size(v_certs),
+                                 &kCFTypeArrayCallBacks);
+
+    const void *v_roots[] = {
+        cert2
+    };
+    roots = CFArrayCreate(NULL, v_roots,
+                          array_size(v_roots),
+                          &kCFTypeArrayCallBacks);
+
+    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
+    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+
+    /* April 10 2015 (cert expired in 2015) */
+    require(validDate = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut);
+    require_noerr(SecTrustSetVerifyDate(trust, validDate), errOut);
+
+    is(SecTrustEvaluateWithError(trust, &error), true, "wrong result for valid cert");
+    is(error, NULL, "set error for passing trust evaluation");
+    CFReleaseNull(error);
+
+    /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
+    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
+    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+
+    /* expect expiration error */
+    is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert");
+    isnt(error, NULL, "failed to set error for failing trust evaluation");
+    is(CFErrorGetCode(error), errSecCertificateExpired, "Got wrong error code for evaluation");
+    CFReleaseNull(error);
+
+    CFReleaseNull(policy);
+    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+
+    /* expect a hostname mismatch as well as expiration; hostname mismatch must be a higher priority */
+    is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert with hostname mismatch");
+    isnt(error, NULL, "failed to set error for failing trust evaluation");
+    is(CFErrorGetCode(error), errSecHostNameMismatch, "Got wrong error code for evaluation");
+    CFReleaseNull(error);
+
+    /* expect only a hostname mismatch*/
+    require_noerr(SecTrustSetVerifyDate(trust, validDate), errOut);
+    is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for valid cert with hostname mismatch");
+    isnt(error, NULL, "failed to set error for failing trust evaluation");
+    is(CFErrorGetCode(error), errSecHostNameMismatch, "Got wrong error code for evaluation");
+    CFReleaseNull(error);
+
+    /* pinning failure */
+    CFReleaseNull(policy);
+    require(policy = SecPolicyCreateAppleSSLPinned(CFSTR("test"), CFSTR("expired.badssl.com"),
+                                                   NULL, CFSTR("1.2.840.113635.100.6.27.1")), errOut);
+    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+
+    is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for valid cert with pinning failure");
+    isnt(error, NULL, "failed to set error for failing trust evaluation");
+    CFIndex errorCode = CFErrorGetCode(error);
+    // failed checks: AnchorApple, LeafMarkerOid, or IntermediateMarkerOid
+    ok(errorCode == errSecMissingRequiredExtension || errorCode == errSecInvalidRoot, "Got wrong error code for evaluation");
+    CFReleaseNull(error);
+
+    /* trust nothing, trust errors higher priority than hostname mismatch */
+    CFReleaseNull(policy);
+    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+
+    CFReleaseNull(roots);
+    roots = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
+    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+    is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert with hostname mismatch");
+    isnt(error, NULL, "failed to set error for failing trust evaluation");
+    is(CFErrorGetCode(error), errSecNotTrusted, "Got wrong error code for evaluation");
+    CFReleaseNull(error);
+
+errOut:
+    CFReleaseNull(trust);
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(cert2);
+    CFReleaseNull(policy);
+    CFReleaseNull(certificates);
+    CFReleaseNull(roots);
+    CFReleaseNull(date);
+    CFReleaseNull(validDate);
+    CFReleaseNull(error);
+
+#pragma clang diagnostic pop
+}
+
+static void test_optional_policy_check(void) {
+    SecCertificateRef cert0 = NULL, cert1 = NULL, root = NULL;
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = NULL;
+    CFArrayRef certs = NULL, anchors = NULL;
+    CFDateRef date = NULL;
+
+    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _leaf384C, sizeof(_leaf384C)), errOut,
+                   fail("unable to create cert"));
+    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _int384B, sizeof(_int384B)), errOut,
+                   fail("unable to create cert"));
+    require_action(root = SecCertificateCreateWithBytes(NULL, _root384, sizeof(_root384)), errOut,
+                   fail("unable to create cert"));
+
+    const void *v_certs[] = { cert0, cert1 };
+    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create anchors array"));
+    require_action(date = CFDateCreate(NULL, 472100000.0), errOut, fail("unable to create date"));
+
+    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+    SecPolicySetOptionsValue(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("unable to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+#if NDEBUG
+    ok(SecTrustEvaluateWithError(trust, NULL), "Trust evaluation failed");
+#else
+    is(SecTrustEvaluateWithError(trust, NULL), false, "Expect failure in Debug config");
+#endif
+#pragma clang diagnostic pop
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(root);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+static void test_serialization(void) {
+    SecCertificateRef cert0 = NULL, cert1 = NULL, root = NULL;
+    SecTrustRef trust = NULL, deserializedTrust = NULL;
+    SecPolicyRef policy = NULL;
+    CFArrayRef certs = NULL, anchors = NULL, deserializedCerts = NULL;
+    CFDateRef date = NULL;
+    CFDataRef serializedTrust = NULL;
+    CFErrorRef error = NULL;
+
+    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _leaf384C, sizeof(_leaf384C)), errOut,
+                   fail("unable to create cert"));
+    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _int384B, sizeof(_int384B)), errOut,
+                   fail("unable to create cert"));
+    require_action(root = SecCertificateCreateWithBytes(NULL, _root384, sizeof(_root384)), errOut,
+                   fail("unable to create cert"));
+
+    const void *v_certs[] = { cert0, cert1 };
+    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create anchors array"));
+    require_action(date = CFDateCreate(NULL, 472100000.0), errOut, fail("unable to create date"));
+
+    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("unable to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+
+    ok(serializedTrust = SecTrustSerialize(trust, NULL), "failed to serialize trust");
+    ok(deserializedTrust = SecTrustDeserialize(serializedTrust, NULL), "Failed to deserialize trust");
+    CFReleaseNull(serializedTrust);
+
+    require_noerr_action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
+                         fail("unable to get anchors from deserialized trust"));
+    ok(CFEqual(anchors, deserializedCerts), "Failed to get the same anchors after serialization/deserialization");
+    CFReleaseNull(deserializedCerts);
+
+    require_noerr_action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
+                         fail("unable to get input certificates from deserialized trust"));
+    ok(CFEqual(certs, deserializedCerts), "Failed to get same input certificates after serialization/deserialization");
+    CFReleaseNull(deserializedCerts);
+
+    /* correct API behavior */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+    is(SecTrustSerialize(NULL, &error), NULL, "serialize succeeded with null input");
+    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad serialization input");
+    CFReleaseNull(error);
+    is(SecTrustDeserialize(NULL, &error), NULL, "deserialize succeeded with null input");
+    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad deserialization input");
+    CFReleaseNull(error);
+#pragma clang diagnostic pop
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(root);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(deserializedTrust);
+}
+
+static void test_tls_analytics_report(void)
+{
+    xpc_object_t metric = xpc_dictionary_create(NULL, NULL, 0);
+    ok(metric != NULL);
+
+    const char *TLS_METRIC_PROCESS_IDENTIFIER = "process";
+    const char *TLS_METRIC_CIPHERSUITE = "cipher_name";
+    const char *TLS_METRIC_PROTOCOL_VERSION = "version";
+    const char *TLS_METRIC_SESSION_RESUMED = "resumed";
+
+    xpc_dictionary_set_string(metric, TLS_METRIC_PROCESS_IDENTIFIER, "super awesome unit tester");
+    xpc_dictionary_set_uint64(metric, TLS_METRIC_CIPHERSUITE, 0x0304);
+    xpc_dictionary_set_uint64(metric, TLS_METRIC_PROTOCOL_VERSION, 0x0304);
+    xpc_dictionary_set_bool(metric, TLS_METRIC_SESSION_RESUMED, false);
+    // ... TLS would fill in the rest
+
+    // Invoke the callback
+    CFErrorRef error = NULL;
+    bool reported = SecTrustReportTLSAnalytics(CFSTR("TLSConnectionEvent"), metric, &error);
+    ok(reported, "Failed to report analytics with error %@", error);
+}
+
 int si_20_sectrust(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-    plan_tests(101+9+(8*13)+9+1+2);
+    plan_tests(101+9+(8*13)+9+1+2+17+2+9+2);
 #else
-    plan_tests(97+9+(8*13)+9+1+2+2);
+    plan_tests(97+9+(8*13)+9+1+2+2+17+2+9+2);
 #endif
 
     basic_tests();
@@ -664,6 +912,10 @@ int si_20_sectrust(int argc, char *const *argv)
     test_input_certificates();
     test_async_trust();
     test_expired_only();
+    test_evaluate_with_error();
+    test_optional_policy_check();
+    test_serialization();
+    test_tls_analytics_report();
 
     return 0;
 }

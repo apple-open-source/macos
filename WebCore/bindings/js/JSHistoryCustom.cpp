@@ -29,16 +29,15 @@
 #include "config.h"
 #include "JSHistory.h"
 
-#include "ExceptionCode.h"
 #include "Frame.h"
 #include "JSDOMConvertNullable.h"
 #include "JSDOMConvertStrings.h"
 #include "SerializedScriptValue.h"
 #include <runtime/JSFunction.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 JSValue JSHistory::state(ExecState& state) const
 {

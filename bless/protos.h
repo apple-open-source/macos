@@ -50,6 +50,7 @@ void usage_short(void);
 void addPayload(const char *path);
 
 int CopyManifests(BLContextPtr context, const char *destFile, const char *srcFile);
+int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char *prFile, bool suppressACPrompt);
 
 
 extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
@@ -61,3 +62,6 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 					   CFDataRef labelData, CFDataRef labelData2);
 
 int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
+
+
+int DeleteFileOrDirectory(const char *path);

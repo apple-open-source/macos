@@ -44,7 +44,7 @@ public:
         return adoptRef(*new WebFramePolicyListenerProxy(frame, listenerID));
     }
 
-    void use(const WebsitePolicies&);
+    void use(std::optional<WebsitePoliciesData>&&);
     void download();
     void ignore();
 

@@ -213,7 +213,7 @@ CFDataRef SOSUserKeyCreateGenerateParameters(CFErrorRef *error) {
         CFReleaseNull(result);
 
     if (result) {
-        secnotice("keygen", "Created new parameters: iterations %zd, keysize %zd: %@", iterations, keysize, result);
+        secnotice("circleOps", "Created new parameters: iterations %zd, keysize %zd: %@", iterations, keysize, result);
     }
 
     return result;
@@ -266,7 +266,7 @@ SecKeyRef SOSUserKeygen(CFDataRef password, CFDataRef parameters, CFErrorRef *er
 
     ccec_full_ctx_decl_cp(cp, tmpkey);
 
-    secnotice("keygen", "Generating key for: iterations %zd, keysize %zd: %@", iterations, keysize, parameters);
+    secnotice("circleOps", "Generating key for: iterations %zd, keysize %zd: %@", iterations, keysize, parameters);
 
     if (ccrng_pbkdf2_prng_init(&pbkdf2_prng, maxbytes,
                                 password_length, password_bytes,
@@ -297,13 +297,13 @@ void debugDumpUserParameters(CFStringRef message, CFDataRef parameters)
     
     der = der_decode_pbkdf2_params(&saltlen, &salt, &iterations, &keysize, der, der_end);
     if (der == NULL) {
-        secnotice("keygen", "failed to decode pbkdf2 params");
+        secnotice("circleOps", "failed to decode pbkdf2 params");
         return;
     }
     
     BufferPerformWithHexString(salt, saltlen, ^(CFStringRef saltHex) {
         CFDataPerformWithHexString(parameters, ^(CFStringRef parametersHex) {
-            secnotice("keygen", "%@ <Params: count: %zd, keysize: %zd, salt: %@, raw: %@>]", message, iterations, keysize, saltHex, parametersHex);
+            secnotice("circleOps", "%@ <Params: count: %zd, keysize: %zd, salt: %@, raw: %@>]", message, iterations, keysize, saltHex, parametersHex);
         });
     });
 }
@@ -320,7 +320,7 @@ CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters){
                                                            CFDataGetBytePtr(parameters), CFDataGetPastEndPtr(parameters));
 
     if (parse_end != CFDataGetPastEndPtr(parameters)){
-        secdebug("keygen", "failed to decode cloud parameters");
+        secdebug("circleOps", "failed to decode cloud parameters");
         return NULL;
     }
 
@@ -335,7 +335,7 @@ CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters){
     
     der = der_decode_pbkdf2_params(&saltlen, &salt, &iterations, &keysize, der, der_end);
     if (der == NULL) {
-        secdebug("keygen", "failed to decode pbkdf2 params");
+        secdebug("circleOps", "failed to decode pbkdf2 params");
         return NULL;
     }
     

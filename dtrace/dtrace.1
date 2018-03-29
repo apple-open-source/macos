@@ -120,26 +120,11 @@ option to force
 to exit immediately after consuming the anonymous tracing state rather than
 continuing to wait for new data.
 .It Fl A
-Generate a
-.Xr plist 5
-of directives for anonymous tracing.  If the
-.Fl A
-option is specified,
-.Nm
-compiles any D programs specified using the
-.Fl s
-option or on the command-line and constructs a
-.Xr plist 5
-of
-.Nm
-directives to enable the specified probes for anonymous tracing and then exits.
-By default,
-.Nm
-attempts to store the plist to the file
-.Pa /System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist .
-This behavior can be modified using the
-.Fl o
-option to specify an alternate output file.
+Generate directives for anonymous (at boot) tracing and store them to NVRAM.
+This option constructs a set of dtrace configuration file directives
+to enable the specified probes for anonymous tracing and then exits.
+See also
+.Fl a
 .It Fl b Ar bufsz
 Set the principal trace buffer size to
 .Ar bufsz .
@@ -358,16 +343,10 @@ option can be specified on the command line at a time.
 Specify the
 .Ar output
 file for the
-.Fl A , G ,
+.Fl G ,
 and
 .Fl l
 options, or for the traced data itself.
-If the
-.Fl A
-option is present and
-.Fl o
-is not present, the default output file is
-.Pa /System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist .
 If the
 .Fl G
 option is present and the
@@ -1027,7 +1006,7 @@ also
 .Va cpucycles .
 .It Vt uint64_t Va vinstrs Po Darwin-specific Pc
 Number of instructions retired by the current thread, if available.
-This value includes instructinos retired while processing interrupts with
+This value includes instructions retired while processing interrupts with
 this thread.
 See also
 .Va cpuinstrs .

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,7 +67,12 @@ void IPv6AWDReportSetDHCPv6AddressAcquired(IPv6AWDReportRef report);
 void IPv6AWDReportSetDHCPv6DNSServers(IPv6AWDReportRef report);
 void IPv6AWDReportSetDHCPv6DNSDomainList(IPv6AWDReportRef report);
 void IPv6AWDReportSetManualAddressConfigured(IPv6AWDReportRef report);
+void IPv6AWDReportSetPrefixPreferredLifetime(IPv6AWDReportRef report,
+					     uint32_t lifetime);
+void IPv6AWDReportSetPrefixValidLifetime(IPv6AWDReportRef report,
+					 uint32_t lifetime);
 void IPv6AWDReportSetPrefixLifetimeNotInfinite(IPv6AWDReportRef report);
+void IPv6AWDReportSetRouterLifetime(IPv6AWDReportRef report, uint16_t lifetime);
 void IPv6AWDReportSetRouterLifetimeNotMaximum(IPv6AWDReportRef report);
 void IPv6AWDReportSetRouterSourceAddressCollision(IPv6AWDReportRef report);
 void IPv6AWDReportSetRouterLifetimeZero(IPv6AWDReportRef report);

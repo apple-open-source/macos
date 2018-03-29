@@ -61,6 +61,7 @@ ONE_TEST(si_82_sectrust_ct)
 ONE_TEST(si_83_seccertificate_sighashalg)
 ONE_TEST(si_85_sectrust_ssl_policy)
 ONE_TEST(si_87_sectrust_name_constraints)
+ONE_TEST(si_88_sectrust_valid)
 ONE_TEST(si_97_sectrust_path_scoring)
 ONE_TEST(rk_01_recoverykey)
 

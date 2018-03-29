@@ -23,6 +23,7 @@
 #include "Microtasks.h"
 
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
 
 namespace WebCore {
@@ -37,9 +38,7 @@ MicrotaskQueue::MicrotaskQueue()
 {
 }
 
-MicrotaskQueue::~MicrotaskQueue()
-{
-}
+MicrotaskQueue::~MicrotaskQueue() = default;
 
 MicrotaskQueue& MicrotaskQueue::mainThreadQueue()
 {

@@ -73,10 +73,18 @@ static CFTypeRef installerPolicy() CF_RETURNS_RETAINED;
 PolicyEngine::PolicyEngine()
 	: PolicyDatabase(NULL, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
 {
+	try {
+		mOpaqueWhitelist = new OpaqueWhitelist();
+	} catch (...) {
+		mOpaqueWhitelist = NULL;
+		secerror("Failed opening the gkopaque database.");
+	}
 }
 
 PolicyEngine::~PolicyEngine()
-{ }
+{
+	delete mOpaqueWhitelist;
+}
 
 
 //
@@ -262,11 +270,27 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 	cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, false);
 	addAuthority(flags, result, latentLabel.c_str(), latentID);
 }
-	
+
+CFDictionaryRef PolicyEngine::opaqueWhitelistValidationConditionsFor(SecStaticCodeRef code)
+{
+	 return (mOpaqueWhitelist != NULL) ? mOpaqueWhitelist->validationConditionsFor(code) : NULL;
+}
+
+bool PolicyEngine::opaqueWhiteListContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason)
+{
+	return (mOpaqueWhitelist != NULL) ? mOpaqueWhitelist->contains(code, feedback, reason) : false;
+}
+
+void PolicyEngine::opaqueWhitelistAdd(SecStaticCodeRef code)
+{
+	if (mOpaqueWhitelist) {
+		mOpaqueWhitelist->add(code);
+	}
+}
 
 void PolicyEngine::adjustValidation(SecStaticCodeRef code)
 {
-	CFRef<CFDictionaryRef> conditions = mOpaqueWhitelist.validationConditionsFor(code);
+	CFRef<CFDictionaryRef> conditions = opaqueWhitelistValidationConditionsFor(code);
 	SecStaticCodeSetValidationConditions(code, conditions);
 }
 
@@ -465,8 +489,9 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 			if (CFEqual(verdict, kCFBooleanFalse))	// nested code rejected by rule book; result was filled out there
 				return;
 			if (CFEqual(verdict, kCFBooleanTrue) && !(flags & kSecAssessmentFlagIgnoreWhitelist))
-				if (mOpaqueWhitelist.contains(code, feedback, rc))
+				if (opaqueWhiteListContains(code, feedback, rc)) {
 					allow = true;
+				}
 		}
 		if (allow) {
 			label = "allowed cdhash";
@@ -1144,7 +1169,7 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 		CFStringRef edit = CFStringRef(context.get(kSecAssessmentContextKeyUpdate));
 		if (type == kAuthorityExecute && CFEqual(edit, kSecAssessmentUpdateOperationAdd)) {
 			// implicitly whitelist the code
-			mOpaqueWhitelist.add(code);
+			opaqueWhitelistAdd(code);
 		}
 	}
 }

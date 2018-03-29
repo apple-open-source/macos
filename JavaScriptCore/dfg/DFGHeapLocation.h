@@ -37,6 +37,7 @@ enum LocationKind {
     InvalidLocationKind,
     
     ArrayLengthLoc,
+    ArrayMaskLoc,
     VectorLengthLoc,
     ButterflyLoc,
     CheckTypeInfoFlagsLoc,
@@ -59,11 +60,15 @@ enum LocationKind {
     SetterLoc,
     StructureLoc,
     TypedArrayByteOffsetLoc,
+    PrototypeLoc,
     StackLoc,
     StackPayloadLoc,
     MapBucketLoc,
-    JSMapGetLoc,
-    MapHasLoc,
+    MapBucketHeadLoc,
+    MapBucketValueLoc,
+    MapBucketKeyLoc,
+    MapBucketNextLoc,
+    WeakMapGetLoc,
     DOMStateLoc,
 };
 

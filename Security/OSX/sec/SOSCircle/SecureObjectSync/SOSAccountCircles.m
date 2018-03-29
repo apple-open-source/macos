@@ -21,7 +21,7 @@
 //
 
 
-SOSCircleRef SOSAccountEnsureCircle(SOSAccount* a, CFStringRef name, CFErrorRef *error)
+SOSCircleRef CF_RETURNS_RETAINED SOSAccountEnsureCircle(SOSAccount* a, CFStringRef name, CFErrorRef *error)
 {
     CFErrorRef localError = NULL;
     SOSAccountTrustClassic *trust = a.trust;
@@ -31,6 +31,8 @@ SOSCircleRef SOSAccountEnsureCircle(SOSAccount* a, CFStringRef name, CFErrorRef 
         circle = SOSCircleCreate(NULL, name, NULL);
         a.key_interests_need_updating = true;
         [trust setTrustedCircle:circle];
+    } else {
+        CFRetainSafe(circle);
     }
 
     require_action_quiet(circle || !isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle), fail,

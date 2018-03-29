@@ -176,7 +176,7 @@ enum {
     interface.
 */
 enum {
-    kAuthorizationCallbacksVersion = 2
+    kAuthorizationCallbacksVersion = 3
 };
 
 
@@ -194,8 +194,9 @@ enum {
     @field SetHintValue     Write value to hints.  AuthorizationValue and data are copied.
     @field GetArguments     Read arguments passed.  AuthorizationValueVector does not own data.
     @field GetSessionId     Read SessionId.
-    @field GetLAContext     Returns authenticated LAContext which can be used for operations with Tokens which would normally require PIN. Caller owns returned context and is responsible for release.
-    @field GetTokenIdentities Returns array of identities. Caller owns returned array and is reponsible for release.
+    @field GetLAContext     Returns LAContext which will have LACredentialCTKPIN credential set if PIN is available otherwise context without credentials is returned. LAContext can be used for operations with Tokens which would normally require PIN. Caller owns returned context and is responsible for release.
+    @field GetTokenIdentities   Returns array of identities. Caller owns returned array and is reponsible for release.
+    @field GetTKTokenWatcher    Returns TKTokenWatcher object. Caller owns returned context and is responsible for release.
 */
 typedef struct AuthorizationCallbacks {
 
@@ -254,18 +255,24 @@ typedef struct AuthorizationCallbacks {
 	 userful for kSecUseAuthenticationContext for SecItem calls.
      Caller is responsible for outValue release	 */
     OSStatus (*GetLAContext)(AuthorizationEngineRef inEngine,
-    CFTypeRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
+        CFTypeRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
 
     /*
 	 Available only on systems with callback version 2 or higher
 	 Returns array of available identities available on tokens. Each array item consists of two
      elements. The first one is SecIdentityRef and the second one is textual description of that identity
-	 context parameter may contain CFTypeRef returned by GetLAContext. Returned identities
-	 will contain PIN in such case so crypto operations won't display PIN prompt.
+	 context parameter may contain CFTypeRef returned by GetLAContext.
      Caller is responsible for outValue release */
     OSStatus (*GetTokenIdentities)(AuthorizationEngineRef inEngine,
         CFTypeRef context,
         CFArrayRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
+
+    /*
+     Available only on systems with callback version 3 or higher
+     Constructs TKTokenWatcher object.
+     Caller is responsible for outValue release     */
+    OSStatus (*GetTKTokenWatcher)(AuthorizationEngineRef inEngine,
+        CFTypeRef __nullable * __nullable outValue)  __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __PHONE_NA);
 
 } AuthorizationCallbacks;
 

@@ -33,6 +33,10 @@
 #include "WebProcessPool.h"
 #include "WebUserContentControllerProxy.h"
 
+#if ENABLE(APPLICATION_MANIFEST)
+#include "APIApplicationManifest.h"
+#endif
+
 using namespace WebCore;
 using namespace WebKit;
 
@@ -72,6 +76,9 @@ Ref<PageConfiguration> PageConfiguration::copy() const
     copy->m_cpuLimit = this->m_cpuLimit;
     copy->m_controlledByAutomation = this->m_controlledByAutomation;
     copy->m_overrideContentSecurityPolicy = this->m_overrideContentSecurityPolicy;
+#if ENABLE(APPLICATION_MANIFEST)
+    copy->m_applicationManifest = this->m_applicationManifest;
+#endif
 
     return copy;
 }
@@ -150,19 +157,31 @@ void PageConfiguration::setWebsiteDataStore(API::WebsiteDataStore* websiteDataSt
     if (m_websiteDataStore)
         m_sessionID = m_websiteDataStore->websiteDataStore().sessionID();
     else
-        m_sessionID = WebCore::SessionID();
+        m_sessionID = PAL::SessionID();
 }
 
-WebCore::SessionID PageConfiguration::sessionID()
+PAL::SessionID PageConfiguration::sessionID()
 {
-    ASSERT(!m_websiteDataStore || m_websiteDataStore->websiteDataStore().sessionID() == m_sessionID || m_sessionID == SessionID::legacyPrivateSessionID());
+    ASSERT(!m_websiteDataStore || m_websiteDataStore->websiteDataStore().sessionID() == m_sessionID || m_sessionID == PAL::SessionID::legacyPrivateSessionID());
 
     return m_sessionID;
 }
 
-void PageConfiguration::setSessionID(WebCore::SessionID sessionID)
+void PageConfiguration::setSessionID(PAL::SessionID sessionID)
 {
     m_sessionID = sessionID;
 }
+
+#if ENABLE(APPLICATION_MANIFEST)
+const ApplicationManifest* PageConfiguration::applicationManifest() const
+{
+    return m_applicationManifest.get();
+}
+
+void PageConfiguration::setApplicationManifest(ApplicationManifest* applicationManifest)
+{
+    m_applicationManifest = applicationManifest;
+}
+#endif
 
 } // namespace API

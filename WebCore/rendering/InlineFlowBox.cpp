@@ -40,8 +40,11 @@
 #include "RootInlineBox.h"
 #include "Text.h"
 #include <math.h>
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(InlineFlowBox);
 
 struct SameSizeAsInlineFlowBox : public InlineBox {
     void* pointers[5];
@@ -68,17 +71,6 @@ void InlineFlowBox::setHasBadChildList()
 }
 
 #endif
-
-RenderBlockFlow* InlineFlowBox::anonymousInlineBlock() const
-{
-    if (!m_hasAnonymousInlineBlock || !firstChild())
-        return nullptr;
-    if (is<InlineFlowBox>(*firstChild()))
-        return downcast<InlineFlowBox>(*firstChild()).anonymousInlineBlock();
-    if (firstChild()->renderer().isAnonymousInlineBlock())
-        return &downcast<RenderBlockFlow>(firstChild()->renderer());
-    return nullptr;
-}
 
 LayoutUnit InlineFlowBox::getFlowSpacingLogicalWidth()
 {
@@ -123,12 +115,7 @@ void InlineFlowBox::addToLine(InlineBox* child)
     } else if (is<InlineFlowBox>(*child)) {
         if (downcast<InlineFlowBox>(*child).hasTextDescendants())
             setHasTextDescendantsOnAncestors(this);
-        if (downcast<InlineFlowBox>(*child).hasAnonymousInlineBlock())
-            setHasAnonymousInlineBlock(true);
     }
-    if (child->renderer().isAnonymousInlineBlock())
-        setHasAnonymousInlineBlock(true);
-
     if (descendantsHaveSameLineHeightAndBaseline() && !child->renderer().isOutOfFlowPositioned()) {
         const RenderStyle& parentStyle = lineStyle();
         const RenderStyle& childStyle = child->lineStyle();
@@ -324,7 +311,7 @@ void InlineFlowBox::determineSpacingForFlowBoxes(bool lastLine, bool isLogically
         // Check to see if all initial lines are unconstructed.  If so, then
         // we know the inline began on this line (unless we are a continuation).
         const auto& lineBoxList = inlineFlow.lineBoxes();
-        if (!lineBoxList.firstLineBox()->isConstructed() && !renderer().isInlineElementContinuation()) {
+        if (!lineBoxList.firstLineBox()->isConstructed() && !inlineFlow.isContinuation()) {
 #if ENABLE(CSS_BOX_DECORATION_BREAK)
             if (renderer().style().boxDecorationBreak() == DCLONE)
                 includeLeftEdge = includeRightEdge = true;
@@ -395,7 +382,7 @@ float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, Inlin
         if (is<RenderText>(child->renderer())) {
             auto& textBox = downcast<InlineTextBox>(*child);
             RenderText& renderText = textBox.renderer();
-            if (renderText.textLength()) {
+            if (renderText.text().length()) {
                 if (needsWordSpacing && isSpaceOrNewline(renderText.characterAt(textBox.start())))
                     logicalLeft += textBox.lineStyle().fontCascade().wordSpacing();
                 needsWordSpacing = !isSpaceOrNewline(renderText.characterAt(textBox.end()));
@@ -663,11 +650,6 @@ void InlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit maxHei
             LayoutUnit posAdjust = maxAscent - child->baselinePosition(baselineType);
             child->setLogicalTop(child->logicalTop() + top + posAdjust);
         }
-        
-        if (child->renderer().isAnonymousInlineBlock()) {
-            const auto& box = downcast<RenderBox>(child->renderer());
-            child->setLogicalTop(box.logicalTop());
-        }
 
         LayoutUnit newLogicalTop = child->logicalTop();
         LayoutUnit newLogicalTopIncludingMargins = newLogicalTop;
@@ -685,7 +667,7 @@ void InlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit maxHei
                     : boxObject.borderRight() + boxObject.paddingRight();
             }
             newLogicalTopIncludingMargins = newLogicalTop;
-        } else if (!child->renderer().isBR() && !child->renderer().isAnonymousInlineBlock()) {
+        } else if (!child->renderer().isBR()) {
             const auto& box = downcast<RenderBox>(child->renderer());
             newLogicalTopIncludingMargins = newLogicalTop;
             LayoutUnit overSideMargin = child->isHorizontal() ? box.marginTop() : box.marginRight();
@@ -744,7 +726,7 @@ void InlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit maxHei
     }
 
     if (isRootBox) {
-        if (!hasAnonymousInlineBlock() && (strictMode || hasTextChildren() || (descendantsHaveSameLineHeightAndBaseline() && hasTextDescendants()))) {
+        if (strictMode || hasTextChildren() || (descendantsHaveSameLineHeightAndBaseline() && hasTextDescendants())) {
             if (!setLineTop) {
                 setLineTop = true;
                 lineTop = logicalTop();
@@ -1064,8 +1046,7 @@ void InlineFlowBox::setOverflowFromLogicalRects(const LayoutRect& logicalLayoutO
 
 bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom, HitTestAction hitTestAction)
 {
-    // As long as we don't have an anonymous inline block on our line, we restrict our hit testing only to the foreground phase.
-    if (!hasAnonymousInlineBlock() && hitTestAction != HitTestForeground)
+    if (hitTestAction != HitTestForeground)
         return false;
 
     LayoutRect overflowRect(visualOverflowRect(lineTop, lineBottom));
@@ -1150,7 +1131,7 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
     if (locationInContainer.intersects(rect)) {
         renderer().updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - toLayoutSize(accumulatedOffset))); // Don't add in m_x or m_y here, we want coords in the containing block's space.
-        if (!result.addNodeToRectBasedTestResult(renderer().element(), request, locationInContainer, rect))
+        if (result.addNodeToListBasedTestResult(renderer().element(), request, locationInContainer, rect) == HitTestProgress::Stop)
             return true;
     }
 
@@ -1159,8 +1140,7 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
 void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit lineTop, LayoutUnit lineBottom)
 {
-    // As long as we don't have an anonymous inline block on our line, we restrict our painting only to a few phases.
-    if (!hasAnonymousInlineBlock() && (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseOutline && paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines && paintInfo.phase != PaintPhaseTextClip && paintInfo.phase != PaintPhaseMask))
+    if (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseOutline && paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines && paintInfo.phase != PaintPhaseTextClip && paintInfo.phase != PaintPhaseMask)
         return;
 
     LayoutRect overflowRect(visualOverflowRect(lineTop, lineBottom));
@@ -1178,7 +1158,7 @@ void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
                 RenderInline& inlineFlow = downcast<RenderInline>(renderer());
 
                 RenderBlock* containingBlock = nullptr;
-                bool containingBlockPaintsContinuationOutline = inlineFlow.continuation() || inlineFlow.isInlineElementContinuation();
+                bool containingBlockPaintsContinuationOutline = inlineFlow.continuation() || inlineFlow.isContinuation();
                 if (containingBlockPaintsContinuationOutline) {           
                     // FIXME: See https://bugs.webkit.org/show_bug.cgi?id=54690. We currently don't reconnect inline continuations
                     // after a child removal. As a result, those merged inlines do not get seperated and hence not get enclosed by
@@ -1201,17 +1181,14 @@ void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
                     // Add ourselves to the containing block of the entire continuation so that it can
                     // paint us atomically.
                     containingBlock->addContinuationWithOutline(downcast<RenderInline>(renderer().element()->renderer()));
-                } else if (!inlineFlow.isInlineElementContinuation())
+                } else if (!inlineFlow.isContinuation())
                     paintInfo.outlineObjects->add(&inlineFlow);
             }
-        } else if (paintInfo.phase == PaintPhaseMask) {
-            if (!hasAnonymousInlineBlock())
-                paintMask(paintInfo, paintOffset);
-            return;
-        } else {
+        } else if (paintInfo.phase == PaintPhaseMask)
+            paintMask(paintInfo, paintOffset);
+        else {
             // Paint our background, border and box-shadow.
-            if (!hasAnonymousInlineBlock())
-                paintBoxDecorations(paintInfo, paintOffset);
+            paintBoxDecorations(paintInfo, paintOffset);
         }
     }
 
@@ -1735,7 +1712,7 @@ const char* InlineFlowBox::boxName() const
     return "InlineFlowBox";
 }
 
-void InlineFlowBox::outputLineTreeAndMark(TextStream& stream, const InlineBox* markedBox, int depth) const
+void InlineFlowBox::outputLineTreeAndMark(WTF::TextStream& stream, const InlineBox* markedBox, int depth) const
 {
     InlineBox::outputLineTreeAndMark(stream, markedBox, depth);
     for (const InlineBox* box = firstChild(); box; box = box->nextOnLine())

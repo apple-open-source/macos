@@ -28,9 +28,9 @@
 #include <runtime/JSCInlines.h>
 #include <wtf/GetPtr.h>
 
-using namespace JSC;
 
 namespace WebCore {
+using namespace JSC;
 
 // Attributes
 
@@ -71,9 +71,9 @@ template<> JSValue JSTestSerializationIndirectInheritanceConstructor::prototypeF
 
 template<> void JSTestSerializationIndirectInheritanceConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    putDirect(vm, vm.propertyNames->prototype, JSTestSerializationIndirectInheritance::prototype(vm, globalObject), DontDelete | ReadOnly | DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestSerializationIndirectInheritance"))), ReadOnly | DontEnum);
-    putDirect(vm, vm.propertyNames->length, jsNumber(0), ReadOnly | DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestSerializationIndirectInheritance::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestSerializationIndirectInheritance"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
 template<> const ClassInfo JSTestSerializationIndirectInheritanceConstructor::s_info = { "TestSerializationIndirectInheritance", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestSerializationIndirectInheritanceConstructor) };
@@ -82,7 +82,7 @@ template<> const ClassInfo JSTestSerializationIndirectInheritanceConstructor::s_
 
 static const HashTableValue JSTestSerializationIndirectInheritancePrototypeTableValues[] =
 {
-    { "constructor", DontEnum, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestSerializationIndirectInheritanceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestSerializationIndirectInheritanceConstructor) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestSerializationIndirectInheritanceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestSerializationIndirectInheritanceConstructor) } },
 };
 
 const ClassInfo JSTestSerializationIndirectInheritancePrototype::s_info = { "TestSerializationIndirectInheritancePrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestSerializationIndirectInheritancePrototype) };
@@ -90,7 +90,7 @@ const ClassInfo JSTestSerializationIndirectInheritancePrototype::s_info = { "Tes
 void JSTestSerializationIndirectInheritancePrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    reifyStaticProperties(vm, JSTestSerializationIndirectInheritancePrototypeTableValues, *this);
+    reifyStaticProperties(vm, JSTestSerializationIndirectInheritance::info(), JSTestSerializationIndirectInheritancePrototypeTableValues, *this);
 }
 
 const ClassInfo JSTestSerializationIndirectInheritance::s_info = { "TestSerializationIndirectInheritance", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestSerializationIndirectInheritance) };
@@ -142,7 +142,7 @@ bool setJSTestSerializationIndirectInheritanceConstructor(ExecState* state, Enco
         return false;
     }
     // Shadowing a built-in constructor
-    return prototype->putDirect(state->vm(), state->propertyNames().constructor, JSValue::decode(encodedValue));
+    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
 

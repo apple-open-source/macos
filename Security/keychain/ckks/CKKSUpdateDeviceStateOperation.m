@@ -124,7 +124,6 @@
 
         self.modifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:nil];
         self.modifyRecordsOperation.atomic = TRUE;
-        self.modifyRecordsOperation.timeoutIntervalForRequest = 2;
         self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUtility;
         self.modifyRecordsOperation.savePolicy = CKRecordSaveAllKeys; // Overwrite anything in CloudKit: this is our state now
         self.modifyRecordsOperation.group = self.group;

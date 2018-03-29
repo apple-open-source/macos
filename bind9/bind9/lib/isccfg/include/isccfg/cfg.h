@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2010, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2010, 2013-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -173,72 +173,11 @@ cfg_map_get(const cfg_obj_t *mapobj, const char* name, const cfg_obj_t **obj);
  * Requires:
  * \li     'mapobj' points to a valid configuration object of a map type.
  * \li     'name' points to a null-terminated string.
- * \li     'obj' is non-NULL and '*obj' is NULL.
+ * \li	'obj' is non-NULL and '*obj' is NULL.
  *
  * Returns:
  * \li     #ISC_R_SUCCESS                  - success
  * \li     #ISC_R_NOTFOUND                 - name not found in map
- */
-
-isc_result_t
-cfg_map_set(cfg_obj_t *mapobj, const char* name, const cfg_obj_t *obj);
-/*%<
- * Add an element to a configuration object, which
- * must be of a map type.
- *
- * Requires:
- * \li     'mapobj' points to a valid configuration object of a map type.
- * \li     'name' points to a null-terminated string.
- * \li     'obj' is non-NULL.
- *
- * Returns:
- * \li     #ISC_R_SUCCESS                  - success
- * \li     #ISC_R_NOTFOUND                 - name not found in map
- */
-
-isc_result_t
-cfg_map_delete(cfg_obj_t *mapobj, const char* name);
-/*%<
- * Remove an element from a configuration object, which
- * must be of a map type.
- *
- * Requires:
- * \li     'mapobj' points to a valid configuration object of a map type.
- * \li     'name' points to a null-terminated string.
- *
- * Returns:
- * \li     #ISC_R_SUCCESS                  - success
- * \li     #ISC_R_NOTFOUND                 - name not found in map
- */
-
-isc_result_t
-cfg_map_move(cfg_obj_t *mapobjdst, cfg_obj_t *mapobjsrc, const char* name);
-/*%<
- * Remove an element from one map object and add it another map object.
- *
- * Requires:
- * \li     'mapobjdst' points to a valid configuration object of a map type.
- * \li     'mapobjsrc' points to a valid configuration object of a map type.
- * \li     'name' points to a null-terminated string.
- * \li	   'obj' is non-NULL.
- *
- * Returns:
- * \li     #ISC_R_SUCCESS                  - success
- * \li     #ISC_R_NOTFOUND                 - name not found in map
- */
-
-isc_result_t
-cfg_map_moveall(cfg_obj_t *mapobjdst, cfg_obj_t *mapobjsrc);
-/*%<
- * Remove all elements from one map object and add all to another map object.
- *
- * Requires:
- * \li     'mapobjdst' points to a valid configuration object of a map type.
- * \li     'mapobjsrc' points to a valid configuration object of a map type.
- *
- * Returns:
- * \li     #ISC_R_SUCCESS                  - success
- * \li     other appropriate error code.
  */
 
 const cfg_obj_t *
@@ -252,6 +191,18 @@ cfg_map_getname(const cfg_obj_t *mapobj);
  * Returns:
  * \li     A pointer to a configuration object naming the map object,
  *	or NULL if the map object does not have a name.
+ */
+
+unsigned int
+cfg_map_count(const cfg_obj_t *mapobj);
+/*%<
+ * Get the number of elements defined in the symbol table of a map object.
+ *
+ * Requires:
+ *    \li  'mapobj' points to a valid configuration object of a map type.
+ *
+ * Returns:
+ * \li     The number of elements in the map object.
  */
 
 isc_boolean_t
@@ -270,21 +221,6 @@ cfg_tuple_get(const cfg_obj_t *tupleobj, const char *name);
  * \li     'tupleobj' points to a valid configuration object of a tuple type.
  * \li     'name' points to a null-terminated string naming one of the
  *\li	fields of said tuple type.
- */
-
-isc_result_t
-cfg_tuple_set(cfg_obj_t *tupleobj, const char *name, const cfg_obj_t *obj);
-/*%<
- * Set an element in a configuration object tuple.
- *
- * Requires:
- * \li     'tupleobj' points to a valid configuration object of a tuple type.
- * \li     'name' points to a null-terminated string naming one of the
- * \li	       fields of said tuple type.
- * \li     'obj' points to a valid configuration object.
- * Returns:
- * \li     #ISC_R_SUCCESS                  - success
- * \li     #ISC_R_NOTFOUND                 - name not found in tuple
  */
 
 isc_boolean_t
@@ -321,6 +257,18 @@ cfg_obj_asuint64(const cfg_obj_t *obj);
  *
  * Returns:
  * \li     A 64-bit unsigned integer.
+ */
+
+isc_uint32_t
+cfg_obj_asfixedpoint(const cfg_obj_t *obj);
+/*%<
+ * Returns the value of a configuration object of fixed point number.
+ *
+ * Requires:
+ * \li     'obj' points to a valid configuration object of fixed point type.
+ *
+ * Returns:
+ * \li     A 32-bit unsigned integer.
  */
 
 isc_boolean_t
@@ -377,6 +325,20 @@ cfg_obj_assockaddr(const cfg_obj_t *obj);
  * Returns:
  * \li     A pointer to a sockaddr.  The sockaddr must be copied by the caller
  *      if necessary.
+ */
+
+isc_dscp_t
+cfg_obj_getdscp(const cfg_obj_t *obj);
+/*%<
+ * Returns the DSCP value of a configuration object representing a
+ * socket address.
+ *
+ * Requires:
+ * \li     'obj' points to a valid configuration object of a
+ *         socket address type.
+ *
+ * Returns:
+ * \li     DSCP value associated with a sockaddr, or -1.
  */
 
 isc_boolean_t
@@ -450,23 +412,6 @@ cfg_listelt_value(const cfg_listelt_t *elt);
  *
  * Returns:
  * \li     A non-NULL pointer to a configuration object.
- */
-
-void
-cfg_listelt_setvalue(cfg_listelt_t *elt, const cfg_obj_t *obj);
-/*%<
- * Sets the configuration object associated with cfg_listelt_t.
- *
- * Requires:
- * \li     'elt' points to cfg_listelt_t obtained from cfg_list_first() or
- * \li        cfg_list_next().
- * \li     A non-NULL pointer to a configuration object.
- */
-
-void
-cfg_destroy_listelt(cfg_parser_t *pctx, cfg_listelt_t **eltp);
-/*%<
- * Destroy a configuration list element.
  */
 
 void

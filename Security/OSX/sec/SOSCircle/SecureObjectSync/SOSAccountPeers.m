@@ -235,7 +235,7 @@ CFArrayRef SOSAccountCopyActivePeers(SOSAccount* account, CFErrorRef *error) {
     });
 }
 
-CFArrayRef SOSAccountCopyActiveValidPeers(SOSAccount* account, CFErrorRef *error) {
+CFArrayRef CF_RETURNS_RETAINED SOSAccountCopyActiveValidPeers(SOSAccount* account, CFErrorRef *error) {
     return SOSAccountCopySortedPeerArray(account, error, ^(SOSCircleRef circle, CFMutableArrayRef appendPeersTo) {
         SOSCircleForEachActiveValidPeer(circle, account.accountKey, ^(SOSPeerInfoRef peer) {
             sosArrayAppendPeerCopy(appendPeersTo, peer);

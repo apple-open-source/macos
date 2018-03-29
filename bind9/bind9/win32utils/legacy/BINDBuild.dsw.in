@@ -27,7 +27,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "libisccc"="..\..\lib\isccc\win32\libisccc.dsp" - Package Owner=<4>
+Project: "libdns"="..\..\lib\dns\win32\libdns.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -42,7 +42,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "libdns"="..\..\lib\dns\win32\libdns.dsp" - Package Owner=<4>
+Project: "libisccc"="..\..\lib\isccc\win32\libisccc.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -71,9 +71,6 @@ Package=<4>
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccc
-    End Project Dependency
 }}}
 
 ###############################################################################
@@ -87,16 +84,16 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisccfg
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
 }}}
 
@@ -114,6 +111,27 @@ Package=<4>
 
 ###############################################################################
 
+Project: "libirs"="..\..\lib\irs\win32\libirs.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "bindevt"="..\..\lib\win32\bindevt\bindevt.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -126,6 +144,7 @@ Package=<4>
 
 ###############################################################################
 @IF TESTS
+
 Project: "libtests"="..\..\lib\tests\win32\libtests.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -135,14 +154,148 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
 }}}
 
 @END TESTS
+###############################################################################
+@IF SAMPLES
+
+Project: "resolve"="..\..\lib\samples\win32\resolve.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libirs
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "async"="..\..\lib\samples\win32\async.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "gai"="..\..\lib\samples\win32\gai.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libirs
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "update"="..\..\lib\samples\win32\update.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "request"="..\..\lib\samples\win32\request.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "nsprobe"="..\..\lib\samples\win32\nsprobe.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
+    End Project Dependency
+}}}
+
+@END SAMPLES
 ###############################################################################
 
 Project: "named"="..\..\bin\named\win32\named.dsp" - Package Owner=<4>
@@ -154,10 +307,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libisccc
@@ -166,10 +319,10 @@ Package=<4>
     Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name liblwres
+    Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libbind9
+    Project_Dep_Name liblwres
     End Project Dependency
 }}}
 
@@ -199,6 +352,9 @@ Package=<4>
     Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
@@ -208,10 +364,31 @@ Package=<4>
     Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name rndcutil
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "delv"="..\..\bin\delv\win32\delv.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name rndcutil
+    Project_Dep_Name libisccfg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libirs
     End Project Dependency
 }}}
 
@@ -238,22 +415,22 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name liblwres
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccfg
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dighost
@@ -271,22 +448,22 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name liblwres
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccfg
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dighost
@@ -304,22 +481,22 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name liblwres
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccfg
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dighost
@@ -349,10 +526,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -370,10 +547,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -391,10 +568,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -412,10 +589,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -433,10 +610,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -454,10 +631,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -475,10 +652,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -496,10 +673,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name dnssectool
@@ -532,10 +709,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libdns
     End Project Dependency
 }}}
 
@@ -550,10 +727,28 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "rrchecker"="..\..\bin\tools\win32\rrchecker.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
     Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
     End Project Dependency
 }}}
 
@@ -598,22 +793,22 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name liblwres
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccfg
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccc
     End Project Dependency
 }}}
 
@@ -643,16 +838,16 @@ Package=<4>
     Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisccfg
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libbind9
+    Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisccc
+    Project_Dep_Name libisccfg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libbind9
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name checktool
@@ -670,16 +865,16 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libdns
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisccfg
+    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libisccc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libisccfg
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name checktool
@@ -712,6 +907,9 @@ Package=<4>
     Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libisccc
     End Project Dependency
     Begin Project Dependency
@@ -719,9 +917,6 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libbind9
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name confgentool
@@ -760,6 +955,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -772,6 +970,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -784,6 +985,24 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "pk11tokens"="..\..\bin\pkcs11\win32\pk11tokens.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
 }}}
 
 @END PKCS11
@@ -799,13 +1018,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -821,16 +1040,16 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name libisccfg
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libisccfg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -844,13 +1063,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -864,13 +1083,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -884,10 +1103,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -901,10 +1120,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -918,13 +1137,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -938,13 +1157,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -958,13 +1177,13 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libdns
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -978,10 +1197,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -995,10 +1214,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -1012,10 +1231,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libtests
+    Project_Dep_Name libisc
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libisc
+    Project_Dep_Name libtests
     End Project Dependency
 }}}
 
@@ -1128,6 +1347,112 @@ Package=<4>
 
 @END XTESTS
 ###############################################################################
+@IF STESTS
+
+Project: "makejournal"="..\..\bin\tests\win32\makejournal.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "lwtest"="..\..\bin\tests\system\win32\lwtest.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name liblwres
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "bigkey"="..\..\bin\tests\system\win32\bigkey.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "keycreate"="..\..\bin\tests\system\win32\keycreate.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "keydelete"="..\..\bin\tests\system\win32\keydelete.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdns
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "feature-test"="..\..\bin\tests\system\win32\feature-test.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libisc
+    End Project Dependency
+}}}
+
+@END STESTS
 
 Global:
 

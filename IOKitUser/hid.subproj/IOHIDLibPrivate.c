@@ -147,23 +147,8 @@ uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint3
 }
 
 void _IOHIDDebugTrace(uint32_t code, uint32_t func, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4) {
-    if (!gIOHIDDebugConfig) {
-        return;
-    }
     
-    if (code < kHID_ES_EventCallback) {
-        if ((gIOHIDDebugConfig & kIOHIDDebugTraceUserDevice) == 0) {
-            return;
-        }
-    } else {
-        if ((gIOHIDDebugConfig & kIOHIDDebugTraceEventSystem) == 0) {
-            return;
-        }
-    }
-
-    if (gIOHIDDebugConfig & kIOHIDDebugTraceWithKTrace) {
-        kdebug_trace(IOHID_DEBUG_CODE(code) | func, arg1, arg2, arg3, arg4);
-    }
+    kdebug_trace(IOHID_DEBUG_CODE(code) | func, arg1, arg2, arg3, arg4);
 
     if (gIOHIDDebugConfig & kIOHIDDebugTraceWithOsLog) {
         os_log(_IOHIDLogCategory(kIOHIDLogCategoryTrace), "0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long) (IOHID_DEBUG_CODE(code) | func), (unsigned long long)arg1, (unsigned long long)arg2, (unsigned long long)arg3, (unsigned long long)arg4);
@@ -353,6 +338,26 @@ void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SI
     }
 }
 
+void _IOHIDArrayAppendSInt64 (CFMutableArrayRef array, SInt64 value)
+{
+    CFNumberRef num = CFNumberCreate(CFGetAllocator(array), kCFNumberSInt64Type, &value);
+    if (num) {
+        CFArrayAppendValue(array, num);
+        CFRelease(num);
+    }
+}
+
+
+const void * _IOHIDObjectInternalRetainCallback (CFAllocatorRef allocator __unused, const void * cf)
+{
+    return (const void *)_IOHIDObjectInternalRetain ((CFTypeRef)cf);
+}
+
+void _IOHIDObjectInternalReleaseCallback (CFAllocatorRef allocator __unused, const  void * cf)
+{
+    _IOHIDObjectInternalRelease ((CFTypeRef)cf);
+}
+
 
 CFTypeRef _IOHIDObjectInternalRetain (CFTypeRef cf)
 {
@@ -367,7 +372,7 @@ void _IOHIDObjectInternalRelease (CFTypeRef cf)
 {
     const IOHIDObjectClass * class = (const IOHIDObjectClass *)_CFRuntimeGetClassWithTypeID(CFGetTypeID(cf));
     if (class) {
-        class->intRetainCount (-1, cf);
+       class->intRetainCount (-1, cf);
     }
 }
 
@@ -375,20 +380,20 @@ uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isIntern
 {
     uint32_t                  retainCount = 0;
     IOHIDObjectBase           *object =  (IOHIDObjectBase *) cf;
-    uint32_t                  *cnt =  isInternal ? &object->intRetainCount : &object->extRetainCount;
+    uint32_t volatile         *cnt =  isInternal ? &object->xref : &object->ref;
     switch (op) {
         case 1:
-            retainCount = atomic_fetch_add((_Atomic uint32_t *)cnt, 1);
+            retainCount = atomic_fetch_add((_Atomic uint32_t volatile  *)cnt, 1);
             os_assert(retainCount < UINT_MAX);
-            ++retainCount;
+            retainCount = 0;
             break;
         case 0:
             retainCount = atomic_load((_Atomic uint32_t *)cnt);
             break;
         case -1:
-            retainCount = atomic_fetch_sub((_Atomic uint32_t *)cnt, 1);
+            retainCount = atomic_fetch_sub((_Atomic uint32_t volatile *)cnt, 1);
             os_assert(retainCount);
-            if ((retainCount) == 1) {
+            if (retainCount == 1) {
                 const IOHIDObjectClass * class = (const IOHIDObjectClass *)_CFRuntimeGetClassWithTypeID(CFGetTypeID(cf));
                 void (*finalizer)(CFTypeRef cf) = isInternal ? class->intFinalize : class->cfClass.finalize;
                 if (finalizer) {
@@ -396,17 +401,31 @@ uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isIntern
                 }
                 if (isInternal) {
                     CFAllocatorRef allocator = CFGetAllocator(cf);
-                    CFAllocatorDeallocate(allocator, (void*)cf);
+                    uint8_t * memory = (uint8_t *) cf;
+                    if (!_CFAllocatorIsSystemDefault (allocator)) {
+                        memory = memory - 16;
+                    }
+                    CFAllocatorDeallocate(allocator, (void*)memory);
                 } else {
                     _IOHIDObjectInternalRelease (cf);
                 }
             }
-            --retainCount;
+            retainCount = 0;
             break;
         default:
             break;
     }
     return  retainCount;
+}
+
+uint32_t _IOHIDObjectExtRetainCount (intptr_t op, CFTypeRef cf)
+{
+    return _IOHIDObjectRetainCount (op, cf, false);
+}
+
+uint32_t _IOHIDObjectIntRetainCount (intptr_t op, CFTypeRef cf)
+{
+    return _IOHIDObjectRetainCount (op, cf, true);
 }
 
 CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * __unused category)
@@ -421,8 +440,31 @@ CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID,
     
     bzero((uint8_t*)object + sizeof(CFRuntimeBase), extraBytes);
     
-    object->intRetainCount = 1;
-    object->extRetainCount = 1;
+    object->ref  = 1;
+    object->xref = 1;
     
     return object;
+}
+
+
+static void __IOHIDCFSetFunctionApplier (const void *value, void *context)
+{
+    IOHIDCFSetBlock block = (IOHIDCFSetBlock) context;
+    block (value);
+}
+
+void _IOHIDCFSetApplyBlock (CFSetRef set, IOHIDCFSetBlock block)
+{
+    CFSetApplyFunction(set, __IOHIDCFSetFunctionApplier, block);
+}
+
+static void __IOHIDCFDictionaryFunctionApplier (const void *key, const void *value, void *context)
+{
+    IOHIDCFDictionaryBlock block = (IOHIDCFDictionaryBlock) context;
+    block (key, value);
+}
+
+void _IOHIDCFDictionaryApplyBlock (CFDictionaryRef set, IOHIDCFDictionaryBlock block)
+{
+    CFDictionaryApplyFunction(set, __IOHIDCFDictionaryFunctionApplier, block);
 }

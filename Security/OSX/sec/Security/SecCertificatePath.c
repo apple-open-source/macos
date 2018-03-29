@@ -46,7 +46,7 @@
 #include <pthread.h>
 #include <Security/SecBase.h>
 #include "SecRSAKey.h"
-#include <libDER/oidsPriv.h>
+#include <libDER/oids.h>
 #include <utilities/debugging.h>
 #include <Security/SecInternal.h>
 #include <utilities/SecCFError.h>

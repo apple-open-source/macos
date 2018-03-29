@@ -66,9 +66,7 @@ ScrollAnimatorGtk::ScrollAnimatorGtk(ScrollableArea& scrollableArea)
 #endif
 }
 
-ScrollAnimatorGtk::~ScrollAnimatorGtk()
-{
-}
+ScrollAnimatorGtk::~ScrollAnimatorGtk() = default;
 
 #if ENABLE(SMOOTH_SCROLLING)
 void ScrollAnimatorGtk::ensureSmoothScrollingAnimation()
@@ -93,7 +91,7 @@ bool ScrollAnimatorGtk::scroll(ScrollbarOrientation orientation, ScrollGranulari
 }
 #endif
 
-void ScrollAnimatorGtk::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
+void ScrollAnimatorGtk::scrollToOffsetWithoutAnimation(const FloatPoint& offset, ScrollClamping)
 {
     FloatPoint position = ScrollableArea::scrollPositionFromOffset(offset, toFloatSize(m_scrollableArea.scrollOrigin()));
     m_kineticAnimation->stop();
@@ -112,8 +110,8 @@ FloatPoint ScrollAnimatorGtk::computeVelocity()
     if (m_scrollHistory.isEmpty())
         return { };
 
-    double first = m_scrollHistory[0].timestamp();
-    double last = m_scrollHistory.rbegin()->timestamp();
+    auto first = m_scrollHistory[0].timestamp();
+    auto last = m_scrollHistory.rbegin()->timestamp();
 
     if (last == first)
         return { };
@@ -124,7 +122,7 @@ FloatPoint ScrollAnimatorGtk::computeVelocity()
 
     m_scrollHistory.clear();
 
-    return FloatPoint(accumDelta.x() * -1000 / (last - first), accumDelta.y() * -1000 / (last - first));
+    return FloatPoint(accumDelta.x() * -1000 / (last - first).value(), accumDelta.y() * -1000 / (last - first).value());
 }
 
 bool ScrollAnimatorGtk::handleWheelEvent(const PlatformWheelEvent& event)
@@ -132,7 +130,7 @@ bool ScrollAnimatorGtk::handleWheelEvent(const PlatformWheelEvent& event)
     m_kineticAnimation->stop();
 
     m_scrollHistory.removeAllMatching([&event] (PlatformWheelEvent& otherEvent) -> bool {
-        return Seconds::fromMilliseconds(event.timestamp() - otherEvent.timestamp()) > scrollCaptureThreshold;
+        return (event.timestamp() - otherEvent.timestamp()) > scrollCaptureThreshold;
     });
 
     if (event.isEndOfNonMomentumScroll()) {

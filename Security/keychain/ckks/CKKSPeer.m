@@ -25,6 +25,8 @@
 
 #import "keychain/ckks/CKKSPeer.h"
 
+NSString* const CKKSSOSPeerPrefix = @"spid-";
+
 @implementation CKKSSelves
 - (instancetype)initWithCurrent:(id<CKKSSelfPeer>)selfPeer
                       allSelves:(NSSet<id<CKKSSelfPeer>>*)allSelves {
@@ -32,7 +34,8 @@
         _currentSelf = selfPeer;
 
         // Ensure allSelves contains selfPeer
-        _allSelves = allSelves ? [allSelves setByAddingObject:selfPeer] : [NSSet setWithObject:selfPeer];
+        _allSelves = allSelves ? [allSelves setByAddingObject:selfPeer] :
+                        (selfPeer ? [NSSet setWithObject:selfPeer] : [NSSet set]);
     }
     return self;
 }
@@ -58,18 +61,13 @@
            [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))]];
 }
 
-- (NSString*)prefix {
-    return @"spid-";
-}
-
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
               encryptionPublicKey:(SFECPublicKey*)encryptionKey
                  signingPublicKey:(SFECPublicKey*)signingKey
 {
     if((self = [super init])) {
-
-        if([syncingPeerID hasPrefix:[self prefix]]) {
-            _spid = [syncingPeerID  substringFromIndex:[self prefix].length];
+        if([syncingPeerID hasPrefix:CKKSSOSPeerPrefix]) {
+            _spid = [syncingPeerID  substringFromIndex:CKKSSOSPeerPrefix.length];
         } else {
             _spid = syncingPeerID;
         }
@@ -80,7 +78,7 @@
 }
 
 - (NSString*)peerID {
-    return [NSString stringWithFormat:@"%@%@", self.prefix, self.spid];
+    return [NSString stringWithFormat:@"%@%@", CKKSSOSPeerPrefix, self.spid];
 }
 
 - (bool)matchesPeer:(id<CKKSPeer>)peer {
@@ -106,7 +104,11 @@
                        signingKey:(SFECKeyPair*)signingKey
 {
     if((self = [super init])) {
-        _spid = syncingPeerID;
+        if([syncingPeerID hasPrefix:CKKSSOSPeerPrefix]) {
+            _spid = [syncingPeerID  substringFromIndex:CKKSSOSPeerPrefix.length];
+        } else {
+            _spid = syncingPeerID;
+        }
         _encryptionKey = encryptionKey;
         _signingKey = signingKey;
     }
@@ -120,7 +122,7 @@
     return self.signingKey.publicKey;
 }
 - (NSString*)peerID {
-    return [NSString stringWithFormat:@"spid-%@", self.spid];
+    return [NSString stringWithFormat:@"%@%@", CKKSSOSPeerPrefix, self.spid];
 }
 
 - (bool)matchesPeer:(id<CKKSPeer>)peer {

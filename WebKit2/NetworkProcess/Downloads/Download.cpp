@@ -34,9 +34,15 @@
 #include "DownloadProxyMessages.h"
 #include "Logging.h"
 #include "NetworkDataTask.h"
+#include "NetworkProcess.h"
+#include "NetworkSession.h"
 #include "SandboxExtension.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/NotImplemented.h>
+
+#if PLATFORM(COCOA)
+#include "NetworkDataTaskCocoa.h"
+#endif
 
 using namespace WebCore;
 
@@ -45,7 +51,7 @@ using namespace WebCore;
 namespace WebKit {
 
 #if USE(NETWORK_SESSION)
-Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NetworkDataTask& download, const SessionID& sessionID, const String& suggestedName)
+Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NetworkDataTask& download, const PAL::SessionID& sessionID, const String& suggestedName)
     : m_downloadManager(downloadManager)
     , m_downloadID(downloadID)
     , m_download(&download)
@@ -57,7 +63,7 @@ Download::Download(DownloadManager& downloadManager, DownloadID downloadID, Netw
     m_downloadManager.didCreateDownload();
 }
 #if PLATFORM(COCOA)
-Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NSURLSessionDownloadTask* download, const SessionID& sessionID, const String& suggestedName)
+Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NSURLSessionDownloadTask* download, const PAL::SessionID& sessionID, const String& suggestedName)
     : m_downloadManager(downloadManager)
     , m_downloadID(downloadID)
     , m_downloadTask(download)
@@ -106,7 +112,10 @@ void Download::start()
 {
     if (m_request.url().protocolIsBlob()) {
         m_downloadClient = std::make_unique<BlobDownloadClient>(*this);
-        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), false, false);
+        bool defersLoading = false;
+        bool shouldContentSniff = false;
+        bool shouldContentEncodingSniff = true;
+        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), defersLoading, shouldContentSniff, shouldContentEncodingSniff);
         didStart();
         return;
     }
@@ -118,7 +127,10 @@ void Download::startWithHandle(ResourceHandle* handle, const ResourceResponse& r
 {
     if (m_request.url().protocolIsBlob()) {
         m_downloadClient = std::make_unique<BlobDownloadClient>(*this);
-        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), false, false);
+        bool defersLoading = false;
+        bool shouldContentSniff = false;
+        bool shouldContentEncodingSniff = true;
+        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), defersLoading, shouldContentSniff, shouldContentEncodingSniff);
         didStart();
         return;
     }
@@ -146,10 +158,27 @@ void Download::cancel()
     platformCancelNetworkLoad();
 }
 
+#if USE(NETWORK_SESSION)
+void Download::didReceiveChallenge(const WebCore::AuthenticationChallenge& challenge, ChallengeCompletionHandler&& completionHandler)
+{
+    if (challenge.protectionSpace().isPasswordBased() && !challenge.proposedCredential().isEmpty() && !challenge.previousFailureCount()) {
+        completionHandler(AuthenticationChallengeDisposition::UseCredential, challenge.proposedCredential());
+        return;
+    }
+
+    NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(*this, challenge, WTFMove(completionHandler));
+}
+#endif // USE(NETWORK_SESSION)
+
 #if !USE(NETWORK_SESSION)
 void Download::didStart()
 {
     send(Messages::DownloadProxy::DidStart(m_request, m_suggestedName));
+}
+
+void Download::willSendRedirectedRequest(WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse)
+{
+    send(Messages::DownloadProxy::WillSendRequest(WTFMove(redirectRequest), WTFMove(redirectResponse)));
 }
 
 void Download::didReceiveAuthenticationChallenge(const AuthenticationChallenge& authenticationChallenge)
@@ -181,7 +210,7 @@ String Download::decideDestinationWithSuggestedFilename(const String& filename, 
     if (!sendSync(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(filename, m_responseMIMEType), Messages::DownloadProxy::DecideDestinationWithSuggestedFilename::Reply(destination, allowOverwrite, sandboxExtensionHandle)))
         return String();
 
-    m_sandboxExtension = SandboxExtension::create(sandboxExtensionHandle);
+    m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
     if (m_sandboxExtension)
         m_sandboxExtension->consume();
 
@@ -193,10 +222,10 @@ void Download::decideDestinationWithSuggestedFilenameAsync(const String& suggest
     send(Messages::DownloadProxy::DecideDestinationWithSuggestedFilenameAsync(downloadID(), suggestedFilename));
 }
 
-void Download::didDecideDownloadDestination(const String& destinationPath, const SandboxExtension::Handle& sandboxExtensionHandle, bool allowOverwrite)
+void Download::didDecideDownloadDestination(const String& destinationPath, SandboxExtension::Handle&& sandboxExtensionHandle, bool allowOverwrite)
 {
     ASSERT(!m_sandboxExtension);
-    m_sandboxExtension = SandboxExtension::create(sandboxExtensionHandle);
+    m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
     if (m_sandboxExtension)
         m_sandboxExtension->consume();
 

@@ -157,9 +157,23 @@ bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
     return result;
 }
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+void WebEditorClient::didInsertAttachment(const String& identifier)
+{
+    m_page->send(Messages::WebPageProxy::DidInsertAttachment(identifier));
+}
+
+void WebEditorClient::didRemoveAttachment(const String& identifier)
+{
+    m_page->send(Messages::WebPageProxy::DidRemoveAttachment(identifier));
+}
+
+#endif
+
 void WebEditorClient::didApplyStyle()
 {
-    notImplemented();
+    m_page->didApplyStyle();
 }
 
 bool WebEditorClient::shouldMoveRangeAfterDelete(Range*, Range*)
@@ -180,7 +194,7 @@ void WebEditorClient::respondToChangedContents()
 {
     static NeverDestroyed<String> WebViewDidChangeNotification(MAKE_STATIC_STRING_IMPL("WebViewDidChangeNotification"));
     m_page->injectedBundleEditorClient().didChange(*m_page, WebViewDidChangeNotification.get().impl());
-    notImplemented();
+    m_page->didChangeContents();
 }
 
 void WebEditorClient::respondToChangedSelection(Frame* frame)
@@ -197,14 +211,19 @@ void WebEditorClient::respondToChangedSelection(Frame* frame)
 #endif
 }
 
-void WebEditorClient::didChangeSelectionAndUpdateLayout()
+void WebEditorClient::didEndUserTriggeredSelectionChanges()
 {
-    m_page->sendPostLayoutEditorStateIfNeeded();
+    m_page->didEndUserTriggeredSelectionChanges();
 }
 
 void WebEditorClient::updateEditorStateAfterLayoutIfEditabilityChanged()
 {
     m_page->updateEditorStateAfterLayoutIfEditabilityChanged();
+}
+
+void WebEditorClient::didUpdateComposition()
+{
+    m_page->didUpdateComposition();
 }
 
 void WebEditorClient::discardedComposition(Frame*)

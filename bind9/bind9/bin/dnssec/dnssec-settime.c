@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2015  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009-2016  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -39,6 +39,10 @@
 
 #include <dst/dst.h>
 
+#ifdef PKCS11CRYPTO
+#include <pk11/result.h>
+#endif
+
 #include "dnssectool.h"
 
 const char *program = "dnssec-settime";
@@ -55,9 +59,12 @@ usage(void) {
 	fprintf(stderr,	"    %s [options] keyfile\n\n", program);
 	fprintf(stderr, "Version: %s\n", VERSION);
 	fprintf(stderr, "General options:\n");
-#ifdef USE_PKCS11
+#if defined(PKCS11CRYPTO)
+	fprintf(stderr, "    -E engine:          specify PKCS#11 provider "
+					"(default: %s)\n", PK11_LIB_LOCATION);
+#elif defined(USE_PKCS11)
 	fprintf(stderr, "    -E engine:          specify OpenSSL engine "
-						 "(default \"pkcs11\")\n");
+					   "(default \"pkcs11\")\n");
 #else
 	fprintf(stderr, "    -E engine:          specify OpenSSL engine\n");
 #endif
@@ -108,8 +115,8 @@ printtime(dst_key_t *key, int type, const char *tag, isc_boolean_t epoch,
 	} else if (epoch) {
 		fprintf(stream, "%d\n", (int) when);
 	} else {
-		time_t time = when;
-		output = ctime(&time);
+		time_t timet = when;
+		output = ctime(&timet);
 		fprintf(stream, "%s", output);
 	}
 }
@@ -118,11 +125,12 @@ int
 main(int argc, char **argv) {
 	isc_result_t	result;
 #ifdef USE_PKCS11
-	const char	*engine = "pkcs11";
+	const char	*engine = PKCS11_ENGINE;
 #else
 	const char	*engine = NULL;
 #endif
-	char		*filename = NULL, *directory = NULL;
+	const char 	*filename = NULL;
+	char		*directory = NULL;
 	char		newname[1024];
 	char		keystr[DST_KEY_FORMATSIZE];
 	char		*endp, *p;
@@ -164,6 +172,9 @@ main(int argc, char **argv) {
 
 	setup_logging(mctx, &log);
 
+#ifdef PKCS11CRYPTO
+	pk11_result_register();
+#endif
 	dns_result_register();
 
 	isc_commandline_errprint = ISC_FALSE;
@@ -399,7 +410,6 @@ main(int argc, char **argv) {
 					"inactive.\n", program);
 
 		changed = setpub = setact = ISC_TRUE;
-		dst_key_free(&prevkey);
 	} else {
 		if (prepub < 0)
 			prepub = 0;
@@ -462,11 +472,12 @@ main(int argc, char **argv) {
 	if ((setdel && setinact && del < inact) ||
 	    (dst_key_gettime(key, DST_TIME_INACTIVE,
 			     &previnact) == ISC_R_SUCCESS &&
-	     setdel && !setinact && del < previnact) ||
+	     setdel && !setinact && !unsetinact && del < previnact) ||
 	    (dst_key_gettime(key, DST_TIME_DELETE,
 			     &prevdel) == ISC_R_SUCCESS &&
-	     setinact && !setdel && prevdel < inact) ||
-	    (!setdel && !setinact && prevdel < previnact))
+	     setinact && !setdel && !unsetdel && prevdel < inact) ||
+	    (!setdel && !unsetdel && !setinact && !unsetinact &&
+	     prevdel < previnact))
 		fprintf(stderr, "%s: warning: Key is scheduled to "
 				"be deleted before it is\n\t"
 				"scheduled to be inactive.\n",
@@ -590,6 +601,8 @@ main(int argc, char **argv) {
 		printf("%s\n", newname);
 	}
 
+	if (prevkey != NULL)
+		dst_key_free(&prevkey);
 	dst_key_free(&key);
 	dst_lib_destroy();
 	isc_hash_destroy();

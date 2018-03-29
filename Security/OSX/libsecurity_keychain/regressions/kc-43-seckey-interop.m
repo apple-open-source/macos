@@ -117,7 +117,6 @@ static void test_generate_nolegacy() {
     CFReleaseNull(pubKey);
 }
 
-#if !RC_HIDE_J79 && !RC_HIDE_J80
 static const int kTestGenerateAccessControlCount = 4;
 static void test_generate_access_control() {
     SecAccessControlRef ac = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlways,
@@ -149,9 +148,6 @@ static void test_generate_access_control() {
     CFReleaseSafe(privKey);
     CFReleaseSafe(pubKey);
 }
-#else
-static const int kTestGenerateAccessControlCount = 0;
-#endif
 
 static const int kTestAddIOSKeyCount = 6;
 static void test_add_ios_key() {
@@ -624,9 +620,7 @@ int kc_43_seckey_interop(int argc, char *const *argv) {
     plan_tests(kTestCount);
 
     test_generate_nolegacy();
-#if !RC_HIDE_J79 && !RC_HIDE_J80
     test_generate_access_control();
-#endif
     test_add_ios_key();
     test_store_cert_to_ios();
     test_store_identity_to_ios();

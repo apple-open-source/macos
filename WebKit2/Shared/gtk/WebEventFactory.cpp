@@ -31,6 +31,7 @@
 #include "PlatformKeyboardEvent.h"
 #include "Scrollbar.h"
 #include "WindowsKeyboardCodes.h"
+#include <WebCore/GtkUtilities.h>
 #include <WebCore/GtkVersioning.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
@@ -132,15 +133,16 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int cu
     }
 
     return WebMouseEvent(type,
-                         buttonForEvent(event),
-                         IntPoint(x, y),
-                         IntPoint(xRoot, yRoot),
-                         0 /* deltaX */,
-                         0 /* deltaY */,
-                         0 /* deltaZ */,
-                         currentClickCount,
-                         modifiersForEvent(event),
-                         gdk_event_get_time(event));
+        buttonForEvent(event),
+        0,
+        IntPoint(x, y),
+        IntPoint(xRoot, yRoot),
+        0 /* deltaX */,
+        0 /* deltaY */,
+        0 /* deltaZ */,
+        currentClickCount,
+        modifiersForEvent(event),
+        wallTimeForEvent(event));
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event)
@@ -210,7 +212,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event, WebWhe
         momentumPhase,
         WebWheelEvent::ScrollByPixelWheelEvent,
         modifiersForEvent(event),
-        gdk_event_get_time(event));
+        wallTimeForEvent(event));
 }
 
 WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, const WebCore::CompositionResults& compositionResults, Vector<String>&& commands)
@@ -227,7 +229,7 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, 
         WTFMove(commands),
         isGdkKeyCodeFromKeyPad(event->key.keyval),
         modifiersForEvent(event),
-        gdk_event_get_time(event));
+        wallTimeForEvent(event));
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -249,7 +251,7 @@ WebTouchEvent WebEventFactory::createWebTouchEvent(const GdkEvent* event, Vector
         ASSERT_NOT_REACHED();
     }
 
-    return WebTouchEvent(type, WTFMove(touchPoints), modifiersForEvent(event), gdk_event_get_time(event));
+    return WebTouchEvent(type, WTFMove(touchPoints), modifiersForEvent(event), wallTimeForEvent(event));
 #else
     return WebTouchEvent();
 #endif // GTK_API_VERSION_2

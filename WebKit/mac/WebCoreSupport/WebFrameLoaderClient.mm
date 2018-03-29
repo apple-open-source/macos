@@ -51,7 +51,6 @@
 #import "WebHTMLViewInternal.h"
 #import "WebHistoryInternal.h"
 #import "WebHistoryItemInternal.h"
-#import "WebIconDatabaseInternal.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
@@ -74,7 +73,6 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <JavaScriptCore/JSContextInternal.h>
-#import <WebCore/AuthenticationCF.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/BackForwardController.h>
 #import <WebCore/BitmapImage.h>
@@ -102,13 +100,10 @@
 #import <WebCore/HistoryController.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
-#import <WebCore/IconDatabase.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/MouseEvent.h>
-#import <WebCore/NSURLDownloadSPI.h>
-#import <WebCore/NSURLFileTypeMappingsSPI.h>
 #import <WebCore/Page.h>
 #import <WebCore/PluginBlacklist.h>
 #import <WebCore/PluginViewBase.h>
@@ -126,7 +121,8 @@
 #import <WebCore/Widget.h>
 #import <WebKitLegacy/DOMElement.h>
 #import <WebKitLegacy/DOMHTMLFormElement.h>
-#import <WebKitSystemInterface.h>
+#import <pal/spi/cocoa/NSURLDownloadSPI.h>
+#import <pal/spi/cocoa/NSURLFileTypeMappingsSPI.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/MainThread.h>
@@ -150,14 +146,14 @@
 #endif
 
 #if USE(QUICK_LOOK)
-#import <WebCore/NSFileManagerSPI.h>
 #import <WebCore/PreviewLoaderClient.h>
 #import <WebCore/QuickLook.h>
+#import <pal/spi/cocoa/NSFileManagerSPI.h>
 #endif
 
 #if HAVE(APP_LINKS)
-#import <WebCore/LaunchServicesSPI.h>
 #import <WebCore/WebCoreThreadRun.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
@@ -203,6 +199,22 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame *webFrame)
     : m_webFrame(webFrame)
 {
+}
+
+std::optional<uint64_t> WebFrameLoaderClient::pageID() const
+{
+    return std::nullopt;
+}
+
+std::optional<uint64_t> WebFrameLoaderClient::frameID() const
+{
+    return std::nullopt;
+}
+
+PAL::SessionID WebFrameLoaderClient::sessionID() const
+{
+    RELEASE_ASSERT_NOT_REACHED();
+    return PAL::SessionID::defaultSessionID();
 }
 
 void WebFrameLoaderClient::frameLoaderDestroyed()
@@ -288,7 +300,7 @@ void WebFrameLoaderClient::detachedFromParent3()
     m_webFrame->_private->webFrameView = nil;
 }
 
-void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, SessionID, const ResourceRequest& request, const ResourceResponse& response)
+void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, PAL::SessionID, const ResourceRequest& request, const ResourceResponse& response)
 {
     WebView *webView = getWebView(m_webFrame.get());
     SubresourceLoader* mainResourceLoader = documentLoader->mainResourceLoader();
@@ -305,13 +317,7 @@ void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader* doc
 
     ResourceHandle* handle = mainResourceLoader->handle();
 
-#if USE(CFURLCONNECTION)
-    ASSERT([WebDownload respondsToSelector:@selector(_downloadWithLoadingCFURLConnection:request:response:delegate:proxy:)]);
-    auto connection = handle->releaseConnectionForDownload();
-    [WebDownload _downloadWithLoadingCFURLConnection:connection.get() request:request.cfURLRequest(UpdateHTTPBody) response:response.cfURLResponse() delegate:[webView downloadDelegate] proxy:nil];
-#else
     [WebDownload _downloadWithLoadingConnection:handle->connection() request:request.nsURLRequest(UpdateHTTPBody) response:response.nsURLResponse() delegate:[webView downloadDelegate] proxy:nil];
-#endif
 }
 
 bool WebFrameLoaderClient::dispatchDidLoadResourceFromMemoryCache(DocumentLoader* loader, const ResourceRequest& request, const ResourceResponse& response, int length)
@@ -939,16 +945,16 @@ void WebFrameLoaderClient::dispatchWillSendSubmitEvent(Ref<WebCore::FormState>&&
     CallFormDelegate(getWebView(m_webFrame.get()), @selector(willSendSubmitEventToForm:inFrame:withValues:), formElement, m_webFrame.get(), values);
 }
 
-void WebFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, FramePolicyFunction&& function)
+void WebFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, WTF::Function<void(void)>&& function)
 {
     id <WebFormDelegate> formDelegate = [getWebView(m_webFrame.get()) _formDelegate];
     if (!formDelegate) {
-        function(PolicyUse);
+        function();
         return;
     }
 
     NSDictionary *values = makeFormFieldValuesDictionary(formState);
-    CallFormDelegate(getWebView(m_webFrame.get()), @selector(frame:sourceFrame:willSubmitForm:withValues:submissionListener:), m_webFrame.get(), kit(formState.sourceDocument().frame()), kit(&formState.form()), values, setUpPolicyListener(WTFMove(function)).get());
+    CallFormDelegate(getWebView(m_webFrame.get()), @selector(frame:sourceFrame:willSubmitForm:withValues:submissionListener:), m_webFrame.get(), kit(formState.sourceDocument().frame()), kit(&formState.form()), values, setUpPolicyListener([function = WTFMove(function)](PolicyAction) { function(); }).get());
 }
 
 void WebFrameLoaderClient::revertToProvisionalState(DocumentLoader* loader)
@@ -1844,21 +1850,21 @@ public:
         return false;
     }
 
-    virtual void handleEvent(Event* event)
+    virtual void handleEvent(Event& event)
     {
         Frame* frame = Frame::frameForWidget(*this);
         if (!frame)
             return;
         
         NSEvent* currentNSEvent = frame->eventHandler().currentNSEvent();
-        if (event->type() == eventNames().mousemoveEvent)
+        if (event.type() == eventNames().mousemoveEvent)
             [(WebBaseNetscapePluginView *)platformWidget() handleMouseMoved:currentNSEvent];
-        else if (event->type() == eventNames().mouseoverEvent)
+        else if (event.type() == eventNames().mouseoverEvent)
             [(WebBaseNetscapePluginView *)platformWidget() handleMouseEntered:currentNSEvent];
-        else if (event->type() == eventNames().mouseoutEvent)
+        else if (event.type() == eventNames().mouseoutEvent)
             [(WebBaseNetscapePluginView *)platformWidget() handleMouseExited:currentNSEvent];
-        else if (event->type() == eventNames().contextmenuEvent)
-            event->setDefaultHandled(); // We don't know if the plug-in has handled mousedown event by displaying a context menu, so we never want WebKit to show a default one.
+        else if (event.type() == eventNames().contextmenuEvent)
+            event.setDefaultHandled(); // We don't know if the plug-in has handled mousedown event by displaying a context menu, so we never want WebKit to show a default one.
     }
 
     virtual void clipRectChanged()
@@ -2148,12 +2154,12 @@ static bool shouldBlockWebGL()
 #endif
 }
 
-WebCore::WebGLLoadPolicy WebFrameLoaderClient::webGLPolicyForURL(const String&) const
+WebCore::WebGLLoadPolicy WebFrameLoaderClient::webGLPolicyForURL(const URL&) const
 {
     return shouldBlockWebGL() ? WebGLBlockCreation : WebGLAllowCreation;
 }
 
-WebCore::WebGLLoadPolicy WebFrameLoaderClient::resolveWebGLPolicyForURL(const String&) const
+WebCore::WebGLLoadPolicy WebFrameLoaderClient::resolveWebGLPolicyForURL(const URL&) const
 {
     return shouldBlockWebGL() ? WebGLBlockCreation : WebGLAllowCreation;
 }
@@ -2323,6 +2329,31 @@ void WebFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<WebCor
 #endif
 }
 
+#if !PLATFORM(IOS)
+static NSImage *webGetNSImage(Image* image, NSSize size)
+{
+    ASSERT(size.width);
+    ASSERT(size.height);
+
+    // FIXME: We're doing the resize here for now because WebCore::Image doesn't yet support resizing/multiple representations
+    // This makes it so there's effectively only one size of a particular icon in the system at a time. We should move this
+    // to WebCore::Image at some point.
+    if (!image)
+        return nil;
+    NSImage* nsImage = image->nsImage();
+    if (!nsImage)
+        return nil;
+    if (!NSEqualSizes([nsImage size], size)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [nsImage setScalesWhenResized:YES];
+#pragma clang diagnostic pop
+        [nsImage setSize:size];
+    }
+    return nsImage;
+}
+#endif // !PLATFORM(IOS)
+
 void WebFrameLoaderClient::finishedLoadingIcon(uint64_t callbackID, SharedBuffer* iconData)
 {
 #if !PLATFORM(IOS)
@@ -2386,6 +2417,8 @@ void WebFrameLoaderClient::finishedLoadingIcon(uint64_t callbackID, SharedBuffer
 - (void)invalidate
 {
     _frame = nullptr;
+    if (auto policyFunction = std::exchange(_policyFunction, nullptr))
+        policyFunction(PolicyAction::Ignore);
 }
 
 - (void)dealloc
@@ -2402,21 +2435,18 @@ void WebFrameLoaderClient::finishedLoadingIcon(uint64_t callbackID, SharedBuffer
     if (!frame)
         return;
 
-    FramePolicyFunction policyFunction = WTFMove(_policyFunction);
-    _policyFunction = nullptr;
-
-    ASSERT(policyFunction);
-    policyFunction(action);
+    if (auto policyFunction = std::exchange(_policyFunction, nullptr))
+        policyFunction(action);
 }
 
 - (void)ignore
 {
-    [self receivedPolicyDecision:PolicyIgnore];
+    [self receivedPolicyDecision:PolicyAction::Ignore];
 }
 
 - (void)download
 {
-    [self receivedPolicyDecision:PolicyDownload];
+    [self receivedPolicyDecision:PolicyAction::Download];
 }
 
 - (void)use
@@ -2426,21 +2456,21 @@ void WebFrameLoaderClient::finishedLoadingIcon(uint64_t callbackID, SharedBuffer
         [LSAppLink openWithURL:_appLinkURL.get() completionHandler:^(BOOL success, NSError *) {
             WebThreadRun(^{
                 if (success)
-                    [self receivedPolicyDecision:PolicyIgnore];
+                    [self receivedPolicyDecision:PolicyAction::Ignore];
                 else
-                    [self receivedPolicyDecision:PolicyUse];
+                    [self receivedPolicyDecision:PolicyAction::Use];
             });
         }];
         return;
     }
 #endif
 
-    [self receivedPolicyDecision:PolicyUse];
+    [self receivedPolicyDecision:PolicyAction::Use];
 }
 
 - (void)continue
 {
-    [self receivedPolicyDecision:PolicyUse];
+    [self receivedPolicyDecision:PolicyAction::Use];
 }
 
 @end

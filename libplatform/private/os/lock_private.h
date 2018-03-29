@@ -440,7 +440,7 @@ OS_ASSUME_NONNULL_END
 
 #ifdef __cplusplus
 extern "C++" {
-#if !(__has_include(<atomic>) && __has_feature(cxx_atomic))
+#if !(__has_include(<atomic>) && __has_extension(cxx_atomic))
 #error Cannot use inline os_unfair_lock without <atomic> and C++11 atomics
 #endif
 #include <atomic>

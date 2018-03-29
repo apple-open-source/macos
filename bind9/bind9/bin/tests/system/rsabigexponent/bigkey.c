@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2012, 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 
 #include <config.h>
 
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PKCS11CRYPTO)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +26,7 @@
 #include <isc/buffer.h>
 #include <isc/entropy.h>
 #include <isc/mem.h>
+#include <isc/print.h>
 #include <isc/region.h>
 #include <isc/stdio.h>
 #include <isc/string.h>
@@ -45,8 +46,16 @@
 #include <dst/dst.h>
 #include <dst/result.h>
 
+#ifdef OPENSSL
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER <= 0x00908000L
+#define USE_FIX_KEY_FILES
+#endif
+#else
+#define USE_FIX_KEY_FILES
+#endif
+
+#ifdef USE_FIX_KEY_FILES
 
 /*
  * Use a fixed key file pair if OpenSSL doesn't support > 32 bit exponents.
@@ -109,7 +118,7 @@ main(int argc, char **argv) {
 		exit(1);
 	}
 
-	exit(0);
+	return(0);
 }
 #else
 #include <openssl/err.h>
@@ -237,7 +246,7 @@ main(int argc, char **argv) {
 }
 #endif
 
-#else /* OPENSSL */
+#else /* OPENSSL || PKCS11CRYPTO */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,9 +257,9 @@ int
 main(int argc, char **argv) {
 	UNUSED(argc);
 	UNUSED(argv);
-	fprintf(stderr, "Compiled without OpenSSL\n");
+	fprintf(stderr, "Compiled without Crypto\n");
 	exit(1);
 }
 
-#endif /* OPENSSL */
+#endif /* OPENSSL || PKCS11CRYPTO */
 /*! \file */

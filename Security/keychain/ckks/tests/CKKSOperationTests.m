@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <XCTest/XCTest.h>
 
 #import "keychain/ckks/CKKSGroupOperation.h"
@@ -223,7 +225,45 @@
     XCTAssertTrue(second.cancelled, "Second operation cancelled");
     XCTAssertNotNil(second.error,   "Second operation has an error");
     XCTAssertEqual(second.error.code, CKKSResultTimedOut, "Second operation error is good");
+    NSError* underlying = second.error.userInfo[NSUnderlyingErrorKey];
+    XCTAssertNil(underlying, "Second operation's error doesn't have an underlying explanation");
 }
+
+- (void)testResultTimeoutWithUnderlyingError {
+    __block bool firstRun = false;
+    __block bool secondRun = false;
+
+    CKKSResultOperation* first = [[CKKSResultOperation alloc] init];
+    [first addExecutionBlock:^{
+        firstRun = true;
+    }];
+    first.descriptionErrorCode = 604;
+
+    CKKSResultOperation* second = [[CKKSResultOperation alloc] init];
+    [second addExecutionBlock:^{
+        XCTAssertTrue(firstRun);
+        secondRun = true;
+    }];
+    [second addDependency: first];
+
+    [self.queue addOperation: [second timeout:(50)* NSEC_PER_MSEC]];
+    [self.queue waitUntilAllOperationsAreFinished];
+
+    XCTAssertFalse(firstRun);
+    XCTAssertFalse(secondRun);
+
+    XCTAssertFalse(first.finished,   "First operation not finished");
+    XCTAssertFalse(first.cancelled, "First operation not cancelled");
+    XCTAssertTrue(second.finished,  "Second operation finished");
+    XCTAssertTrue(second.cancelled, "Second operation cancelled");
+    XCTAssertNotNil(second.error,   "Second operation has an error");
+    XCTAssertEqual(second.error.code, CKKSResultTimedOut, "Second operation error is good");
+    NSError* underlying = second.error.userInfo[NSUnderlyingErrorKey];
+    XCTAssertNotNil(underlying, "second operation's error has an underlying reason");
+    XCTAssertEqualObjects(underlying.domain, CKKSResultDescriptionErrorDomain, "second operation's underlying error's domain should be CKKSResultDescriptionErrorDomain");
+    XCTAssertEqual(underlying.code, 604, "second operation's underlying error's domain should be first's description");
+}
+
 
 - (void)testResultNoTimeout {
     __block bool firstRun = false;
@@ -260,9 +300,7 @@
     CKKSResultOperation* operation = [[CKKSResultOperation alloc] init];
     XCTAssertNil(operation.finishDate, "Result operation does not have a finish date before it is run");
 
-    [operation addExecutionBlock:^{
-        NSLog(@"test execution block");
-    }];
+    [operation addExecutionBlock:^{}];
 
     [self.queue addOperation:operation];
     [self.queue waitUntilAllOperationsAreFinished];
@@ -296,6 +334,22 @@
     XCTAssertNil(op1.error, "First operation: no error");
     XCTAssertNil(op2.error, "Second operation: no error");
     XCTAssertNil(group.error, "Group operation: no error");
+}
+
+- (void)testGroupOperationRunBlock {
+    XCTestExpectation* operationRun = [self expectationWithDescription:@"operation run with named:withBlock:"];
+    CKKSGroupOperation* group = [CKKSGroupOperation named:@"asdf" withBlock: ^{
+        [operationRun fulfill];
+    }];
+    [self.queue addOperation:group];
+    [self waitForExpectations: @[operationRun] timeout:5];
+
+    operationRun = [self expectationWithDescription:@"operation run with named:withBlockTakingSelf:"];
+    group = [CKKSGroupOperation named:@"asdf" withBlockTakingSelf:^(CKKSGroupOperation *strongOp) {
+        [operationRun fulfill];
+    }];
+    [self.queue addOperation:group];
+    [self waitForExpectations: @[operationRun] timeout:5];
 }
 
 - (void)testGroupOperationSubOperationCancel {
@@ -455,6 +509,10 @@
 
     [self.queue waitUntilAllOperationsAreFinished];
 
+    // Shouldn't be necessary, but I'm not sure the NSOperation's finished property vs. dependency triggering is thread-safe
+    [op1 waitUntilFinished];
+    [op2 waitUntilFinished];
+
     XCTAssertEqual(op1.finished,   YES, "First operation finished");
     XCTAssertEqual(op2.finished,   YES, "Second operation finished");
     XCTAssertEqual(group.finished, YES, "Group operation finished");
@@ -559,3 +617,5 @@
 
 
 @end
+
+#endif /* OCTAGON */

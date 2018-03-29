@@ -28,15 +28,16 @@
 #import "WebProcessCocoa.h"
 
 #import "LegacyCustomProtocolManager.h"
+#import "LogInitialization.h"
 #import "Logging.h"
 #import "ObjCObjectGraph.h"
-#import <runtime/ConfigFile.h>
 #import "SandboxExtension.h"
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
 #import "SessionTracker.h"
 #import "WKAPICast.h"
 #import "WKBrowsingContextHandleInternal.h"
+#import "WKCrashReporter.h"
 #import "WKFullKeyboardAccessWatcher.h"
 #import "WKTypeRefWrapper.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
@@ -48,43 +49,42 @@
 #import "WebsiteDataStoreParameters.h"
 #import <JavaScriptCore/Options.h>
 #import <WebCore/AXObjectCache.h>
-#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/CPUMonitor.h>
 #import <WebCore/FileSystem.h>
 #import <WebCore/FontCache.h>
 #import <WebCore/FontCascade.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/LogInitialization.h>
 #import <WebCore/MemoryRelease.h>
-#import <WebCore/NSAccessibilitySPI.h>
 #import <WebCore/PerformanceLogging.h>
-#import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/WebCoreNSURLExtras.h>
-#import <WebCore/pthreadSPI.h>
-#import <WebKitSystemInterface.h>
 #import <algorithm>
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
+#import <pal/spi/cf/CFNetworkSPI.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/spi/cocoa/pthreadSPI.h>
+#import <pal/spi/mac/NSAccessibilitySPI.h>
+#import <runtime/ConfigFile.h>
 #import <stdio.h>
 
 #if PLATFORM(IOS)
-#import "CelestialSPI.h"
-#import <WebCore/GraphicsServicesSPI.h>
-#import <wtf/SoftLinking.h>
+#import <UIKit/UIAccessibility.h>
+#import <pal/spi/ios/GraphicsServicesSPI.h>
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <AXRuntime/AXDefines.h>
+#import <AXRuntime/AXNotificationConstants.h>
+#else
+#define kAXPidStatusChangedNotification 0
+#endif
+
 #endif
 
 #if USE(OS_STATE)
 #import <os/state_private.h>
-#endif
-
-#if PLATFORM(IOS)
-SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(Celestial)
-
-SOFT_LINK_CLASS_OPTIONAL(Celestial, AVSystemController)
-
-SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_PIDToInheritApplicationStateFrom, NSString *)
-
-#define AVSystemController_PIDToInheritApplicationStateFrom getAVSystemController_PIDToInheritApplicationStateFrom()
 #endif
 
 using namespace WebCore;
@@ -112,6 +112,11 @@ static id NSApplicationAccessibilityFocusedUIElement(NSApplication*, SEL)
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& parameters)
 {
+#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
+    WebCore::initializeLogChannelsIfNecessary(parameters.webCoreLoggingChannels);
+    WebKit::initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
+#endif
+
     WebCore::setApplicationBundleIdentifier(parameters.uiProcessBundleIdentifier);
     SessionTracker::setIdentifierBase(parameters.uiProcessBundleIdentifier);
 
@@ -169,16 +174,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& par
     // Priority decay on iOS 9 is impacting page load time so we fix the priority of the WebProcess' main thread (rdar://problem/22003112).
     pthread_set_fixedpriority_self();
 #endif
-
-#if PLATFORM(IOS)
-    if (canLoadAVSystemController_PIDToInheritApplicationStateFrom()) {
-        pid_t pid = WebCore::presentingApplicationPID();
-        NSError *error = nil;
-        [[getAVSystemControllerClass() sharedAVSystemController] setAttribute:@(pid) forKey:AVSystemController_PIDToInheritApplicationStateFrom error:&error];
-        if (error)
-            WTFLogAlways("Failed to set up PID proxying: %s", [[error localizedDescription] UTF8String]);
-    }
-#endif
 }
 
 void WebProcess::initializeProcessName(const ChildProcessInitializationParameters& parameters)
@@ -187,9 +182,13 @@ void WebProcess::initializeProcessName(const ChildProcessInitializationParameter
     NSString *applicationName;
     if (parameters.extraInitializationData.get(ASCIILiteral("inspector-process")) == "1")
         applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Web Inspector", "Visible name of Web Inspector's web process. The argument is the application name."), (NSString *)parameters.uiProcessName];
+#if ENABLE(SERVICE_WORKER)
+    else if (parameters.extraInitializationData.get(ASCIILiteral("service-worker-process")) == "1")
+        applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Service Worker", "Visible name of Service Worker process. The argument is the application name."), (NSString *)parameters.uiProcessName];
+#endif
     else
         applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Web Content", "Visible name of the web process. The argument is the application name."), (NSString *)parameters.uiProcessName];
-    WKSetVisibleApplicationName((CFStringRef)applicationName);
+    _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey, (CFStringRef)applicationName, nullptr);
 #endif
 }
 
@@ -246,7 +245,7 @@ void WebProcess::registerWithStateDumper()
                 if (page->usesEphemeralSession())
                     continue;
 
-                NSDate* date = [NSDate dateWithTimeIntervalSince1970:std::chrono::system_clock::to_time_t(page->loadCommitTime())];
+                NSDate* date = [NSDate dateWithTimeIntervalSince1970:page->loadCommitTime().secondsSinceEpoch().seconds()];
                 [pageLoadTimes addObject:date];
             }
 
@@ -389,7 +388,7 @@ void WebProcess::updateActivePages()
     }
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [activePageURLs] {
-        WKSetApplicationInformationItem(CFSTR("LSActivePageUserVisibleOriginsKey"), (__bridge CFArrayRef)activePageURLs.get());
+        _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), CFSTR("LSActivePageUserVisibleOriginsKey"), (__bridge CFArrayRef)activePageURLs.get(), nullptr);
     });
 #endif
 }
@@ -532,7 +531,14 @@ void WebProcess::destroyRenderingResources()
 // FIXME: This should live somewhere else, and it should have the implementation in line instead of calling out to WKSI.
 void _WKSetCrashReportApplicationSpecificInformation(NSString *infoString)
 {
-    return WKSetCrashReportApplicationSpecificInformation((__bridge CFStringRef)infoString);
+    return setCrashReportApplicationSpecificInformation((__bridge CFStringRef)infoString);
 }
+
+#if PLATFORM(IOS)
+void WebProcess::accessibilityProcessSuspendedNotification(bool suspended)
+{
+    UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });
+}
+#endif
 
 } // namespace WebKit

@@ -4,5 +4,7 @@
 <dict>
 	<key>VersionNumber</key>
 	<real>2017081600</real>
+	<key>MobileAssetContentVersion</key>
+	<integer>1</integer>
 </dict>
 </plist>

@@ -31,6 +31,8 @@
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CloudKitCategories.h"
 
+#import "keychain/ot/OTDefines.h"
+
 #import "SecEntitlements.h"
 
 #include <securityd/SecDbItem.h>
@@ -51,7 +53,7 @@
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFKey_Private.h>
 
-#import  "CKKSAnalyticsLogger.h"
+#import "CKKSAnalytics.h"
 #endif
 
 @interface CKKSViewManager () <NSXPCListenerDelegate>
@@ -77,6 +79,11 @@
 @property NSMapTable<dispatch_queue_t, id<CKKSPeerUpdateListener>>* peerChangeListeners;
 #endif
 @end
+
+#if OCTAGON
+@interface CKKSViewManager (lockstateTracker) <CKKSLockStateNotification>
+@end
+#endif
 
 @implementation CKKSViewManager
 #if OCTAGON
@@ -118,6 +125,8 @@
         _container = [self makeCKContainer: containerName usePCS:usePCS];
         _accountTracker = [[CKKSCKAccountStateTracker alloc] init:self.container nsnotificationCenterClass:nsnotificationCenterClass];
         _lockStateTracker = [[CKKSLockStateTracker alloc] init];
+        [_lockStateTracker addLockStateObserver:self];
+        _reachabilityTracker = [[CKKSReachabilityTracker alloc] init];
 
         _operationQueue = [[NSOperationQueue alloc] init];
 
@@ -132,7 +141,11 @@
         _completedSecCKKSInitialize = [[CKKSCondition alloc] init];
 
         __weak __typeof(self) weakSelf = self;
-        _savedTLKNotifier = [[CKKSNearFutureScheduler alloc] initWithName: @"newtlks" delay:5*NSEC_PER_SEC keepProcessAlive:true block:^{
+        _savedTLKNotifier = [[CKKSNearFutureScheduler alloc] initWithName:@"newtlks"
+                                                                    delay:5*NSEC_PER_SEC
+                                                         keepProcessAlive:true
+                                                dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                    block:^{
             [weakSelf notifyNewTLKsInKeychain];
         }];
 
@@ -163,6 +176,88 @@
         container = [[CKContainer alloc] initWithContainerID: container.containerID options:containerOptions];
     }
     return container;
+}
+
+- (void)setupAnalytics
+{
+    __weak __typeof(self) weakSelf = self;
+
+    // Tests shouldn't continue here; it leads to entitlement crashes with CloudKit if the mocks aren't enabled when this function runs
+    if(SecCKKSTestsEnabled()) {
+        return;
+    }
+
+    [[CKKSAnalytics logger] AddMultiSamplerForName:@"CKKS-healthSummary" withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport block:^NSDictionary<NSString *,NSNumber *> *{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if(!strongSelf) {
+            return nil;
+        }
+
+        NSMutableDictionary* values = [NSMutableDictionary dictionary];
+        BOOL inCircle = (strongSelf.accountTracker.currentCircleStatus == kSOSCCInCircle);
+        if (inCircle) {
+            [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastInCircle];
+        }
+        values[CKKSAnalyticsInCircle] = @(inCircle);
+
+        BOOL validCredentials = strongSelf.accountTracker.currentCKAccountInfo.hasValidCredentials;
+        if (!validCredentials) {
+            values[CKKSAnalyticsValidCredentials] = @(validCredentials);
+        }
+
+        NSArray<NSString *>* keys = @[ CKKSAnalyticsLastUnlock, CKKSAnalyticsLastInCircle];
+        for (NSString * key in keys) {
+            NSDate *date = [[CKKSAnalytics logger] datePropertyForKey:key];
+            values[key] = @([CKKSAnalytics fuzzyDaysSinceDate:date]);
+        }
+        return values;
+    }];
+
+    for (NSString* viewName in [self viewList]) {
+        [[CKKSAnalytics logger] AddMultiSamplerForName:[NSString stringWithFormat:@"CKKS-%@-healthSummary", viewName] withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport block:^NSDictionary<NSString *,NSNumber *> *{
+            __strong __typeof(self) strongSelf = weakSelf;
+            if(!strongSelf) {
+                return nil;
+            }
+            BOOL inCircle = strongSelf.accountTracker && strongSelf.accountTracker.currentCircleStatus == kSOSCCInCircle;
+            NSMutableDictionary* values = [NSMutableDictionary dictionary];
+            CKKSKeychainView* view = [strongSelf findOrCreateView:viewName];
+            NSDate* dateOfLastSyncClassA = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:view];
+            NSDate* dateOfLastSyncClassC = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:view];
+            NSDate* dateOfLastKSR = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastKeystateReady inView:view];
+
+            NSInteger fuzzyDaysSinceClassASync = [CKKSAnalytics fuzzyDaysSinceDate:dateOfLastSyncClassA];
+            NSInteger fuzzyDaysSinceClassCSync = [CKKSAnalytics fuzzyDaysSinceDate:dateOfLastSyncClassC];
+            NSInteger fuzzyDaysSinceKSR = [CKKSAnalytics fuzzyDaysSinceDate:dateOfLastKSR];
+            [values setValue:@(fuzzyDaysSinceClassASync) forKey:[NSString stringWithFormat:@"%@-daysSinceClassASync", viewName]];
+            [values setValue:@(fuzzyDaysSinceClassCSync) forKey:[NSString stringWithFormat:@"%@-daysSinceClassCSync", viewName]];
+            [values setValue:@(fuzzyDaysSinceKSR) forKey:[NSString stringWithFormat:@"%@-daysSinceLastKeystateReady", viewName]];
+
+            BOOL hasTLKs = [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady] || [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock];
+            BOOL syncedClassARecently = fuzzyDaysSinceClassASync < 7;
+            BOOL syncedClassCRecently = fuzzyDaysSinceClassCSync < 7;
+            BOOL incomingQueueIsErrorFree = view.lastIncomingQueueOperation.error == nil;
+            BOOL outgoingQueueIsErrorFree = view.lastOutgoingQueueOperation.error == nil;
+
+            NSString* hasTLKsKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsHasTLKs];
+            NSString* syncedClassARecentlyKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsSyncedClassARecently];
+            NSString* syncedClassCRecentlyKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsSyncedClassCRecently];
+            NSString* incomingQueueIsErrorFreeKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsIncomingQueueIsErrorFree];
+            NSString* outgoingQueueIsErrorFreeKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsOutgoingQueueIsErrorFree];
+
+            values[hasTLKsKey] = @(hasTLKs);
+            values[syncedClassARecentlyKey] = @(syncedClassARecently);
+            values[syncedClassCRecentlyKey] = @(syncedClassCRecently);
+            values[incomingQueueIsErrorFreeKey] = @(incomingQueueIsErrorFree);
+            values[outgoingQueueIsErrorFreeKey] = @(outgoingQueueIsErrorFree);
+
+            BOOL weThinkWeAreInSync = inCircle && hasTLKs && syncedClassARecently && syncedClassCRecently && incomingQueueIsErrorFree && outgoingQueueIsErrorFree;
+            NSString* inSyncKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsInSync];
+            values[inSyncKey] = @(weThinkWeAreInSync);
+
+            return values;
+        }];
+    }
 }
 
 -(void)dealloc {
@@ -203,6 +298,13 @@ dispatch_once_t globalZoneStateQueueOnce;
     });
     _globalRateLimiter = blocklimit;
     return _globalRateLimiter;
+}
+
+- (void)lockStateChangeNotification:(bool)unlocked
+{
+    if (unlocked) {
+        [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastUnlock];
+    }
 }
 
 // Mostly exists to be mocked out.
@@ -267,6 +369,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                                                                   zoneName: viewName
                                                             accountTracker: self.accountTracker
                                                           lockStateTracker: self.lockStateTracker
+                                                       reachabilityTracker: self.reachabilityTracker
                                                           savedTLKNotifier: self.savedTLKNotifier
                                                               peerProvider:self
                                       fetchRecordZoneChangesOperationClass: self.fetchRecordZoneChangesOperationClass
@@ -283,9 +386,6 @@ dispatch_once_t globalZoneStateQueueOnce;
 
         return self.views[viewName];
     }
-}
-+ (CKKSKeychainView*)findOrCreateView:(NSString*)viewName {
-    return [[CKKSViewManager manager] findOrCreateView: viewName];
 }
 
 - (NSDictionary<NSString *,NSString *> *)activeTLKs
@@ -305,6 +405,7 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (CKKSKeychainView*)restartZone:(NSString*)viewName {
     @synchronized(self.views) {
+        [self.views[viewName] halt];
         self.views[viewName] = nil;
     }
     return [self findOrCreateView: viewName];
@@ -325,6 +426,8 @@ dispatch_once_t globalZoneStateQueueOnce;
             [self findOrCreateView:s]; // initializes any newly-created views
         }
     }
+
+    [self setupAnalytics];
 }
 
 - (NSString*)viewNameForViewHint: (NSString*) viewHint {
@@ -421,12 +524,12 @@ dispatch_once_t globalZoneStateQueueOnce;
     [view handleKeychainEventDbConnection: dbconn added:added deleted:deleted rateLimiter:self.globalRateLimiter syncCallback: syncCallback];
 }
 
--(void)setCurrentItemForAccessGroup:(SecDbItemRef)newItem
+-(void)setCurrentItemForAccessGroup:(NSData* _Nonnull)newItemPersistentRef
                                hash:(NSData*)newItemSHA1
                         accessGroup:(NSString*)accessGroup
                          identifier:(NSString*)identifier
                            viewHint:(NSString*)viewHint
-                          replacing:(SecDbItemRef)oldItem
+                          replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
                                hash:(NSData*)oldItemSHA1
                            complete:(void (^) (NSError* operror)) complete
 {
@@ -440,11 +543,11 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    [view setCurrentItemForAccessGroup:newItem
+    [view setCurrentItemForAccessGroup:newItemPersistentRef
                                   hash:newItemSHA1
                            accessGroup:accessGroup
                             identifier:identifier
-                             replacing:oldItem
+                             replacing:oldCurrentItemPersistentRef
                                   hash:oldItemSHA1
                               complete:complete];
 }
@@ -492,7 +595,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                 if(reset) {
                     [manager clearAllViews];
                     manager = nil;
-                } else if (manager == nil) {
+                } else if (manager == nil && SecCKKSIsEnabled()) {
                     manager = [[CKKSViewManager alloc] initCloudKitWithContainerName:SecCKKSContainerName usePCS:SecCKKSContainerUsePCS];
                 }
             }
@@ -529,26 +632,6 @@ dispatch_once_t globalZoneStateQueueOnce;
     }];
 }
 
-#pragma mark - XPC Endpoint
-
-- (xpc_endpoint_t)xpcControlEndpoint {
-    return [_listener.endpoint _endpoint];
-}
-
-- (BOOL)listener:(__unused NSXPCListener *)listener shouldAcceptNewConnection:(NSXPCConnection *)newConnection {
-    NSNumber *num = [newConnection valueForEntitlement:(__bridge NSString *)kSecEntitlementPrivateCKKS];
-    if (![num isKindOfClass:[NSNumber class]] || ![num boolValue]) {
-        secinfo("ckks", "Client pid: %d doesn't have entitlement: %@",
-                [newConnection processIdentifier], kSecEntitlementPrivateCKKS);
-        return NO;
-    }
-    newConnection.exportedInterface = CKKSSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(CKKSControlProtocol)]);
-    newConnection.exportedObject = self;
-
-    [newConnection resume];
-
-    return YES;
-}
 #pragma mark - RPCs to manage and report state
 
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *counter))reply {
@@ -558,10 +641,16 @@ dispatch_once_t globalZoneStateQueueOnce;
 - (NSArray<CKKSKeychainView*>*)views:(NSString*)viewName operation:(NSString*)opName error:(NSError**)error
 {
     NSArray* actualViews = nil;
+
+    // Ensure we've actually set up, but don't wait too long. Clients get impatient.
+    if([self.completedSecCKKSInitialize wait:5*NSEC_PER_SEC]) {
+        secerror("ckks: Haven't yet initialized zones; expect failure fetching views");
+    }
+
     @synchronized(self.views) {
         if(viewName) {
-            secnotice("ckks", "Received a %@ request for zone %@", opName, viewName);
             CKKSKeychainView* view = self.views[viewName];
+            secnotice("ckks", "Received a %@ request for zone %@ (%@)", opName, viewName, view);
 
             if(!view) {
                 if(error) {
@@ -574,8 +663,8 @@ dispatch_once_t globalZoneStateQueueOnce;
 
             actualViews = @[view];
         } else {
-            secnotice("ckks", "Received a %@ request for all zones", opName);
             actualViews = [self.views.allValues copy];
+            secnotice("ckks", "Received a %@ request for all zones: %@", opName, actualViews);
         }
     }
     return actualViews;
@@ -590,7 +679,14 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSResultOperation* op = [CKKSResultOperation named:@"local-reset-zones-waiter" withBlock:^{}];
+    CKKSResultOperation* op = [CKKSResultOperation named:@"local-reset-zones-waiter" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull strongOp) {
+        if(!strongOp.error) {
+            secnotice("ckksreset", "Completed rpcResetLocal");
+        } else {
+            secnotice("ckks", "Completed rpcResetLocal with error: %@", strongOp.error);
+        }
+        reply(CKXPCSuitableError(strongOp.error));
+    }];
 
     for(CKKSKeychainView* view in actualViews) {
         ckksnotice("ckksreset", view, "Beginning local reset for %@", view);
@@ -599,14 +695,6 @@ dispatch_once_t globalZoneStateQueueOnce;
 
     [op timeout:120*NSEC_PER_SEC];
     [self.operationQueue addOperation: op];
-
-    [op waitUntilFinished];
-    if(op.error) {
-        secnotice("ckksreset", "Completed rpcResetLocal");
-    } else {
-        secnotice("ckksreset", "Completed rpcResetLocal with error: %@", op.error);
-    }
-    reply(CKXPCSuitableError(op.error));
 }
 
 - (void)rpcResetCloudKit:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
@@ -618,23 +706,22 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSResultOperation* op = [CKKSResultOperation named:@"cloudkit-reset-zones-waiter" withBlock:^{}];
+    CKKSResultOperation* op = [CKKSResultOperation named:@"cloudkit-reset-zones-waiter" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull strongOp) {
+        if(!strongOp.error) {
+            secnotice("ckksreset", "Completed rpcResetCloudKit");
+        } else {
+            secnotice("ckksreset", "Completed rpcResetCloudKit with error: %@", strongOp.error);
+        }
+        reply(CKXPCSuitableError(strongOp.error));
+    }];
 
     for(CKKSKeychainView* view in actualViews) {
         ckksnotice("ckksreset", view, "Beginning CloudKit reset for %@", view);
-        [op addSuccessDependency:[view resetCloudKitZone]];
+        [op addSuccessDependency:[view resetCloudKitZone:[CKOperationGroup CKKSGroupWithName:@"api-reset"]]];
     }
 
     [op timeout:120*NSEC_PER_SEC];
     [self.operationQueue addOperation: op];
-
-    [op waitUntilFinished];
-    if(op.error) {
-        secnotice("ckksreset", "Completed rpcResetCloudKit");
-    } else {
-        secnotice("ckksreset", "Completed rpcResetCloudKit with error: %@", op.error);
-    }
-    reply(CKXPCSuitableError(op.error));
 }
 
 - (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
@@ -698,58 +785,74 @@ dispatch_once_t globalZoneStateQueueOnce;
 - (void)rpcStatus: (NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
     NSMutableArray* a = [[NSMutableArray alloc] init];
 
-    // The first element is always the current global state (non-view-specific)
-    NSError* selfPeersError = nil;
-    CKKSSelves* selves = [self fetchSelfPeers:&selfPeersError];
-    NSError* trustedPeersError = nil;
-    NSSet<id<CKKSPeer>>* peers = [self fetchTrustedPeers:&trustedPeersError];
+    // Now, query the views about their status
+    NSError* error = nil;
+    NSArray* actualViews = [self views:viewName operation:@"status" error:&error];
+    if(!actualViews || error) {
+        reply(nil, error);
+        return;
+    }
 
+    __weak __typeof(self) weakSelf = self;
+    CKKSResultOperation* statusOp = [CKKSResultOperation named:@"status-rpc" withBlock:^{
+        __strong __typeof(self) strongSelf = weakSelf;
 
-    NSMutableArray<NSString*>* mutTrustedPeers = [[NSMutableArray alloc] init];
-    [peers enumerateObjectsUsingBlock:^(id<CKKSPeer>  _Nonnull obj, BOOL * _Nonnull stop) {
-        [mutTrustedPeers addObject: [obj description]];
-    }];
+        // The first element is always the current global state (non-view-specific)
+        NSError* selfPeersError = nil;
+        CKKSSelves* selves = [strongSelf fetchSelfPeers:&selfPeersError];
+        NSError* trustedPeersError = nil;
+        NSSet<id<CKKSPeer>>* peers = [strongSelf fetchTrustedPeers:&trustedPeersError];
+
+        // Get account state, even wait for it a little
+        [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
+        NSString *deviceID = self.accountTracker.ckdeviceID;
+        NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
+
+        NSMutableArray<NSString*>* mutTrustedPeers = [[NSMutableArray alloc] init];
+        [peers enumerateObjectsUsingBlock:^(id<CKKSPeer>  _Nonnull obj, BOOL * _Nonnull stop) {
+            [mutTrustedPeers addObject: [obj description]];
+        }];
 
 #define stringify(obj) CKKSNilToNSNull([obj description])
-    NSDictionary* global = @{
-                             @"view":                @"global",
-                             @"selfPeers":           stringify(selves),
-                             @"selfPeersError":      CKKSNilToNSNull(selfPeersError),
-                             @"trustedPeers":        CKKSNilToNSNull(mutTrustedPeers),
-                             @"trustedPeersError":   CKKSNilToNSNull(trustedPeersError),
-    };
-    [a addObject: global];
+        NSDictionary* global = @{
+                                 @"view":                @"global",
+                                 @"selfPeers":           stringify(selves),
+                                 @"selfPeersError":      CKKSNilToNSNull(selfPeersError),
+                                 @"trustedPeers":        CKKSNilToNSNull(mutTrustedPeers),
+                                 @"trustedPeersError":   CKKSNilToNSNull(trustedPeersError),
+                                 @"reachability":        strongSelf.reachabilityTracker.currentReachability ? @"network" : @"no-network",
+                                 @"ckdeviceID":          CKKSNilToNSNull(deviceID),
+                                 @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
+        };
+        [a addObject: global];
 
-    // Now, query the views about their status
-    NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckks", "Received a status RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
-
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply(nil, nil);
-            return;
+        for(CKKSKeychainView* view in actualViews) {
+            ckksnotice("ckks", view, "Fetching status for %@", view.zoneName);
+            NSDictionary* status = [view status];
+            ckksinfo("ckks", view, "Status is %@", status);
+            if(status) {
+                [a addObject: status];
+            }
         }
+        reply(a, nil);
+    }];
 
-        actualViews = @[view];
-
-    } else {
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
-            actualViews = self.views.allValues;
-        }
+    // If we're signed in, give the views a few seconds to enter what they consider to be a non-transient state (in case this daemon just launched)
+    if([self.accountTracker.currentComputedAccountStatusValid wait:5*NSEC_PER_SEC]) {
+        secerror("ckks status: Haven't yet figured out login state");
     }
 
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckks", view, "Fetching status for %@", view.zoneName);
-        NSDictionary* status = [view status];
-        ckksinfo("ckks", view, "Status is %@", status);
-        if(status) {
-            [a addObject: status];
+    if(self.accountTracker.currentComputedAccountStatus == CKKSAccountStatusAvailable) {
+        CKKSResultOperation* blockOp = [CKKSResultOperation named:@"wait-for-status" withBlock:^{}];
+        [blockOp timeout:8*NSEC_PER_SEC];
+        for(CKKSKeychainView* view in actualViews) {
+            [blockOp addNullableDependency:view.keyStateNonTransientDependency];
+            [statusOp addDependency:blockOp];
         }
+        [self.operationQueue addOperation:blockOp];
     }
-    reply(a, nil);
+    [self.operationQueue addOperation:statusOp];
+
     return;
 }
 
@@ -762,26 +865,11 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName classA:(bool)classAError reply: (void(^)(NSError* result)) reply {
-    NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckks", "Received a fetch RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
-
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply([NSError errorWithDomain:@"securityd"
-                                      code:kSOSCCNoSuchView
-                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No view for '%@'", viewName]}]);
-            return;
-        }
-
-        actualViews = @[view];
-    } else {
-        secnotice("ckks", "Received a fetch RPC for all zones");
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
-            actualViews = [self.views.allValues copy];
-        }
+    NSError* error = nil;
+    NSArray* actualViews = [self views:viewName operation:@"fetch" error:&error];
+    if(!actualViews || error) {
+        reply(error);
+        return;
     }
 
     CKKSResultOperation* blockOp = [[CKKSResultOperation alloc] init];
@@ -801,30 +889,15 @@ dispatch_once_t globalZoneStateQueueOnce;
         [blockOp addDependency:op];
     }
 
-    [self.operationQueue addOperation: [blockOp timeout:60*NSEC_PER_SEC]];
+    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 5 : NSEC_PER_SEC * 120)]];
 }
 
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result))reply {
-    NSArray* actualViews = nil;
-    if(viewName) {
-        secnotice("ckks", "Received a push RPC for zone %@", viewName);
-        CKKSKeychainView* view = self.views[viewName];
-
-        if(!view) {
-            secerror("ckks: Zone %@ does not exist!", viewName);
-            reply([NSError errorWithDomain:@"securityd"
-                                      code:kSOSCCNoSuchView
-                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No view for '%@'", viewName]}]);
-            return;
-        }
-
-        actualViews = @[view];
-    } else {
-        secnotice("ckks", "Received a push RPC for all zones");
-        @synchronized(self.views) {
-            // Can't safely iterate a mutable collection, so copy it.
-            actualViews = [self.views.allValues copy];
-        }
+    NSError* error = nil;
+    NSArray* actualViews = [self views:viewName operation:@"push" error:&error];
+    if(!actualViews || error) {
+        reply(error);
+        return;
     }
 
     CKKSResultOperation* blockOp = [[CKKSResultOperation alloc] init];
@@ -844,28 +917,11 @@ dispatch_once_t globalZoneStateQueueOnce;
         [blockOp addDependency:op];
     }
 
-    [self.operationQueue addOperation: [blockOp timeout:60*NSEC_PER_SEC]];
+    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 2 : NSEC_PER_SEC * 120)]];
 }
 
-- (void)rpcGetAnalyticsSysdiagnoseWithReply:(void (^)(NSString* sysdiagnose, NSError* error))reply
-{
-    NSError* error = nil;
-    NSString* sysdiagnose = [[CKKSAnalyticsLogger logger] getSysdiagnoseDumpWithError:&error];
-    reply(sysdiagnose, CKXPCSuitableError(error));
-}
-
-- (void)rpcGetAnalyticsJSONWithReply:(void (^)(NSData* json, NSError* error))reply
-{
-    NSError* error = nil;
-    NSData* json = [[CKKSAnalyticsLogger logger] getLoggingJSON:true error:&error];
-    reply(json, CKXPCSuitableError(error));
-}
-
-- (void)rpcForceUploadAnalyticsWithReply:(void (^)(BOOL success, NSError* error))reply
-{
-    NSError* error = nil;
-    BOOL result = [[CKKSAnalyticsLogger logger] forceUploadWithError:&error];
-    reply(result, CKXPCSuitableError(error));
+- (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString *))reply {
+    reply(self.accountTracker.ckdeviceID);
 }
 
 -(void)xpc24HrNotification {
@@ -887,9 +943,140 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 }
 
-#pragma mark - CKKSPeerProvider implementation
+- (NSArray<NSDictionary *> * _Nullable)loadRestoredBottledKeysOfType:(OctagonKeyType)keyType error:(NSError**)error
+{
+    CFTypeRef result = NULL;
+    NSMutableArray* bottledPeerKeychainItems = nil;
 
-- (CKKSSelves*)fetchSelfPeers:(NSError* __autoreleasing *)error {
+    NSDictionary* query = @{
+                            (id)kSecClass : (id)kSecClassInternetPassword,
+                            (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+                            (id)kSecAttrNoLegacy : @YES,
+                            (id)kSecAttrType : [[NSNumber alloc]initWithInt: keyType],
+                            (id)kSecAttrServer : (keyType == 1) ? @"Octagon Signing Key" : @"Octagon Encryption Key",
+                            (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
+                            (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+                            (id)kSecReturnAttributes: @YES,
+                            (id)kSecReturnData: @YES,
+                            };
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+
+    if(status == errSecSuccess && result && isArray(result)) {
+        bottledPeerKeychainItems = CFBridgingRelease(result);
+        result = NULL;
+    } else {
+        if(error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:status
+                                  description:@"could not load bottled peer keys"];
+        }
+        CFReleaseNull(result);
+    }
+
+    return bottledPeerKeychainItems;
+}
+
+-(NSDictionary *) keychainItemForPeerID:(NSString*)neededPeerID
+                          keychainItems:(NSArray<NSDictionary*> *)keychainItems
+                escrowSigningPubKeyHash:(NSString *)hashWeNeedToMatch
+{
+    NSDictionary* peerItem = nil;
+
+    for(NSDictionary* item in keychainItems){
+        if(item && [item count] > 0){
+            NSString* peerIDFromItem = [item objectForKey:(id)kSecAttrAccount];
+            NSString* hashToConsider = [item objectForKey:(id)kSecAttrLabel];
+            if([peerIDFromItem isEqualToString:neededPeerID] &&
+               [hashWeNeedToMatch isEqualToString:hashToConsider])
+            {
+                peerItem = [item copy];
+                break;
+            }
+        }
+    }
+
+    return peerItem;
+}
+
+- (NSSet<id<CKKSSelfPeer>>*)pastSelves:(NSError**)error
+{
+    NSError* localError = nil;
+
+    // get bottled peer identities from the keychain
+    NSMutableSet<id<CKKSSelfPeer>>* allSelves = [NSMutableSet set];
+    NSArray<NSDictionary*>* signingKeys = [self loadRestoredBottledKeysOfType:OctagonSigningKey error:&localError];
+    if(!signingKeys) {
+        // Item not found isn't actually an error here
+        if(error && !(localError && [localError.domain isEqualToString: NSOSStatusErrorDomain] && localError.code == errSecItemNotFound)) {
+            *error = localError;
+        }
+
+        return allSelves;
+    }
+
+    NSArray<NSDictionary*>* encryptionKeys = [self loadRestoredBottledKeysOfType:OctagonEncryptionKey error:&localError];
+    if(!encryptionKeys) {
+        if(error && !(localError && [localError.domain isEqualToString: NSOSStatusErrorDomain] && localError.code == errSecItemNotFound)) {
+            *error = localError;
+        }
+        return allSelves;
+    }
+
+    for(NSDictionary* signingKey in signingKeys) {
+        NSError* peerError = nil;
+        NSString* peerid = signingKey[(id)kSecAttrAccount];
+        NSString* hash = signingKey[(id)kSecAttrLabel]; // escrow signing pub key hash
+
+        //use peer id AND escrow signing public key hash to look up the matching item in encryptionKeys list
+        NSDictionary* encryptionKeyItem = [self keychainItemForPeerID:peerid keychainItems:encryptionKeys escrowSigningPubKeyHash:hash];
+        if(!encryptionKeyItem) {
+            secerror("octagon: no encryption key available to pair with signing key %@,%@", peerid, hash);
+            continue;
+        }
+
+        NSData* signingKeyData = signingKey[(id)kSecValueData];
+        if(!signingKeyData) {
+            secerror("octagon: no signing key data for %@,%@", peerid,hash);
+            continue;
+        }
+
+        SFECKeyPair* restoredSigningKey = [[SFECKeyPair alloc] initWithData:signingKeyData
+                                                                  specifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]
+                                                                      error:&peerError];
+        if(!restoredSigningKey) {
+            secerror("octagon: couldn't make signing key for %@,%@: %@", peerid, hash, peerError);
+            continue;
+        }
+
+        NSData* encryptionKeyData = [encryptionKeyItem objectForKey:(id)kSecValueData];
+        if(!encryptionKeyData) {
+            secerror("octagon: no encryption key data for %@,%@", peerid,hash);
+            continue;
+        }
+
+        SFECKeyPair* restoredEncryptionKey = [[SFECKeyPair alloc] initWithData:encryptionKeyData
+                                                                     specifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]
+                                                                         error:&peerError];
+        if(!restoredEncryptionKey) {
+            secerror("octagon: couldn't make encryption key for %@,%@: %@", peerid,hash, peerError);
+            continue;
+        }
+
+        //create the SOS self peer
+        CKKSSOSSelfPeer* restoredIdentity = [[CKKSSOSSelfPeer alloc]initWithSOSPeerID:peerid encryptionKey:restoredEncryptionKey signingKey:restoredSigningKey];
+
+        if(restoredIdentity){
+            secnotice("octagon","adding bottled peer identity: %@", restoredIdentity);
+            [allSelves addObject:restoredIdentity];
+        } else {
+            secerror("octagon: could not create restored identity from: %@: %@", peerid, peerError);
+        }
+    }
+    return allSelves;
+}
+
+- (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error
+{
     __block SFECKeyPair* signingPrivateKey = nil;
     __block SFECKeyPair* encryptionPrivateKey = nil;
 
@@ -906,28 +1093,25 @@ dispatch_once_t globalZoneStateQueueOnce;
         return nil;
     }
 
-    SOSCCPerformWithOctagonSigningKey(^(SecKeyRef signingSecKey, CFErrorRef cferror) {
+    SOSCCPerformWithAllOctagonKeys(^(SecKeyRef octagonEncryptionKey, SecKeyRef octagonSigningKey, CFErrorRef cferror) {
         if(cferror) {
             localerror = (__bridge NSError*)cferror;
             return;
         }
-        if (!cferror && signingSecKey) {
-            signingPrivateKey = [[SFECKeyPair alloc] initWithSecKey:signingSecKey];
-        }
-    });
-
-    SOSCCPerformWithOctagonEncryptionKey(^(SecKeyRef encryptionSecKey, CFErrorRef cferror) {
-        if(cferror) {
-            localerror = (__bridge NSError*)cferror;
-            return;
-        }
-        if (!cferror && encryptionSecKey) {
-            encryptionPrivateKey = [[SFECKeyPair alloc] initWithSecKey:encryptionSecKey];
+        if (!cferror && octagonEncryptionKey && octagonSigningKey) {
+            signingPrivateKey = [[SFECKeyPair alloc] initWithSecKey:octagonSigningKey];
+            encryptionPrivateKey = [[SFECKeyPair alloc] initWithSecKey:octagonEncryptionKey];
+        } else {
+            localerror = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNoPeersAvailable
+                                      description:@"Not all SOS peer keys available, but no error returned"];
         }
     });
 
     if(localerror) {
-        secerror("ckkspeer: Error fetching self encryption keys: %@", localerror);
+        if(![self.lockStateTracker isLockedError:localerror]) {
+            secerror("ckkspeer: Error fetching self encryption keys: %@", localerror);
+        }
         if(error) {
             *error = localerror;
         }
@@ -937,7 +1121,35 @@ dispatch_once_t globalZoneStateQueueOnce;
     CKKSSOSSelfPeer* selfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:peerID
                                                              encryptionKey:encryptionPrivateKey
                                                                 signingKey:signingPrivateKey];
-    CKKSSelves* selves = [[CKKSSelves alloc] initWithCurrent:selfPeer allSelves:nil];
+    return selfPeer;
+}
+
+#pragma mark - CKKSPeerProvider implementation
+
+- (CKKSSelves*)fetchSelfPeers:(NSError* __autoreleasing *)error {
+    NSError* localError = nil;
+
+    id<CKKSSelfPeer> selfPeer = [self currentSOSSelf:&localError];
+    if(!selfPeer || localError) {
+        if(![self.lockStateTracker isLockedError:localError]) {
+            secerror("ckks: Error fetching current SOS self: %@", localError);
+        }
+        if(error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
+    NSSet<id<CKKSSelfPeer>>* allSelves = [self pastSelves:&localError];
+    if(!allSelves || localError) {
+        secerror("ckks: Error fetching past selves: %@", localError);
+        if(error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
+    CKKSSelves* selves = [[CKKSSelves alloc] initWithCurrent:selfPeer allSelves:allSelves];
     return selves;
 }
 
@@ -961,28 +1173,36 @@ dispatch_once_t globalZoneStateQueueOnce;
             }
 
             CFStringRef cfpeerID = SOSPeerInfoGetPeerID(sosPeerInfoRef);
-            SecKeyRef cfOctagonSigningKey = SOSPeerInfoCopyOctagonSigningPublicKey(sosPeerInfoRef, &cfPeerError);
-            SecKeyRef cfOctagonEncryptionKey = SOSPeerInfoCopyOctagonEncryptionPublicKey(sosPeerInfoRef, &cfPeerError);
+            SecKeyRef cfOctagonSigningKey = NULL, cfOctagonEncryptionKey = NULL;
 
-            if(cfPeerError) {
+            cfOctagonSigningKey = SOSPeerInfoCopyOctagonSigningPublicKey(sosPeerInfoRef, &cfPeerError);
+            if (cfOctagonSigningKey) {
+                cfOctagonEncryptionKey = SOSPeerInfoCopyOctagonEncryptionPublicKey(sosPeerInfoRef, &cfPeerError);
+            }
+
+            if(cfOctagonSigningKey == NULL || cfOctagonEncryptionKey == NULL) {
                 // Don't log non-debug for -50; it almost always just means this peer didn't have octagon keys
-                if(!(CFEqualSafe(CFErrorGetDomain(cfPeerError), kCFErrorDomainOSStatus) && (CFErrorGetCode(cfPeerError) == errSecParam))) {
+                if(cfPeerError == NULL
+                   || !(CFEqualSafe(CFErrorGetDomain(cfPeerError), kCFErrorDomainOSStatus) && (CFErrorGetCode(cfPeerError) == errSecParam)))
+                {
                     secerror("ckkspeer: error fetching octagon keys for peer: %@ %@", sosPeerInfoRef, cfPeerError);
                 } else {
-                    secinfo("ckkspeer", "Peer doesn't have Octagon keys, but this is expected: %@", cfPeerError);
+                    secinfo("ckkspeer", "Peer(%@) doesn't have Octagon keys, but this is expected: %@", cfpeerID, cfPeerError);
                 }
-            } else {
-                SFECPublicKey* signingPublicKey = cfOctagonSigningKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonSigningKey] : nil;
-                SFECPublicKey* encryptionPublicKey = cfOctagonEncryptionKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonEncryptionKey] : nil;
-
-                CKKSSOSPeer* peer = [[CKKSSOSPeer alloc] initWithSOSPeerID:(__bridge NSString*)cfpeerID
-                                                       encryptionPublicKey:encryptionPublicKey
-                                                          signingPublicKey:signingPublicKey];
-                [peerSet addObject:peer];
             }
+
+            // Add all peers to the trust set: old-style SOS peers will just have null keys
+            SFECPublicKey* signingPublicKey = cfOctagonSigningKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonSigningKey] : nil;
+            SFECPublicKey* encryptionPublicKey = cfOctagonEncryptionKey ? [[SFECPublicKey alloc] initWithSecKey:cfOctagonEncryptionKey] : nil;
+
+            CKKSSOSPeer* peer = [[CKKSSOSPeer alloc] initWithSOSPeerID:(__bridge NSString*)cfpeerID
+                                                   encryptionPublicKey:encryptionPublicKey
+                                                      signingPublicKey:signingPublicKey];
+            [peerSet addObject:peer];
 
             CFReleaseNull(cfOctagonSigningKey);
             CFReleaseNull(cfOctagonEncryptionKey);
+            CFReleaseNull(cfPeerError);
         });
     });
 
@@ -990,48 +1210,56 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void)registerForPeerChangeUpdates:(id<CKKSPeerUpdateListener>)listener {
-    bool alreadyRegisteredListener = false;
-    NSEnumerator *enumerator = [self.peerChangeListeners objectEnumerator];
-    id<CKKSPeerUpdateListener> value;
+    @synchronized(self.peerChangeListeners) {
+        bool alreadyRegisteredListener = false;
+        NSEnumerator *enumerator = [self.peerChangeListeners objectEnumerator];
+        id<CKKSPeerUpdateListener> value;
 
-    while ((value = [enumerator nextObject])) {
-        // do pointer comparison
-        alreadyRegisteredListener |= (value == listener);
-    }
+        while ((value = [enumerator nextObject])) {
+            // do pointer comparison
+            alreadyRegisteredListener |= (value == listener);
+        }
 
-    if(listener && !alreadyRegisteredListener) {
-        NSString* queueName = [NSString stringWithFormat: @"ck-peer-change-%@", listener];
+        if(listener && !alreadyRegisteredListener) {
+            NSString* queueName = [NSString stringWithFormat: @"ck-peer-change-%@", listener];
 
-        dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
-        [self.peerChangeListeners setObject: listener forKey: objQueue];
+            dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
+            [self.peerChangeListeners setObject: listener forKey: objQueue];
+        }
     }
 }
 
 - (void)iteratePeerListenersOnTheirQueue:(void (^)(id<CKKSPeerUpdateListener>))block {
-    NSEnumerator *enumerator = [self.peerChangeListeners keyEnumerator];
-    dispatch_queue_t dq;
+    @synchronized(self.peerChangeListeners) {
+        NSEnumerator *enumerator = [self.peerChangeListeners keyEnumerator];
+        dispatch_queue_t dq;
 
-    // Queue up the changes for each listener.
-    while ((dq = [enumerator nextObject])) {
-        id<CKKSPeerUpdateListener> listener = [self.peerChangeListeners objectForKey: dq];
-        __weak id<CKKSPeerUpdateListener> weakListener = listener;
+        // Queue up the changes for each listener.
+        while ((dq = [enumerator nextObject])) {
+            id<CKKSPeerUpdateListener> listener = [self.peerChangeListeners objectForKey: dq];
+            __weak id<CKKSPeerUpdateListener> weakListener = listener;
 
-        if(listener) {
-            dispatch_async(dq, ^{
-                __strong id<CKKSPeerUpdateListener> strongListener = weakListener;
-                block(strongListener);
-            });
+            if(listener) {
+                dispatch_async(dq, ^{
+                    __strong id<CKKSPeerUpdateListener> strongListener = weakListener;
+                    block(strongListener);
+                });
+            }
         }
     }
 }
 
 - (void)sendSelfPeerChangedUpdate {
+    [self.completedSecCKKSInitialize wait:5*NSEC_PER_SEC]; // Wait for bringup, but don't worry if this times out
+
     [self iteratePeerListenersOnTheirQueue: ^(id<CKKSPeerUpdateListener> listener) {
         [listener selfPeerChanged];
     }];
 }
 
 - (void)sendTrustedPeerSetChangedUpdate {
+    [self.completedSecCKKSInitialize wait:5*NSEC_PER_SEC]; // Wait for bringup, but don't worry if this times out
+
     [self iteratePeerListenersOnTheirQueue: ^(id<CKKSPeerUpdateListener> listener) {
         [listener trustedPeerSetChanged];
     }];

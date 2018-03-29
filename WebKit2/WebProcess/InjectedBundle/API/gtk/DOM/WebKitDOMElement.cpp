@@ -22,10 +22,9 @@
 
 #include <WebCore/CSSImportRule.h>
 #include "DOMObjectCache.h"
+#include <WebCore/DOMException.h>
 #include <WebCore/DOMRect.h>
 #include <WebCore/Document.h>
-#include <WebCore/ExceptionCode.h>
-#include <WebCore/ExceptionCodeDescription.h>
 #include "GObjectEventListener.h"
 #include <WebCore/HTMLNames.h>
 #include <WebCore/JSMainThreadExecState.h>
@@ -77,8 +76,8 @@ static gboolean webkit_dom_element_dispatch_event(WebKitDOMEventTarget* target, 
 
     auto result = coreTarget->dispatchEventForBindings(*coreEvent);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription description(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.code, description.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return false;
     }
     return result.releaseReturnValue();
@@ -247,7 +246,8 @@ static void webkit_dom_element_get_property(GObject* object, guint propertyId, G
         g_value_set_object(value, webkit_dom_element_get_class_list(self));
         break;
     case PROP_WEBKIT_REGION_OVERSET:
-        g_value_take_string(value, webkit_dom_element_get_webkit_region_overset(self));
+        g_warning("%s: CSS Regions support has been removed, the webkit-region-overset property no longer works.", __func__);
+        g_value_set_static_string(value, nullptr);
         break;
     case PROP_PREVIOUS_ELEMENT_SIBLING:
         g_value_set_object(value, webkit_dom_element_get_previous_element_sibling(self));
@@ -519,6 +519,13 @@ static void webkit_dom_element_class_init(WebKitDOMElementClass* requestClass)
             WEBKIT_DOM_TYPE_DOM_TOKEN_LIST,
             WEBKIT_PARAM_READABLE));
 
+    /**
+     * WebKitDOMElement:webkit-region-overset:
+     *
+     * This property is always %NULL.
+     *
+     * Deprecated: 2.20
+     */
     g_object_class_install_property(
         gobjectClass,
         PROP_WEBKIT_REGION_OVERSET,
@@ -619,8 +626,8 @@ void webkit_dom_element_set_attribute(WebKitDOMElement* self, const gchar* name,
     WTF::String convertedValue = WTF::String::fromUTF8(value);
     auto result = item->setAttribute(convertedName, convertedValue);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -655,8 +662,8 @@ WebKitDOMAttr* webkit_dom_element_set_attribute_node(WebKitDOMElement* self, Web
     WebCore::Attr* convertedNewAttr = WebKit::core(newAttr);
     auto result = item->setAttributeNode(*convertedNewAttr);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue().get());
@@ -672,8 +679,8 @@ WebKitDOMAttr* webkit_dom_element_remove_attribute_node(WebKitDOMElement* self, 
     WebCore::Attr* convertedOldAttr = WebKit::core(oldAttr);
     auto result = item->removeAttributeNode(*convertedOldAttr);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue().ptr());
@@ -725,8 +732,8 @@ void webkit_dom_element_set_attribute_ns(WebKitDOMElement* self, const gchar* na
     WTF::String convertedValue = WTF::String::fromUTF8(value);
     auto result = item->setAttributeNS(convertedNamespaceURI, convertedQualifiedName, convertedValue);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -778,8 +785,8 @@ WebKitDOMAttr* webkit_dom_element_set_attribute_node_ns(WebKitDOMElement* self, 
     WebCore::Attr* convertedNewAttr = WebKit::core(newAttr);
     auto result = item->setAttributeNodeNS(*convertedNewAttr);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue().get());
@@ -878,8 +885,8 @@ gboolean webkit_dom_element_matches(WebKitDOMElement* self, const gchar* selecto
     WTF::String convertedSelectors = WTF::String::fromUTF8(selectors);
     auto result = item->matches(convertedSelectors);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return false;
     }
     return result.releaseReturnValue();
@@ -895,8 +902,8 @@ WebKitDOMElement* webkit_dom_element_closest(WebKitDOMElement* self, const gchar
     WTF::String convertedSelectors = WTF::String::fromUTF8(selectors);
     auto result = item->closest(convertedSelectors);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue());
@@ -927,8 +934,8 @@ WebKitDOMElement* webkit_dom_element_insert_adjacent_element(WebKitDOMElement* s
     WebCore::Element* convertedElement = WebKit::core(element);
     auto result = item->insertAdjacentElement(convertedWhere, *convertedElement);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue());
@@ -946,8 +953,8 @@ void webkit_dom_element_insert_adjacent_html(WebKitDOMElement* self, const gchar
     WTF::String convertedHtml = WTF::String::fromUTF8(html);
     auto result = item->insertAdjacentHTML(convertedWhere, convertedHtml);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -963,8 +970,8 @@ void webkit_dom_element_insert_adjacent_text(WebKitDOMElement* self, const gchar
     WTF::String convertedText = WTF::String::fromUTF8(text);
     auto result = item->insertAdjacentText(convertedWhere, convertedText);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -989,8 +996,8 @@ void webkit_dom_element_remove(WebKitDOMElement* self, GError** error)
     WebCore::Element* item = WebKit::core(self);
     auto result = item->remove();
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -1004,8 +1011,8 @@ WebKitDOMElement* webkit_dom_element_query_selector(WebKitDOMElement* self, cons
     WTF::String convertedSelectors = WTF::String::fromUTF8(selectors);
     auto result = item->querySelector(convertedSelectors);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue());
@@ -1021,8 +1028,8 @@ WebKitDOMNodeList* webkit_dom_element_query_selector_all(WebKitDOMElement* self,
     WTF::String convertedSelectors = WTF::String::fromUTF8(selectors);
     auto result = item->querySelectorAll(convertedSelectors);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
         return nullptr;
     }
     return WebKit::kit(result.releaseReturnValue().ptr());
@@ -1270,8 +1277,8 @@ void webkit_dom_element_set_inner_html(WebKitDOMElement* self, const gchar* valu
     WTF::String convertedValue = WTF::String::fromUTF8(value);
     auto result = item->setInnerHTML(convertedValue);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -1294,8 +1301,8 @@ void webkit_dom_element_set_outer_html(WebKitDOMElement* self, const gchar* valu
     WTF::String convertedValue = WTF::String::fromUTF8(value);
     auto result = item->setOuterHTML(convertedValue);
     if (result.hasException()) {
-        WebCore::ExceptionCodeDescription ecdesc(result.releaseException().code());
-        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+        auto description = WebCore::DOMException::description(result.releaseException().code());
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
 }
 
@@ -1325,21 +1332,6 @@ WebKitDOMDOMTokenList* webkit_dom_element_get_class_list(WebKitDOMElement* self)
     WebCore::Element* item = WebKit::core(self);
     RefPtr<WebCore::DOMTokenList> gobjectResult = WTF::getPtr(item->classList());
     return WebKit::kit(gobjectResult.get());
-}
-
-gchar* webkit_dom_element_get_webkit_region_overset(WebKitDOMElement* self)
-{
-#if ENABLE(CSS_REGIONS)
-    WebCore::JSMainThreadNullState state;
-    g_return_val_if_fail(WEBKIT_DOM_IS_ELEMENT(self), 0);
-    WebCore::Element* item = WebKit::core(self);
-    gchar* result = convertToUTF8String(item->webkitRegionOverset());
-    return result;
-#else
-    UNUSED_PARAM(self);
-    WEBKIT_WARN_FEATURE_NOT_PRESENT("Css Regions")
-    return 0;
-#endif /* ENABLE(CSS_REGIONS) */
 }
 
 WebKitDOMElement* webkit_dom_element_get_previous_element_sibling(WebKitDOMElement* self)

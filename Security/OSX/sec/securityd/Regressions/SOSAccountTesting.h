@@ -252,12 +252,13 @@ static void accounts_agree_internal(char *label, SOSAccount* left, SOSAccount* r
 
             if (leftFullPeer)
                 CFSetAddValue(allowed_identities, SOSFullPeerInfoGetPeerInfo(leftFullPeer));
+            CFReleaseNull(leftFullPeer);
 
-            
             SOSFullPeerInfoRef rightFullPeer = [right.trust CopyAccountIdentityPeerInfo];
             
             if (rightFullPeer)
                 CFSetAddValue(allowed_identities, SOSFullPeerInfoGetPeerInfo(rightFullPeer));
+            CFReleaseNull(rightFullPeer);
 
             unretired_peers_is_subset(label, leftPeers, allowed_identities);
 
@@ -541,8 +542,10 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccount* acc
         secnotice("changes", "  %@", key);
     });
 
-    if(CFDictionaryGetCount(account_pending_messages) == 0)
+    if(CFDictionaryGetCount(account_pending_messages) == 0) {
+        CFReleaseNull(account_pending_messages);
         return;
+    }
     
     __block CFMutableArrayRef handled = NULL;
     [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
@@ -719,7 +722,7 @@ static inline SOSAccount* CreateAccountForLocalChanges(CFStringRef name, CFStrin
     CFStringRef randomSerial = CFStringCreateRandomHexWithLength(8);
     CFStringRef randomDevID = CFStringCreateRandomHexWithLength(16);
     SOSAccount* retval = CreateAccountForLocalChangesWithStartingAttributes(name, data_source_name, SOSPeerInfo_iOS, randomSerial,
-                                                              kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeIDSV2, randomDevID);
+                                                              kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeKVS, randomDevID);
 
     CFReleaseNull(randomSerial);
     CFReleaseNull(randomDevID);
@@ -988,7 +991,7 @@ static inline bool SOSTestJoinThroughPiggyBack(CFDataRef cfpassword, CFStringRef
 
 
 static inline SOSAccount* SOSTestCreateAccountAsSerialClone(CFStringRef name, SOSPeerInfoDeviceClass devClass, CFStringRef serial, CFStringRef idsID) {
-    return CreateAccountForLocalChangesWithStartingAttributes(name, CFSTR("TestSource"), devClass, serial, kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeIDSV2, idsID);
+    return CreateAccountForLocalChangesWithStartingAttributes(name, CFSTR("TestSource"), devClass, serial, kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeKVS, idsID);
 }
 
 static inline bool SOSTestMakeGhostInCircle(CFStringRef name, SOSPeerInfoDeviceClass devClass, CFStringRef serial, CFStringRef idsID,

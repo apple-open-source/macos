@@ -131,7 +131,7 @@ public:
         associated with this instance.
     @result true on success, false otherwise. */ 
 
-    virtual bool init(OSDictionary * properties);
+    virtual bool init(OSDictionary * properties) APPLE_KEXT_OVERRIDE;
 
 /*! @function getPacketFilters
     @abstract Get the set of packet filters supported by the FireWire 
@@ -153,7 +153,7 @@ public:
     return code otherwise. */
 
     virtual IOReturn getPacketFilters(const OSSymbol * group,
-                                      UInt32 *         filters) const;
+                                      UInt32 *         filters) const APPLE_KEXT_OVERRIDE;
 
 /*! @function enablePacketFilter
     @abstract Enable one of the supported packet filters from the
@@ -180,7 +180,7 @@ public:
     virtual IOReturn enablePacketFilter(const OSSymbol * group,
                                         UInt32           aFilter,
                                         UInt32           enabledFilters,
-                                        IOOptionBits     options = 0);
+                                        IOOptionBits     options = 0) APPLE_KEXT_OVERRIDE;
 
 /*! @function disablePacketFilter
     @abstract Disable a packet filter that is currently enabled from the
@@ -207,7 +207,7 @@ public:
     virtual IOReturn disablePacketFilter(const OSSymbol * group,
                                          UInt32           aFilter,
                                          UInt32           enabledFilters,
-                                         IOOptionBits     options = 0);
+                                         IOOptionBits     options = 0) APPLE_KEXT_OVERRIDE;
 
 /*! @function getHardwareAddress
     @abstract Get the FireWire controller's station address.
@@ -223,7 +223,7 @@ public:
     @result kIOReturnSuccess on success, or an error otherwise. */
 
     virtual IOReturn getHardwareAddress(void *   addr,
-                                        UInt32 * inOutAddrBytes);
+                                        UInt32 * inOutAddrBytes) APPLE_KEXT_OVERRIDE;
 
 /*! @function setHardwareAddress
     @abstract Set or change the station address used by the FireWire
@@ -239,7 +239,7 @@ public:
     @result kIOReturnSuccess on success, or an error otherwise. */
 
     virtual IOReturn setHardwareAddress(const void * addr,
-                                        UInt32       addrBytes);
+                                        UInt32       addrBytes) APPLE_KEXT_OVERRIDE;
 
 /*! @function getMaxPacketSize
     @abstract Get the maximum packet size supported by the FireWire
@@ -247,7 +247,7 @@ public:
     @param maxSize Pointer to the return value.
     @result kIOReturnSuccess on success, or an error code otherwise. */
 
-    virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const;
+    virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const APPLE_KEXT_OVERRIDE;
 
 /*! @function getMinPacketSize
     @abstract Get the minimum packet size supported by the FireWire
@@ -255,7 +255,7 @@ public:
     @param minSize Pointer to the return value.
     @result kIOReturnSuccess on success, or an error code otherwise. */
 
-    virtual IOReturn getMinPacketSize(UInt32 * minSize) const;
+    virtual IOReturn getMinPacketSize(UInt32 * minSize) const APPLE_KEXT_OVERRIDE;
 
 /*! @function getPacketFilters
     @abstract Get the set of packet filters supported by the FireWire 
@@ -369,13 +369,13 @@ protected:
     little reason to override this implementation.
     @result A newly allocated and initialized IOFWInterface object. */
 
-    virtual IONetworkInterface * createInterface();
+    virtual IONetworkInterface * createInterface(void) APPLE_KEXT_OVERRIDE;
 
 /*! @function free
     @abstract Free the IOFWController instance. Release resources,
     then followed by a call to super::free(). */
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 /*! @function publishProperties
     @abstract Publish FireWire controller properties and capabilities.
@@ -389,7 +389,7 @@ protected:
     prevent client objects from attaching to the FireWire controller
     since a property that a client relies upon may be missing. */
 
-    virtual bool publishProperties();
+    virtual bool publishProperties(void) APPLE_KEXT_OVERRIDE;
 
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOFWController,  0);

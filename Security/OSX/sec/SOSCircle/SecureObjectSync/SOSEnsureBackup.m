@@ -25,8 +25,9 @@
 #import "SOSEnsureBackup.h"
 #include <utilities/debugging.h>
 
-#if TARGET_OS_OSX || TARGET_OS_IOS
+#if OCTAGON
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/NSOperationCategories.h"
 #include <Security/SecureObjectSync/SOSAccount.h>
 #import <WirelessDiagnostics/WirelessDiagnostics.h>
 #import "keychain/analytics/awd/AWDMetricIds_Keychain.h"
@@ -50,19 +51,20 @@ void SOSEnsureBackupWhileUnlocked(void) {
             NSBlockOperation *backupOperation = [NSBlockOperation blockOperationWithBlock:^{
                 secnotice("engine", "Performing keychain backup after unlock because backing up while locked failed");
                 SOSAccount *account = (__bridge SOSAccount *)(SOSKeychainAccountGetSharedAccount());
-                SOSAccountTransaction* transaction = [SOSAccountTransaction transactionWithAccount:account];
-                CFErrorRef error = NULL;
-                CFSetRef set = SOSAccountCopyBackupPeersAndForceSync(transaction, &error);
-                if (set) {
-                    secnotice("engine", "SOSEnsureBackup: SOS made a backup of views: %@", set);
-                } else {
-                    secerror("engine: SOSEnsureBackup: encountered an error while making backup (%@)", error);
-                }
 
-                CFReleaseNull(error);
-                CFReleaseNull(set);
+                [account performTransaction:^(SOSAccountTransaction *transaction) {
+                    CFErrorRef error = NULL;
+                    NSSet* set = CFBridgingRelease(SOSAccountCopyBackupPeersAndForceSync(transaction, &error));
+                    if (set) {
+                        secnotice("engine", "SOSEnsureBackup: SOS made a backup of views: %@", set);
+                    } else {
+                        secerror("engine: SOSEnsureBackup: encountered an error while making backup (%@)", error);
+                    }
+
+                    CFReleaseNull(error);
+                }];
             }];
-            [backupOperation addDependency:lockStateTracker.unlockDependency];
+            [backupOperation addNullableDependency:lockStateTracker.unlockDependency];
             [backupOperationQueue addOperation:backupOperation];
             AWDPostSimpleMetric(AWDMetricId_Keychain_SOSKeychainBackupFailed);
         }

@@ -649,6 +649,7 @@ static void SOSPeerDestroy(CFTypeRef cf) {
     CFReleaseNull(peer->localManifests);
     CFReleaseNull(peer->otrTimers);
     CFReleaseNull(peer->limiter);
+    CFReleaseNull(peer->_keyBag);
 }
 
 bool SOSPeerDidConnect(SOSPeerRef peer) {
@@ -846,7 +847,7 @@ bool SOSPeerTimerForPeerExist(SOSPeerRef peer){
     return timer ? true : false;
 }
 void SOSPeerSetOTRTimer(SOSPeerRef peer, dispatch_source_t timer){
-    NSMutableDictionary* timers = (__bridge NSMutableDictionary*)peer->otrTimers;
+    NSMutableDictionary* timers = (NSMutableDictionary*)CFBridgingRelease(peer->otrTimers);
     if(!timers)
         timers = [[NSMutableDictionary alloc]init];
     

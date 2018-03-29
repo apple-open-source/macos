@@ -296,6 +296,8 @@ _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * d
     if (renamex_np(tmp_bag, bag_file, RENAME_SWAP) != 0) {
         os_log(OS_LOG_DEFAULT, "Warning: atomic swap failed");
         require_noerr_action(rename(tmp_bag, bag_file), done, os_log(OS_LOG_DEFAULT, "could not save keybag file"));
+    } else {
+        (void)unlink(tmp_bag);
     }
 
     result = true;
@@ -474,7 +476,7 @@ out:
 }
 
 static int
-_kb_set_user_uuid(service_context_t * context, const void * secret, int secret_len)
+_kb_set_properties(service_context_t * context, const void * secret, int secret_len)
 {
     int result = KB_GeneralError;
     CFMutableDictionaryRef options = NULL;
@@ -484,7 +486,17 @@ _kb_set_user_uuid(service_context_t * context, const void * secret, int secret_l
 
     /* set user uuid, if not already set */
     passcode = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, secret, secret_len, kCFAllocatorNull);
-    MKBKeyBagSetUserUUID(options, passcode);
+    if (MKBKeyBagSetUserUUID(options, passcode)) {
+        os_log(OS_LOG_DEFAULT, "set user uuid failed");
+    }
+
+#ifdef MKB_SUPPORTS_BIND_KEK
+    if (MKBKeyBagBindKEK(options, passcode)) {
+        os_log(OS_LOG_DEFAULT, "KEK bind failed");
+    }
+#else
+    os_log(OS_LOG_DEFAULT, "Not bindinig KEK, update SDK");
+#endif
 
     result = KB_Success;
 done:
@@ -521,7 +533,7 @@ service_kb_create(service_context_t * context, const void * secret, int secret_l
         }
 
         if (rc == KB_Success) {
-            _kb_set_user_uuid(context, secret, secret_len);
+            _kb_set_properties(context, secret, secret_len);
         }
 
     done:
@@ -572,8 +584,8 @@ _service_kb_load_uid(uid_t s_uid)
                     os_log(OS_LOG_DEFAULT, "bag load failed 0x%x for uid (%i)", rc, s_uid);
                     break;
              }
-            require_noerr(rc, done; _stage = 4);
-            require_noerr(rc = _service_kb_set_system(private_handle, s_uid), done; _stage = 5);
+            require_noerr_action(rc, done, _stage = 4);
+            require_noerr_action(rc = _service_kb_set_system(private_handle, s_uid), done, _stage = 5);
         }
         require(rc == KB_Success, done);
 
@@ -759,7 +771,7 @@ service_kb_reset(service_context_t * context, const void * secret, int secret_le
         }
 
         if (rc == KB_Success) {
-            _kb_set_user_uuid(context, secret, secret_len);
+            _kb_set_properties(context, secret, secret_len);
         }
 
     done:

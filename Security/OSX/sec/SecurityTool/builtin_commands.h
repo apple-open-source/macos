@@ -60,3 +60,11 @@ SECURITY_COMMAND("watchdog", command_watchdog,
                      "    check-period <x>\n"
                      "    graceful-exit-time <x>\n",
                      "Show current watchdog parameters or set an individual parameter")
+
+SECURITY_COMMAND("keychain-check", command_keychain_check,
+                    "",
+                    "check the status of your keychain to determine if there are any items we can't decrypt")
+
+SECURITY_COMMAND("keychain-cleanup", command_keychain_cleanup,
+                    "",
+                    "attempt to remove keychain items we can no longer decrypt")

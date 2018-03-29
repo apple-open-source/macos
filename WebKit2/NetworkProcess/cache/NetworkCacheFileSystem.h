@@ -25,10 +25,7 @@
 
 #pragma once
 
-#if ENABLE(NETWORK_CACHE)
-
 #include <WebCore/FileSystem.h>
-#include <chrono>
 
 namespace WebKit {
 namespace NetworkCache {
@@ -39,8 +36,8 @@ void traverseDirectory(const String& path, const Function<void (const String& fi
 void deleteDirectoryRecursively(const String& path);
 
 struct FileTimes {
-    std::chrono::system_clock::time_point creation;
-    std::chrono::system_clock::time_point modification;
+    WallTime creation;
+    WallTime modification;
 };
 FileTimes fileTimes(const String& path);
 void updateFileModificationTimeIfNeeded(const String& path);
@@ -49,5 +46,3 @@ bool canUseSharedMemoryForPath(const String& path);
 
 }
 }
-
-#endif 

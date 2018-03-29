@@ -35,6 +35,7 @@ SecIdentityRef
 test_cert_create_root_certificate(CFStringRef subject,
 	SecKeyRef public_key, SecKeyRef private_key);
 
+CF_RETURNS_RETAINED
 SecCertificateRef
 test_cert_issue_certificate(SecIdentityRef ca_identity,
 	SecKeyRef public_key, CFStringRef subject,

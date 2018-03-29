@@ -333,7 +333,7 @@ extern int codesign_util(int argc, char * const *argv)
             verbose++;
             break;
         default:
-            return 2; /* Trigger usage message. */
+            return SHOW_USAGE_MESSAGE;
         }
     }
     
@@ -341,7 +341,7 @@ extern int codesign_util(int argc, char * const *argv)
 	argv += optind;
 
     if (argc != 1)
-        return 2; /* Trigger usage message. */
+        return SHOW_USAGE_MESSAGE;
 
     CFArrayRef sigs = load_code_signatures(argv[0]);
     require(sigs, out);

@@ -35,7 +35,7 @@ dt_pq_init(dtrace_hdl_t *dtp, uint_t size, dt_pq_value_f value_cb, void *cb_arg)
 	assert(size > 1);
 
 	/* We don't use the first element of the array so we can index from 1.  It
-	 * makes the math easier. LOL! */
+	 * makes the math easier. */
 	size++;
 
 	if ((p = dt_zalloc(dtp, sizeof (dt_pq_t))) == NULL)
@@ -159,4 +159,3 @@ dt_pq_pop(dt_pq_t *p)
 
 	return (ret);
 }
-

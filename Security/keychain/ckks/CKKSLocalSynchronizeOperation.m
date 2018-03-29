@@ -27,6 +27,7 @@
 #import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
 #import "keychain/ckks/CKKSScanLocalItemsOperation.h"
 #import "keychain/ckks/CKKSMirrorEntry.h"
+#import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CloudKitCategories.h"
 
 #if OCTAGON
@@ -123,7 +124,13 @@
                 return;
             }
 
-            if(scan.recordsFound > 0) {
+            NSError* error = nil;
+            NSArray<NSString*>* iqes = [CKKSIncomingQueueEntry allUUIDs:ckks.zoneID error:&error];
+            if(error) {
+                ckkserror("ckksresync", ckks, "Couldn't fetch IQEs: %@", error);
+            }
+
+            if(scan.recordsFound > 0 || iqes.count > 0) {
                 if(strongSelf.restartCount >= 3) {
                     // we've restarted too many times. Fail and stop.
                     ckkserror("ckksresync", ckks, "restarted synchronization too often; Failing");

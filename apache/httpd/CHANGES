@@ -1,4 +1,34 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.29
+
+  *) mod_unique_id: Use output of the PRNG rather than IP address and
+     pid, avoiding sleep() call and possible DNS issues at startup,
+     plus improving randomness for IPv6-only hosts.  [Jan Kaluza]
+
+  *) mod_rewrite, core: Avoid the 'Vary: Host' response header when HTTP_HOST
+     is used in a condition that evaluates to true. PR 58231 [Luca Toscano]
+
+  *) mod_http2: v0.10.12, removed optimization for mutex handling in bucket
+     beams that could lead to assertion failure in edge cases.
+     [Stefan Eissing] 
+
+  *) mod_proxy: Fix regression for non decimal loadfactor parameter introduced
+     in 2.4.28.  [Jim Jagielski]
+
+  *) mod_authz_dbd: fix a segmentation fault if AuthzDBDQuery is not set.
+     PR 61546.  [Lubos Uhliarik <luhliari redhat.com>]
+
+  *) mod_rewrite: Add support for starting External Rewriting Programs
+     as non-root user on UNIX systems by specifying username and group
+     name as third argument of RewriteMap directive.  [Jan Kaluza]
+
+  *) core: Rewrite the Content-Length filter to avoid excessive memory
+     consumption. Chunked responses will be generated in more cases
+     than in previous releases.  PR 61222.  [Joe Orton, Ruediger Pluem]
+
+  *) mod_ssl: Fix SessionTicket callback return value, which does seem to
+     matter with OpenSSL 1.1. [Yann Ylavic]
+
 Changes with Apache 2.4.28
 
   *) SECURITY: CVE-2017-9798 (cve.mitre.org)

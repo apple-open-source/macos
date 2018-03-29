@@ -1625,11 +1625,11 @@ spell_move_to(
 
 	/* For checking first word with a capital skip white space. */
 	if (capcol == 0)
-	    capcol = (int)(skipwhite(line) - line);
+	    capcol = getwhitecols(line);
 	else if (curline && wp == curwin)
 	{
 	    /* For spellbadword(): check if first word needs a capital. */
-	    col = (int)(skipwhite(line) - line);
+	    col = getwhitecols(line);
 	    if (check_need_cap(lnum, col))
 		capcol = col;
 
@@ -2920,9 +2920,7 @@ spell_reload(void)
 		if (wp->w_p_spell)
 		{
 		    (void)did_set_spelllang(wp);
-# ifdef FEAT_WINDOWS
 		    break;
-# endif
 		}
 	}
     }
@@ -3593,7 +3591,7 @@ check_need_cap(linenr_T lnum, colnr_T col)
 
     line = ml_get_curline();
     endcol = 0;
-    if ((int)(skipwhite(line) - line) >= (int)col)
+    if (getwhitecols(line) >= (int)col)
     {
 	/* At start of line, check if previous line is empty or sentence
 	 * ends there. */
@@ -3675,7 +3673,7 @@ ex_spellrepall(exarg_T *eap UNUSED)
     curwin->w_cursor.lnum = 0;
     while (!got_int)
     {
-	if (do_search(NULL, '/', frompat, 1L, SEARCH_KEEP, NULL) == 0
+	if (do_search(NULL, '/', frompat, 1L, SEARCH_KEEP, NULL, NULL) == 0
 						   || u_save_cursor() == FAIL)
 	    break;
 
@@ -5021,7 +5019,7 @@ suggest_trie_walk(
 	    }
 	    PROF_STORE(sp->ts_state)
 	    sp->ts_state = STATE_PLAIN;
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_PLAIN:
 	    /*
@@ -5245,7 +5243,7 @@ suggest_trie_walk(
 		}
 		break;
 	    }
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_INS_PREP:
 	    if (sp->ts_flags & TSF_DIDDEL)
@@ -5279,7 +5277,7 @@ suggest_trie_walk(
 	    }
 	    break;
 
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_INS:
 	    /* Insert one byte.  Repeat this for each possible byte at this
@@ -5466,7 +5464,7 @@ suggest_trie_walk(
 		*p = p[1];
 		p[1] = c;
 	    }
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_SWAP3:
 	    /* Swap two bytes, skipping one: "123" -> "321".  We change
@@ -5705,7 +5703,7 @@ suggest_trie_walk(
 		p[1] = p[2];
 		p[2] = c;
 	    }
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_REP_INI:
 	    /* Check if matching with REP items from the .aff file would work.
@@ -5738,7 +5736,7 @@ suggest_trie_walk(
 
 	    PROF_STORE(sp->ts_state)
 	    sp->ts_state = STATE_REP;
-	    /*FALLTHROUGH*/
+	    /* FALLTHROUGH */
 
 	case STATE_REP:
 	    /* Try matching with REP items from the .aff file.  For each match

@@ -128,6 +128,8 @@
 		9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kext_glue.cpp; sourceTree = "<group>"; };
 		D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_apfs_utils.cpp; sourceTree = "<group>"; };
 		D3C038801E89A0D1007533A8 /* bc_apfs_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_apfs_utils.h; sourceTree = "<group>"; };
+		D3F66DDD1F9132590024CC3E /* BootCache_debug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BootCache_debug.h; sourceTree = "<group>"; };
+		D3F66E541F9FE76D0024CC3E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +180,7 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				D3F66E541F9FE76D0024CC3E /* kext.xcconfig */,
 				72DE477E13AC15F400CAA790 /* convert_playlist_to_logical_playlist.sh */,
 				7294709713AADB3300FD8E8C /* LoginExtra.logical_playlist */,
 				7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */,
@@ -493,7 +496,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 128;
+				CURRENT_PROJECT_VERSION = 130;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_MODEL_TUNING = "";
@@ -536,7 +539,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 128;
+				CURRENT_PROJECT_VERSION = 130;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -612,6 +615,7 @@
 		};
 		89F255890DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -622,7 +626,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 128;
+				MODULE_VERSION = 130;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -632,6 +636,7 @@
 		};
 		89F2558E0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -642,7 +647,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 128;
+				MODULE_VERSION = 130;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;

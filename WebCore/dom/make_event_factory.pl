@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 # Copyright (C) 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2009, Julien Chaffraix <jchaffraix@webkit.org>
@@ -31,6 +31,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
+use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../bindings/scripts";
 
@@ -45,7 +46,7 @@ sub defaultItemFactory
     return (
         'interfaceName' => 0,
         'conditional' => 0,
-        'runtimeConditional' => 0
+        'runtimeEnabled' => 0
     );
 }
 
@@ -95,7 +96,7 @@ sub generateImplementation()
 
     for my $eventName (sort keys %parsedEvents) {
         my $conditional = $parsedEvents{$eventName}{"conditional"};
-        my $runtimeConditional = $parsedEvents{$eventName}{"runtimeConditional"};
+        my $runtimeEnabled = $parsedEvents{$eventName}{"runtimeEnabled"};
         my $interfaceName = $InCompiler->interfaceForItem($eventName);
 
         # FIXME: This should pay attention to $runtimeConditional so it can support RuntimeEnabledFeatures.

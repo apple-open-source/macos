@@ -73,11 +73,11 @@ protected:
 
     virtual bool init( IOFireWireDevice * primary );
 	
-	virtual	void free();
+	virtual	void free(void) APPLE_KEXT_OVERRIDE;
 
 	virtual bool isTerminated( void );
 	
-	virtual void setTerminationState( TerminationState state );
+	virtual void setTerminationState( TerminationState state ) APPLE_KEXT_OVERRIDE;
 	
 	void setMaxSpeed( IOFWSpeed speed );
 	
@@ -85,11 +85,11 @@ protected:
 	
 	UInt32 getUnitCount( void );
 
-	bool isPhysicalAccessEnabled( void );
+	bool isPhysicalAccessEnabled( void ) APPLE_KEXT_OVERRIDE;
 
-	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction );
+	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
 		
-    virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction );
+    virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
 	
 	OSSet * getOpenUnitSet() const;
 	
@@ -157,13 +157,13 @@ protected:
     virtual void free();
     
 public:
-    virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+    virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool handleOpen( IOService * forClient, IOOptionBits options, void * arg );
+    virtual bool handleOpen( IOService * forClient, IOOptionBits options, void * arg ) APPLE_KEXT_OVERRIDE;
 
     virtual void handleClose( IOService * forClient, IOOptionBits options );
 
-    virtual bool handleIsOpen( const IOService * forClient ) const;
+    virtual bool handleIsOpen( const IOService * forClient ) const APPLE_KEXT_OVERRIDE;
 
 protected:    
     virtual IOReturn cacheROM(OSData *rom, UInt32 offset, const UInt32 *&romBase);
@@ -173,7 +173,7 @@ protected:
     virtual void setNodeROM(UInt32 generation, UInt16 localNodeID, const IOFWNodeScan *info);
 
 public:
-    virtual bool matchPropertyTable(OSDictionary * table);
+    virtual bool matchPropertyTable(OSDictionary * table) APPLE_KEXT_OVERRIDE;
 
 	/*!	@function	init
 		@abstract	Initializes the nub.
@@ -183,28 +183,28 @@ public:
 	*/
     virtual bool init(OSDictionary * propTable, const IOFWNodeScan *scan);
 
-    virtual bool attach(IOService * provider );
+    virtual bool attach(IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool finalize( IOOptionBits options );
+    virtual bool finalize( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
 	/*!	@function	setNodeFlags
 		@abstract	Sets the node's characteristics.
 		@param		flags Refer to "node flags" in IOFireWireFamilyCommon.h.
 	*/
-    virtual void setNodeFlags( UInt32 flags );
+    virtual void setNodeFlags( UInt32 flags ) APPLE_KEXT_OVERRIDE;
 
 	/*!	@function	clearNodeFlags
 		@abstract	Resets the node's characteristics.
 		@param		flags Refer to "node flags" in IOFireWireFamilyCommon.h.
 	*/
-	virtual void clearNodeFlags( UInt32 flags );
+	virtual void clearNodeFlags( UInt32 flags ) APPLE_KEXT_OVERRIDE;
 
 	/*!	@function	getNodeFlags
 		@abstract	Retrieves the node's characteristics.
 		@param		flags	Refer to "node flags" in IOFireWireFamilyCommon.h.
 		@result		UInt32	The flags set for a particular node. 
 	*/
-    virtual UInt32 getNodeFlags( void );
+    virtual UInt32 getNodeFlags( void ) APPLE_KEXT_OVERRIDE;
 
 protected:
 	virtual IOReturn configureNode( void );
@@ -215,7 +215,7 @@ public:
 		@param		mem  Memory area allocated to back the physical access by Link hardware.
 		@result		A valid <code>IOFWPhysicalAddressSpace</code> object on success; NULL on failure.
 	*/
-    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
+    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem) APPLE_KEXT_OVERRIDE;
 
 	/*!	@function	createPseudoAddressSpace
 		@abstract	Creates local pseudo FireWire address spaces for the device to access.
@@ -227,7 +227,7 @@ public:
 		@result		A valid <code>IOFWPseudoAddressSpace</code> object on success; NULL on failure.
 	*/
     virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
-                    FWReadCallback reader, FWWriteCallback writer, void *refcon);
+                    FWReadCallback reader, FWWriteCallback writer, void *refcon) APPLE_KEXT_OVERRIDE;
 
 protected:
 	virtual IOReturn readRootDirectory( IOConfigDirectory * directory, OSDictionary * propTable );
@@ -245,7 +245,7 @@ protected:
 	virtual void configurePhysicalFilter( void );
 
 protected:
-	virtual IOFireWireNubAux * createAuxiliary( void );
+	virtual IOFireWireNubAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
 
 public:
 	inline bool isTerminated( void )

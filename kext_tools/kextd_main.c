@@ -499,7 +499,6 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
 {
     ExitStatus             result         = EX_OSERR;
     kern_return_t          kernelResult   = KERN_SUCCESS;
-    unsigned int           sourcePriority = 1;
     CFMachPortRef          kextdMachPort  = NULL;  // must release
     mach_port_limits_t     limits;  // queue limit for signal-handler port
     mach_port_t            servicePort;
@@ -537,7 +536,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
         servicePort, kextd_mach_port_callback, /* CFMachPortContext */ NULL,
         /* shouldFreeInfo? */ NULL);
     sClientRequestRunLoopSource = CFMachPortCreateRunLoopSource(
-        kCFAllocatorDefault, kextdMachPort, sourcePriority++);
+                                    kCFAllocatorDefault, kextdMachPort, 0);
     if (!sClientRequestRunLoopSource) {
        OSKextLog(/* kext */ NULL,
            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -548,7 +547,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
         kCFRunLoopDefaultMode);
 
     // 5519500: kextd_watch_volumes now holds off on updates on its own
-    if (kextd_watch_volumes(sourcePriority++)) {
+    if (kextd_watch_volumes()) {
         goto finish;
     }
     
@@ -572,7 +571,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
             "Failed to set signal-handling port limits.");
     }
     sSignalRunLoopSource = CFMachPortCreateRunLoopSource(
-        kCFAllocatorDefault, sKextdSignalMachPort, sourcePriority++);
+                              kCFAllocatorDefault, sKextdSignalMachPort, 0);
     if (!sSignalRunLoopSource) {
         OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Failed to create signal-handling run loop source.");
@@ -678,7 +677,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
                                     CFNotificationSuspensionBehaviorDeliverImmediately);
 
 #ifndef NO_CFUserNotification
-    result = startMonitoringConsoleUser(toolArgs, &sourcePriority);
+    result = startMonitoringConsoleUser(toolArgs);
     if (result != EX_OK) {
         goto finish;
     }
@@ -868,9 +867,9 @@ finish:
 
 
 /*******************************************************************************
-* On receiving a SIGHUP or SIGTERM, the daemon sends a Mach message to the
-* signal port, causing the run loop handler function rescanExtensions() to be
-* called on the main thread.
+* On receiving a SIGHUP, the daemon sends a Mach message to the signal port,
+* causing the run loop handler function rescanExtensions() to be called on
+* the main thread.
 *
 * IMPORTANT: This is a UNIX signal handler, so no allocating or any other unsafe
 * calls. Sending a hand-rolled Mach message off the stack is okay.
@@ -1087,8 +1086,11 @@ void enableNetworkAuthentication(void)
     sKextdAuthenticationOptions.allowNetwork = true;
 }
 
-/*******************************************************************************
-*******************************************************************************/
+/*
+ * rescanExtensions() is called (via the runloop) whenever kextd gets a SIGHUP,
+ * and whenever kextd notices that it is out of date as port of check_rebuild()
+ * or plistCachesNeedRebuild in kextd_watchvol.c.
+ */
 void rescanExtensions(void)
 {
     OSKextLog(/* kext */ NULL,

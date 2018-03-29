@@ -47,7 +47,7 @@
 #include <MobileCoreServices/LSApplicationProxy.h>
 #endif
 
-#if TARGET_OS_IPHONE && !TARGET_OS_NANO
+#if TARGET_OS_IPHONE && !TARGET_OS_WATCH
 #include <dlfcn.h>
 #include <WebUI/WBUAutoFillData.h>
 
@@ -270,7 +270,7 @@ static CFStringRef SWCAGetOperationDescription(enum SWCAXPCOperation op)
     }
 }
 
-#if !TARGET_IPHONE_SIMULATOR && TARGET_OS_IPHONE && !TARGET_OS_NANO
+#if !TARGET_IPHONE_SIMULATOR && TARGET_OS_IPHONE && !TARGET_OS_WATCH
 static dispatch_once_t                      sWBUInitializeOnce	= 0;
 static void *                               sWBULibrary			= NULL;
 static WBUAutoFillGetEnabledDataClasses_f	sWBUAutoFillGetEnabledDataClasses_f	= NULL;
@@ -301,7 +301,7 @@ static bool SWCAIsAutofillEnabled(void)
 #if TARGET_IPHONE_SIMULATOR
     // Assume the setting's on in the simulator: <rdar://problem/17057358> WBUAutoFillGetEnabledDataClasses call failing in the Simulator
     return true;
-#elif TARGET_OS_IPHONE && !TARGET_OS_NANO
+#elif TARGET_OS_IPHONE && !TARGET_OS_WATCH
     OSStatus status = _SecWBUEnsuredInitialized();
     if (status) { return false; }
     WBSAutoFillDataClasses autofill = sWBUAutoFillGetEnabledDataClasses_f();

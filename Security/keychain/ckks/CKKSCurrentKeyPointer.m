@@ -47,6 +47,25 @@
     return [NSString stringWithFormat:@"<CKKSCurrentKeyPointer(%@) %@: %@>", self.zoneID.zoneName, self.keyclass, self.currentKeyUUID];
 }
 
+- (instancetype)copyWithZone:(NSZone*)zone {
+    CKKSCurrentKeyPointer* copy = [super copyWithZone:zone];
+    copy.keyclass = [self.keyclass copyWithZone:zone];
+    copy.currentKeyUUID = [self.currentKeyUUID copyWithZone:zone];
+    return copy;
+}
+- (BOOL)isEqual: (id) object {
+    if(![object isKindOfClass:[CKKSCurrentKeyPointer class]]) {
+        return NO;
+    }
+
+    CKKSCurrentKeyPointer* obj = (CKKSCurrentKeyPointer*) object;
+
+    return ([self.zoneID isEqual: obj.zoneID] &&
+            ((self.currentKeyUUID == nil && obj.currentKeyUUID == nil) || [self.currentKeyUUID isEqual: obj.currentKeyUUID]) &&
+            ((self.keyclass == nil && obj.keyclass == nil)             || [self.keyclass isEqual:obj.keyclass]) &&
+            YES) ? YES : NO;
+}
+
 #pragma mark - CKKSCKRecordHolder methods
 
 - (NSString*) CKRecordName {
@@ -216,6 +235,18 @@
                 self.currentClassAPointer.currentKeyUUID, self.classA,
                 self.currentClassCPointer.currentKeyUUID, self.classC];
     }
+}
+- (instancetype)copyWithZone:(NSZone*)zone {
+    CKKSCurrentKeySet* copy = [[[self class] alloc] init];
+    copy.currentTLKPointer = [self.currentTLKPointer copyWithZone:zone];
+    copy.currentClassAPointer = [self.currentClassAPointer copyWithZone:zone];
+    copy.currentClassCPointer = [self.currentClassCPointer copyWithZone:zone];
+    copy.tlk = [self.tlk copyWithZone:zone];
+    copy.classA = [self.classA copyWithZone:zone];
+    copy.classC = [self.classC copyWithZone:zone];
+
+    copy.error = [self.error copyWithZone:zone];
+    return copy;
 }
 @end
 

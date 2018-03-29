@@ -32,7 +32,7 @@ class IOFireWireSBP2Diagnostics : public OSObject
 public:
 	
 	static OSObject * createDiagnostics( void );
-	virtual bool serialize( OSSerialize * s ) const;
+	virtual bool serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 	
 	virtual void incrementExecutedORBCount( void );
 	

@@ -30,8 +30,8 @@
 #include "SameDocumentNavigationType.h"
 #include <WebCore/Color.h>
 #include <WebCore/FloatRect.h>
-#include <chrono>
 #include <wtf/BlockPtr.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakPtr.h>
@@ -135,6 +135,10 @@ public:
 
     void removeSwipeSnapshot();
 
+    // Testing
+    bool beginSimulatedSwipeInDirectionForTesting(SwipeDirection);
+    bool completeSimulatedSwipeInDirectionForTesting(SwipeDirection);
+
 private:
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -179,7 +183,7 @@ private:
 
         Events m_outstandingEvents { 0 };
         WTF::Function<void()> m_removalCallback;
-        std::chrono::steady_clock::time_point m_startTime;
+        MonotonicTime m_startTime;
 
         RunLoop::Timer<SnapshotRemovalTracker> m_watchdogTimer;
     };

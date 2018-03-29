@@ -22,7 +22,6 @@
 
 #include "BitmapTexture.h"
 #include "Color.h"
-#include "GraphicsTypes3D.h"
 #include "IntRect.h"
 #include "IntSize.h"
 #include "TransformationMatrix.h"
@@ -72,6 +71,7 @@ public:
 
     virtual void drawTexture(const BitmapTexture&, const FloatRect& target, const TransformationMatrix& modelViewMatrix = TransformationMatrix(), float opacity = 1.0f, unsigned exposedEdges = AllEdges) = 0;
     virtual void drawSolidColor(const FloatRect&, const TransformationMatrix&, const Color&) = 0;
+    virtual void clearColor(const Color&) = 0;
 
     // makes a surface the target for the following drawTexture calls.
     virtual void bindSurface(BitmapTexture* surface) = 0;
@@ -79,7 +79,7 @@ public:
     virtual void endClip() = 0;
     virtual IntRect clipBounds() = 0;
     virtual Ref<BitmapTexture> createTexture() = 0;
-    virtual Ref<BitmapTexture> createTexture(GC3Dint internalFormat) = 0;
+    virtual Ref<BitmapTexture> createTexture(int internalFormat) = 0;
 
     virtual void beginPainting(PaintFlags = 0) { }
     virtual void endPainting() { }

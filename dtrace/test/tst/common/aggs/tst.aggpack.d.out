@@ -14,11 +14,11 @@
       key  min .---. max  | count
         1    0 : X : 2    | 1
 
-                              key  min .---. max  | count
-                           mumble    0 : X : 2    | 1
+              key  min .---. max  | count
+           mumble    0 : X : 2    | 1
 
-                                                         key  min .---. max  | count
-                              foo   1     2                3    0 : X : 2    | 1
+                                         key  min .---. max  | count
+              foo   1     2                3    0 : X : 2    | 1
 
       key  min .---. max  | count
       100    0 :X  : 2    | 100

@@ -97,7 +97,7 @@
 - (DOMTimeStamp)timeStamp
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->timeStamp();
+    return IMPL->timeStamp().approximateWallTime().secondsSinceEpoch().milliseconds();
 }
 
 - (BOOL)defaultPrevented
@@ -115,7 +115,7 @@
 - (id <DOMEventTarget>)srcElement
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->srcElement()));
+    return kit(WTF::getPtr(IMPL->target()));
 }
 
 - (BOOL)returnValue

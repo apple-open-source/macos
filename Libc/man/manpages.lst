@@ -310,7 +310,7 @@ toupper.3 toupper.3 toupper_l.3
 towlower.3 towlower.3 towlower_l.3
 towupper.3 towupper.3 towupper_l.3
 tsearch.3 tsearch.3 tdelete.3 tfind.3 twalk.3
-ttyname.3 ttyname.3 isatty.3 ttyslot.3
+ttyname.3 ttyname.3 ttyname_r.3 isatty.3 ttyslot.3
 tzset.3 tzset.3 tzsetwall.3
 ualarm.3 ualarm.3
 ulimit.3 ulimit.3

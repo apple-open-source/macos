@@ -980,11 +980,14 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
     /* 2 byte long vector length */
 
     /* RFC 5746 : add the fake ciphersuite unless we are including the extension */
-    if(!ctx->secure_renegotiation)
+    if(!ctx->secure_renegotiation) {
         p = SSLEncodeInt(p, TLS_EMPTY_RENEGOTIATION_INFO_SCSV, 2);
+    }
+    
     /* https://tools.ietf.org/html/draft-ietf-tls-downgrade-scsv-00 */
-    if(ctx->fallback)
+    if(ctx->fallback) {
         p = SSLEncodeInt(p, TLS_FALLBACK_SCSV, 2);
+    }
 
     for (i = 0; i<ctx->numEnabledCipherSuites; ++i) {
         if(tls_handshake_ciphersuite_is_valid(ctx, ctx->enabledCipherSuites[i])) {
@@ -993,17 +996,19 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
             p = SSLEncodeInt(p, ctx->enabledCipherSuites[i], 2);
         }
 	}
+
     *p++ = 1;                               /* 1 byte long vector */
     *p++ = 0;                               /* null compression */
 
 	/*
 	 * Append ClientHello extensions.
 	 */
-	if(totalExtenLen != 0) {
+	if (totalExtenLen != 0) {
 		/* first, total length of all extensions */
 		p = SSLEncodeSize(p, totalExtenLen, 2);
 	}
-    if(ctx->secure_renegotiation){
+
+    if (ctx->secure_renegotiation && p != NULL){
         assert(ctx->ownVerifyData.length<=255);
         p = SSLEncodeInt(p, SSL_HE_SecureRenegotation, 2);
         p = SSLEncodeSize(p, ctx->ownVerifyData.length+1, 2);
@@ -1011,7 +1016,8 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
         memcpy(p, ctx->ownVerifyData.data, ctx->ownVerifyData.length);
         p += ctx->ownVerifyData.length;
     }
-	if(sessionTicketLen) {
+
+	if (sessionTicketLen > 0 && p != NULL) {
 		sslLogNegotiateDebug("Adding %lu bytes of sessionTicket to ClientHello",
                              sessionTicket.length);
    		p = SSLEncodeInt(p, SSL_HE_SessionTicket, 2);
@@ -1019,7 +1025,8 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
 		memcpy(p, sessionTicket.data, sessionTicket.length);
 		p += sessionTicket.length;
 	}
-	if(serverNameLen) {
+
+	if (serverNameLen > 0 && p != NULL) {
 		sslLogNegotiateDebug("Specifying ServerNameIndication");
 		p = SSLEncodeInt(p, SSL_HE_ServerName, 2);
 		p = SSLEncodeSize(p, ctx->peerDomainName.length + 5, 2);
@@ -1029,7 +1036,8 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
 		memcpy(p, ctx->peerDomainName.data, ctx->peerDomainName.length);
 		p += ctx->peerDomainName.length;
 	}
-	if(suppCurveLen) {
+
+	if (suppCurveLen > 0 && p != NULL) {
 		UInt32 len = 2 * ctx->ecdhNumCurves;
 		unsigned dex;
 		p = SSLEncodeInt(p, SSL_HE_EllipticCurves, 2);
@@ -1041,32 +1049,35 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
 			p = SSLEncodeInt(p, ctx->ecdhCurves[dex], 2);
 		}
 	}
-	if(pointFormatLen) {
+
+	if (pointFormatLen > 0 && p != NULL) {
 		sslEcdsaDebug("+++ adding point format to ClientHello");
 		p = SSLEncodeInt(p, SSL_HE_EC_PointFormats, 2);
 		p = SSLEncodeSize(p, 2, 2);		/* length of extension data */
 		p = SSLEncodeSize(p, 1, 1);		/* length of ec_point_format_list */
 		p = SSLEncodeInt(p, SSL_PointFormatUncompressed, 1);
 	}
-    if (signatureAlgorithmsLen) {
+    
+    if (signatureAlgorithmsLen > 0 && p != NULL) {
         sslEcdsaDebug("+++ adding signature algorithms to ClientHello");
         UInt32 len = 2 * ctx->numLocalSigAlgs;
         p = SSLEncodeInt(p, SSL_HE_SignatureAlgorithms, 2);
         p = SSLEncodeSize(p, len+2, 2);		/* length of extension data */
-	p = SSLEncodeSize(p, len, 2);		/* length of extension data */
-        for(int i=0; i<ctx->numLocalSigAlgs; i++) {
+        p = SSLEncodeSize(p, len, 2);		/* length of extension data */
+
+        for (int i = 0; i < ctx->numLocalSigAlgs; i++) {
             p = SSLEncodeInt(p, ctx->localSigAlgs[i].hash, 1);
             p = SSLEncodeInt(p, ctx->localSigAlgs[i].signature, 1);
         }
     }
 
-    if (npnLen) {
+    if (npnLen > 0 && p != NULL) {
         ctx->npn_announced = true;
         p = SSLEncodeInt(p, SSL_HE_NPN, 2);
         p = SSLEncodeSize(p, 0, 2);
     }
 
-    if (alpnLen) {
+    if (alpnLen > 0 && p != NULL) {
         ctx->alpn_announced = true;
         p = SSLEncodeInt(p, SSL_HE_ALPN, 2);
         p = SSLEncodeSize(p, ctx->alpnOwnData.length + 2, 2);
@@ -1075,7 +1086,7 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
         p += ctx->alpnOwnData.length;
     }
 
-    if (ocspLen) {
+    if (ocspLen > 0 && p != NULL) {
         p = SSLEncodeInt(p, SSL_HE_StatusReguest, 2);
         p = SSLEncodeSize(p, ocspLen-4, 2);
         *p++ = SSL_CST_Ocsp;
@@ -1086,17 +1097,17 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
         p += ctx->ocsp_request_extensions.length;
     }
 
-    if (sctLen) {
+    if (sctLen > 0 && p != NULL) {
         p = SSLEncodeInt(p, SSL_HE_SCT, 2);
         p = SSLEncodeSize(p, 0, 2);
     }
 
-    if (extMasterSecretLen) {
+    if (extMasterSecretLen > 0 && p != NULL) {
         p = SSLEncodeInt(p, SSL_HE_ExtendedMasterSecret, 2);
         p = SSLEncodeSize(p, 0, 2);
     }
 
-    if (paddingLen) {
+    if (paddingLen > 0 && p != NULL) {
         p = SSLEncodeInt(p, SSL_HE_Padding, 2);
         p = SSLEncodeSize(p, paddingLen-4, 2);
         memset(p, 0, paddingLen-4);
@@ -1107,7 +1118,7 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
 
     assert((clientHello->length<256) || (clientHello->length>=512));
 
-    if(p != clientHello->data + clientHello->length) {
+    if (p != clientHello->data + clientHello->length) {
         assert(0);
         err = errSSLInternal;
         goto err_exit;

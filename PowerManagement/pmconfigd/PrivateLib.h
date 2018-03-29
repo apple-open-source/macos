@@ -95,6 +95,7 @@
 #define PMSETTINGS_LOG      "pmSettings"
 #define SLEEPWAKE_LOG       "sleepWake"
 #define ADAPTIVEDISPLAY_LOG "adaptiveDisplay"
+#define WAKEREQUESTS_LOG    "wakeRequests"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT

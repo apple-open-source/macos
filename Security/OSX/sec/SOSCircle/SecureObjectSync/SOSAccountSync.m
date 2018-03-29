@@ -20,6 +20,7 @@
 #import <Security/SecureObjectSync/SOSTransportMessageKVS.h>
 #include <SOSCircle/CKBridge/SOSCloudKeychainClient.h>
 #include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include <Security/SecureObjectSync/SOSInternal.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -355,7 +356,7 @@ CF_RETURNS_RETAINED CFMutableSetRef SOSAccountSyncWithPeers(SOSAccountTransactio
 
         peerInfo = SOSCircleCopyPeerWithID(circle, peerID, NULL);
         if (peerInfo && SOSCircleHasValidSyncingPeer(circle, peerInfo, account.accountKey, NULL)) {
-            if (canUseIDS && SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peerInfo) && SOSPeerInfoShouldUseACKModel(myPeerInfo, peerInfo)) {
+            if (ENABLE_IDS && canUseIDS && SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peerInfo) && SOSPeerInfoShouldUseACKModel(myPeerInfo, peerInfo)) {
                 CFSetAddValue(peersForIDS, peerID);
             } else {
                 CFSetAddValue(peersForKVS, peerID);

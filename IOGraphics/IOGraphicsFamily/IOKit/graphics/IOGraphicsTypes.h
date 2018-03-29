@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     60
+#define IOGRAPHICSTYPES_REV     64
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -286,6 +286,8 @@ enum {
     kIOFBRedGammaScaleAttribute         = 'gslr',    // as of IOGRAPHICSTYPES_REV 54
     kIOFBGreenGammaScaleAttribute       = 'gslg',    // as of IOGRAPHICSTYPES_REV 54
     kIOFBBlueGammaScaleAttribute        = 'gslb',    // as of IOGRAPHICSTYPES_REV 54
+
+    kIOFBHDRMetaDataAttribute           = 'hdrm',    // as of IOGRAPHICSTYPES_REV 64
 };
 
 enum {
@@ -294,6 +296,29 @@ enum {
     kIOFBHDCPLimit_NoHDCP20Type0        = 1 << 1,
     kIOFBHDCPLimit_NoHDCP20Type1        = 1 << 2,   // Default case
 };
+
+// <rdar://problem/34574357> kIOFBHDRMetaDataAttribute
+struct IOFBHDRMetaDataV1
+{
+    uint16_t            displayPrimary_X0;      // X coordinate of red primary
+    uint16_t            displayPrimary_Y0;      // Y coordinate of red primary
+    uint16_t            displayPrimary_X1;      // X coordinate of green primary
+    uint16_t            displayPrimary_Y1;      // Y coordinate of green primary
+    uint16_t            displayPrimary_X2;      // X coordinate of blue primary
+    uint16_t            displayPrimary_Y2;      // Y coordinate of blue primary
+    uint16_t            displayPrimary_X;       // X coordinate of white primary
+    uint16_t            displayPrimary_Y;       // Y coordinate of white primary
+    uint16_t            desiredLuminance_Max;   // Desired max display luminance
+    uint16_t            desiredLuminance_Min;   // Desired min display luminance
+    uint16_t            desiredLightLevel_Avg;  // Desired max frame-average light level
+    uint16_t            desiredLightLevel_Max;  // Desired max light level
+
+    uint64_t            __reservedA[5];         // Reserved - set to zero
+};
+typedef struct IOFBHDRMetaDataV1 IOFBHDRMetaDataV1;
+typedef union {
+    IOFBHDRMetaDataV1   v1;
+} IOFBHDRMetaData;
 
 // <rdar://problem/29184178> IOGraphics: Implement display state attribute for deteriming display state post wake
 // kIOFBDisplayState
@@ -402,6 +427,10 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field verticalSyncLevel Zero.
  * @field numLinks number of links to be used by a dual link timing, if zero, assume one link.
  * @field verticalBlankingExtension maximum number of blanking extension lines that is available. (0 for none).
+ * @field pixelEncoding 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field bitsPerColorComponent 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field colorimetry 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field dynamicRange 2017 Timing Features - ERS 2-58 (6.3.1)
  * @field __reservedB Reserved set to zero.
  */
 
@@ -446,7 +475,12 @@ struct IODetailedTimingInformationV2 {
 
     UInt32      verticalBlankingExtension;      // lines (AdaptiveSync: 0 for non-AdaptiveSync support)
 
-    UInt32      __reservedB[6];                 // Init to 0
+    UInt16      pixelEncoding;
+    UInt16      bitsPerColorComponent;
+    UInt16      colorimetry;
+    UInt16      dynamicRange;
+
+    UInt32      __reservedB[4];                 // Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
@@ -483,6 +517,45 @@ enum {
     kIOScaleRotate270           = kIOScaleSwapAxes | kIOScaleInvertY
 };
 
+enum {
+    kIOPixelEncodingNotSupported    = 0x0000,
+    kIOPixelEncodingRGB444          = 0x0001,
+    kIOPixelEncodingYCbCr444        = 0x0002,
+    kIOPixelEncodingYCbCr422        = 0x0004,
+    kIOPixelEncodingYCbCr420        = 0x0008
+};
+
+enum {
+    kIOBitsPerColorComponentNotSupported    = 0x0000,
+    kIOBitsPerColorComponent6               = 0x0001,
+    kIOBitsPerColorComponent8               = 0x0002,
+    kIOBitsPerColorComponent10              = 0x0004,
+    kIOBitsPerColorComponent12              = 0x0008,
+    kIOBitsPerColorComponent16              = 0x0010
+};
+
+enum {
+    kIOColorimetryNotSupported  = 0x0000,
+    kIOColorimetryNativeRGB     = 0x0001,
+    kIOColorimetrysRGB          = 0x0002,
+    kIOColorimetryDCIP3         = 0x0004,
+    kIOColorimetryAdobeRGB      = 0x0008,
+    kIOColorimetryxvYCC         = 0x0010,
+    kIOColorimetryWGRGB         = 0x0020,
+    kIOColorimetryBT601         = 0x0040,
+    kIOColorimetryBT709         = 0x0080,
+    kIOColorimetryBT2020        = 0x0100,
+    kIOColorimetryBT2100        = 0x0200
+};
+
+enum {
+    kIODynamicRangeNotSupported         = 0x0000,
+    kIODynamicRangeSDR                  = 0x0001,
+    kIODynamicRangeHDR10                = 0x0002,
+    kIODynamicRangeDolbyNormalMode      = 0x0004,
+    kIODynamicRangeDolbyTunnelMode      = 0x0008,
+    kIODynamicRangeTraditionalGammaHDR  = 0x0010
+};
 
 #pragma pack(push, 4)
 struct IOFBDisplayModeDescription {
@@ -570,6 +643,10 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
  * @field maxLink0PixelClock maximum pixel clock for link 0 (kHz).
  * @field minLink1PixelClock minimum pixel clock for link 1 (kHz).
  * @field maxLink1PixelClock maximum pixel clock for link 1 (kHz).
+ * @field supportedPixelEncoding 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field supportedBitsPerColorComponent 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field supportedColorimetry 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field supportedDynamicRange 2017 Timing Features - ERS 2-58 (6.3.1)
  * @field __reservedF Set to zero.
  */
 
@@ -650,9 +727,58 @@ struct IODisplayTimingRange
     UInt32      minLink1PixelClock;                // min pixel clock for link 1 (kHz)
     UInt32      maxLink1PixelClock;                // max pixel clock for link 1 (kHz)
 
-    UInt32      __reservedF[3];                 // Init to 0
+    UInt16      supportedPixelEncoding;
+    UInt16      supportedBitsPerColorComponent;
+    UInt16      supportedColorimetryModes;
+    UInt16      supportedDynamicRangeModes;
+
+    UInt32      __reservedF[1];                    // Init to 0
 };
 typedef struct IODisplayTimingRange  IODisplayTimingRange;
+
+enum {
+    // supportedPixelEncoding
+    kIORangePixelEncodingNotSupported   = 0x0000,
+    kIORangePixelEncodingRGB444         = 0x0001,
+    kIORangePixelEncodingYCbCr444       = 0x0002,
+    kIORangePixelEncodingYCbCr422       = 0x0004,
+    kIORangePixelEncodingYCbCr420       = 0x0008,
+};
+
+enum {
+    // supportedBitsPerColorComponent
+    kIORangeBitsPerColorComponentNotSupported   = 0x0000,
+    kIORangeBitsPerColorComponent6              = 0x0001,
+    kIORangeBitsPerColorComponent8              = 0x0002,
+    kIORangeBitsPerColorComponent10             = 0x0004,
+    kIORangeBitsPerColorComponent12             = 0x0008,
+    kIORangeBitsPerColorComponent16             = 0x0010,
+};
+
+enum {
+    // supportedColorimetry
+    kIORangeColorimetryNotSupported     = 0x0000,
+    kIORangeColorimetryNativeRGB        = 0x0001,
+    kIORangeColorimetrysRGB             = 0x0002,
+    kIORangeColorimetryDCIP3            = 0x0004,
+    kIORangeColorimetryAdobeRGB         = 0x0008,
+    kIORangeColorimetryxvYCC            = 0x0010,
+    kIORangeColorimetryWGRGB            = 0x0020,
+    kIORangeColorimetryBT601            = 0x0040,
+    kIORangeColorimetryBT709            = 0x0080,
+    kIORangeColorimetryBT2020           = 0x0100,
+    kIORangeColorimetryBT2100           = 0x0200,
+};
+
+enum {
+    // supportedDynamicRange
+    kIORangeDynamicRangeNotSupported        = 0x0000,
+    kIORangeDynamicRangeSDR                 = 0x0001,
+    kIORangeDynamicRangeHDR10               = 0x0002,
+    kIORangeDynamicRangeDolbyNormalMode     = 0x0004,
+    kIORangeDynamicRangeDolbyTunnelMode     = 0x0008,
+    kIORangeDynamicRangeTraditionalGammaHDR = 0x0010
+};
 
 enum {
     // supportedSignalLevels

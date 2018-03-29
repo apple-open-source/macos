@@ -143,7 +143,7 @@ void HeapVerifier::printVerificationHeader()
     RELEASE_ASSERT(m_heap->collectionScope());
     CollectionScope scope = currentCycle().scope;
     MonotonicTime gcCycleTimestamp = currentCycle().timestamp;
-    dataLog("Verifying heap in [p", getCurrentProcessID(), ", t", currentThread(), "] vm ",
+    dataLog("Verifying heap in [p", getCurrentProcessID(), ", ", Thread::current(), "] vm ",
         RawPointer(m_heap->vm()), " on ", scope, " GC @ ", gcCycleTimestamp, "\n");
 }
 
@@ -331,9 +331,9 @@ bool HeapVerifier::validateJSCell(VM* expectedVM, JSCell* cell, CellProfile* pro
         if (UNLIKELY(codeBlock)) {
             bool success = true;
             for (unsigned i = 0; i < codeBlock->totalNumberOfValueProfiles(); ++i) {
-                ValueProfile* valueProfile = codeBlock->getFromAllValueProfiles(i);
+                ValueProfile& valueProfile = codeBlock->getFromAllValueProfiles(i);
                 for (unsigned i = 0; i < ValueProfile::totalNumberOfBuckets; ++i) {
-                    JSValue value = JSValue::decode(valueProfile->m_buckets[i]);
+                    JSValue value = JSValue::decode(valueProfile.m_buckets[i]);
                     if (!value)
                         continue;
                     if (!value.isCell())

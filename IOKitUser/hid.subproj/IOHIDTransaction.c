@@ -31,7 +31,8 @@
 static IOHIDTransactionRef  __IOHIDTransactionCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
-static void                 __IOHIDTransactionRelease( CFTypeRef object );
+static void                 __IOHIDTransactionExtRelease( CFTypeRef object );
+static void                 __IOHIDTransactionIntRelease( CFTypeRef object );
 static void                 __IOHIDTransactionCommitCallback(
                                     void *                  context,
                                     IOReturn                result,
@@ -40,31 +41,35 @@ static void                 __IOHIDTransactionCommitCallback(
 
 typedef struct __IOHIDTransaction
 {
-    CFRuntimeBase                   cfBase;   // base CFType information
+    IOHIDObjectBase                         hidBase;
 
-    IOHIDDeviceTransactionInterface**     transactionInterface;
+    IOHIDDeviceTransactionInterface**       transactionInterface;
     
-    CFTypeRef                       asyncEventSource;
-    CFRunLoopRef                    runLoop;
-    CFStringRef                     runLoopMode;
+    CFTypeRef                               asyncEventSource;
+    CFRunLoopRef                            runLoop;
+    CFStringRef                             runLoopMode;
 
-    IOHIDDeviceRef                  device;
-    void *                          context;
-    IOHIDCallback                   callback;
+    IOHIDDeviceRef                          device;
+    void *                                  context;
+    IOHIDCallback                           callback;
 } __IOHIDTransaction, *__IOHIDTransactionRef;
 
-static const CFRuntimeClass __IOHIDTransactionClass = {
-    0,                          // version
-    "IOHIDTransaction",         // className
-    NULL,                       // init
-    NULL,                       // copy
-    __IOHIDTransactionRelease,  // finalize
-    NULL,                       // equal
-    NULL,                       // hash
-    NULL,                       // copyFormattingDesc
-    NULL,
-    NULL,
-    NULL
+static const IOHIDObjectClass __IOHIDTransactionClass = {
+    {
+        _kCFRuntimeCustomRefCount,      // version
+        "IOHIDTransaction",             // className
+        NULL,                           // init
+        NULL,                           // copy
+        __IOHIDTransactionExtRelease,   // finalize
+        NULL,                           // equal
+        NULL,                           // hash
+        NULL,                           // copyFormattingDesc
+        NULL,                           // copyDebugDesc
+        NULL,                           // reclaim
+        _IOHIDObjectExtRetainCount      // refcount
+    },
+    _IOHIDObjectIntRetainCount,
+    __IOHIDTransactionIntRelease
 };
 
 static pthread_once_t   __transactionTypeInit = PTHREAD_ONCE_INIT;
@@ -76,7 +81,7 @@ static CFTypeID         __kIOHIDTransactionTypeID = _kCFRuntimeNotATypeID;
 void __IOHIDTransactionRegister(void)
 {
     __kIOHIDTransactionTypeID = 
-                _CFRuntimeRegisterClass(&__IOHIDTransactionClass);
+                _CFRuntimeRegisterClass(&__IOHIDTransactionClass.cfClass);
 }
 
 //------------------------------------------------------------------------------
@@ -86,37 +91,31 @@ IOHIDTransactionRef __IOHIDTransactionCreate(
                                 CFAllocatorRef              allocator, 
                                 CFAllocatorContext *        context __unused)
 {
-    IOHIDTransactionRef transaction = NULL;
-    void *              offset      = NULL;
-    uint32_t            size;
-
+    uint32_t    size;
+    
     /* allocate service */
     size  = sizeof(__IOHIDTransaction) - sizeof(CFRuntimeBase);
-    transaction = (IOHIDTransactionRef)_CFRuntimeCreateInstance(
-                                                allocator,
-                                                IOHIDTransactionGetTypeID(), 
-                                                size, 
-                                                NULL);
     
-    if (!transaction)
-        return NULL;
-
-    offset = transaction;
-    bzero(offset + sizeof(CFRuntimeBase), size);
-    
-    return transaction;
+    return (IOHIDTransactionRef)_IOHIDObjectCreateInstance(allocator, IOHIDTransactionGetTypeID(), size, NULL);;
 }
 
 //------------------------------------------------------------------------------
-// __IOHIDTransactionRelease
+// __IOHIDTransactionExtRelease
 //------------------------------------------------------------------------------
-void __IOHIDTransactionRelease( CFTypeRef object )
+void __IOHIDTransactionExtRelease( CFTypeRef object __unused )
+{
+    
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDTransactionIntRelease
+//------------------------------------------------------------------------------
+void __IOHIDTransactionIntRelease( CFTypeRef object )
 {
     IOHIDTransactionRef transaction = (IOHIDTransactionRef)object;
     
     if ( transaction->transactionInterface ) {
-        (*transaction->transactionInterface)->Release(
-                                            transaction->transactionInterface);
+        (*transaction->transactionInterface)->Release(transaction->transactionInterface);
         transaction->transactionInterface = NULL;
     }
     

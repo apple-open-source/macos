@@ -27,9 +27,9 @@
 #include "config.h"
 #include "NavigatorBase.h"
 
-#include "Language.h"
-#include "NetworkStateNotifier.h"
+#include "ServiceWorkerContainer.h"
 #include <mutex>
+#include <wtf/Language.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/text/WTFString.h>
@@ -75,9 +75,17 @@
 
 namespace WebCore {
 
-NavigatorBase::~NavigatorBase()
+NavigatorBase::NavigatorBase(ScriptExecutionContext& context)
+#if ENABLE(SERVICE_WORKER)
+    : m_serviceWorkerContainer(makeUniqueRef<ServiceWorkerContainer>(context, *this))
+#endif
 {
+#if !ENABLE(SERVICE_WORKER)
+    UNUSED_PARAM(context);
+#endif
 }
+
+NavigatorBase::~NavigatorBase() = default;
 
 String NavigatorBase::appName()
 {
@@ -129,11 +137,6 @@ String NavigatorBase::vendorSub()
     return WEBCORE_NAVIGATOR_VENDOR_SUB;
 }
 
-bool NavigatorBase::onLine()
-{
-    return networkStateNotifier().onLine();
-}
-
 String NavigatorBase::language()
 {
     return defaultLanguage();
@@ -144,5 +147,19 @@ Vector<String> NavigatorBase::languages()
     // We intentionally expose only the primary language for privacy reasons.
     return { defaultLanguage() };
 }
+
+#if ENABLE(SERVICE_WORKER)
+ServiceWorkerContainer& NavigatorBase::serviceWorker()
+{
+    return m_serviceWorkerContainer;
+}
+
+ExceptionOr<ServiceWorkerContainer&> NavigatorBase::serviceWorker(ScriptExecutionContext& context)
+{
+    if (is<Document>(context) && downcast<Document>(context).isSandboxed(SandboxOrigin))
+        return Exception { SecurityError, "Service Worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag" };
+    return m_serviceWorkerContainer.get();
+}
+#endif
 
 } // namespace WebCore

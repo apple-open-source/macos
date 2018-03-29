@@ -30,6 +30,8 @@
  * SUCH DAMAGE.
  */
 
+#define OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE 1
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)vfprintf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
@@ -868,7 +870,7 @@ fp_common:
 				static_format_checked = __printf_is_memory_read_only((void*)fmt0, strlen(fmt0));
 			}
 			if (!static_format_checked) {
-				os_crash("%n used in a non-immutable format string");
+				os_crash("%%n used in a non-immutable format string: %s", fmt0);
 			}
 #endif // ALLOW_DYNAMIC_PERCENT_N
 

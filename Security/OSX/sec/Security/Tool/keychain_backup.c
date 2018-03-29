@@ -108,7 +108,7 @@ keychain_import(int argc, char * const *argv)
                 password=optarg;
                 break;
              default:
-                return 2; /* Trigger usage message. */
+                return SHOW_USAGE_MESSAGE;
         }
     }
 
@@ -117,12 +117,12 @@ keychain_import(int argc, char * const *argv)
 
     if(keybag==NULL) {
         sec_error("-k is required\n");
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     if (argc != 1) {
         sec_error("<backup> is required\n");
-        return 2; /* Trigger usage message. */
+        return SHOW_USAGE_MESSAGE;
     }
     
     return do_keychain_import(argv[0], keybag, password);
@@ -150,7 +150,7 @@ keychain_export(int argc, char * const *argv)
                 password=optarg;
                 break;
             default:
-                return 2; /* Trigger usage message. */
+                return SHOW_USAGE_MESSAGE;
         }
     }
 
@@ -159,12 +159,12 @@ keychain_export(int argc, char * const *argv)
 
     if(keybag==NULL) {
         sec_error("-k is required\n");
-        return 2;
+        return SHOW_USAGE_MESSAGE;
     }
 
     if (argc != 1) {
         sec_error("<backup> is required\n");
-        return 2; /* Trigger usage message. */
+        return SHOW_USAGE_MESSAGE;
     }
 
     return do_keychain_export(argv[0], keybag, password);

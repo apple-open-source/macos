@@ -21,10 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #include <dispatch/dispatch.h>
 #import <XCTest/XCTest.h>
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSResultOperation.h"
+#import "keychain/ckks/CKKS.h"
 
 @interface CKKSNearFutureSchedulerTests : XCTestCase
 @property NSOperationQueue* operationQueue;
@@ -47,7 +50,9 @@
 - (void)testBlockOneShot {
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [expectation fulfill];
     }];
 
@@ -62,7 +67,9 @@
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [toofastexpectation fulfill];
         [expectation fulfill];
     }];
@@ -83,7 +90,9 @@
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
     expectation.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:true block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [toofastexpectation fulfill];
         [expectation fulfill];
     }];
@@ -118,7 +127,9 @@
     second.expectedFulfillmentCount = 2;
     second.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [first fulfill];
         [second fulfill];
     }];
@@ -150,7 +161,9 @@
     second.expectedFulfillmentCount = 2;
     second.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:600*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:600*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [first fulfill];
         [longdelay fulfill];
         [second fulfill];
@@ -179,7 +192,9 @@
     XCTestExpectation *cancelexpectation = [self expectationWithDescription:@"FutureScheduler fired (after cancel)"];
     cancelexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:true block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [cancelexpectation fulfill];
     }];
 
@@ -194,7 +209,9 @@
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [toofastexpectation fulfill];
     }];
 
@@ -211,7 +228,9 @@
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [first fulfill];
         [toofastexpectation fulfill];
     }];
@@ -235,7 +254,9 @@
     second.expectedFulfillmentCount = 2;
     second.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
         [first fulfill];
         [second fulfill];
         [toofastexpectation fulfill];
@@ -272,7 +293,9 @@
 - (void)testOperationOneShot {
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
     [self addOperationFulfillingExpectations:@[expectation] scheduler:scheduler];
 
     [scheduler trigger];
@@ -286,7 +309,9 @@
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
     [self addOperationFulfillingExpectations:@[expectation,toofastexpectation] scheduler:scheduler];
 
     [scheduler trigger];
@@ -305,7 +330,9 @@
     XCTestExpectation *expectation = [self expectationWithDescription:@"FutureScheduler fired"];
     expectation.assertForOverFulfill = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 200*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
     [self addOperationFulfillingExpectations:@[expectation,toofastexpectation] scheduler:scheduler];
 
     [scheduler trigger];
@@ -335,7 +362,9 @@
 
     XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
 
     [self addOperationFulfillingExpectations:@[first] scheduler:scheduler];
 
@@ -363,7 +392,9 @@
     longdelay.inverted = YES;
     XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:300*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" initialDelay: 50*NSEC_PER_MSEC continuingDelay:300*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
 
     [self addOperationFulfillingExpectations:@[first] scheduler:scheduler];
 
@@ -392,7 +423,9 @@
     XCTestExpectation *cancelexpectation = [self expectationWithDescription:@"FutureScheduler fired (after cancel)"];
     cancelexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:true block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 100*NSEC_PER_MSEC keepProcessAlive:true
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
 
     [self addOperationFulfillingExpectations:@[cancelexpectation] scheduler:scheduler];
 
@@ -407,7 +440,9 @@
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
     [self addOperationFulfillingExpectations:@[toofastexpectation] scheduler:scheduler];
 
     // Tell the scheduler to wait, but don't trigger it. It shouldn't fire.
@@ -423,7 +458,9 @@
     XCTestExpectation *toofastexpectation = [self expectationWithDescription:@"FutureScheduler fired (too soon)"];
     toofastexpectation.inverted = YES;
 
-    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false block:^{}];
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_MSEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{}];
     [self addOperationFulfillingExpectations:@[first,toofastexpectation] scheduler:scheduler];
 
     [scheduler waitUntil: 150*NSEC_PER_MSEC];
@@ -434,3 +471,5 @@
 }
 
 @end
+
+#endif /* OCTAGON */

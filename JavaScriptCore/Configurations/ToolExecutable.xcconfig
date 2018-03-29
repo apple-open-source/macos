@@ -31,6 +31,7 @@ CODE_SIGN_ENTITLEMENTS_ios_minidom = entitlements.plist;
 CODE_SIGN_ENTITLEMENTS_ios_testair = entitlements.plist;
 CODE_SIGN_ENTITLEMENTS_ios_testapi = entitlements.plist;
 CODE_SIGN_ENTITLEMENTS_ios_testb3 = entitlements.plist;
+CODE_SIGN_ENTITLEMENTS_ios_testmasm = entitlements.plist;
 CODE_SIGN_ENTITLEMENTS_ios_testWasm = entitlements.plist;
 CODE_SIGN_ENTITLEMENTS_ios_testRegExp = entitlements.plist;
 
@@ -49,6 +50,7 @@ CLANG_ENABLE_OBJC_ARC_armv7k = YES;
 CLANG_ENABLE_OBJC_ARC_armv7s = YES;
 CLANG_ENABLE_OBJC_ARC_arm64 = YES;
 CLANG_ENABLE_OBJC_ARC_arm64e = YES;
+CLANG_ENABLE_OBJC_ARC_arm64_32 = YES;
 
 OTHER_CFLAGS = $(ASAN_OTHER_CFLAGS) -isystem icu;
 OTHER_LDFLAGS = $(ASAN_OTHER_LDFLAGS);

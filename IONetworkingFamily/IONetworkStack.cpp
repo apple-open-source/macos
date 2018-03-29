@@ -52,6 +52,7 @@ extern "C" {
 #include <IOKit/network/IOEthernetController.h>  // for setAggressiveness()
 #include "IONetworkStack.h"
 #include "IONetworkDebug.h"
+#include "IONetworkControllerPrivate.h"
 
 #define super IOService
 OSDefineMetaClassAndFinalStructors( IONetworkStack, IOService )
@@ -196,6 +197,7 @@ bool IONetworkStack::start( IOService * provider )
     _sleepWakeNotifier = registerPrioritySleepWakeInterest(
                             &IONetworkStack::handleSystemSleep, (void *) this);
 
+
     registerService();
     return true;
 
@@ -214,6 +216,12 @@ void IONetworkStack::stop( IOService * provider )
         _sleepWakeNotifier = 0;
     }
     super::stop(provider);
+}
+
+bool IONetworkStack::finalize( IOOptionBits options )
+{
+
+    return super::finalize(options);
 }
 
 //------------------------------------------------------------------------------

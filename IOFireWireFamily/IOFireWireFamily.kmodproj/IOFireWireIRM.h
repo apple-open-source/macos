@@ -79,7 +79,7 @@ public:
 	static IOFireWireIRM * create( IOFireWireController * controller );
 
     virtual bool initWithController( IOFireWireController * control );
-    virtual void free( void );
+    virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 	virtual bool isIRMActive( void );
 	virtual void processBusReset( UInt16 ourNodeID, UInt16 irmNodeID, UInt32 generation );

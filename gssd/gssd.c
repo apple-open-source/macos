@@ -78,6 +78,8 @@
 
 #include <Heimdal/com_err.h>
 #include <Heimdal/krb5.h>
+#include <Security/Security.h>
+#include <Security/SecBasePriv.h>
 #include <GSS/gssapi.h>
 #include <GSS/gssapi_krb5.h>
 #include <GSS/gssapi_ntlm.h>
@@ -279,6 +281,7 @@ check_session(au_asid_t asid)
 	return (TRUE);
 }
 
+
 au_asid_t my_asid = AU_DEFAUDITSID;
 #ifdef CCOVERAGE
 #include <sys/types.h>
@@ -315,6 +318,8 @@ set_identity(void)
 			chmod(path, 0666);
 			chown(path, uid, 0);
 #endif
+
+			_SecSetSecuritydTargetUID(uid);
 			if (join_session(asid, instance) == 0)
 				setuid(uid);
 		}
@@ -467,7 +472,7 @@ int main(int argc, char *argv[])
 	/* Check to see if the master asl filter is set */
 	set_debug_level(-1);
 
-	/* Set our session and uid if needed */
+	/* Set our session, uid and securityd lookup target if needed */
 	set_identity();
 
 	gssd_init();

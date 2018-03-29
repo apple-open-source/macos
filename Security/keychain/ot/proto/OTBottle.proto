@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+package OT;
+
+import "OTAuthenticatedCiphertext.proto";
+
+message Bottle {
+    optional string peerID = 1;
+    optional string spID = 2;
+
+    // Tags 3, 4, 5 and 6 were briefly used during development for the raw public key data, with nothing to specify the key type.
+    // They are replaced with the following, encoded as SubjectPublicKeyInfo:
+    optional bytes reserved3 = 3;
+    optional bytes reserved4 = 4;
+    optional bytes reserved5 = 5;
+    optional bytes reserved6 = 6;
+
+    // as SubjectPublicKeyInfo (SPKI):
+    optional bytes escrowedSigningSPKI = 8;
+    optional bytes escrowedEncryptionSPKI = 9;
+    optional bytes peerSigningSPKI = 10;
+    optional bytes peerEncryptionSPKI = 11;
+
+    // Tag 7 was briefly used during development for contents encoded with NSKeyedArchiver.
+    optional bytes reserved7 = 7;
+
+    optional AuthenticatedCiphertext contents = 12;
+}
+

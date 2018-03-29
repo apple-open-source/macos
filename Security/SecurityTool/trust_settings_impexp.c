@@ -46,7 +46,7 @@ extern int trust_settings_export(int argc, char * const *argv)
 	unsigned len;
 
 	if(argc < 2) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	optind = 1;
@@ -59,12 +59,12 @@ extern int trust_settings_export(int argc, char * const *argv)
 				domain = kSecTrustSettingsDomainSystem;
 				break;
 			default:
-				return 2;
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 	if(optind != (argc - 1)) {
 		/* no args left for settings file */
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 	settingsFile = argv[optind];
 
@@ -99,7 +99,7 @@ extern int trust_settings_import(int argc, char * const *argv)
 	int rtn;
 
 	if(argc < 2) {
-		return 2; /* @@@ Return 2 triggers usage message. */
+		return SHOW_USAGE_MESSAGE;
 	}
 
 	optind = 1;
@@ -109,12 +109,12 @@ extern int trust_settings_import(int argc, char * const *argv)
 				domain = kSecTrustSettingsDomainAdmin;
 				break;
 			default:
-				return 2;
+				return SHOW_USAGE_MESSAGE;
 		}
 	}
 	if(optind != (argc - 1)) {
 		/* no args left for settings file */
-		return 2;
+		return SHOW_USAGE_MESSAGE;
 	}
 	settingsFile = argv[optind];
 	rtn = readFileSizet(settingsFile, &settingsData, &settingsLen);

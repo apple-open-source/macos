@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <XCTest/XCTest.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
 
@@ -272,15 +273,13 @@
     NSDate* limit = nil;
     [self.rl judge:self.oqe at:date limitTime:&limit];
 
-    NSMutableData* data = [[NSMutableData alloc] init];
-    NSKeyedArchiver* encoder = [[NSKeyedArchiver alloc] initForWritingWithMutableData: data];
+    NSKeyedArchiver* encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [encoder encodeObject: self.rl forKey:@"unneeded"];
-    [encoder finishEncoding];
+    NSData* data = encoder.encodedData;
     XCTAssertNotNil(data, "Still have our data object");
     XCTAssertTrue(data.length > 0u, "Encoder produced some data");
 
-    NSKeyedUnarchiver* decoder = [[NSKeyedUnarchiver alloc] initForReadingWithData: data];
-    decoder.requiresSecureCoding = YES;
+    NSKeyedUnarchiver* decoder = [[NSKeyedUnarchiver alloc] initForReadingFromData: data error:nil];
     CKKSRateLimiter* rl = [decoder decodeObjectOfClass: [CKKSRateLimiter class] forKey:@"unneeded"];
     XCTAssertNotNil(rl, "Decoded data into a CKKSRateLimiter");
 

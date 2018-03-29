@@ -48,4 +48,11 @@ struct IONetworkLinkEventData {
     uint32_t    linkType;
 };
 
+#ifdef __x86_64__
+#define kIONetworkMbufDMADriversKey     "IONetworkMbufDMADrivers"
+extern OSArray * gIONetworkMbufCursorKexts;
+extern IOLock *  gIONetworkMbufCursorLock;
+extern IORegistryEntry * gIONetworkMbufCursorEntry;
+#endif
+
 #endif /* !_IONETWORKCONTROLLERPRIVATE_H */

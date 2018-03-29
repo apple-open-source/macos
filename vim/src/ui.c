@@ -1651,11 +1651,6 @@ set_input_buf(char_u *p)
     }
 }
 
-#if defined(FEAT_GUI) \
-	|| defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE) \
-	|| defined(FEAT_XCLIPBOARD) || defined(VMS) \
-	|| defined(FEAT_CLIENTSERVER) \
-	|| defined(PROTO)
 /*
  * Add the given bytes to the input buffer
  * Special keys start with CSI.  A real CSI must have been translated to
@@ -1676,15 +1671,7 @@ add_to_input_buf(char_u *s, int len)
     while (len--)
 	inbuf[inbufcount++] = *s++;
 }
-#endif
 
-#if ((defined(FEAT_XIM) || defined(FEAT_DND)) && defined(FEAT_GUI_GTK)) \
-	|| defined(FEAT_GUI_MSWIN) \
-	|| defined(FEAT_GUI_MAC) \
-	|| (defined(FEAT_MBYTE) && defined(FEAT_MBYTE_IME)) \
-	|| (defined(FEAT_GUI) && (!defined(USE_ON_FLY_SCROLL) \
-		|| defined(FEAT_MENU))) \
-	|| defined(PROTO)
 /*
  * Add "str[len]" to the input buffer while escaping CSI bytes.
  */
@@ -1706,7 +1693,6 @@ add_to_input_buf_csi(char_u *str, int len)
 	}
     }
 }
-#endif
 
 #if defined(FEAT_HANGULIN) || defined(PROTO)
     void
@@ -1744,7 +1730,6 @@ trash_input_buf(void)
 /*
  * Read as much data from the input buffer as possible up to maxlen, and store
  * it in buf.
- * Note: this function used to be Read() in unix.c
  */
     int
 read_from_input_buf(char_u *buf, long maxlen)
@@ -1763,7 +1748,7 @@ read_from_input_buf(char_u *buf, long maxlen)
     void
 fill_input_buf(int exit_on_error UNUSED)
 {
-#if defined(UNIX) || defined(VMS) || defined(MACOS_X_UNIX)
+#if defined(UNIX) || defined(VMS) || defined(MACOS_X)
     int		len;
     int		try;
     static int	did_read_something = FALSE;
@@ -1787,7 +1772,7 @@ fill_input_buf(int exit_on_error UNUSED)
 	return;
     }
 #endif
-#if defined(UNIX) || defined(VMS) || defined(MACOS_X_UNIX)
+#if defined(UNIX) || defined(VMS) || defined(MACOS_X)
     if (vim_is_input_buf_full())
 	return;
     /*
@@ -1942,14 +1927,14 @@ read_error_exit(void)
  * May update the shape of the cursor.
  */
     void
-ui_cursor_shape(void)
+ui_cursor_shape_forced(int forced)
 {
 # ifdef FEAT_GUI
     if (gui.in_use)
 	gui_update_cursor_later();
     else
 # endif
-	term_cursor_shape();
+	term_cursor_mode(forced);
 
 # ifdef MCH_CURSOR_SHAPE
     mch_update_cursor();
@@ -1958,6 +1943,12 @@ ui_cursor_shape(void)
 # ifdef FEAT_CONCEAL
     conceal_check_cursur_line();
 # endif
+}
+
+    void
+ui_cursor_shape(void)
+{
+    ui_cursor_shape_forced(FALSE);
 }
 #endif
 
@@ -2042,10 +2033,11 @@ x11_setup_atoms(Display *dpy)
  * X Selection stuff, for cutting and pasting text to other windows.
  */
 
-static Boolean	clip_x11_convert_selection_cb(Widget, Atom *, Atom *, Atom *, XtPointer *, long_u *, int *);
-static void  clip_x11_lose_ownership_cb(Widget, Atom *);
+static Boolean	clip_x11_convert_selection_cb(Widget w, Atom *sel_atom, Atom *target, Atom *type, XtPointer *value, long_u *length, int *format);
+static void clip_x11_lose_ownership_cb(Widget w, Atom *sel_atom);
+static void clip_x11_notify_cb(Widget w, Atom *sel_atom, Atom *target);
 static void clip_x11_timestamp_cb(Widget w, XtPointer n, XEvent *event, Boolean *cont);
-static void  clip_x11_request_selection_cb(Widget, XtPointer, Atom *, Atom *, XtPointer, long_u *, int *);
+static void clip_x11_request_selection_cb(Widget w, XtPointer success, Atom *sel_atom, Atom *type, XtPointer value, long_u *length, int *format);
 
 /*
  * Property callback to get a timestamp for XtOwnSelection.
@@ -2085,7 +2077,7 @@ clip_x11_timestamp_cb(
     /* Get the selection, using the event timestamp. */
     if (XtOwnSelection(w, xproperty->atom, xproperty->time,
 	    clip_x11_convert_selection_cb, clip_x11_lose_ownership_cb,
-	    NULL) == OK)
+	    clip_x11_notify_cb) == OK)
     {
 	/* Set the "owned" flag now, there may have been a call to
 	 * lose_ownership_cb in between. */
@@ -2276,9 +2268,9 @@ clip_x11_request_selection(
 	start_time = time(NULL);
 	while (success == MAYBE)
 	{
-	    if (XCheckTypedEvent(dpy, SelectionNotify, &event)
-		    || XCheckTypedEvent(dpy, SelectionRequest, &event)
-		    || XCheckTypedEvent(dpy, PropertyNotify, &event))
+	    if (XCheckTypedEvent(dpy, PropertyNotify, &event)
+		    || XCheckTypedEvent(dpy, SelectionNotify, &event)
+		    || XCheckTypedEvent(dpy, SelectionRequest, &event))
 	    {
 		/* This is where clip_x11_request_selection_cb() should be
 		 * called.  It may actually happen a bit later, so we loop
@@ -2331,11 +2323,12 @@ clip_x11_convert_selection_cb(
     long_u	*length,
     int		*format)
 {
-    char_u	*string;
-    char_u	*result;
-    int		motion_type;
-    VimClipboard	*cbd;
-    int		i;
+    static char_u   *save_result = NULL;
+    static long_u   save_length = 0;
+    char_u	    *string;
+    int		    motion_type;
+    VimClipboard    *cbd;
+    int		    i;
 
     if (*sel_atom == clip_plus.sel_atom)
 	cbd = &clip_plus;
@@ -2348,10 +2341,8 @@ clip_x11_convert_selection_cb(
     /* requestor wants to know what target types we support */
     if (*target == targets_atom)
     {
-	Atom *array;
+	static Atom array[7];
 
-	if ((array = (Atom *)XtMalloc((unsigned)(sizeof(Atom) * 7))) == NULL)
-	    return False;
 	*value = (XtPointer)array;
 	i = 0;
 	array[i++] = targets_atom;
@@ -2400,13 +2391,17 @@ clip_x11_convert_selection_cb(
 	*length += STRLEN(p_enc) + 2;
 #endif
 
-    *value = XtMalloc((Cardinal)*length);
-    result = (char_u *)*value;
-    if (result == NULL)
+    if (save_length < *length || save_length / 2 >= *length)
+	*value = XtRealloc((char *)save_result, (Cardinal)*length + 1);
+    else
+	*value = save_result;
+    if (*value == NULL)
     {
 	vim_free(string);
 	return False;
     }
+    save_result = (char_u *)*value;
+    save_length = *length;
 
     if (*target == XA_STRING
 #ifdef FEAT_MBYTE
@@ -2414,13 +2409,13 @@ clip_x11_convert_selection_cb(
 #endif
 	    )
     {
-	mch_memmove(result, string, (size_t)(*length));
+	mch_memmove(save_result, string, (size_t)(*length));
 	*type = *target;
     }
     else if (*target == compound_text_atom || *target == text_atom)
     {
 	XTextProperty	text_prop;
-	char		*string_nt = (char *)alloc((unsigned)*length + 1);
+	char		*string_nt = (char *)save_result;
 	int		conv_result;
 
 	/* create NUL terminated string which XmbTextListToTextProperty wants */
@@ -2428,8 +2423,6 @@ clip_x11_convert_selection_cb(
 	string_nt[*length] = NUL;
 	conv_result = XmbTextListToTextProperty(X_DISPLAY, (char **)&string_nt,
 					   1, XCompoundTextStyle, &text_prop);
-	vim_free(string_nt);
-	XtFree(*value);			/* replace with COMPOUND text */
 	if (conv_result != Success)
 	{
 	    vim_free(string);
@@ -2438,24 +2431,25 @@ clip_x11_convert_selection_cb(
 	*value = (XtPointer)(text_prop.value);	/*    from plain text */
 	*length = text_prop.nitems;
 	*type = compound_text_atom;
+	XtFree((char *)save_result);
+	save_result = (char_u *)*value;
+	save_length = *length;
     }
-
 #ifdef FEAT_MBYTE
     else if (*target == vimenc_atom)
     {
 	int l = STRLEN(p_enc);
 
-	result[0] = motion_type;
-	STRCPY(result + 1, p_enc);
-	mch_memmove(result + l + 2, string, (size_t)(*length - l - 2));
+	save_result[0] = motion_type;
+	STRCPY(save_result + 1, p_enc);
+	mch_memmove(save_result + l + 2, string, (size_t)(*length - l - 2));
 	*type = vimenc_atom;
     }
 #endif
-
     else
     {
-	result[0] = motion_type;
-	mch_memmove(result + 1, string, (size_t)(*length - 1));
+	save_result[0] = motion_type;
+	mch_memmove(save_result + 1, string, (size_t)(*length - 1));
 	*type = vim_atom;
     }
     *format = 8;	    /* 8 bits per char */
@@ -2479,6 +2473,12 @@ clip_x11_lose_selection(Widget myShell, VimClipboard *cbd)
 				XtLastTimestampProcessed(XtDisplay(myShell)));
 }
 
+    static void
+clip_x11_notify_cb(Widget w UNUSED, Atom *sel_atom UNUSED, Atom *target UNUSED)
+{
+    /* To prevent automatically freeing the selection value. */
+}
+
     int
 clip_x11_own_selection(Widget myShell, VimClipboard *cbd)
 {
@@ -2492,7 +2492,7 @@ clip_x11_own_selection(Widget myShell, VimClipboard *cbd)
 	if (XtOwnSelection(myShell, cbd->sel_atom,
 	       XtLastTimestampProcessed(XtDisplay(myShell)),
 	       clip_x11_convert_selection_cb, clip_x11_lose_ownership_cb,
-	       NULL) == False)
+	       clip_x11_notify_cb) == False)
 	    return FAIL;
     }
     else
@@ -2610,8 +2610,9 @@ jump_to_mouse(
     int		which_button)	/* MOUSE_LEFT, MOUSE_RIGHT, MOUSE_MIDDLE */
 {
     static int	on_status_line = 0;	/* #lines below bottom of window */
-#ifdef FEAT_WINDOWS
     static int	on_sep_line = 0;	/* on separator right of window */
+#ifdef FEAT_MENU
+    static int  in_winbar = FALSE;
 #endif
     static int	prev_row = -1;
     static int	prev_col = -1;
@@ -2650,10 +2651,8 @@ retnomove:
 	 * line, stop Visual mode */
 	if (on_status_line)
 	    return IN_STATUS_LINE;
-#ifdef FEAT_WINDOWS
 	if (on_sep_line)
 	    return IN_SEP_LINE;
-#endif
 	if (flags & MOUSE_MAY_STOP_VIS)
 	{
 	    end_visual_mode();
@@ -2661,7 +2660,7 @@ retnomove:
 	}
 #if defined(FEAT_CMDWIN) && defined(FEAT_CLIPBOARD)
 	/* Continue a modeless selection in another window. */
-	if (cmdwin_type != 0 && row < W_WINROW(curwin))
+	if (cmdwin_type != 0 && row < curwin->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
 	return IN_BUFFER;
@@ -2691,13 +2690,24 @@ retnomove:
 	if (row < 0 || col < 0)			/* check if it makes sense */
 	    return IN_UNKNOWN;
 
-#ifdef FEAT_WINDOWS
 	/* find the window where the row is in */
 	wp = mouse_find_win(&row, &col);
-#else
-	wp = firstwin;
-#endif
+	if (wp == NULL)
+	    return IN_UNKNOWN;
 	dragwin = NULL;
+
+#ifdef FEAT_MENU
+	if (row == -1)
+	{
+	    /* A click in the window toolbar does not enter another window or
+	     * change Visual highlighting. */
+	    winbar_click(wp, col);
+	    in_winbar = TRUE;
+	    return IN_OTHER_WIN | MOUSE_WINBAR;
+	}
+	in_winbar = FALSE;
+#endif
+
 	/*
 	 * winpos and height may change in win_enter()!
 	 */
@@ -2708,7 +2718,6 @@ retnomove:
 	}
 	else
 	    on_status_line = 0;
-#ifdef FEAT_WINDOWS
 	if (col >= wp->w_width)		/* In separator line */
 	{
 	    on_sep_line = col - wp->w_width + 1;
@@ -2726,20 +2735,16 @@ retnomove:
 	    else
 		on_status_line = 0;
 	}
-#endif
 
 	/* Before jumping to another buffer, or moving the cursor for a left
 	 * click, stop Visual mode. */
 	if (VIsual_active
 		&& (wp->w_buffer != curwin->w_buffer
-		    || (!on_status_line
-#ifdef FEAT_WINDOWS
-			&& !on_sep_line
-#endif
+		    || (!on_status_line && !on_sep_line
 #ifdef FEAT_FOLDING
 			&& (
 # ifdef FEAT_RIGHTLEFT
-			    wp->w_p_rl ? col < W_WIDTH(wp) - wp->w_p_fdc :
+			    wp->w_p_rl ? col < wp->w_width - wp->w_p_fdc :
 # endif
 			    col >= wp->w_p_fdc
 # ifdef FEAT_CMDWIN
@@ -2769,17 +2774,15 @@ retnomove:
 # endif
 	}
 #endif
-#ifdef FEAT_WINDOWS
 	/* Only change window focus when not clicking on or dragging the
 	 * status line.  Do change focus when releasing the mouse button
 	 * (MOUSE_FOCUS was set above if we dragged first). */
 	if (dragwin == NULL || (flags & MOUSE_RELEASED))
 	    win_enter(wp, TRUE);		/* can make wp invalid! */
-# ifdef CHECK_DOUBLE_CLICK
+#ifdef CHECK_DOUBLE_CLICK
 	/* set topline, to be able to check for double click ourselves */
 	if (curwin != old_curwin)
 	    set_mouse_topline(curwin);
-# endif
 #endif
 	if (on_status_line)			/* In (or below) status line */
 	{
@@ -2789,7 +2792,6 @@ retnomove:
 	    else
 		return IN_STATUS_LINE | CURSOR_MOVED;
 	}
-#ifdef FEAT_WINDOWS
 	if (on_sep_line)			/* In (or below) status line */
 	{
 	    /* Don't use start_arrow() if we're in the same window */
@@ -2798,7 +2800,6 @@ retnomove:
 	    else
 		return IN_SEP_LINE | CURSOR_MOVED;
 	}
-#endif
 
 	curwin->w_cursor.lnum = curwin->w_topline;
 #ifdef FEAT_GUI
@@ -2811,7 +2812,6 @@ retnomove:
     }
     else if (on_status_line && which_button == MOUSE_LEFT)
     {
-#ifdef FEAT_WINDOWS
 	if (dragwin != NULL)
 	{
 	    /* Drag the status line */
@@ -2820,10 +2820,8 @@ retnomove:
 	    win_drag_status_line(dragwin, count);
 	    did_drag |= count;
 	}
-#endif
 	return IN_STATUS_LINE;			/* Cursor didn't move */
     }
-#ifdef FEAT_WINDOWS
     else if (on_sep_line && which_button == MOUSE_LEFT)
     {
 	if (dragwin != NULL)
@@ -2835,6 +2833,12 @@ retnomove:
 	    did_drag |= count;
 	}
 	return IN_SEP_LINE;			/* Cursor didn't move */
+    }
+#ifdef FEAT_MENU
+    else if (in_winbar)
+    {
+	/* After a click on the window toolbar don't start Visual mode. */
+	return IN_OTHER_WIN | MOUSE_WINBAR;
     }
 #endif
     else /* keep_window_focus must be TRUE */
@@ -2848,14 +2852,12 @@ retnomove:
 
 #if defined(FEAT_CMDWIN) && defined(FEAT_CLIPBOARD)
 	/* Continue a modeless selection in another window. */
-	if (cmdwin_type != 0 && row < W_WINROW(curwin))
+	if (cmdwin_type != 0 && row < curwin->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
 
 	row -= W_WINROW(curwin);
-#ifdef FEAT_WINDOWS
-	col -= W_WINCOL(curwin);
-#endif
+	col -= curwin->w_wincol;
 
 	/*
 	 * When clicking beyond the end of the window, scroll the screen.
@@ -2955,7 +2957,7 @@ retnomove:
     /* Check for position outside of the fold column. */
     if (
 # ifdef FEAT_RIGHTLEFT
-	    curwin->w_p_rl ? col < W_WIDTH(curwin) - curwin->w_p_fdc :
+	    curwin->w_p_rl ? col < curwin->w_width - curwin->w_p_fdc :
 # endif
 	    col >= curwin->w_p_fdc
 #  ifdef FEAT_CMDWIN
@@ -3030,7 +3032,7 @@ mouse_comp_pos(
 
 #ifdef FEAT_RIGHTLEFT
     if (win->w_p_rl)
-	col = W_WIDTH(win) - 1 - col;
+	col = win->w_width - 1 - col;
 #endif
 
     lnum = win->w_topline;
@@ -3074,7 +3076,7 @@ mouse_comp_pos(
 	off = win_col_off(win) - win_col_off2(win);
 	if (col < off)
 	    col = off;
-	col += row * (W_WIDTH(win) - off);
+	col += row * (win->w_width - off);
 	/* add skip column (for long wrapping line) */
 	col += win->w_skipcol;
     }
@@ -3098,15 +3100,16 @@ mouse_comp_pos(
     return retval;
 }
 
-#if defined(FEAT_WINDOWS) || defined(PROTO)
 /*
  * Find the window at screen position "*rowp" and "*colp".  The positions are
  * updated to become relative to the top-left of the window.
+ * Returns NULL when something is wrong.
  */
     win_T *
 mouse_find_win(int *rowp, int *colp UNUSED)
 {
     frame_T	*fp;
+    win_T	*wp;
 
     fp = topframe;
     *rowp -= firstwin->w_winrow;
@@ -3133,9 +3136,18 @@ mouse_find_win(int *rowp, int *colp UNUSED)
 	    }
 	}
     }
-    return fp->fr_win;
-}
+    /* When using a timer that closes a window the window might not actually
+     * exist. */
+    FOR_ALL_WINDOWS(wp)
+	if (wp == fp->fr_win)
+	{
+#ifdef FEAT_MENU
+	    *rowp -= wp->w_winbar_height;
 #endif
+	    return wp;
+	}
+    return NULL;
+}
 
 #if defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MAC) \
 	|| defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MSWIN) \
@@ -3153,21 +3165,17 @@ get_fpos_of_mouse(pos_T *mpos)
     if (row < 0 || col < 0)		/* check if it makes sense */
 	return IN_UNKNOWN;
 
-#ifdef FEAT_WINDOWS
     /* find the window where the row is in */
     wp = mouse_find_win(&row, &col);
-#else
-    wp = firstwin;
-#endif
+    if (wp == NULL)
+	return IN_UNKNOWN;
     /*
      * winpos and height may change in win_enter()!
      */
     if (row >= wp->w_height)	/* In (or below) status line */
 	return IN_STATUS_LINE;
-#ifdef FEAT_WINDOWS
     if (col >= wp->w_width)	/* In vertical separator line */
 	return IN_SEP_LINE;
-#endif
 
     if (wp != curwin)
 	return IN_UNKNOWN;

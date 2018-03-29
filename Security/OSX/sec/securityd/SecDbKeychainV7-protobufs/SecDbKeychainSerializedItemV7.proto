@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+message SecDbKeychainSerializedItemV7 {
+    required bytes encryptedSecretData = 1;
+    required bytes encryptedMetadata = 2;
+
+    enum Keyclass {
+        KEYCLASS_AK = 6;
+        KEYCLASS_CK = 7;
+        KEYCLASS_DK = 8;
+        KEYCLASS_AKU = 9;
+        KEYCLASS_CKU = 10;
+        KEYCLASS_DKU = 11;
+        KEYCLASS_AKPU = 12;
+    }
+    required Keyclass keyclass = 3 [default = KEYCLASS_AKPU];
+}

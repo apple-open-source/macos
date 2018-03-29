@@ -36,6 +36,8 @@
 @implementation CKKSDeviceStateEntry
 
 - (instancetype)initForDevice:(NSString*)device
+                    osVersion:(NSString*)osVersion
+               lastUnlockTime:(NSDate*)lastUnlockTime
                  circlePeerID:(NSString*)circlePeerID
                  circleStatus:(SOSCCStatus)circleStatus
                      keyState:(CKKSZoneKeyState*)keyState
@@ -49,6 +51,9 @@
                            encodedCKRecord:encodedrecord
                                     zoneID:zoneID])) {
         _device = device;
+        _osVersion = osVersion;
+        _lastUnlockTime = lastUnlockTime;
+
         _circleStatus = circleStatus;
         _keyState = keyState;
 
@@ -113,9 +118,11 @@
 -(NSString*)description {
     NSDate* updated = self.storedCKRecord.modificationDate;
 
-    return [NSString stringWithFormat:@"<CKKSDeviceStateEntry(%@,%@,%@): %@ %@ %@ %@ %@ upd:%@>",
+    return [NSString stringWithFormat:@"<CKKSDeviceStateEntry(%@,%@,%@,%@,%@): %@ %@ %@ %@ %@ upd:%@>",
             self.device,
             self.circlePeerID,
+            self.osVersion,
+            self.lastUnlockTime,
             self.zoneID.zoneName,
             SOSAccountGetSOSCCStatusString(self.circleStatus),
             self.keyState,
@@ -135,6 +142,8 @@
 
     return ([self.zoneID isEqual: obj.zoneID] &&
             ((self.device == nil && obj.device == nil)                       || [self.device isEqual: obj.device]) &&
+            ((self.osVersion == nil && obj.osVersion == nil)                 || [self.osVersion isEqual:obj.osVersion]) &&
+            ((self.lastUnlockTime == nil && obj.lastUnlockTime == nil)       || [self.lastUnlockTime isEqual:obj.lastUnlockTime]) &&
             ((self.circlePeerID == nil && obj.circlePeerID == nil)           || [self.circlePeerID isEqual: obj.circlePeerID]) &&
             (self.circleStatus == obj.circleStatus) &&
             ((self.keyState == nil && obj.keyState == nil)                   || [self.keyState isEqual: obj.keyState]) &&
@@ -182,6 +191,9 @@
                 userInfo:nil];
     }
 
+    record[SecCKSRecordOSVersionKey] = self.osVersion;
+    record[SecCKSRecordLastUnlockTime] = self.lastUnlockTime;
+
     record[SecCKRecordCircleStatus] = [self sosCCStatusToCKType: self.circleStatus];
     record[SecCKRecordKeyState] = CKKSZoneKeyToNumber(self.keyState);
 
@@ -203,8 +215,17 @@
         return false;
     }
 
-
     if(![record.recordID.recordName isEqualToString: [self CKRecordName]]) {
+        return false;
+    }
+
+    if((!(self.lastUnlockTime == nil && record[SecCKSRecordLastUnlockTime] == nil)) &&
+       ![record[SecCKSRecordLastUnlockTime] isEqual: self.lastUnlockTime]) {
+        return false;
+    }
+
+    if((!(self.osVersion == nil && record[SecCKSRecordOSVersionKey] == nil)) &&
+       ![record[SecCKSRecordOSVersionKey] isEqualToString: self.osVersion]) {
         return false;
     }
 
@@ -244,7 +265,9 @@
 
     [self setStoredCKRecord:record];
 
-    self.device = [CKKSDeviceStateEntry nameFromCKRecordID: record.recordID];;
+    self.osVersion = record[SecCKSRecordOSVersionKey];
+    self.lastUnlockTime = record[SecCKSRecordLastUnlockTime];
+    self.device = [CKKSDeviceStateEntry nameFromCKRecordID: record.recordID];
 
     self.circlePeerID = record[SecCKRecordCirclePeerID];
 
@@ -263,7 +286,7 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    return @[@"device", @"ckzone", @"peerid", @"circlestatus", @"keystate", @"currentTLK", @"currentClassA", @"currentClassC", @"ckrecord"];
+    return @[@"device", @"ckzone", @"osversion", @"lastunlock", @"peerid", @"circlestatus", @"keystate", @"currentTLK", @"currentClassA", @"currentClassC", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
@@ -271,8 +294,12 @@
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
+    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
+
     return @{@"device":        self.device,
              @"ckzone":        CKKSNilToNSNull(self.zoneID.zoneName),
+             @"osversion":     CKKSNilToNSNull(self.osVersion),
+             @"lastunlock":    CKKSNilToNSNull(self.lastUnlockTime ? [dateFormat stringFromDate:self.lastUnlockTime] : nil),
              @"peerid":        CKKSNilToNSNull(self.circlePeerID),
              @"circlestatus":  (__bridge NSString*)SOSAccountGetSOSCCStatusString(self.circleStatus),
              @"keystate":      CKKSNilToNSNull(self.keyState),
@@ -284,8 +311,13 @@
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary*)row {
+    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
+
     return [[CKKSDeviceStateEntry alloc] initForDevice:row[@"device"]
-                                          circlePeerID:CKKSNSNullToNil(row[@"peerid"]) circleStatus:SOSAccountGetSOSCCStatusFromString((__bridge CFStringRef) CKKSNSNullToNil(row[@"circlestatus"]))
+                                             osVersion:CKKSNSNullToNil(row[@"osversion"])
+                                        lastUnlockTime:[row[@"lastunlock"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"lastunlock"]]
+                                          circlePeerID:CKKSNSNullToNil(row[@"peerid"])
+                                          circleStatus:SOSAccountGetSOSCCStatusFromString((__bridge CFStringRef) CKKSNSNullToNil(row[@"circlestatus"]))
                                               keyState:CKKSNSNullToNil(row[@"keystate"])
                                         currentTLKUUID:CKKSNSNullToNil(row[@"currentTLK"])
                                      currentClassAUUID:CKKSNSNullToNil(row[@"currentClassA"])

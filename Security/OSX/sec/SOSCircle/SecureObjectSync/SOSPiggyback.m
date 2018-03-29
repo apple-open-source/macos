@@ -392,9 +392,9 @@ SOSPiggyBackBlobCreateFromDER(SOSGenCountRef  *retGencount,
 errOut:
     if(!res) {
         CFReleaseNull(gencount);
-        CFReleaseNull(publicBytes);
         CFReleaseNull(signature);
     }
+    CFReleaseNull(publicBytes);
     
     return res;
 }

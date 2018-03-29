@@ -30,9 +30,9 @@
 #import "StorageManager.h"
 #import "WebResourceLoadStatisticsStore.h"
 #import "WebsiteDataStoreParameters.h"
-#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/FileSystem.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
+#import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/NeverDestroyed.h>
 
 #if PLATFORM(IOS)
@@ -55,7 +55,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     resolveDirectoriesIfNecessary();
 
     WebsiteDataStoreParameters parameters;
-    parameters.sessionID = m_sessionID;
+    parameters.networkSessionParameters = { m_sessionID, nullptr, m_boundInterfaceIdentifier, m_allowsCellularAccess };
 
     auto cookieFile = resolvedCookieStorageFile();
 
@@ -70,10 +70,15 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     parameters.uiProcessCookieStorageIdentifier = m_uiProcessCookieStorageIdentifier;
 #endif
 
-    copyToVector(m_pendingCookies, parameters.pendingCookies);
+    parameters.pendingCookies = copyToVector(m_pendingCookies);
 
     if (!cookieFile.isEmpty())
-        SandboxExtension::createHandleForReadWriteDirectory(WebCore::directoryName(cookieFile), parameters.cookieStoragePathExtensionHandle);
+        SandboxExtension::createHandleForReadWriteDirectory(WebCore::FileSystem::directoryName(cookieFile), parameters.cookieStoragePathExtensionHandle);
+
+    if (!m_configuration.cacheStorageDirectory.isNull()) {
+        parameters.cacheStorageDirectory = m_configuration.cacheStorageDirectory;
+        SandboxExtension::createHandleForReadWriteDirectory(parameters.cacheStorageDirectory, parameters.cacheStorageDirectoryExtensionHandle);
+    }
 
     return parameters;
 }
@@ -124,7 +129,7 @@ void WebsiteDataStore::platformDestroy()
     }
 }
 
-void WebsiteDataStore::platformRemoveRecentSearches(std::chrono::system_clock::time_point oldestTimeToRemove)
+void WebsiteDataStore::platformRemoveRecentSearches(WallTime oldestTimeToRemove)
 {
     WebCore::removeRecentlyModifiedRecentSearches(oldestTimeToRemove);
 }

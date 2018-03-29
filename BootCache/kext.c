@@ -563,17 +563,6 @@ do { \
 static struct BC_cache_control BC_cache_softc;
 static struct BC_cache_control *BC_cache = &BC_cache_softc;
 
-/*
- * We support preloaded cache data by checking for a Mach-O
- * segment/section which can be populated with a playlist by the
- * linker.  This is particularly useful in the CD mastering process,
- * as reading the playlist from CD is very slow and rebuilding the
- * kext at mastering time is not practical.
- */
-extern kmod_info_t kmod_info;
-static struct BC_playlist_header *BC_preloaded_playlist;
-static int	BC_preloaded_playlist_size;
-
 static int	BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static int	BC_find_cache_mount(dev_t dev);
 static struct BC_cache_extent**	BC_find_extent(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, u_int64_t crypto_offset, int require_crypto_match, int* failed_due_to_crypto_mismatch, int contained, int* failed_with_intersection, int* pnum_extents);
@@ -610,7 +599,6 @@ static int	BC_size_history_entries(void);
 static int	BC_copyout_history_mounts(user_addr_t uptr);
 static int	BC_copyout_history_entries(user_addr_t uptr);
 static void	BC_discard_history(void);
-static void	BC_auto_start(void);
 static int	BC_setup(void);
 
 static int	fill_in_bc_cache_mounts(mount_t mount, void* arg);
@@ -3203,7 +3191,7 @@ BC_fill_in_extent(struct BC_cache_extent *ce)
 	
 	numblocks = howmany(ce->ce_length, blocksize);
 	
-	ce->ce_blockmap = BC_MALLOC(howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)),
+	ce->ce_blockmap = BC_MALLOC(howmany(numblocks, CB_MAPFIELDBITS) * CB_MAPFIELDBYTES, // Make sure allocation is a multiple of ce->ce_blockmap's size
 							  M_TEMP, M_WAITOK | M_ZERO);
 	if (!ce->ce_blockmap) {
 		message("can't allocate extent blockmap for %d blocks of %d bytes", numblocks, howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)));
@@ -4034,8 +4022,8 @@ compare_cache_extents(const void *vfirst, const void *vsecond)
 #endif
 
 /*
- * Fetch the playlist from userspace or the Mach-O segment where it
- * was preloaded. Add it to the cache and readahead in batches after
+ * Fetch the playlist from userspace.
+ * Add it to the cache and readahead in batches after
  * the current cache, if any.
  *
  * Returns 0 on success. In failure cases, the cache is not modified.
@@ -4093,28 +4081,24 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		debug("setting up first cache of %d extents", nplaylist_entries);
 	}
 	
-	for (cm_idx = 0; cm_idx < BC_cache->c_nmounts; cm_idx++) {
+	// We hold the write lock to the cache during this function, so BC_cache->c_nmounts won't be modified, but using a local variable - old_ncache_mounts - makes the static analyzer happy
+	const int old_ncache_mounts = BC_cache->c_nmounts;
+	for (cm_idx = 0; cm_idx < old_ncache_mounts; cm_idx++) {
 		debug("Mount %s has %d extents", uuid_string(BC_cache->c_mounts[cm_idx].cm_uuid), BC_cache->c_mounts[cm_idx].cm_nextents);
 	}
 
 	/*
 	 * Mount array
 	 */
-	if (BC_preloaded_playlist) {
-		playlist_mounts = CAST_DOWN(struct BC_playlist_mount *, mounts_buf);
-	} else {
-		playlist_mounts = BC_MALLOC(mounts_size, M_TEMP, M_WAITOK);
-		if (playlist_mounts == NULL) {
-			message("can't allocate unpack mount buffer of %ld bytes", mounts_size);
-			error = ENOMEM;
-			goto out;
-		}
-		if ((error = copyin(mounts_buf, playlist_mounts, mounts_size)) != 0) {
-			message("copyin %ld bytes from 0x%llx to %p failed", mounts_size, mounts_buf, playlist_mounts);
-			goto out;
-		}
-		
-		/* if BC_preloaded_playlist is non-NULL, playlist_mounts must be freed */
+	playlist_mounts = BC_MALLOC(mounts_size, M_TEMP, M_WAITOK);
+	if (playlist_mounts == NULL) {
+		message("can't allocate unpack mount buffer of %ld bytes", mounts_size);
+		error = ENOMEM;
+		goto out;
+	}
+	if ((error = copyin(mounts_buf, playlist_mounts, mounts_size)) != 0) {
+		message("copyin %ld bytes from 0x%llx to %p failed", mounts_size, mounts_buf, playlist_mounts);
+		goto out;
 	}
 	
 	/* map from the playlist mount index to the corresponding cache mount index */
@@ -4130,11 +4114,11 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	 * both arrays, then merge the two arrays into the new allocation.
 	 */
 	
-	if (BC_cache->c_nmounts > 0) {
+	if (old_ncache_mounts > 0) {
 		/* next_old_extent_idx saves the index of the next unmerged extent in the original mount's extent list */
-		next_old_extent_idx = BC_MALLOC(BC_cache->c_nmounts * sizeof(*next_old_extent_idx), M_TEMP, M_WAITOK | M_ZERO);
+		next_old_extent_idx = BC_MALLOC(old_ncache_mounts * sizeof(*next_old_extent_idx), M_TEMP, M_WAITOK | M_ZERO);
 		if (next_old_extent_idx == NULL) {
-			message("can't allocate index array for %d mounts", BC_cache->c_nmounts);
+			message("can't allocate index array for %d mounts", old_ncache_mounts);
 			error = ENOMEM;
 			goto out;
 		}
@@ -4148,7 +4132,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	for (pm_idx = 0; pm_idx < nplaylist_mounts; pm_idx++) {
 		pmidx_to_cmidx[pm_idx] = -1; /* invalid by default */
 		
-		for (cm_idx = 0; cm_idx < BC_cache->c_nmounts; cm_idx++) {
+		for (cm_idx = 0; cm_idx < old_ncache_mounts; cm_idx++) {
 			if (0 == uuid_compare(BC_cache->c_mounts[cm_idx].cm_uuid, playlist_mounts[pm_idx].pm_uuid)) {
 				/* already have a record of this mount, won't need a new spot for it */
 				pmidx_to_cmidx[pm_idx] = cm_idx;
@@ -4168,16 +4152,16 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	}
 	
 	/* cache_mounts is the array of mounts that will replace the one currently in the cache */
-	cache_mounts = BC_MALLOC((BC_cache->c_nmounts + nnew_mounts) * sizeof(*cache_mounts), M_TEMP, M_WAITOK | M_ZERO);
+	cache_mounts = BC_MALLOC((old_ncache_mounts + nnew_mounts) * sizeof(*cache_mounts), M_TEMP, M_WAITOK | M_ZERO);
 	if (cache_mounts == NULL) {
-		message("can't allocate memory for %d mounts", (BC_cache->c_nmounts + nnew_mounts));
+		message("can't allocate memory for %d mounts", (old_ncache_mounts + nnew_mounts));
 		error = ENOMEM;
 		goto out;
 	}
-	memcpy(cache_mounts, BC_cache->c_mounts, (BC_cache->c_nmounts * sizeof(*BC_cache->c_mounts)));
+	memcpy(cache_mounts, BC_cache->c_mounts, (old_ncache_mounts * sizeof(*BC_cache->c_mounts)));
 	
 	/* ncache_mounts is the current number of valid mounts in the mount array */
-	ncache_mounts = BC_cache->c_nmounts;
+	ncache_mounts = old_ncache_mounts;
 	
 	for (pm_idx = 0; pm_idx < nplaylist_mounts; pm_idx++) {
 		if (pmidx_to_cmidx[pm_idx] != -1) {
@@ -4191,7 +4175,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 
 			cm_idx = pmidx_to_cmidx[pm_idx];
 			
-			assert(cm_idx < BC_cache->c_nmounts);
+			assert(cm_idx < old_ncache_mounts);
 
 			/* grow the mount's extent array to fit the new extents (we'll fill in the new extents below) */
 			cache_mounts[cm_idx].cm_pextents = BC_MALLOC((BC_cache->c_mounts[cm_idx].cm_nextents + playlist_mounts[pm_idx].pm_nentries) * sizeof(*cache_mounts[cm_idx].cm_pextents), M_TEMP, M_WAITOK | M_ZERO);
@@ -4215,7 +4199,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			pmidx_to_cmidx[pm_idx] = ncache_mounts;
 			ncache_mounts++;
 		}
-	}	
+	}
 	
 	/* 
 	 * Extent array
@@ -4281,39 +4265,28 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* num_shared_bytes and num_nonshared_bytes is the number of bytes in the cache (the difference between the sum of those two and size is overhead due to alignment) */
 	num_shared_bytes = 0;
 	num_nonshared_bytes = 0;
-		
-	if (BC_preloaded_playlist) {
-		/*
-		 * Unpack the static control entry array into the extent array.
-		 */
-		playlist_entries = CAST_DOWN(struct BC_playlist_entry *, entries_buf);
-	} else {
-		/*
-		 * Since the playlist control entry structure is not the same as the
-		 * extent structure we use, we need to copy the control entries in
-		 * and unpack them.
-		 */
-		playlist_entries = BC_MALLOC(BC_PLC_CHUNK * sizeof(*playlist_entries),
-								   M_TEMP, M_WAITOK);
-		if (playlist_entries == NULL) {
-			message("can't allocate unpack buffer for %d entries", BC_PLC_CHUNK);
-			error = ENOMEM;
-			goto out;
-		}
+	
+	/*
+	 * Since the playlist control entry structure is not the same as the
+	 * extent structure we use, we need to copy the control entries in
+	 * and unpack them.
+	 */
+	playlist_entries = BC_MALLOC(BC_PLC_CHUNK * sizeof(*playlist_entries),
+								 M_TEMP, M_WAITOK);
+	if (playlist_entries == NULL) {
+		message("can't allocate unpack buffer for %d entries", BC_PLC_CHUNK);
+		error = ENOMEM;
+		goto out;
 	}
 	
 	remaining_entries = nplaylist_entries;
 	while (remaining_entries > 0) {
 		
-		if (BC_preloaded_playlist) {
-			actual = remaining_entries;
-		} else {
-			actual = min(remaining_entries, BC_PLC_CHUNK);
-			if ((error = copyin(entries_buf, playlist_entries,
-								actual * sizeof(struct BC_playlist_entry))) != 0) {
-				message("copyin from 0x%llx to %p failed", entries_buf, playlist_entries);
-				goto out;
-			}
+		actual = min(remaining_entries, BC_PLC_CHUNK);
+		if ((error = copyin(entries_buf, playlist_entries,
+							actual * sizeof(struct BC_playlist_entry))) != 0) {
+			message("copyin from 0x%llx to %p failed", entries_buf, playlist_entries);
+			goto out;
 		}
 		
 		/* unpack into our array */
@@ -4338,7 +4311,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			ce = cache_extents + ncache_extents;
 			
 			/* The size of the extent list is the number of playlist entries + the number of old cache extents */
-			max_entries = pm->pm_nentries + ((cm_idx < BC_cache->c_nmounts) ? BC_cache->c_mounts[cm_idx].cm_nextents : 0);
+			max_entries = pm->pm_nentries + ((cm_idx < old_ncache_mounts) ? BC_cache->c_mounts[cm_idx].cm_nextents : 0);
 			
 			if (cm->cm_nextents >= max_entries) {
 				message("Bad playlist: more entries existed than the mount %s claimed (%d)", uuid_string(pm->pm_uuid), pm->pm_nentries);
@@ -4357,7 +4330,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			
 			/* Merge the new extent with the old extents for this mount. The new extent may get clipped. */
 #ifdef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-			if (cm_idx < BC_cache->c_nmounts) {
+			if (cm_idx < old_ncache_mounts) {
 				old_cm = BC_cache->c_mounts + cm_idx;
 				/* Copy any lower or equal extents from the existing playlist down to the low end of the array */
 				while (next_old_extent_idx[cm_idx] < old_cm->cm_nextents &&
@@ -4450,7 +4423,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			goto out;
 		}
 		
-		if (cm_idx < BC_cache->c_nmounts) {
+		if (cm_idx < old_ncache_mounts) {
 			if (next_old_extent_idx[cm_idx] < BC_cache->c_mounts[cm_idx].cm_nextents) {
 				/* There are more extents in the old extent array, copy them over */
 				memcpy(cm->cm_pextents + cm->cm_nextents, BC_cache->c_mounts[cm_idx].cm_pextents + next_old_extent_idx[cm_idx], sizeof(*cm->cm_pextents) * (BC_cache->c_mounts[cm_idx].cm_nextents - next_old_extent_idx[cm_idx]));
@@ -4469,7 +4442,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		cm = cache_mounts + cm_idx;
 		
 		/* If this is a new mount or a mount with a new extent list, it needs sorting */
-		if (cm_idx >= BC_cache->c_nmounts ||
+		if (cm_idx >= old_ncache_mounts ||
 			cm->cm_pextents != BC_cache->c_mounts[cm_idx].cm_pextents) {
 			
 			qsort(cm->cm_pextents,
@@ -4559,11 +4532,9 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		goto out;
 	}
 		
-	if (! BC_preloaded_playlist) {
-		_FREE_ZERO(playlist_entries, M_TEMP);
-		_FREE_ZERO(playlist_mounts, M_TEMP);
-	}
-		
+	_FREE_ZERO(playlist_entries, M_TEMP);
+	_FREE_ZERO(playlist_mounts, M_TEMP);
+	
 	if (ncache_extents < nplaylist_entries) {
 		debug("%d extents added out of %d", ncache_extents, nplaylist_entries);
 	}
@@ -4646,8 +4617,8 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* We've successfully integrated the new playlist with our cache, copy it into place */
 	
 	/* free up old cache's allocations that we're replacing */
-	if (BC_cache->c_nmounts > 0) {
-		for (cm_idx = 0; cm_idx < BC_cache->c_nmounts; cm_idx++) {
+	if (old_ncache_mounts > 0) {
+		for (cm_idx = 0; cm_idx < old_ncache_mounts; cm_idx++) {
 			/* If we have a new extent array for this mount, free the old one */
 			if (BC_cache->c_mounts[cm_idx].cm_pextents != cache_mounts[cm_idx].cm_pextents) {
 				_FREE_ZERO(BC_cache->c_mounts[cm_idx].cm_pextents, M_TEMP);
@@ -4729,10 +4700,8 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 
 	/* all done */
 out:
-	if (! BC_preloaded_playlist) {
-		_FREE_ZERO(playlist_entries, M_TEMP);
-		_FREE_ZERO(playlist_mounts, M_TEMP);
-	}
+	_FREE_ZERO(playlist_entries, M_TEMP);
+	_FREE_ZERO(playlist_mounts, M_TEMP);
 	_FREE_ZERO(pmidx_to_cmidx, M_TEMP);
 	_FREE_ZERO(next_old_extent_idx, M_TEMP);
 	if (error != 0) {
@@ -5755,38 +5724,10 @@ BC_setup(void)
 
 
 /*
- * Called from the root-mount hook.
- */
-static void
-BC_auto_start(void)
-{
-	int error;
-	user_addr_t pm, pe;
-	
-	if ((error = BC_setup()) != 0) {
-		debug("BootCache setup failed: %d", error);
-		return;
-	}
-	
-	pm = CAST_USER_ADDR_T((uintptr_t)BC_preloaded_playlist + sizeof(struct BC_playlist_header));
-	pe = pm + (BC_preloaded_playlist->ph_nmounts * sizeof(struct BC_playlist_mount));
-	
-	/* Initialize the cache.
-	 *
-	 * auto-start is for DVDs or other read-only media, so don't bother recording history
-	 */
-	error = BC_init_cache(BC_preloaded_playlist->ph_nmounts  * sizeof(struct BC_playlist_mount), pm,
-						  BC_preloaded_playlist->ph_nentries * sizeof(struct BC_playlist_entry), pe,
-						  0 /* don't record history */);
-	if (error != 0)
-		debug("BootCache autostart failed: %d", error);
-}
-
-/*
  * Called from the root-unmount hook.
  */
 static void
-BC_unmount_hook(void)
+BC_root_unmount_hook(void)
 {
 	debug("device unmounted");
 	
@@ -5827,10 +5768,6 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 	switch (bc.bc_opcode) {
 		case BC_OP_START:
 			debug("BC_OP_START(%d mounts, %d extents) by %s [%d]", (int)(bc.bc_data1_size / sizeof(struct BC_playlist_mount)), (int)(bc.bc_data2_size / sizeof(struct BC_playlist_entry)), procname, proc_selfppid());
-			if (BC_preloaded_playlist) {
-				error = EINVAL;
-				break;
-			}
 			error = BC_init_cache(bc.bc_data1_size, (user_addr_t)bc.bc_data1, bc.bc_data2_size, (user_addr_t)bc.bc_data2, 1 /* record history */);
 			if (error != 0) {
 				message("cache init failed");
@@ -6057,7 +5994,7 @@ BC_free_page(struct BC_cache_extent *ce, int page)
 }
 
 void
-BC_hook(void)
+BC_root_mount_hook(void)
 {
 	int error;
 	
@@ -6072,12 +6009,6 @@ BC_hook(void)
 void
 BC_load(void)
 {
-	struct mach_header	*mh;
-	long			xsize;
-	int			has64bitness, error;
-	size_t			sysctlsize = sizeof(int);
-	char			*plsection = "playlist";
-	
 #ifdef BC_DEBUG
 	microtime(&debug_starttime);
 #endif
@@ -6096,60 +6027,10 @@ BC_load(void)
 #ifdef BC_DEBUG
 	lck_mtx_init(&debug_printlock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 #endif
-	/*
-	 * Find the preload section and its size.  If it's not empty
-	 * we have a preloaded playlist, so prepare for an early
-	 * start.
-	 */
-	if (kmod_info.info_version != KMOD_INFO_VERSION) {
-		message("incompatible kmod_info versions");
-		return;
-	}
-	mh = (struct mach_header *)kmod_info.address;
 	
-	/*
-	 * If booting on a 32-bit only machine, use the "playlist32" section.
-	 * Otherwise, fall through to the default "playlist" section.
-	 */
-	error = sysctlbyname("hw.cpu64bit_capable", &has64bitness, &sysctlsize, 
-						 NULL, 0);
-	if (error == 0 && has64bitness == 0) {
-		plsection = "playlist32";
-	}
-	BC_preloaded_playlist = getsectdatafromheader(mh, "BootCache", 
-												  plsection, &BC_preloaded_playlist_size);
-	debug("preload section %s: %d @ %p", 
-	      plsection, BC_preloaded_playlist_size, BC_preloaded_playlist);
-	
-	if (BC_preloaded_playlist != NULL) {
-		if (BC_preloaded_playlist_size < sizeof(struct BC_playlist_header)) {
-			message("preloaded playlist too small");
-			return;
-		}
-		if (BC_preloaded_playlist->ph_magic != PH_MAGIC) {
-			message("preloaded playlist has invalid magic (%x, expected %x)",
-					BC_preloaded_playlist->ph_magic, PH_MAGIC);
-			return;
-		}
-		xsize = sizeof(struct BC_playlist_header) +
-		(BC_preloaded_playlist->ph_nmounts  * sizeof(struct BC_playlist_mount)) +
-		(BC_preloaded_playlist->ph_nentries * sizeof(struct BC_playlist_entry));
-		if (xsize > BC_preloaded_playlist_size) {
-			message("preloaded playlist too small (%d, expected at least %ld)",
-					BC_preloaded_playlist_size, xsize);
-			return;
-		}
-		BC_wait_for_readahead = BC_READAHEAD_WAIT_CDROM;
-		mountroot_post_hook = BC_auto_start;
-		unmountroot_pre_hook = BC_unmount_hook;
-		
-		debug("waiting for root mount...");
-	} else {
-		/* no preload, normal operation */
-		BC_preloaded_playlist = NULL;
-		mountroot_post_hook = BC_hook;
-		debug("waiting for playlist...");
-	}
+	unmountroot_pre_hook = BC_root_unmount_hook;
+	mountroot_post_hook = BC_root_mount_hook;
+	debug("waiting for playlist...");
 	
 	microtime(&BC_cache->c_loadtime);
 	BC_cache->c_stats.ss_load_timestamp = mach_absolute_time();

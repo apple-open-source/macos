@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2014  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2014-2016  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -36,35 +36,100 @@
 
 #include "config.h"
 
+#include <pk11/site.h>
+
+#ifndef PK11_MD5_DISABLE
+
 #include <isc/assertions.h>
 #include <isc/md5.h>
 #include <isc/platform.h>
 #include <isc/string.h>
 #include <isc/types.h>
+
+#if PKCS11CRYPTO
+#include <pk11/internal.h>
+#include <pk11/pk11.h>
+#endif
+
 #include <isc/util.h>
 
 #ifdef ISC_PLATFORM_OPENSSLHASH
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define EVP_MD_CTX_new() &(ctx->_ctx)
+#define EVP_MD_CTX_free(ptr) EVP_MD_CTX_cleanup(ptr)
+#endif
 
 void
 isc_md5_init(isc_md5_t *ctx) {
-	RUNTIME_CHECK(EVP_DigestInit(ctx, EVP_md5()) == 1);
+	ctx->ctx = EVP_MD_CTX_new();
+	RUNTIME_CHECK(ctx->ctx != NULL);
+	RUNTIME_CHECK(EVP_DigestInit(ctx->ctx, EVP_md5()) == 1);
 }
 
 void
 isc_md5_invalidate(isc_md5_t *ctx) {
-	EVP_MD_CTX_cleanup(ctx);
+	EVP_MD_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
 }
 
 void
 isc_md5_update(isc_md5_t *ctx, const unsigned char *buf, unsigned int len) {
-	RUNTIME_CHECK(EVP_DigestUpdate(ctx,
+	if (len == 0U)
+		return;
+	RUNTIME_CHECK(EVP_DigestUpdate(ctx->ctx,
 				       (const void *) buf,
 				       (size_t) len) == 1);
 }
 
 void
 isc_md5_final(isc_md5_t *ctx, unsigned char *digest) {
-	RUNTIME_CHECK(EVP_DigestFinal(ctx, digest, NULL) == 1);
+	RUNTIME_CHECK(EVP_DigestFinal(ctx->ctx, digest, NULL) == 1);
+	EVP_MD_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
+}
+
+#elif PKCS11CRYPTO
+
+void
+isc_md5_init(isc_md5_t *ctx) {
+	CK_RV rv;
+	CK_MECHANISM mech = { CKM_MD5, NULL, 0 };
+
+	RUNTIME_CHECK(pk11_get_session(ctx, OP_DIGEST, ISC_TRUE, ISC_FALSE,
+				       ISC_FALSE, NULL, 0) == ISC_R_SUCCESS);
+	PK11_FATALCHECK(pkcs_C_DigestInit, (ctx->session, &mech));
+}
+
+void
+isc_md5_invalidate(isc_md5_t *ctx) {
+	CK_BYTE garbage[ISC_MD5_DIGESTLENGTH];
+	CK_ULONG len = ISC_MD5_DIGESTLENGTH;
+
+	if (ctx->handle == NULL)
+		return;
+	(void) pkcs_C_DigestFinal(ctx->session, garbage, &len);
+	memset(garbage, 0, sizeof(garbage));
+	pk11_return_session(ctx);
+}
+
+void
+isc_md5_update(isc_md5_t *ctx, const unsigned char *buf, unsigned int len) {
+	CK_RV rv;
+	CK_BYTE_PTR pPart;
+
+	DE_CONST(buf, pPart);
+	PK11_FATALCHECK(pkcs_C_DigestUpdate,
+			(ctx->session, pPart, (CK_ULONG) len));
+}
+
+void
+isc_md5_final(isc_md5_t *ctx, unsigned char *digest) {
+	CK_RV rv;
+	CK_ULONG len = ISC_MD5_DIGESTLENGTH;
+
+	PK11_FATALCHECK(pkcs_C_DigestFinal,
+			(ctx->session, (CK_BYTE_PTR) digest, &len));
+	pk11_return_session(ctx);
 }
 
 #else
@@ -277,3 +342,15 @@ isc_md5_final(isc_md5_t *ctx, unsigned char *digest) {
 	memset(ctx, 0, sizeof(isc_md5_t));	/* In case it's sensitive */
 }
 #endif
+
+#else /* !PK11_MD5_DISABLE */
+#ifdef WIN32
+/* Make the Visual Studio linker happy */
+#include <isc/util.h>
+
+void isc_md5_final() { INSIST(0); }
+void isc_md5_init() { INSIST(0); }
+void isc_md5_invalidate() { INSIST(0); }
+void isc_md5_update() { INSIST(0); }
+#endif
+#endif /* PK11_MD5_DISABLE */

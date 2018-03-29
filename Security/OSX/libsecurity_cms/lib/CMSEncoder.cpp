@@ -98,6 +98,7 @@ struct _CMSEncoder {
 
 	CMSCertificateChainMode chainMode;
     CFDataRef           hashAgilityAttrValue;
+    CFDictionaryRef     hashAgilityV2AttrValues;
 };
 
 static void cmsEncoderInit(CFTypeRef enc);
@@ -529,6 +530,16 @@ static OSStatus cmsSetupForSignedData(
             if(ortn) {
                 ortn = cmsRtnToOSStatus(ortn);
                 CSSM_PERROR("SecCmsSignerInfoAddAppleCodesigningHashAgility", ortn);
+                break;
+            }
+        }
+        if(cmsEncoder->signedAttributes & kCMSAttrAppleCodesigningHashAgilityV2) {
+            ortn = SecCmsSignerInfoAddAppleCodesigningHashAgilityV2(signerInfo, cmsEncoder->hashAgilityV2AttrValues);
+            /* libsecurity_smime made a copy of the attribute value. We don't need it anymore. */
+            CFReleaseNull(cmsEncoder->hashAgilityV2AttrValues);
+            if(ortn) {
+                ortn = cmsRtnToOSStatus(ortn);
+                CSSM_PERROR("SecCmsSignerInfoAddAppleCodesigningHashAgilityV2", ortn);
                 break;
             }
         }
@@ -1021,6 +1032,22 @@ OSStatus CMSEncoderSetAppleCodesigningHashAgility(
         return errSecParam;
     }
     cmsEncoder->hashAgilityAttrValue = CFRetainSafe(hashAgilityAttrValue);
+    return errSecSuccess;
+}
+
+/*
+ * Set the hash agility attribute for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleCodesigningHashAgilityV2 attribute
+ * is included.
+ */
+OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
+    CMSEncoderRef   cmsEncoder,
+    CFDictionaryRef       hashAgilityV2AttrValues)
+{
+    if (cmsEncoder == NULL || cmsEncoder->encState != ES_Init) {
+        return errSecParam;
+    }
+    cmsEncoder->hashAgilityV2AttrValues = CFRetainSafe(hashAgilityV2AttrValues);
     return errSecSuccess;
 }
 

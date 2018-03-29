@@ -44,13 +44,6 @@
 #define kSHA256HMAC160Bits  160
 #define kSHA256HMAC160Bytes (kSHA256HMAC160Bits/8)
 
-// Result and exponent are expected to be kExponentiationUnits big.
-void OTRExponentiate(cc_unit* res, const cc_unit* base, const cc_unit* exponent);
-void OTRGroupExponentiate(cc_unit* result, const cc_unit* exponent);
-
-OSStatus GetRandomBytesInLSBs(size_t bytesOfRandomness, size_t n, cc_unit* place);
-OSStatus FillWithRandomBytes(size_t n, cc_unit* place);
-
 typedef enum {
     kSSID = 0x00,
     kCs = 0x01,
@@ -58,14 +51,14 @@ typedef enum {
     kM2 = 0x03,
     kM1Prime = 0x04,
     kM2Prime = 0x05
-} KeyType;
+} OTRKeyType;
 
 
-void DeriveOTR256BitsFromS(KeyType whichKey, size_t sSize, const cc_unit* s, size_t keySize, uint8_t* key);
-void DeriveOTR128BitPairFromS(KeyType whichHalf, size_t sSize, const cc_unit* s,
+void DeriveOTR256BitsFromS(OTRKeyType whichKey, size_t sSize, const cc_unit* s, size_t keySize, uint8_t* key);
+void DeriveOTR128BitPairFromS(OTRKeyType whichHalf, size_t sSize, const cc_unit* s,
                               size_t firstKeySize, uint8_t* firstKey,
                               size_t secondKeySize, uint8_t* secondKey);
-void DeriveOTR64BitsFromS(KeyType whichKey, size_t sSize, const cc_unit* s,
+void DeriveOTR64BitsFromS(OTRKeyType whichKey, size_t sSize, const cc_unit* s,
                           size_t firstKeySize, uint8_t* firstKey);
 
 

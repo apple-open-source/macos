@@ -270,6 +270,14 @@ public:
         m_assembler.sw(dataTempRegister, addrTempRegister, 4);
     }
 
+    void getEffectiveAddress(BaseIndex address, RegisterID dest)
+    {
+        m_assembler.sll(addrTempRegister, address.index, address.scale);
+        m_assembler.addu(dest, addrTempRegister, address.base);
+        if (address.offset)
+            add32(TrustedImm32(address.offset), dest);
+    }
+
     void and32(Address src, RegisterID dest)
     {
         load32(src, dataTempRegister);
@@ -374,6 +382,11 @@ public:
     void neg32(RegisterID srcDest)
     {
         m_assembler.subu(srcDest, MIPSRegisters::zero, srcDest);
+    }
+
+    void neg32(RegisterID src, RegisterID dest)
+    {
+        m_assembler.subu(dest, MIPSRegisters::zero, src);
     }
 
     void or32(RegisterID src, RegisterID dest)
@@ -1809,10 +1822,10 @@ public:
             */
             move(dest, dataTempRegister);
             m_assembler.xorInsn(cmpTempRegister, dataTempRegister, src);
-            m_assembler.bltz(cmpTempRegister, 10);
+            m_assembler.bltz(cmpTempRegister, 12);
             m_assembler.addu(dest, dataTempRegister, src);
             m_assembler.xorInsn(cmpTempRegister, dest, dataTempRegister);
-            m_assembler.bgez(cmpTempRegister, 7);
+            m_assembler.bgez(cmpTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -1862,10 +1875,10 @@ public:
             */
             move(op1, dataTempRegister);
             m_assembler.xorInsn(cmpTempRegister, dataTempRegister, op2);
-            m_assembler.bltz(cmpTempRegister, 10);
+            m_assembler.bltz(cmpTempRegister, 12);
             m_assembler.addu(dest, dataTempRegister, op2);
             m_assembler.xorInsn(cmpTempRegister, dest, dataTempRegister);
-            m_assembler.bgez(cmpTempRegister, 7);
+            m_assembler.bgez(cmpTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -1936,21 +1949,21 @@ public:
             if (imm.m_value >= -32768 && imm.m_value  <= 32767 && !m_fixedWidth) {
                 load32(dest.m_ptr, dataTempRegister);
                 m_assembler.xori(cmpTempRegister, dataTempRegister, imm.m_value);
-                m_assembler.bltz(cmpTempRegister, 10);
+                m_assembler.bltz(cmpTempRegister, 14);
                 m_assembler.addiu(dataTempRegister, dataTempRegister, imm.m_value);
                 store32(dataTempRegister, dest.m_ptr);
                 m_assembler.xori(cmpTempRegister, dataTempRegister, imm.m_value);
-                m_assembler.bgez(cmpTempRegister, 7);
+                m_assembler.bgez(cmpTempRegister, 9);
                 m_assembler.nop();
             } else {
                 load32(dest.m_ptr, dataTempRegister);
                 move(imm, immTempRegister);
                 m_assembler.xorInsn(cmpTempRegister, dataTempRegister, immTempRegister);
-                m_assembler.bltz(cmpTempRegister, 10);
+                m_assembler.bltz(cmpTempRegister, 14);
                 m_assembler.addiu(dataTempRegister, dataTempRegister, immTempRegister);
                 store32(dataTempRegister, dest.m_ptr);
                 m_assembler.xori(cmpTempRegister, dataTempRegister, immTempRegister);
-                m_assembler.bgez(cmpTempRegister, 7);
+                m_assembler.bgez(cmpTempRegister, 9);
                 m_assembler.nop();
             }
             return jump();
@@ -2000,7 +2013,7 @@ public:
             m_assembler.mfhi(dataTempRegister);
             m_assembler.mflo(dest);
             m_assembler.sra(addrTempRegister, dest, 31);
-            m_assembler.beq(dataTempRegister, addrTempRegister, 7);
+            m_assembler.beq(dataTempRegister, addrTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -2045,7 +2058,7 @@ public:
             m_assembler.mfhi(dataTempRegister);
             m_assembler.mflo(dest);
             m_assembler.sra(addrTempRegister, dest, 31);
-            m_assembler.beq(dataTempRegister, addrTempRegister, 7);
+            m_assembler.beq(dataTempRegister, addrTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -2095,10 +2108,10 @@ public:
             */
             move(dest, dataTempRegister);
             m_assembler.xorInsn(cmpTempRegister, dataTempRegister, src);
-            m_assembler.bgez(cmpTempRegister, 10);
+            m_assembler.bgez(cmpTempRegister, 12);
             m_assembler.subu(dest, dataTempRegister, src);
             m_assembler.xorInsn(cmpTempRegister, dest, dataTempRegister);
-            m_assembler.bgez(cmpTempRegister, 7);
+            m_assembler.bgez(cmpTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -2154,10 +2167,10 @@ public:
             */
             move(op1, dataTempRegister);
             m_assembler.xorInsn(cmpTempRegister, dataTempRegister, op2);
-            m_assembler.bgez(cmpTempRegister, 10);
+            m_assembler.bgez(cmpTempRegister, 12);
             m_assembler.subu(dest, dataTempRegister, op2);
             m_assembler.xorInsn(cmpTempRegister, dest, dataTempRegister);
-            m_assembler.bgez(cmpTempRegister, 7);
+            m_assembler.bgez(cmpTempRegister, 9);
             m_assembler.nop();
             return jump();
         }
@@ -2952,21 +2965,15 @@ public:
 
     // Truncates 'src' to an integer, and places the resulting 'dest'.
     // If the result is not representable as a 32 bit value, branch.
-    // May also branch for some values that are representable in 32 bits
-    // (specifically, in this case, INT_MAX 0x7fffffff).
     enum BranchTruncateType { BranchIfTruncateFailed, BranchIfTruncateSuccessful };
+
     Jump branchTruncateDoubleToInt32(FPRegisterID src, RegisterID dest, BranchTruncateType branchType = BranchIfTruncateFailed)
     {
         m_assembler.truncwd(fpTempRegister, src);
+        m_assembler.cfc1(dataTempRegister, MIPSRegisters::fcsr);
         m_assembler.mfc1(dest, fpTempRegister);
-        return branch32(branchType == BranchIfTruncateFailed ? Equal : NotEqual, dest, TrustedImm32(0x7fffffff));
-    }
-
-    Jump branchTruncateDoubleToUint32(FPRegisterID src, RegisterID dest, BranchTruncateType branchType = BranchIfTruncateFailed)
-    {
-        m_assembler.truncwd(fpTempRegister, src);
-        m_assembler.mfc1(dest, fpTempRegister);
-        return branch32(branchType == BranchIfTruncateFailed ? Equal : NotEqual, dest, TrustedImm32(0x7fffffff));
+        and32(TrustedImm32(MIPSAssembler::FP_CAUSE_INVALID_OPERATION), dataTempRegister);
+        return branch32(branchType == BranchIfTruncateFailed ? NotEqual : Equal, dataTempRegister, MIPSRegisters::zero);
     }
 
     // Result is undefined if the value is outside of the integer range.

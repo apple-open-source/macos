@@ -56,10 +56,7 @@ typedef enum {
 // Only touch these three dictionaries from the dataQueue or you will crash, eventually.
 @property (retain, nonatomic) NSMutableDictionary *messagesInFlight;
 @property (retain, nonatomic) NSMutableDictionary *unhandledMessageBuffer;
-@property (retain, nonatomic) NSMutableDictionary *monitor;
-
-@property (retain, nonatomic) NSArray*          listOfDevices;
-
+@property (retain, nonatomic) NSMutableDictionary *monitor; 
 @property (atomic) dispatch_source_t            penaltyTimer;
 @property (atomic) bool                         penaltyTimerScheduled;
 @property (retain, atomic) NSDictionary         *queuedMessages;
@@ -67,6 +64,10 @@ typedef enum {
 @property (retain, atomic) NSMutableDictionary  *counterValues;
 @property (atomic) NSInteger                     outgoingMessages;
 @property (atomic) NSInteger                     incomingMessages;
+
+
+
+
 
 @property (atomic) bool isIDSInitDone;
 @property (atomic) bool shadowDoInitializeIDSService;
@@ -88,6 +89,7 @@ typedef enum {
 @property (atomic) bool handleAllPendingMessages;
 @property (atomic) bool shadowHandleAllPendingMessages;
 @property (atomic) bool sendRestoredMessages;
+@property (atomic) bool allowKVSFallBack;
 
 + (KeychainSyncingOverIDSProxy *) idsProxy;
 
@@ -109,7 +111,11 @@ typedef enum {
 - (NSDictionary*) collectStats;
 - (void) scheduleRetryRequestTimer;
 - (BOOL) haveMessagesInFlight;
+-(void) printMessage:(NSDictionary*) message state:(NSString*)state;
+
 @end
 
 NSString* createErrorString(NSString* format, ...)
     NS_FORMAT_FUNCTION(1, 2);
+
+

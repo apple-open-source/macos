@@ -854,6 +854,9 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if ((inEvent = xpc_dictionary_get_value(event, kPSAdapterDetails))) {
                          sendAdapterDetails(peer, event);
                      }
+                     else if ((inEvent = xpc_dictionary_get_value(event, kInactivityWindowKey))) {
+                         setInactivityWindow(peer, event);
+                     }
                      else {
                         os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }
