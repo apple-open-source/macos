@@ -40,6 +40,8 @@
 
 // --------------------------------
 // Things below are for unit testing
+- (instancetype)initWithDictionary:(NSDictionary *)dictionary name:(NSString *)topicName samplingRates:(NSDictionary *)rates;
+- (BOOL)haveEligibleClients;
 + (NSString*)databasePathForCKKS;
 + (NSString*)databasePathForSOS;
 + (NSString*)databasePathForPCS;
@@ -47,17 +49,7 @@
 @end
 
 @interface SFAnalyticsReporter : NSObject
-- (NSString *)databaseDirectoryPath;
-- (NSString *)reportsDirectoryPath;
-- (id)init;
-- (id)initWithPath:(NSString *)path validity:(NSTimeInterval)validity;
-- (BOOL)removeFilesFrom:(NSString *)directory olderThanSecond:(NSTimeInterval)seconds;
-- (BOOL)setupReportsDirectory;
-- (BOOL)cleanupReportsDirectory;
-- (BOOL)saveReport:(NSData *)reportData;
-
-@property NSString *databasePath;
-@property NSTimeInterval reportValidityPeriod;
+- (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName;
 @end
 
 @interface supd : NSObject <supdProtocol>

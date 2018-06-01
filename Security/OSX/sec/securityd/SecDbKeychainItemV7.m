@@ -443,6 +443,38 @@ static void initializeSharedMetadataStoreQueue(void) {
     [_keysDict removeAllObjects];
 }
 
+- (void)_updateActualKeyclassIfNeeded:(keyclass_t)actualKeyclassToWriteBackToDB keyclass:(keyclass_t)keyclass
+{
+    __block CFErrorRef cfError = NULL;
+
+    secnotice("SecDbKeychainItemV7", "saving actualKeyclass %d for metadata keyclass %d", actualKeyclassToWriteBackToDB, keyclass);
+
+    kc_with_dbt_non_item_tables(true, &cfError, ^bool(SecDbConnectionRef dbt) {
+        __block bool actualKeyWriteBackOk = true;
+
+        // we did not find an actualKeyclass entry in the db, so let's add one in now.
+        NSString *sql = @"UPDATE metadatakeys SET actualKeyclass = ? WHERE keyclass = ? AND actualKeyclass IS NULL";
+        __block CFErrorRef actualKeyWriteBackError = NULL;
+        actualKeyWriteBackOk &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &actualKeyWriteBackError, ^(sqlite3_stmt* stmt) {
+            actualKeyWriteBackOk &= SecDbBindInt(stmt, 1, actualKeyclassToWriteBackToDB, &actualKeyWriteBackError);
+            actualKeyWriteBackOk &= SecDbBindInt(stmt, 2, keyclass, &actualKeyWriteBackError);
+            actualKeyWriteBackOk &= SecDbStep(dbt, stmt, &actualKeyWriteBackError, ^(bool* stop) {
+                // woohoo
+            });
+        });
+
+        if (actualKeyWriteBackOk) {
+            secnotice("SecDbKeychainItemV7", "successfully saved actualKeyclass %d for metadata keyclass %d", actualKeyclassToWriteBackToDB, keyclass);
+
+        }
+        else {
+            // we can always try this again in the future if it failed
+            secerror("SecDbKeychainItemV7: failed to save actualKeyclass %d for metadata keyclass %d; error: %@", actualKeyclassToWriteBackToDB, keyclass, actualKeyWriteBackError);
+        }
+        return actualKeyWriteBackOk;
+    });
+}
+
 - (SFAESKey*)keyForKeyclass:(keyclass_t)keyclass
                      keybag:(keybag_handle_t)keybag
                keySpecifier:(SFAESKeySpecifier*)keySpecifier
@@ -525,23 +557,16 @@ static void initializeSharedMetadataStoreQueue(void) {
                         
                         if (ok) {
                             if (actualKeyclassToWriteBackToDB > 0) {
-                                // we did not find an actualKeyclass entry in the db, so let's add one in now.
-                                secinfo("SecDbKeychainItemV7", "saving actualKeyclass %d for metadata keyclass %d", actualKeyclassToWriteBackToDB, keyclass);
-                                sql = @"UPDATE metadatakeys SET actualKeyclass = ? WHERE keyclass = ?";
-                                __block bool actualKeyWriteBackOk = true;
-                                __block CFErrorRef actualKeyWriteBackError = NULL;
-                                actualKeyWriteBackOk &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &actualKeyWriteBackError, ^(sqlite3_stmt* stmt) {
-                                    actualKeyWriteBackOk &= SecDbBindInt(stmt, 1, actualKeyclassToWriteBackToDB, &actualKeyWriteBackError);
-                                    actualKeyWriteBackOk &= SecDbBindInt(stmt, 2, keyclass, &actualKeyWriteBackError);
-                                    actualKeyWriteBackOk &= SecDbStep(dbt, stmt, &actualKeyWriteBackError, ^(bool* stop) {
-                                        // woohoo
+                                // check if we have updated this keyclass or not already
+                                static NSMutableDictionary* updated = NULL;
+                                if (!updated) {
+                                    updated = [NSMutableDictionary dictionary];
+                                }
+                                if (!updated[@(keyclass)]) {
+                                    updated[@(keyclass)] = @YES;
+                                    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                                        [self _updateActualKeyclassIfNeeded:actualKeyclassToWriteBackToDB keyclass:keyclass];
                                     });
-                                });
-                                
-                                if (!actualKeyWriteBackOk) {
-                                    // we're not going to fail the whole metadata key fetch operation because this part failed.
-                                    // if we successfully fetched and unwrapped a key we'll go ahead and use it - we can always try this operation again in the future.
-                                    secerror("SecDbKeychainItemV7: failed to save actualKeyclass %d for metadata keyclass %d; error: %@", actualKeyclassToWriteBackToDB, keyclass, actualKeyWriteBackError);
                                 }
                             }
                         }

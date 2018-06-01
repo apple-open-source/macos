@@ -125,6 +125,10 @@ void SecPathBuilderSetRevocationMethod(SecPathBuilderRef builder, CFStringRef me
 bool SecPathBuilderGetCheckRevocationOnline(SecPathBuilderRef builder);
 void SecPathBuilderSetCheckRevocationOnline(SecPathBuilderRef builder);
 
+/* Only do networking for revocation if the chain is trusted */
+bool SecPathBuilderGetCheckRevocationIfTrusted(SecPathBuilderRef builder);
+void SecPathBuilderSetCheckRevocationIfTrusted(SecPathBuilderRef builder);
+
 /* Core of the trust evaluation engine, this will invoke the completed
    callback and return false if the evaluation completed, or return true if
    the evaluation is still waiting for some external event (usually the

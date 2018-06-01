@@ -427,6 +427,15 @@ IOFireWireUserClient::start( IOService * provider )
 
     if( result )
     {
+        fUserClientLock = IOLockAlloc ();
+        if( !fUserClientLock )
+        {
+            result = false;
+        }
+    }
+    
+    if( result )
+    {
         fController = fOwner->getController();
         if( fController == NULL )
         {
@@ -511,6 +520,12 @@ IOFireWireUserClient::free()
     if( fController )
     {
         fController->release();
+    }
+    
+    if( fUserClientLock )
+    {
+        IOLockFree( fUserClientLock );
+        fUserClientLock = NULL;
     }
     
 	if ( fOwner )
@@ -2565,7 +2580,7 @@ copyUserData (
 		mach_vm_address_t		kernBuffer, 
 		mach_vm_size_t 			bytes ) const
 {
-	if( (userBuffer == NULL) || (kernBuffer == NULL) )
+	if( (userBuffer == 0) || (kernBuffer == 0) )
 	{
 		return kIOReturnNoMemory;
 	}
@@ -2605,7 +2620,7 @@ IOFireWireUserClient::copyToUserBuffer (
 	IOByteCount 			bytes,
 	IOByteCount & 			bytesCopied )
 {
-	if( (userBuffer == NULL) || (kernelBuffer == NULL) )
+	if( (userBuffer == 0) || (kernelBuffer == 0) )
 	{
 		return kIOReturnNoMemory;
 	}
@@ -4728,7 +4743,13 @@ IOFireWireUserClient::userAsyncCommand_Submit(
         return kIOReturnBadArgument;
     }
     
-    fController->closeGate();
+    if( fUserClientLock == NULL )
+    {
+        // should have bailed out in start if fUserClientLock is NULL, but just to be extra safe...
+        return kIOReturnCannotLock;
+    }
+    
+    IOLockLock( fUserClientLock );
     
 	if ( params->kernCommandRef )
 	{
@@ -4776,7 +4797,7 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 		cmd->release() ;		// we need to release this in all cases
 	}
 
-    fController->openGate();
+    IOLockUnlock( fUserClientLock );
 
 	return error ;
 }

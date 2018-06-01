@@ -1836,6 +1836,10 @@ static void SecPolicyCheckRevocationOnline(SecPVCRef pvc, CFStringRef key) {
     SecPathBuilderSetCheckRevocationOnline(pvc->builder);
 }
 
+static void SecPolicyCheckRevocationIfTrusted(SecPVCRef pvc, CFStringRef key) {
+    SecPathBuilderSetCheckRevocationIfTrusted(pvc->builder);
+}
+
 static void SecPolicyCheckNoNetworkAccess(SecPVCRef pvc,
     CFStringRef key) {
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
@@ -2019,7 +2023,7 @@ static void SecPolicyCheckPinningRequired(SecPVCRef pvc, CFStringRef key) {
     for (policyIX = 0; policyIX < policyCount; ++policyIX) {
         SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, policyIX);
         CFStringRef policyName = SecPolicyGetName(policy);
-        if (CFEqualSafe(policyName, CFSTR("sslServer"))) {
+        if (CFEqualSafe(policyName, kSecPolicyNameSSLServer)) {
             /* policy required pinning, but we didn't use a pinning policy */
             if (!SecPVCSetResult(pvc, key, 0, kCFBooleanFalse)) {
                 return;
@@ -3010,6 +3014,25 @@ static void SecPVCCheckIssuerDateConstraints(SecPVCRef pvc) {
     }
 }
 
+static bool SecPVCIsSSLServerAuthenticationPolicy(SecPVCRef pvc) {
+    if (!pvc || !pvc->policies) {
+        return false;
+    }
+    SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0);
+    if (!policy) {
+        return false;
+    }
+    CFStringRef policyName = SecPolicyGetName(policy);
+    if (CFEqualSafe(policyName, kSecPolicyNameSSLServer)) {
+        return true;
+    }
+    CFDictionaryRef options = policy->_options;
+    if (options && CFDictionaryGetValue(options, kSecPolicyCheckSSLHostname)) {
+        return true;
+    }
+    return false;
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -3077,7 +3100,7 @@ void SecPVCPathChecks(SecPVCRef pvc) {
     /* Check that this path meets CT constraints. */
     if (!SecCertificatePathVCIsCT(path)) {
         SecPathCTPolicy ctp = SecCertificatePathVCRequiresCT(path);
-        if (ctp > kSecPathCTNotRequired) {
+        if (ctp > kSecPathCTNotRequired && SecPVCIsSSLServerAuthenticationPolicy(pvc)) {
             /* CT was required. Error is always set on leaf certificate. */
             SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
                                   0, kCFBooleanFalse, true);

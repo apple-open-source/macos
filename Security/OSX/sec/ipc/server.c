@@ -181,11 +181,14 @@ static void with_label_and_password_and_dsid(xpc_object_t message, void (^action
 
 static void with_label_and_number(xpc_object_t message, void (^action)(CFStringRef label, uint64_t number)) {
     const char *label_utf8 = xpc_dictionary_get_string(message, kSecXPCKeyViewName);
-    const int64_t number = xpc_dictionary_get_int64(message, kSecXPCKeyViewActionCode);
-    CFStringRef user_label = CFStringCreateWithCString(kCFAllocatorDefault, label_utf8, kCFStringEncodingUTF8);
 
-    action(user_label, number);
-    CFReleaseNull(user_label);
+    if (label_utf8) {   // Anything we would do here requires a user label
+        const int64_t number = xpc_dictionary_get_int64(message, kSecXPCKeyViewActionCode);
+        CFStringRef user_label = CFStringCreateWithCString(kCFAllocatorDefault, label_utf8, kCFStringEncodingUTF8);
+
+        action(user_label, number);
+        CFReleaseNull(user_label);
+    }
 }
 
 static CFArrayRef SecXPCDictionaryCopyPeerInfoArray(xpc_object_t dictionary, const char *key, CFErrorRef *error) {
@@ -916,7 +919,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 }
                 break;
             case kSecXPCOpGetAllTheRings:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                    CFStringRef ringDescriptions = SOSCCGetAllTheRings_Server(&error);
                     xpc_object_t xpc_dictionary = _CFXPCCreateXPCObjectFromCFObject(ringDescriptions);
                     xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_dictionary);
@@ -924,35 +927,35 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 }
                 break;
             case kSecXPCOpApplyToARing:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef ringName = SecXPCDictionaryCopyString(event, kSecXPCKeyString, &error);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCApplyToARing_Server(ringName, &error));
                     CFReleaseNull(ringName);
                 }
                 break;
             case kSecXPCOpWithdrawlFromARing:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef ringName = SecXPCDictionaryCopyString(event, kSecXPCKeyString, &error);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCWithdrawlFromARing_Server(ringName, &error));
                     CFReleaseNull(ringName);
                 }
                 break;
             case kSecXPCOpRingStatus:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef ringName = SecXPCDictionaryCopyString(event, kSecXPCKeyString, &error);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCRingStatus_Server(ringName, &error));
                     CFReleaseNull(ringName);
                 }
                 break;
             case kSecXPCOpEnableRing:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef ringName = SecXPCDictionaryCopyString(event, kSecXPCKeyString, &error);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCEnableRing_Server(ringName, &error));
                     CFReleaseNull(ringName);
                 }
                 break;
             case kSecXPCOpRequestDeviceID:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef deviceID = SOSCCCopyDeviceID_Server(&error);
                     if (deviceID) {
                         SecXPCDictionarySetString(replyMessage, kSecXPCKeyResult, deviceID, &error);
@@ -961,7 +964,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 }
                 break;
             case kSecXPCOpSetDeviceID:
-                if (EntitlementPresentOrWhine(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFStringRef IDS = SecXPCDictionaryCopyString(event, kSecXPCKeyDeviceID, &error);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCSetDeviceID_Server(IDS, &error));
                     CFReleaseNull(IDS);

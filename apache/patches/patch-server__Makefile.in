@@ -1,0 +1,18 @@
+--- server/Makefile.in.orig	2018-03-18 06:18:52.000000000 -0700
++++ server/Makefile.in	2018-03-18 06:20:19.000000000 -0700
+@@ -23,11 +23,9 @@
+ include $(top_builddir)/build/rules.mk
+ include $(top_srcdir)/build/library.mk
+ 
+-gen_test_char_OBJECTS = gen_test_char.lo
+-gen_test_char: $(gen_test_char_OBJECTS)
+-	$(LINK) $(EXTRA_LDFLAGS) $(gen_test_char_OBJECTS) $(EXTRA_LIBS)
+-
+-test_char.h: gen_test_char
++test_char.h:
++	cp $(top_srcdir)/server/gen_test_char.c . 
++	cc -I$(SDKROOT)/usr/include/apr-1 gen_test_char.c -o gen_test_char
+ 	./gen_test_char > test_char.h
+ 
+ util.lo: test_char.h
+

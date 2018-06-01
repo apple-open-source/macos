@@ -37,6 +37,7 @@
 #import "mockaks.h"
 
 #import "secdmock_db_version_10_5.h"
+#import "secdmock_db_version_11_1.h"
 
 @interface secdmockaks : XCTestCase
 @property NSString *testHomeDirectory;
@@ -57,7 +58,7 @@
      * over and over again.
      */
     SecCKKSTestSetDisableSOS(true);
-    securityd_init(NULL);
+    //securityd_init(NULL);
 }
 
 - (void)createKeychainDirectory
@@ -84,6 +85,10 @@
     [self createKeychainDirectory];
 
     SetCustomHomeURLString((__bridge CFStringRef) self.testHomeDirectory);
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        securityd_init(NULL);
+    });
     SecKeychainDbReset(NULL);
 
     // Actually load the database.
@@ -97,7 +102,7 @@
         [self removeHomeDirectory];
         self.testHomeDirectory = nil;
     });
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    //kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 }
 
 - (void)testAddKeyByReference
@@ -261,6 +266,7 @@
 - (void)testCreateSampleDatabase
 {
     id mock = OCMClassMock([SecMockAKS class]);
+    OCMStub([mock useGenerationCount]).andReturn(true);
 
     [self createManyItems];
     [self createManyKeys];
@@ -323,6 +329,17 @@
     [self findManyItems:50];
 }
 
+- (void)testUpgradeFromVersion11_1
+{
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database");
+        [self loadDatabase:secdmock_db_version11_1];
+    });
+
+    NSLog(@"find items from old database");
+    [self findManyItems:50];
+}
+
 - (bool)isLockedSoon:(keyclass_t)key_class
 {
     if (key_class == key_class_d || key_class == key_class_dku)
@@ -341,8 +358,6 @@
 {
     OSStatus result = 0;
     id mock = OCMClassMock([SecMockAKS class]);
-//    OCMStub([mock isLocked:[OCMArg any]]).andCall(self, @selector(isLockedSoon:));
-
     [[[[mock stub] andCall:@selector(isLockedSoon:) onObject:self] ignoringNonObjectArgs] isLocked:0];
 
     SecKeychainDbReset(^{
@@ -418,7 +433,7 @@
         int version = 0;
         SecKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
-        XCTAssertEqual(version, 0x10b, "didnt managed to upgrade");
+        XCTAssertEqual(version, 0x20b, "didnt managed to upgrade");
     });
 
     NSLog(@"find items from old database");

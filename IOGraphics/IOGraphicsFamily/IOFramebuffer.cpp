@@ -54,6 +54,7 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <stdatomic.h>
 
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IOGraphicsPrivate.h>
@@ -67,6 +68,12 @@
 #include "IOGraphicsDiagnose.h"
 #include "IOGraphicsKTrace.h"
 #include "GMetric.hpp"
+
+
+#if ENABLE_TELEMETRY
+#warning "**KTRACE TELEMETRY ENABLED**"
+#endif
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -252,6 +259,8 @@ static bool                 gIOFBDesktopModeAllowed = true;
 
 IOOptionBits                gIOFBCurrentClamshellState;
 static IOOptionBits         gIOFBLastClamshellState;
+static atomic_uint_fast64_t gIOFBProbeGeneration;
+static uint64_t             gIOFBLastProbeGeneration;
 int32_t                     gIOFBHaveBacklight = -1;
 static IOOptionBits         gIOFBLastReadClamshellState;
 const OSSymbol *            gIOFBGetSensorValueKey;
@@ -6929,7 +6938,8 @@ void IOFramebuffer::systemWork(OSObject * owner,
             = gIOFBBacklightDisplayCount
             && !gIOFBCurrentClamshellState && gIOFBLastReadClamshellState;
         const bool probeNow = ( gIOFBLidOpenMode && hasStateChanged)
-                           || (!gIOFBLidOpenMode && mustReprobe);
+                           || (!gIOFBLidOpenMode && mustReprobe)
+                           || (gIOFBProbeGeneration != gIOFBLastProbeGeneration);
 		if (probeNow)
 		{
 			DEBG1("S", " clamshell caused reprobe\n");
@@ -6960,9 +6970,12 @@ void IOFramebuffer::systemWork(OSObject * owner,
             | static_cast<uint64_t>(gIOFBLidOpenMode) << 32
             | static_cast<uint64_t>(hasStateChanged)  << 16
             | static_cast<uint64_t>(mustReprobe); (void) ps;
+        const uint64_t pg =
+              static_cast<uint64_t>(gIOFBProbeGeneration) << 32
+            | static_cast<uint64_t>(gIOFBLastProbeGeneration);
         IOG_KTRACE(DBG_IOG_CLAMSHELL, DBG_FUNC_NONE,
                    0, DBG_IOG_SOURCE_SYSWORK_RESETCLAMSHELL,
-                   0, cs, 0, ps, 0, 0);
+                   0, cs, 0, ps, 0, pg);
 	}
 
 	if ((kIOFBEventEnableClamshell & events) && gIOFBSystemPower
@@ -7042,6 +7055,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 
 		gIOFBLastClamshellState = gIOFBCurrentClamshellState;
 		gIOFBLastReadClamshellState = gIOFBCurrentClamshellState;
+        gIOFBLastProbeGeneration = gIOFBProbeGeneration;
 
 		probeAll(kIOFBUserRequestProbe);
         FORALL_FRAMEBUFFERS(fb, /* in */ gAllFramebuffers)
@@ -7328,6 +7342,7 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
           controller->fLastMessagedChange, controller->fLastFinishedChange,
           controller->fFbs[0]->__private->lastProcessedChange,
           controller->fPostWakeChange);
+
 
     if (!controller->fFbs[0]->messaged)
     {

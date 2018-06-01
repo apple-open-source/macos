@@ -12,6 +12,7 @@
 #include "staging.h"
 #include "syspolicy.h"
 #include "bootcaches.h"
+#include "kextaudit.h"
 
 #include <libc.h>
 #include <sysexits.h>
@@ -147,6 +148,9 @@ main(int argc, char * const * argv)
 
     _OSKextSetAuthenticationFunction(&authenticateKext, &authenticationOptions);
     _OSKextSetStrictAuthentication(true);
+
+    /* Set up auditing of kext loads, see kextaudit.c */
+    _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
 
    /*****
     * Create the set of kexts we'll be working from.
@@ -1341,7 +1345,7 @@ processKext(
 
     if (toolArgs->doLoad) {
         /* <rdar://problem/12435992> */
-        recordKextLoadForMT(aKext);
+        recordKextLoadForMT(aKext, true);
     }
 
    /* Reread loaded kext info to reflect newly-loaded kexts

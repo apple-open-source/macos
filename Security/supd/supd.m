@@ -74,6 +74,7 @@ NSString* const SFAnalyticsDevicePercentageCustomerKey = @"DevicePercentageCusto
 NSString* const SFAnalyticsDevicePercentageInternalKey = @"DevicePercentageInternal";
 
 #define SFANALYTICS_SPLUNK_DEV 0
+#define OS_CRASH_TRACER_LOG_BUG_TYPE "226"
 
 #if SFANALYTICS_SPLUNK_DEV
 NSUInteger const secondsBetweenUploadsCustomer = 10;
@@ -83,172 +84,29 @@ NSUInteger const secondsBetweenUploadsCustomer = (3 * (60 * 60 * 24));
 NSUInteger const secondsBetweenUploadsInternal = (60 * 60 * 24);
 #endif // SFANALYTICS_SPLUNK_DEV
 
-#if TARGET_OS_OSX
-static NSString * const _SFAnalyticsDatabasePath = @"/var/db/SecurityFrameworkAnalytics/";
-#else // TARGET_OS_OSX
-static NSString * const _SFAnalyticsDatabasePath = nil;
-#endif // TARGET_OS_OSX
-
 @implementation SFAnalyticsReporter
-- (NSString *)databaseDirectoryPath
-{
-    return _databasePath;
-}
-
-- (NSString *)reportsDirectoryPath
-{
-    static NSString *_SFAnalyticsReportsDirectoryPath = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        if ([self databaseDirectoryPath]) {
-            _SFAnalyticsReportsDirectoryPath = [NSString stringWithFormat:@"%@%@", [self databaseDirectoryPath], @"Reports"];
-        }
-    });
-    return _SFAnalyticsReportsDirectoryPath;
-}
-
-- (id)initWithPath:(NSString *)path validity:(NSTimeInterval)validity
-{
-    if (self = [super init]) {
-        _databasePath = path;
-        _reportValidityPeriod = validity;
-    }
-    return self;
-}
-
-- (id)init
-{
-    return [self initWithPath:_SFAnalyticsDatabasePath validity:(secondsBetweenUploadsCustomer * 2)];
-}
-
-- (BOOL)setupReportsDirectory
-{
-    NSString *databaseDirectoryPath = [self databaseDirectoryPath];
-    NSString *reportsDirectoryPath = [self reportsDirectoryPath];
-    if (!(databaseDirectoryPath != nil && reportsDirectoryPath != nil)) {
-        return NO;
-    }
-
-    // Note: securityuploadd is not sandboxed on macOS, so we can operate in the system reports directory at will.
-    __block BOOL result = YES;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        // Create database directory if needed
-        NSFileManager *fm = [NSFileManager defaultManager];
-        NSError *err = nil;
-        BOOL ok = [fm createDirectoryAtPath:databaseDirectoryPath
-                withIntermediateDirectories:YES
-                                 attributes:nil
-                                      error:&err];
-        if (ok) {
-            // Create reports directory if needed
-            ok = [fm createDirectoryAtPath:reportsDirectoryPath
-               withIntermediateDirectories:YES
-                                attributes:nil
-                                     error:&err];
-            if (!ok) {
-                secerror("Reports directory creation failed with %@", err);
-                result = NO;
-            }
-
-        } else {
-            secerror("Database directory creation failed with %@", err);
-            result = NO;
-        }
-    });
-    return result;
-}
-
-- (BOOL)removeFilesFrom:(NSString *)directory
-        olderThanSecond:(NSTimeInterval)seconds
-{
-    NSDate *olderThanSecond = [NSDate dateWithTimeIntervalSinceNow:-seconds];
-
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSDirectoryEnumerator *dirEnum = [fm enumeratorAtPath:directory];
-    NSString *fileName;
-    int64_t totalSize = 0;
-    while (fileName = [dirEnum nextObject]) {
-        NSString *filePath = [NSString stringWithFormat:@"%@/%@", directory, fileName];
-        BOOL isDir;
-        if ([fm fileExistsAtPath:filePath isDirectory:&isDir]) {
-            if (isDir) {
-                // Do not remove sub-directories and their contents
-                [dirEnum skipDescendents];
-            } else {
-                NSDate *creationDate = [[fm attributesOfItemAtPath:filePath error:nil] fileCreationDate];
-                BOOL isOlder = ([creationDate compare:olderThanSecond] == NSOrderedAscending);
-                if (isOlder) {
-                    totalSize += [[[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil] fileSize];
-                    [fm removeItemAtPath:filePath error:nil];
-                }
-            }
-        }
-    }
-    return YES;
-}
-
-- (BOOL)cleanupReportsDirectory
-{
-    NSString *reportsDirectoryPath = [self reportsDirectoryPath];
-    if (reportsDirectoryPath != nil) {
-        @autoreleasepool {
-            [self removeFilesFrom:reportsDirectoryPath olderThanSecond:_reportValidityPeriod];
-        }
-        return YES;
-    }
-    return NO;
-}
-
-- (NSString *)createReportFilename
+- (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName
 {
 #if TARGET_OS_OSX
-    NSDictionary<NSString *, id> *problemReport = nil;
-    // We do not have our own CrashReporter key, so we make our own. This causes the default report extension to be ".diag".
-    // See: https://clownfish.apple.com/index.php?action=search_cached&path=CrashReporterSupport%2FCrashReporterSupport.c&version=CrashCatcher-938.3&project=CrashCatcher&q=&language=all&index=LoboElk
-    problemReport = @{
-                      (__bridge NSString *)kCRProblemReportProblemTypeKey : @"supd",
-                      (__bridge NSString *)kCRProblemReportAppNameKey : @"securityuploadd",
-                      (__bridge NSString *)kCRProblemReportDescriptionKey : @"analytics",
-                      (__bridge NSString *)kCRProblemReportNoUserUUIDKey : @YES,
-                      (__bridge NSString *)kCRProblemReportRoutingKey : @"anon",
-                      (__bridge NSString *)kCRProblemReportSubroutingKey : @"security_uploadd",
-                      };
+    NSDictionary *optionsDictionary = @{ (__bridge NSString *)kCRProblemReportSubmissionPolicyKey: (__bridge NSString *)kCRSubmissionPolicyAlternate };
+#else // !TARGET_OS_OSX
+    NSDictionary *optionsDictionary = nil; // The keys above are not defined or required on iOS.
+#endif // !TARGET_OS_OSX
 
-    CFURLRef outputPathURL = NULL;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // TODO: Use <rdar://problem/29269488> Need a variant of OSAWriteLogForSubmission() that returns pathname for the log file
-    CRStatusCode status = CRSaveProblemReport((__bridge CFDictionaryRef)problemReport, &outputPathURL);
-#pragma clang diagnostic pop
-
-    NSString *outputpath = [(__bridge NSURL *)outputPathURL path];
-    return outputpath;
-#else
-    return @"temporary_path.supd";
-#endif // TARGET_OS_OSX
-}
-
-- (BOOL)saveReport:(NSData *)reportData
-{
-    @autoreleasepool {
-        NSString *reportFileName = [self createReportFilename];
-        if (reportFileName != nil) {
-            NSURL *path = [NSURL URLWithString:[self reportsDirectoryPath]];
-            if (path != nil) {
-                NSURL *absoluteReportName = [path URLByAppendingPathComponent:reportFileName];
-                [[NSFileManager defaultManager] createFileAtPath:[absoluteReportName absoluteString] contents:reportData attributes:nil];
-                return YES;
-            }
-        }
-    }
-    return NO;
+    BOOL writtenToLog = NO;
+#if !TARGET_OS_SIMULATOR
+    secdebug("saveReport", "calling out to `OSAWriteLogForSubmission`");
+    writtenToLog = OSAWriteLogForSubmission(@OS_CRASH_TRACER_LOG_BUG_TYPE, fileName,
+                                            nil, optionsDictionary, ^(NSFileHandle *fileHandle) {
+                                                secnotice("OSAWriteLogForSubmission", "Writing log data to report: %@", fileName);
+                                                [fileHandle writeData:reportData];
+                                            });
+#endif // !TARGET_OS_SIMULATOR
+    return writtenToLog;
 }
 @end
 
 #define DEFAULT_SPLUNK_MAX_EVENTS_TO_REPORT 1000
-
 #define DEFAULT_SPLUNK_DEVICE_PERCENTAGE 100
 
 static supd *_supdInstance = nil;
@@ -878,6 +736,7 @@ _isiCloudAnalyticsEnabled()
      participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                     error:(NSError**)error
 {
+    NSMutableArray<SFAnalyticsClient*>* localClients = [NSMutableArray new];
     __block NSMutableArray* uploadRecords = [NSMutableArray arrayWithCapacity:_maxEventsToReport];
     __block NSError *localError;
     __block NSMutableArray<NSArray*>* hardFailures = [NSMutableArray new];
@@ -916,7 +775,7 @@ _isiCloudAnalyticsEnabled()
             }
 
             secnotice("json", "including client '%@' for upload", client.name);
-            [*clients addObject:client];
+            [localClients addObject:client];
         }
 
         NSMutableDictionary* healthSummary = [self healthSummaryWithName:client.name store:store];
@@ -930,7 +789,12 @@ _isiCloudAnalyticsEnabled()
         [hardFailures addObject:store.hardFailures];
         [softFailures addObject:store.softFailures];
     }
-    if (upload && [*clients count] == 0) {
+
+    if (clients) {
+        *clients = localClients;
+    }
+
+    if (upload && [localClients count] == 0) {
         if (error) {
             NSString *description = [NSString stringWithFormat:@"Upload too recent for all clients for %@", _internalTopicName];
             *error = [NSError errorWithDomain:@"SupdUploadErrorDomain"
@@ -956,6 +820,17 @@ _isiCloudAnalyticsEnabled()
         *error = localError;
     }
     return json;
+}
+
+// Is at least one client eligible for data collection based on user consent? Otherwise callers should NOT reach off-device.
+- (BOOL)haveEligibleClients {
+    for (SFAnalyticsClient* client in self.topicClients) {
+        if ((!client.requireDeviceAnalytics || _isDeviceAnalyticsEnabled()) &&
+            (!client.requireiCloudAnalytics || _isiCloudAnalyticsEnabled())) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 - (NSString*)askSecurityForCKDeviceID
@@ -986,9 +861,16 @@ _isiCloudAnalyticsEnabled()
 // TODO redo this, probably to return a dictionary.
 - (NSURL*)splunkUploadURL
 {
+    if (![self haveEligibleClients]) {
+        secnotice("getURL", "Not going to talk to server for topic %@ because no eligible clients", [self internalTopicName]);
+        return nil;
+    }
+
     if (__splunkUploadURL) {
         return __splunkUploadURL;
     }
+
+    secnotice("getURL", "Asking server for endpoint and config data for topic %@", [self internalTopicName]);
 
     __weak __typeof(self) weakSelf = self;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
@@ -1313,14 +1195,12 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
         [self setupSamplingRates];
         [self setupTopics];
         _reporter = reporter;
-        [_reporter setupReportsDirectory];
 
         xpc_activity_register("com.apple.securityuploadd.triggerupload", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
             xpc_activity_state_t activityState = xpc_activity_get_state(activity);
             secnotice("supd", "hit xpc activity trigger, state: %ld", activityState);
             if (activityState == XPC_ACTIVITY_STATE_RUN) {
                 // Clean up the reports directory, and then run our regularly scheduled scan
-                [_reporter cleanupReportsDirectory];
                 [self performRegularlyScheduledUpload];
             }
         });
@@ -1358,29 +1238,30 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     for (SFAnalyticsTopic *topic in _analyticsTopics) {
         @autoreleasepool { // The logging JSONs get quite large. Ensure they're deallocated between topics.
             __block NSURL* endpoint = [topic splunkUploadURL];   // has side effects!
+
+            if (!endpoint) {
+                secnotice("upload", "Skipping upload for %@ because no endpoint", [topic internalTopicName]);
+                continue;
+            }
+
             if ([topic disableUploads]) {
-                secnotice("upload", "Aborting upload task because uploads are disabled for %@", [topic internalTopicName]);
-                return NO;
+                secnotice("upload", "Aborting upload task for %@ because uploads are disabled", [topic internalTopicName]);
+                continue;
             }
 
             NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray new];
             NSData* json = [topic getLoggingJSON:false forUpload:YES participatingClients:&clients error:&localError];
             if (json) {
                 if ([topic isSampledUpload]) {
-                    BOOL writtenToLog = NO;
-#if TARGET_OS_OSX
-                    // As of now, data is NOT logged for transparency on macOS, yet we upload anyway.
-                    writtenToLog = YES;
-#elif !TARGET_OS_SIMULATOR
-                    // We override the output here and always assume we write to the log. Data transparency will be fixed in F.
-                    writtenToLog = YES;
-#endif // !TARGET_OS_SIMULATOR
-                    if (!writtenToLog) {
-                        secerror("uploadAnalyticsWithError: failed to write analytics data to log");
-                    } else if ([topic postJSON:json toEndpoint:endpoint error:&localError]) {
-                        secnotice("uploadAnalyticsWithError", "Succeeded writing analytics data to log -- proceeding with upload");
+                    if (![self->_reporter saveReport:json fileName:[topic internalTopicName]]) {
+                        secerror("upload: failed to write analytics data to log");
+                    }
+                    if ([topic postJSON:json toEndpoint:endpoint error:&localError]) {
+                        secnotice("upload", "Successfully posted JSON for %@", [topic internalTopicName]);
                         result = YES;
                         [topic updateUploadDateForClients:clients clearData:YES];
+                    } else {
+                        secerror("upload: Failed to post JSON for %@", [topic internalTopicName]);
                     }
                 } else {
                     /* If we didn't sample this report, update date to prevent trying to upload again sooner
@@ -1388,6 +1269,8 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                     secnotice("upload", "skipping unsampled upload for %@ and clearing data", [topic internalTopicName]);
                     [topic updateUploadDateForClients:clients clearData:YES];
                 }
+            } else {
+                secerror("upload: failed to get logging JSON");
             }
         }
         if (error && localError) {

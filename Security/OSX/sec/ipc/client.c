@@ -152,16 +152,17 @@ static const char *securityd_service_name(void) {
 	return kSecuritydXPCServiceName;
 }
 
-static uid_t target_uid = -1;
+#define SECURITY_TARGET_UID_UNSET   ((uid_t)-1)
+static uid_t securityd_target_uid = SECURITY_TARGET_UID_UNSET;
 
 void
 _SecSetSecuritydTargetUID(uid_t uid)
 {
-    target_uid = uid;
+    securityd_target_uid = uid;
 }
 
 
-static xpc_connection_t securityd_create_connection(const char *name, uint64_t flags) {
+static xpc_connection_t securityd_create_connection(const char *name, uid_t target_uid, uint64_t flags) {
     const char *serviceName = name;
     if (!serviceName) {
         serviceName = securityd_service_name();
@@ -172,7 +173,7 @@ static xpc_connection_t securityd_create_connection(const char *name, uint64_t f
         const char *description = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
         secnotice("xpc", "got event: %s", description);
     });
-    if (target_uid != (uid_t)-1) {
+    if (target_uid != SECURITY_TARGET_UID_UNSET) {
         xpc_connection_set_target_uid(connection, target_uid);
     }
     xpc_connection_resume(connection);
@@ -185,7 +186,7 @@ static xpc_connection_t sTrustdConnection;
 static xpc_connection_t securityd_connection(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        sSecuritydConnection = securityd_create_connection(kSecuritydXPCServiceName, 0);
+        sSecuritydConnection = securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
     });
     return sSecuritydConnection;
 }
@@ -197,13 +198,13 @@ static xpc_connection_t trustd_connection(void) {
         bool sysCtx = securityd_in_system_context();
         uint64_t flags = (sysCtx) ? XPC_CONNECTION_MACH_SERVICE_PRIVILEGED : 0;
         const char *serviceName = (sysCtx) ? kTrustdXPCServiceName : kTrustdAgentXPCServiceName;
-		sTrustdConnection = securityd_create_connection(serviceName, flags);
+		sTrustdConnection = securityd_create_connection(serviceName, SECURITY_TARGET_UID_UNSET, flags);
 	});
 	return sTrustdConnection;
 #else
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        sTrustdConnection = securityd_create_connection(kTrustdXPCServiceName, 0);
+        sTrustdConnection = securityd_create_connection(kTrustdXPCServiceName, SECURITY_TARGET_UID_UNSET, 0);
     });
     return sTrustdConnection;
 #endif
@@ -243,12 +244,12 @@ static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation 
 }
 
 // NOTE: This is not thread safe, but this SPI is for testing only.
-void SecServerSetMachServiceName(const char *name) {
+void SecServerSetTrustdMachServiceName(const char *name) {
     // Make sure sSecXPCServer.queue exists.
     trustd_connection();
 
     xpc_connection_t oldConection = sTrustdConnection;
-    sTrustdConnection = securityd_create_connection(name, 0);
+    sTrustdConnection = securityd_create_connection(name, SECURITY_TARGET_UID_UNSET, 0);
     if (oldConection)
         xpc_release(oldConection);
 }

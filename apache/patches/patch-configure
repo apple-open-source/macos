@@ -41,11 +41,11 @@
    if test "x$LDFLAGS" = "x"; then
 -    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_openssl_base/lib\""
 -    LDFLAGS="-L$ap_openssl_base/lib"
-+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L/usr/lib\""
-+    LDFLAGS="-L/usr/lib"
++    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L\$(SDKROOT)/usr/lib\""
++    LDFLAGS="-L\$(SDKROOT)/usr/lib"
    else
 -    apr_addto_bugger="-L$ap_openssl_base/lib"
-+    apr_addto_bugger="-L/usr/lib"
++    apr_addto_bugger="-L\$(SDKROOT)/usr/lib"
      for i in $apr_addto_bugger; do
        apr_addto_duplicate="0"
        for j in $LDFLAGS; do
@@ -55,11 +55,11 @@
    if test "x$MOD_LDFLAGS" = "x"; then
 -    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_openssl_base/lib\""
 -    MOD_LDFLAGS="-L$ap_openssl_base/lib"
-+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L/usr/lib\""
-+    MOD_LDFLAGS="-L/usr/lib"
++    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L\$(SDKROOT)/usr/lib\""
++    MOD_LDFLAGS="-L\$(SDKROOT)/usr/lib"
    else
 -    apr_addto_bugger="-L$ap_openssl_base/lib"
-+    apr_addto_bugger="-L/usr/lib"
++    apr_addto_bugger="-L\$(SDKROOT)/usr/lib"
      for i in $apr_addto_bugger; do
        apr_addto_duplicate="0"
        for j in $MOD_LDFLAGS; do

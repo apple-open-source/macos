@@ -1060,6 +1060,15 @@ OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedU
 
 OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
 {
+    if (!key) {
+        secerror("SecKeyCopyPersistentRef: Need a key reference for this to work");
+        return errSecParam;
+    }
+    if (!persistentRef) {
+        secerror("SecKeyCopyPersistentRef: Need a persistentRef pointer for this to work");
+        return errSecParam;
+    }
+
     CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                          kSecReturnPersistentRef,   kCFBooleanTrue,
                                                          kSecValueRef,              key,
@@ -1073,8 +1082,14 @@ OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
             *persistentRef = foundRef;
             foundRef = NULL;
         } else {
+            secerror("SecKeyCopyPersistentRef: SecItemCopyMatching returned success, but we got type %lu instead of CFData for key %@.", CFGetTypeID(foundRef), key);
             status = errSecItemNotFound;
         }
+    } else {
+        secerror("SecKeyCopyPersistentRef: received status %i for key %@", (int)status, key);
+        CFStringRef str = CFStringCreateWithFormat(NULL, NULL, CFSTR("Expected to find persistentref for key %@"), key);
+        __security_stackshotreport(str, (int)status);
+        CFReleaseNull(str);
     }
 
     CFReleaseSafe(foundRef);

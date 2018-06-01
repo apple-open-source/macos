@@ -2875,19 +2875,13 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
     IOReturn  err = kIOReturnNoMemory;
 
     do {
-        if ( type == kIOHIDParamConnectType) {
-            if ( paramConnect) {
-                newConnect = paramConnect;
-                newConnect->retain();
-            }
-            else if ( eventsOpen) {
+        if (type == kIOHIDParamConnectType) {
+            if (eventsOpen) {
                 newConnect = new IOHIDParamUserClient;
-            }
-            else {
+            } else {
                 err = kIOReturnNotOpen;
                 break;
             }
-
         }
         else if ( type == kIOHIDServerConnectType) {
             newConnect = new IOHIDUserClient;
@@ -2908,21 +2902,17 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
 
         // initialization is getting out of hand
 
-        if ( (newConnect != paramConnect) && (
-                    (false == newConnect->initWithTask(owningTask, security_id, type, properties))
-                    || (false == newConnect->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue))
-                    || (false == newConnect->attach( this ))
-                    || (false == newConnect->start( this ))
-                    || ((type == kIOHIDServerConnectType)
-                        && (err = evOpen())) 
-                )) {
+        if ((false == newConnect->initWithTask(owningTask, security_id, type, properties))
+            || (false == newConnect->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue))
+            || (false == newConnect->attach( this ))
+            || (false == newConnect->start( this ))
+            || ((type == kIOHIDServerConnectType)
+                && (err = evOpen()))) {
             newConnect->detach( this );
             newConnect->release();
             newConnect = 0;
             break;
         }
-        if ( type == kIOHIDParamConnectType)
-            paramConnect = newConnect;
 
         err = kIOReturnSuccess;
 

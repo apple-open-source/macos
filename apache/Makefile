@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.29
+Version    = 2.4.33
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -24,6 +24,7 @@ Patch_List = PR-18640257-SDK.diff \
              PR-16019357-apxs.diff \
              PR-13708279.diff \
              PR-32889915.diff \
+             patch-server__Makefile.in \
              mod_proxy_balancer-partialfix.diff
 
 Configure_Flags = --prefix=/usr \
@@ -62,7 +63,7 @@ install_source::
 build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L$(SDKROOT)/usr/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)

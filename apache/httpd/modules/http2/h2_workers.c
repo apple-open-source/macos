@@ -1,11 +1,12 @@
-/* Copyright 2015 greenbytes GmbH (https://www.greenbytes.de)
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * http://www.apache.org/licenses/LICENSE-2.0
- 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -305,7 +306,18 @@ h2_workers *h2_workers_create(server_rec *s, apr_pool_t *server_pool,
     workers->max_workers = max_workers;
     workers->max_idle_secs = (idle_secs > 0)? idle_secs : 10;
 
-    status = h2_fifo_create(&workers->mplxs, pool, 2 * workers->max_workers);
+    /* FIXME: the fifo set we use here has limited capacity. Once the
+     * set is full, connections with new requests do a wait. Unfortunately,
+     * we have optimizations in place there that makes such waiting "unfair"
+     * in the sense that it may take connections a looong time to get scheduled.
+     *
+     * Need to rewrite this to use one of our double-linked lists and a mutex
+     * to have unlimited capacity and fair scheduling.
+     *
+     * For now, we just make enough room to have many connections inside one
+     * process.
+     */
+    status = h2_fifo_set_create(&workers->mplxs, pool, 8 * 1024);
     if (status != APR_SUCCESS) {
         return NULL;
     }

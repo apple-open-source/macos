@@ -126,8 +126,10 @@ CFIndex SecRevocationDbGetSchemaVersion(void);
  @function SecValidUpdateVerifyAndIngest
  @abstract Callback for receiving update data.
  @param updateData The decompressed update data.
+ @param updateServer The source server for this data.
+ @param fullUpdate If true, a full update was requested.
  */
-void SecValidUpdateVerifyAndIngest(CFDataRef updateData);
+void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServer, bool fullUpdate);
 
 /*!
  @function readValidFile

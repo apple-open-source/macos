@@ -147,6 +147,8 @@ static BOOL isLookalikeCharacter(std::optional<UChar32> previousCodePoint, UChar
         case 0x1D20: /* LATIN LETTER SMALL CAPITAL V */
         case 0x1D21: /* LATIN LETTER SMALL CAPITAL W */
         case 0x1D22: /* LATIN LETTER SMALL CAPITAL Z */
+        case 0x2010: /* HYPHEN */
+        case 0x2011: /* NON-BREAKING HYPHEN */
         case 0x2024: /* ONE DOT LEADER */
         case 0x2027: /* HYPHENATION POINT */
         case 0x2039: /* SINGLE LEFT-POINTING ANGLE QUOTATION MARK */
@@ -167,6 +169,7 @@ static BOOL isLookalikeCharacter(std::optional<UChar32> previousCodePoint, UChar
         case 0x215D: /* VULGAR FRACTION FIVE EIGHTHS */
         case 0x215E: /* VULGAR FRACTION SEVEN EIGHTHS */
         case 0x215F: /* FRACTION NUMERATOR ONE */
+        case 0x2212: /* MINUS SIGN */
         case 0x2215: /* DIVISION SLASH */
         case 0x2216: /* SET MINUS */
         case 0x2236: /* RATIO */
@@ -204,6 +207,7 @@ static BOOL isLookalikeCharacter(std::optional<UChar32> previousCodePoint, UChar
         case 0x33C6: /* SQUARE C OVER KG */
         case 0x33DF: /* SQUARE A OVER M */
         case 0xA731: /* LATIN LETTER SMALL CAPITAL S */
+        case 0xA771: /* LATIN SMALL LETTER DUM */
         case 0xA789: /* MODIFIER LETTER COLON */
         case 0xFE14: /* PRESENTATION FORM FOR VERTICAL SEMICOLON */
         case 0xFE15: /* PRESENTATION FORM FOR VERTICAL EXCLAMATION MARK */

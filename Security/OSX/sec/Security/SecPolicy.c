@@ -2032,6 +2032,18 @@ SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags) {
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
+    if (revocationFlags & kSecRevocationCheckIfTrusted) {
+        CFDictionaryAddValue(options, kSecPolicyCheckRevocationIfTrusted, kCFBooleanTrue);
+        /* Set method, but allow caller to override with later checks */
+        CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+    }
+
+    if (revocationFlags & kSecRevocationOnlineCheck) {
+        CFDictionaryAddValue(options, kSecPolicyCheckRevocationOnline, kCFBooleanTrue);
+        /* Set method, but allow caller to override with later checks */
+        CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+    }
+
 	if (revocationFlags & kSecRevocationOCSPMethod && revocationFlags & kSecRevocationCRLMethod) {
 		CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 	}
@@ -2057,12 +2069,8 @@ SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags) {
         CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanFalse);
     }
 
-    if (revocationFlags & kSecRevocationOnlineCheck) {
-        CFDictionaryAddValue(options, kSecPolicyCheckRevocationOnline, kCFBooleanTrue);
-    }
-
-	/* Only flag bits 0-5 are currently defined */
-	require(((revocationFlags >> 6) == 0), errOut);
+	/* Only flag bits 0-6 are currently defined */
+	require(((revocationFlags >> 7) == 0), errOut);
 
 	require(result = SecPolicyCreate(kSecPolicyAppleRevocation,
                                      kSecPolicyNameRevocation, options), errOut);

@@ -99,6 +99,7 @@ public:
 
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 private:
+    virtual IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
     virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
 };
 

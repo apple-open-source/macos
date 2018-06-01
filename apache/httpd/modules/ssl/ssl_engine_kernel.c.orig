@@ -264,6 +264,15 @@ int ssl_hook_ReadReq(request_rec *r)
         return DECLINED;
     }
 
+    if (sslconn->service_unavailable) {
+        /* This is set when the SSL properties of this connection are
+         * incomplete or if this connection was made to challenge a 
+         * particular hostname (ACME). We never serve any request on 
+         * such a connection. */
+         /* TODO: a retry-after indicator would be nice here */
+        return HTTP_SERVICE_UNAVAILABLE;
+    }
+
     if (sslconn->non_ssl_request == NON_SSL_SET_ERROR_MSG) {
         apr_table_setn(r->notes, "error-notes",
                        "Reason: You're speaking plain HTTP to an SSL-enabled "
@@ -1559,8 +1568,8 @@ int ssl_callback_SSLVerify(int ok, X509_STORE_CTX *ctx)
     server_rec *s       = r ? r->server : mySrvFromConn(conn);
 
     SSLSrvConfigRec *sc = mySrvConfig(s);
-    SSLDirConfigRec *dc = r ? myDirConfig(r) : NULL;
     SSLConnRec *sslconn = myConnConfig(conn);
+    SSLDirConfigRec *dc = r ? myDirConfig(r) : sslconn->dc;
     modssl_ctx_t *mctx  = myCtxConfig(sslconn, sc);
     int crl_check_mode  = mctx->crl_check_mask & ~SSL_CRLCHECK_FLAGS;
 
@@ -1599,6 +1608,32 @@ int ssl_callback_SSLVerify(int ok, X509_STORE_CTX *ctx)
          */
         return TRUE;
     }
+    /*
+     * Allow relaxed checking of cert chains wrt to the key usage of the CA certs
+     */
+    if (!ok && (errnum == X509_V_ERR_INVALID_PURPOSE) &&
+        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
+    {
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
+                      "Certificate Verification: the LegacyCertChainVerify option is set,"
+                      "  X509_V_ERR_INVALID_PURPOSE(26) error ignored.");
+            X509_STORE_CTX_set_error(ctx, X509_V_OK);
+            ok = TRUE;
+    }
+    /*
+     * Apply relaxed checking to signature
+     */
+    if (!ok && (errnum == X509_V_ERR_CERT_SIGNATURE_FAILURE) &&
+        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
+    {
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
+                      "Certificate Verification: the LegacyCertChainVerify option is set,"
+                      "  X509_V_ERR_CERT_SIGNATURE_FAILURE(7) error ignored.");
+            X509_STORE_CTX_set_error(ctx, X509_V_OK);
+            ok = TRUE;
+    }
+
+
 
     if (ssl_verify_error_is_optional(errnum) &&
         (verify == SSL_CVERIFY_OPTIONAL_NO_CA))
@@ -1752,11 +1787,12 @@ int ssl_callback_proxy_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
     server_rec *s = mySrvFromConn(c);
     SSLSrvConfigRec *sc = mySrvConfig(s);
+    SSLDirConfigRec *dc = myDirConfigFromConn(c);
     X509_NAME *ca_name, *issuer, *ca_issuer;
     X509_INFO *info;
     X509 *ca_cert;
     STACK_OF(X509_NAME) *ca_list;
-    STACK_OF(X509_INFO) *certs = sc->proxy->pkp->certs;
+    STACK_OF(X509_INFO) *certs;
     STACK_OF(X509) *ca_certs;
     STACK_OF(X509) **ca_cert_chains;
     int i, j, k;
@@ -1765,6 +1801,7 @@ int ssl_callback_proxy_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
                  SSLPROXY_CERT_CB_LOG_FMT "entered",
                  sc->vhost_id);
 
+    certs = (dc && dc->proxy) ? dc->proxy->pkp->certs : NULL;
     if (!certs || (sk_X509_INFO_num(certs) <= 0)) {
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(02268)
                      SSLPROXY_CERT_CB_LOG_FMT
@@ -1789,7 +1826,7 @@ int ssl_callback_proxy_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
         return TRUE;
     }
 
-    ca_cert_chains = sc->proxy->pkp->ca_certs;
+    ca_cert_chains = dc->proxy->pkp->ca_certs;
     for (i = 0; i < sk_X509_NAME_num(ca_list); i++) {
         ca_name = sk_X509_NAME_value(ca_list, i);
 
@@ -2110,6 +2147,8 @@ void ssl_callback_Info(const SSL *ssl, int where, int rc)
 static apr_status_t init_vhost(conn_rec *c, SSL *ssl)
 {
     const char *servername;
+    X509 *cert;
+    EVP_PKEY *key;
     
     if (c) {
         SSLConnRec *sslcon = myConnConfig(c);
@@ -2126,7 +2165,34 @@ static apr_status_t init_vhost(conn_rec *c, SSL *ssl)
                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02043)
                               "SSL virtual host for servername %s found",
                               servername);
+                
                 return APR_SUCCESS;
+            }
+            else if (ssl_is_challenge(c, servername, &cert, &key)) {
+            
+                sslcon->service_unavailable = 1;
+                if ((SSL_use_certificate(ssl, cert) < 1)) {
+                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10086)
+                                  "Failed to configure challenge certificate %s",
+                                  servername);
+                    return APR_EGENERAL;
+                }
+                
+                if (!SSL_use_PrivateKey(ssl, key)) {
+                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10087)
+                                  "error '%s' using Challenge key: %s",
+                                  ERR_error_string(ERR_peek_last_error(), NULL), 
+                                  servername);
+                    return APR_EGENERAL;
+                }
+                
+                if (SSL_check_private_key(ssl) < 1) {
+                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10088)
+                                  "Challenbge certificate and private key %s "
+                                  "do not match", servername);
+                    return APR_EGENERAL;
+                }
+                
             }
             else {
                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02044)
@@ -2233,6 +2299,8 @@ static int ssl_find_vhost(void *servername, conn_rec *c, server_rec *s)
          */
         sslcon->server = s;
         sslcon->cipher_suite = sc->server->auth.cipher_suite;
+        sslcon->service_unavailable = sc->server->pks? 
+            sc->server->pks->service_unavailable : 0; 
         
         ap_update_child_status_from_server(c->sbh, SERVER_BUSY_READ, c, s);
         /*

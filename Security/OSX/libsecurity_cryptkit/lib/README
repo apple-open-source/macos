@@ -156,21 +156,6 @@ platform-specific functions:
       event of a fatal runtime error. The current versions of this
       function use printf() to log the reason and call exit(1).
 
-   unsigned createRandomSeed();
-
-      This function obtains a 32-bit number with which FEE's
-      pseudo-random number generator is seeded. The implementation
-      of this function is highly platform-specific and also depends
-      on the amount of security required from the RNG in a
-      particular application. Common (and simple) implementations
-      involve obtaining a high-precision system clock, process
-      ID values. etc.
-
-      Note that this function is called during a call to feeRandAlloc()
-      in feeRandom.c. Clients of the FEE library can also avoid this
-      mechanism by instantiating the RNG via feeRandAllocWithSeed(),
-      passing in an application-specific seed.
-
 The file platform.h contains a definition for the endianness of the
 current platform. Either __BIG_ENDIAN__ or __LITTLE_ENDIAN__ must
 be #defined at compile time. If your compiler does not implicitly

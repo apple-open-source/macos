@@ -348,7 +348,7 @@ IOFWUserObjectExporter::lookupHandle ( OSObject * object ) const
 	
 	if ( !object )
 	{
-		return NULL;
+		return 0;
 	}
 	
 	lock () ;

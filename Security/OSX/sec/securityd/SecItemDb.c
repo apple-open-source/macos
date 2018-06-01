@@ -1918,21 +1918,40 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
         }
     }
 
+#if TARGET_OS_IOS
     /*
-     Delete everything in the keychain.
-     We don't want this if we're restoring backups because we probably already synced stuff over
+     * Shared iPad is very special, it always delete's the user keychain, and never merge content
      */
-    if (removeKeychainContent) {
-#if TARGET_OS_IPHONE
-        if (client->inMultiUser) {
-            CFDataRef musrView = SecMUSRCreateActiveUserUUID(client->uid);
-            require_action(musrView, errOut, ok = false);
-            require_action(ok = SecServerDeleteAllForUser(dbt, musrView, true, error), errOut, CFReleaseNull(musrView));
-            CFReleaseNull(musrView);
-        } else
+    if (client->inMultiUser) {
+        CFDataRef musrView = SecMUSRCreateActiveUserUUID(client->uid);
+        require_action(musrView, errOut, ok = false);
+        require_action(ok = SecServerDeleteAllForUser(dbt, musrView, true, error), errOut, CFReleaseNull(musrView));
+        CFReleaseNull(musrView);
+    } else
 #endif
-        {
+    {
+        /*
+         * Delete everything in the keychain.
+         * We don't want this if we're restoring backups because we probably already synced stuff over
+         */
+        if (removeKeychainContent) {
             require(ok = SecServerDeleteAll(dbt, error), errOut);
+        } else {
+            // Custom hack to support bluetooth's workflow for 11.3. Should be removed in a future release.
+            __block CFErrorRef btError = NULL;
+            bool deletedBT = kc_transaction(dbt, &btError, ^bool{
+                bool ok = SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
+                ok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
+                ok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
+                ok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
+                return ok;
+            });
+            if (!deletedBT) {
+                secerror("Unable to delete nonsyncable items prior to keychain restore: %@", btError);
+            } else {
+                secnotice("restore", "Successfully deleted nonsyncable items");
+            }
+            CFReleaseNull(btError);
         }
     }
 

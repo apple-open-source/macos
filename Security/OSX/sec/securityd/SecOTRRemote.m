@@ -129,7 +129,9 @@ CFDataRef _SecOTRSessionCreateRemote(CFDataRef publicPeerId, CFErrorRef *error) 
 
 bool _SecOTRSessionProcessPacketRemote(CFDataRef sessionData, CFDataRef inputPacket, CFDataRef* outputSessionData, CFDataRef* outputPacket, bool *readyForMessages, CFErrorRef *error) {
     
+    bool result = false;
     SecOTRSessionRef session = SecOTRSessionCreateFromData(kCFAllocatorDefault, sessionData);
+    require_quiet(session, done);
     
     CFMutableDataRef negotiationResponse = CFDataCreateMutable(kCFAllocatorDefault, 0);
     
@@ -149,6 +151,9 @@ bool _SecOTRSessionProcessPacketRemote(CFDataRef sessionData, CFDataRef inputPac
     *readyForMessages = SecOTRSGetIsReadyForMessages(session);
     CFReleaseNull(session);
     
-    return true;
+    result = true;
+
+done:
+    return result;
 }
 

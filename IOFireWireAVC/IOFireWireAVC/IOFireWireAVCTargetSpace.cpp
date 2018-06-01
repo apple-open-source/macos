@@ -2006,6 +2006,8 @@ IOReturn IOFireWireAVCTargetSpace::handleConnectCommand(UInt16 nodeID, UInt32 ge
 			// Parameter error, return not implemented response
 			pResponse[kAVCCommandResponse] = kAVCNotImplementedStatus;
 		}
+        
+        AVCTARGETMUTEX_UNLOCK;
 	}
 	else	
 	{
@@ -2025,8 +2027,6 @@ IOReturn IOFireWireAVCTargetSpace::handleConnectCommand(UInt16 nodeID, UInt32 ge
 			pResponse[kAVCCommandResponse] = kAVCRejectedStatus;
 		}
 	}
-
-	AVCTARGETMUTEX_UNLOCK;
 
 	// Send the response
 	targetSendAVCResponse(generation, nodeID, pBufMemDesc, len);

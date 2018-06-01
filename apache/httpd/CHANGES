@@ -1,4 +1,195 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.33
+
+  *) core: Fix request timeout logging and possible crash for error_log hooks.
+     [Yann Ylavic]
+
+  *) mod_slomem_shm: Fix failure to create balancers's slotmems in Windows MPM,
+     where children processes need to attach them instead since they are owned
+     by the parent process already.  [Yann Ylavic]
+
+  *) ab: try all destination socket addresses returned by
+     apr_sockaddr_info_get instead of failing on first one when not available.
+     Needed for instance if localhost resolves to both ::1 and 127.0.0.1
+     e.g. if both are in /etc/hosts.  [Jan Kaluza]
+
+  *) ab: Use only one connection to determine working destination socket
+     address.  [Jan Kaluza]
+
+  *) ab: LibreSSL doesn't have or require Windows applink.c.  [Gregg L. Smith]
+
+  *) htpasswd/htdigest: Disable support for bcrypt on EBCDIC platforms. 
+     apr-util's bcrypt implementation doesn't tolerate EBCDIC.  [Eric Covener]
+
+  *) htpasswd/htdbm: report the right limit when get_password() overflows.
+     [Yann Ylavic]
+
+  *) htpasswd: Don't fail in -v mode if password file is unwritable.
+     PR 61631.  [Joe Orton]
+
+  *) htpasswd: don't point to (unused) stack memory on output
+     to make static analysers happy.  PR 60634.
+     [Yann Ylavic, reported by shqking and Zhenwei Zou]
+
+Changes with Apache 2.4.32
+
+  *) mod_access_compat: Fail if a comment is found in an Allow or Deny
+     directive.  [Jan Kaluza]
+
+  *) mod_authz_host: Ignore comments after "Require host", logging a
+     warning, or logging an error if the line is otherwise empty.
+     [Jan Kaluza, Joe Orton]
+
+  *) rotatelogs: Fix expansion of %Z in localtime (-l) mode, and fix
+     Y2K38 bug.  [Joe Orton]
+
+  *) mod_ssl: Support SSL DN raw variable extraction without conversion
+     to UTF-8, using _RAW suffix on variable names.  [Joe Orton]
+
+  *) ab: Fix https:// connection failures (regression in 2.4.30); fix
+     crash generating CSV output for large -n.  [Joe Orton, Jan Kaluza]
+
+Changes with Apache 2.4.31
+
+  *) mod_proxy_fcgi: Add the support for mod_proxy's flushpackets and flushwait
+     parameters. [Luca Toscano, Ruediger Pluem, Yann Ylavic]
+
+  *) mod_ldap: Avoid possible crashes, hangs, and busy loops due to
+     improper merging of the cache lock in vhost config.
+     PR 43164 [Eric Covener]
+
+  *) mpm_event: Do lingering close in worker(s).  [Yann Ylavic]
+
+  *) mpm_queue: Put fdqueue code in common for MPMs event and worker.
+     [Yann Ylavic]
+
+Changes with Apache 2.4.30
+
+  *) mod_session: Strip Session header when SessionEnv is on.  [Yann Ylavic]
+
+  *) mod_cache_socache: Fix caching of empty headers up to carriage return.
+     [Yann Ylavic]
+
+  *) core: For consistency, ensure that read lines are NUL terminated on any
+     error, not only on buffer full.  [Yann Ylavic]
+
+  *) mod_authnz_ldap: Fix language long names detection as short name.
+     [Yann Ylavic]
+
+  *) mod_proxy: Worker schemes and hostnames which are too large are no
+     longer fatal errors; it is logged and the truncated values are stored.
+     [Jim Jagielski]
+
+  *) regex: Allow to configure global/default options for regexes, like
+     caseless matching or extended format.  [Yann Ylavic]
+
+  *) mod_auth_digest: Actually use the secret when generating nonces. This change
+     may cause problems if used with round robin load balancers. PR 54637
+     [Stefan Fritsch]
+
+  *) mod_proxy: Allow setting options to globally defined balancer from
+     ProxyPass used in VirtualHost. Balancers are now merged using the new
+     merge_balancers method which merges the balancers options.  [Jan Kaluza]
+
+  *) logresolve: Fix incorrect behavior or segfault if -c flag is used
+     Fixes: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=823259
+     [Stefan Fritsch]
+
+  *) mod_remoteip: Add support for PROXY protocol (code donated by Cloudzilla).
+     Add ability for PROXY protocol processing to be optional to donated code.
+     See also: http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt
+     [Cloudzilla/roadrunner2@GitHub, Jim Jagielski, Daniel Ruggeri]
+
+  *) mod_proxy, mod_ssl: Handle SSLProxy* directives in <Proxy> sections,
+     allowing per backend TLS configuration.  [Yann Ylavic]
+
+  *) mod_proxy_uwsgi: Add in UWSGI proxy (sub)module. [Roberto De Ioris,
+     Jim Jagielski]
+
+  *) mod_proxy_balancer,mod_slotmem_shm: Rework SHM reuse/deletion to not
+     depend on the number of restarts (non-Unix systems) and preserve shared
+     names as much as possible on configuration changes for SHMs and persisted
+     files.  PR 62044.  [Yann Ylavic, Jim Jagielski]
+
+  *) mod_http2: obsolete code removed, no more events on beam pool destruction,
+     discourage content encoders on http2-status response (where they do not work).
+     [Stefan Eissing]
+
+  *) mpm_event: Let the listener thread do its maintenance job on resources
+     shortage.  PR 61979.  [Yann Ylavic]
+
+  *) mpm_event: Wakeup the listener to re-enable listening sockets.
+     [Yann Ylavic]
+
+  *) mod_ssl: The SSLCompression directive will now give an error if used
+     with an OpenSSL build which does not support any compression methods.
+     [Joe Orton]
+
+  *) mpm_event,worker: Mask signals for threads created by modules in child
+     init, so that they don't receive (implicitely) the ones meant for the MPM.
+     PR 62009. [Armin Abfalterer <a.abfalterer gmail com>, Yann Ylavic]
+
+  *) mod_md: new experimental, module for managing domains across virtual hosts,
+     implementing the Let's Encrypt ACMEv1 protocol to signup and renew 
+     certificates. Please read the modules documentation for further instructions
+     on how to use it. [Stefan Eissing]
+  
+  *) mod_proxy_html: skip documents shorter than 4 bytes
+     PR 56286 [Micha Lenk <micha lenk info>]
+
+  *) core, mpm_event: Avoid a small memory leak of the scoreboard handle, for
+     the lifetime of the connection, each time it is processed by MPM event.
+     [Yann Ylavic]
+
+  *) mpm_event: Update scoreboard status for KeepAlive state.  [Yann Ylavic]
+
+  *) mod_ldap: Fix a case where a full LDAP cache would continually fail to 
+     purge old entries and log AH01323. PR61891.  
+     [Hendrik Harms <hendrik.harms gmail.com>]
+
+  *) mpm_event: close connections not reported as handled by any module to
+     avoid losing track of them and leaking scoreboard entries.  PR 61551.
+     [Yann Ylavic]
+
+  *) core: A signal received while stopping could have crashed the main
+     process.  PR 61558.  [Yann Ylavic]
+
+  *) mod_ssl: support for mod_md added. [Stefan Eissing]
+  
+  *) mod_proxy_html: process parsed comments immediately. 
+     Fixes bug (seen in the wild when used with IBM's HTTPD bundle)
+     where parsed comments may be lost. [Nick Kew]
+
+  *) mod_proxy_html: introduce doctype for HTML 5 [Nick Kew]
+
+  *) mod_proxy_html: fix typo-bug processing "strict" vs "transitional"
+     HTML/XHTML.  PR 56457  [Nick Kew]
+
+  *) mpm_event: avoid a very unlikely race condition between the listener and
+     the workers when the latter fails to add a connection to the pollset.
+     [Yann Ylavic]
+
+  *) core: silently ignore a not existent file path when IncludeOptional
+     is used. PR 57585. [Alberto Murillo Silva <powerbsd yahoo.com>, Luca Toscano]
+
+  *) mod_macro: fix usability of globally defined macros in .htaccess files.
+     PR 57525.  [Jose Kahan <jose w3.org>, Yann Ylavic]
+
+  *) mod_rewrite, core: add the Vary header when a condition evaluates to true
+     and the related RewriteRule is used in a Directory context
+     (triggering an internal redirect). [Luca Toscano]
+
+  *) ab: Make the TLS layer aware that the underlying socket is nonblocking,
+     and use/handle POLLOUT where needed to avoid busy IOs and recover write
+     errors when appropriate.  [Yann Ylavic]
+
+  *) ab: Keep reading nonblocking to exhaust TCP or SSL buffers when previous
+     read was incomplete (the SSL case can cause the next poll() to timeout
+     since data are buffered already).  PR 61301 [Luca Toscano, Yann Ylavic]
+
+  *) mod_http2: avoid unnecessary data retrieval for a trace log. Allow certain
+     information retrievals on null bucket beams where it makes sense. [Stefan Eissing]
+
 Changes with Apache 2.4.29
 
   *) mod_unique_id: Use output of the PRNG rather than IP address and
@@ -6,7 +197,7 @@ Changes with Apache 2.4.29
      plus improving randomness for IPv6-only hosts.  [Jan Kaluza]
 
   *) mod_rewrite, core: Avoid the 'Vary: Host' response header when HTTP_HOST
-     is used in a condition that evaluates to true. PR 58231 [Luca Toscano]
+     is used in a condition that evaluates to true. PR 58231 [Luca Toscano, Yann Ylavic]
 
   *) mod_http2: v0.10.12, removed optimization for mutex handling in bucket
      beams that could lead to assertion failure in edge cases.
@@ -411,6 +602,9 @@ Changes with Apache 2.4.24 (not released)
   *) mod_socache_memcache: Provide memcache stats to mod_status.
      [Jim Jagielski]
 
+  *) mod_file_cache: mod_file_cache should be able to serve files that
+     haven't had a Content-Type set via e.g. mod_mime. [Eric Covener]
+
   *) http_filters: Fix potential looping in new check_headers() due to new
      pattern of ap_die() from http header filter. Explicitly clear the
      previous headers and body.
@@ -441,7 +635,7 @@ Changes with Apache 2.4.24 (not released)
   *) core: New directive RegisterHttpMethod for registering non-standard
      HTTP methods. [Stefan Fritsch]
 
-  *) mod_socache_memcache: Pass expiration time through to memcached.
+  *) mod_socache_memcache: Pass expiration time through to memcached. PR 55445.
      [Faidon Liambotis <paravoid debian.org>, Joe Orton]
 
   *) mod_cache: Use the actual URI path and query-string for identifying the
@@ -637,6 +831,9 @@ Changes with Apache 2.4.22
      1.5.8
 
 Changes with Apache 2.4.21
+
+  *) core: Added support for HTTP code 451. PR 58985.
+     [Yehuda Katz <yehuda ymkatz.net>, Jim Jagielski]
 
   *) ab: Use caseless matching for HTTP tokens (e.g. content-length). PR 59111.
      [Yann Ylavic]

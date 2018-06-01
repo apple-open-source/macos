@@ -1866,26 +1866,85 @@ cat loadedkextmt.plist
  </dict>
  *
  */
-#define LOADED_KEXT_MT_ALERT_FULL_PATH \
-_kOSKextCachesRootFolder "/" \
-_kOSKextStartupCachesSubfolder "/" \
-"loadedkextmt.plist"
+ #define OBSOLETE_LOADED_KEXT_MT_ALERT_FULL_PATH \
+ _kOSKextCachesRootFolder "/" \
+ _kOSKextStartupCachesSubfolder "/" \
+ "loadedkextmt.plist"
 
-void writeKextLoadPlist( CFArrayRef theArray )
+#define LOADED_KEXT_MT_ALERT_FULL_PATH \
+"/var/db/loadedkextmt.plist"
+
+static Boolean
+MergeRequests(CFMutableDictionaryRef dict, CFStringRef key, CFArrayRef requests)
+{
+    CFMutableArrayRef existingRequests;
+    Boolean           didAlter = false;
+    CFIndex           count, i;
+
+    if (!requests) {
+        return (false);
+    }
+    existingRequests = (CFMutableArrayRef) CFDictionaryGetValue(dict, key);
+    if (existingRequests == NULL) {
+        didAlter = true;
+        CFDictionarySetValue(dict, key, requests);
+    } else {
+        count = CFArrayGetCount(requests);
+        for (i = 0; i < count; i++) {
+            CFTypeRef value = CFArrayGetValueAtIndex(requests, i);
+            if (!CFArrayContainsValue(existingRequests, RANGE_ALL(existingRequests), value)) {
+                didAlter = true;
+                CFArrayAppendValue(existingRequests, value);
+            }
+        }
+    }
+    return (didAlter);
+}
+
+void writeKextLoadPlist( CFArrayRef kextArray )
 {
     CFURLRef                myURL           = NULL;  // must release
     CFReadStreamRef         readStream      = NULL;  // must release
     CFWriteStreamRef        writeStream     = NULL;  // must release
-    CFDictionaryRef         alertPlist      = NULL;  // must release
+    CFMutableDictionaryRef  alertPlist      = NULL;  // must release
     CFMutableDictionaryRef  alertDict       = NULL;  // must release
+    CFArrayRef              loadRequests    = NULL;  // must release
+    CFMutableArrayRef       userRequests    = NULL;  // must release
+    CFTypeRef               bundleID;
     Boolean                 fileExists;
     Boolean                 closeReadStream     = false;
     Boolean                 closeWriteStream    = false;
-    
-    if (theArray == NULL || CFArrayGetCount(theArray) < 1) {
+    Boolean                 didAlter            = false;
+    CFIndex                 count, i;
+
+    if (kextArray == NULL || CFArrayGetCount(kextArray) < 1) {
         goto finish;
     }
-        
+    loadRequests = OSKextCopyAllRequestedIdentifiers();
+
+    userRequests = CFArrayCreateMutable(kCFAllocatorDefault,
+                                        0,
+                                        &kCFTypeArrayCallBacks);
+    if (userRequests == NULL) {
+        goto finish;
+    }
+
+    count = CFArrayGetCount(kextArray);
+    for (i = 0; i < count; i++) {
+        // the information for each kext is stored as a dictionary
+        CFMutableDictionaryRef kextDict = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(kextArray, i);
+        if (CFDictionaryGetValue(kextDict, CFSTR(kMessageTracerUserLoadKey))) {
+            CFDictionaryRemoveValue(kextDict, CFSTR(kMessageTracerUserLoadKey));
+            bundleID = CFDictionaryGetValue(kextDict, CFSTR(kMessageTracerBundleIDKey));
+            if (!bundleID) {
+                continue;
+            }
+            CFArrayAppendValue(userRequests, bundleID);
+        }
+    }
+
+    unlink(OBSOLETE_LOADED_KEXT_MT_ALERT_FULL_PATH);
+
     myURL = CFURLCreateFromFileSystemRepresentation(
                                     kCFAllocatorDefault,
                                     (UInt8 *) LOADED_KEXT_MT_ALERT_FULL_PATH,
@@ -1897,7 +1956,7 @@ void writeKextLoadPlist( CFArrayRef theArray )
     }
     fileExists = CFURLResourceIsReachable(myURL, NULL);
     
-    /* grab existing data and append to it */
+    /* grab existing data */
     if (fileExists) {
         readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, myURL);
         if (readStream == NULL) {
@@ -1912,7 +1971,7 @@ void writeKextLoadPlist( CFArrayRef theArray )
         }
         
         /* read in the existing contents of plist */
-        alertPlist = CFPropertyListCreateWithStream(
+        alertPlist = (CFMutableDictionaryRef) CFPropertyListCreateWithStream(
                                                     kCFAllocatorDefault,
                                                     readStream,
                                                     0,
@@ -1922,7 +1981,13 @@ void writeKextLoadPlist( CFArrayRef theArray )
             OSKextLogMemError();
             goto finish;
         }
-        
+
+        /* merge in any new load requests */
+        didAlter |= MergeRequests(alertPlist, CFSTR("All requests"), loadRequests);
+        didAlter |= MergeRequests(alertPlist, CFSTR("User requests"), userRequests);
+
+        /* add any kext paths that are not already known */
+
         CFMutableArrayRef sentArray = NULL;  // do not release
         sentArray = (CFMutableArrayRef)
             CFDictionaryGetValue(alertPlist, CFSTR("Alerts sent"));
@@ -1932,23 +1997,18 @@ void writeKextLoadPlist( CFArrayRef theArray )
             goto finish;
         }
         
-        /* add any kext paths that are not already known */
-        CFIndex     count, i;
-        Boolean     didAppend = false;
-        
-        count = CFArrayGetCount(theArray);
+        count = CFArrayGetCount(kextArray);
         for (i = 0; i < count; i++) {
             // the information for each kext is stored as a dictionary
-            CFDictionaryRef kextDict = CFArrayGetValueAtIndex(theArray, i);
-             
+            CFDictionaryRef kextDict = CFArrayGetValueAtIndex(kextArray, i);
             if (!CFArrayContainsValue(sentArray, RANGE_ALL(sentArray), kextDict)) {
-                didAppend = true;
+                didAlter = true;
                 CFArrayAppendValue(sentArray, kextDict);
             }
         }
-        
+
         /* now replace previous plist with our updated one */
-        if (didAppend) {
+        if (didAlter) {
             writeStream = CFWriteStreamCreateWithFile(kCFAllocatorDefault, myURL);
             if (writeStream == NULL) {
                 OSKextLogMemError();
@@ -1979,9 +2039,15 @@ void writeKextLoadPlist( CFArrayRef theArray )
         }
         
         /* add our array to the dictionary */
-        CFDictionarySetValue(alertDict, CFSTR("Alerts sent"), theArray); 
-        
-        alertPlist = CFPropertyListCreateDeepCopy(
+        CFDictionarySetValue(alertDict, CFSTR("Alerts sent"), kextArray);
+        if (loadRequests) {
+            CFDictionarySetValue(alertDict, CFSTR("All requests"), loadRequests);
+        }
+        if (userRequests) {
+            CFDictionarySetValue(alertDict, CFSTR("User requests"), userRequests);
+        }
+
+        alertPlist = (CFMutableDictionaryRef) CFPropertyListCreateDeepCopy(
                                                   kCFAllocatorDefault,
                                                   alertDict,
                                                   kCFPropertyListMutableContainersAndLeaves );
@@ -2017,7 +2083,9 @@ finish:
     SAFE_RELEASE(writeStream);
     SAFE_RELEASE(alertPlist);
     SAFE_RELEASE(alertDict);
-    SAFE_RELEASE(theArray);
+    SAFE_RELEASE(loadRequests);
+    SAFE_RELEASE(userRequests);
+    SAFE_RELEASE(kextArray);
     
     return;
 }

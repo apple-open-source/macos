@@ -192,8 +192,8 @@ CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error) {
     
     size_t length = SecBase64Encode(digest, sizeof(digest), encoded, sizeof(encoded));
     assert(length && length < sizeof(encoded));
-    if (length > 26)
-        length = 26;
+    if (length > kSOSPeerIDLengthMax)
+        length = kSOSPeerIDLengthMax;
     encoded[length] = 0;
     return CFStringCreateWithCString(kCFAllocatorDefault, encoded, kCFStringEncodingASCII);
 }

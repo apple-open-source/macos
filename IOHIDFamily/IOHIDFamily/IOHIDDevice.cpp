@@ -418,46 +418,46 @@ bool IOHIDDevice::start( IOService * provider )
     OSObject *              obj2                    = NULL;
     OSDictionary *          matching                = NULL;
     IOReturn                ret;
-    bool                    result;
+    bool                    result                  = false;
 
-    require_action(super::start(provider), error, result=false);
+    require(super::start(provider), error);
     
     _workLoop = getWorkLoop();
-    require_action(_workLoop, error, HIDLogError("IOHIDDevice failed to get a work loop"); result=false);
+    require_action(_workLoop, error, HIDLogError("IOHIDDevice failed to get a work loop"));
     
     _workLoop->retain();
     
     _eventSource = IOHIDEventSource::HIDEventSource(this, NULL);
-    require_action(_eventSource, error, result=false);
-    require_noerr_action(_workLoop->addEventSource(_eventSource), error, result=false);
+    require(_eventSource, error);
+    require_noerr(_workLoop->addEventSource(_eventSource), error);
 
     // Allocate memory for report handler dispatch table.
 
     _reportHandlers = (IOHIDReportHandler *)IOMalloc(sizeof(IOHIDReportHandler)*kReportHandlerSlots);
-    require_action(_reportHandlers, error, result=false);
+    require(_reportHandlers, error);
 
     bzero( _reportHandlers, sizeof(IOHIDReportHandler) * kReportHandlerSlots );
 
     // Call handleStart() before fetching the report descriptor.
-    require_action(handleStart(provider), error, result=false);
+    require(handleStart(provider), error);
 
     // Fetch report descriptor for the device, and parse it.
-    require_noerr_action(newReportDescriptor(&reportDescriptor), error, result=false);
-    require_action(reportDescriptor, error, result=false);
+    require_noerr(newReportDescriptor(&reportDescriptor), error);
+    require(reportDescriptor, error);
     
     reportDescriptorMap = reportDescriptor->map();
-    require_action(reportDescriptorMap, error, result=false);
+    require(reportDescriptorMap, error);
     
     reportDescriptorData = OSData::withBytes((void*)reportDescriptorMap->getVirtualAddress(), (unsigned int)reportDescriptorMap->getSize());
-    require_action(reportDescriptorData, error, result=false);
+    require(reportDescriptorData, error);
 
     setProperty(kIOHIDReportDescriptorKey, reportDescriptorData);
 
     ret = parseReportDescriptor( reportDescriptor );
-    require_noerr_action(ret, error, result=false);
+    require_noerr(ret, error);
 
     _hierarchElements = CreateHierarchicalElementList((IOHIDElement *)_elementArray->getObject( 0 ));
-    require_action(_hierarchElements, error, result=false);
+    require(_hierarchElements, error);
     
     // Once the report descriptors have been parsed, we are ready
     // to handle reports from the device.
@@ -466,7 +466,7 @@ bool IOHIDDevice::start( IOService * provider )
 
     // Publish properties to the registry before any clients are
     // attached.
-    require_action(publishProperties(provider), error, result=false);
+    require(publishProperties(provider), error);
 
     // *** GAME DEVICE HACK ***
     obj = copyProperty(kIOHIDPrimaryUsagePageKey);
@@ -483,13 +483,20 @@ bool IOHIDDevice::start( IOService * provider )
     OSSafeReleaseNULL(obj2);
     // *** END GAME DEVICE HACK ***
     
+    // create interface
+    _interfaceNub = IOHIDInterface::withElements(_hierarchElements);
+    require(_interfaceNub, error);
+    
+    // set interface properties
+    publishProperties(NULL);
+
     matching = registryEntryIDMatching(getRegistryEntryID());
     _deviceNotify = addMatchingNotification(gIOFirstMatchNotification,
                                             matching,
                                             IOHIDDevice::_publishDeviceNotificationHandler,
                                             NULL);
     matching->release();
-    require_action(_deviceNotify, error, result = false);
+    require(_deviceNotify, error);
     
     registerService();
 
@@ -561,11 +568,7 @@ void IOHIDDevice::stop(IOService * provider)
 
     _readyForInputReports = false;
 
-    if (_interfaceNub)
-    {
-        _interfaceNub->release();
-        _interfaceNub = 0;
-    }
+    OSSafeReleaseNULL (_interfaceNub);
 
     super::stop(provider);
 }
@@ -2298,26 +2301,17 @@ bool IOHIDDevice::createInterface(IOOptionBits options __unused)
 {
     bool result = false;
     
-    require_action(!_interfaceNub, exit, result = true);
-    require(_hierarchElements, exit);
-    
-    _interfaceNub = IOHIDInterface::withElements(_hierarchElements);
-    require(_interfaceNub, exit);
-    
-    // set interface properties
-    publishProperties(NULL);
-    
     result = _interfaceNub->attach(this);
-    require_action(result, exit, OSSafeReleaseNULL(_interfaceNub));
+    require(result, exit);
     
     result = _interfaceNub->start(this);
-    require_action(result, exit, _interfaceNub->detach(this); OSSafeReleaseNULL(_interfaceNub));
+    require_action(result, exit, _interfaceNub->detach(this));
     
     result = true;
     
 exit:
     if (!result) {
-        HIDLogError("Failed to create interface nub.\n");
+        HIDLogError("Failed to create attach/start nub.\n");
     }
 
     return result;
@@ -2326,9 +2320,9 @@ exit:
 OSMetaClassDefineReservedUsed(IOHIDDevice, 13);
 void IOHIDDevice::destroyInterface(IOOptionBits options __unused)
 {
+    //@todo interface needs to be removed
     if (_interfaceNub) {
         _interfaceNub->terminate();
-        OSSafeReleaseNULL(_interfaceNub);
     }
 }
 

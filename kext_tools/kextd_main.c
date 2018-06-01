@@ -72,6 +72,7 @@
 #include "pgo.h"
 #include "security.h"
 #include "staging.h"
+#include "kextaudit.h"
 
 /*******************************************************************************
 * Globals set from invocation arguments (xxx - could use fewer globals).
@@ -216,6 +217,9 @@ int main(int argc, char * const * argv)
     sKextdAuthenticationOptions.respectSystemPolicy = true;
     _OSKextSetAuthenticationFunction(&authenticateKext, &sKextdAuthenticationOptions);
     _OSKextSetStrictAuthentication(true);
+
+    /* Set up auditing of kext loads, see kextaudit.c */
+    _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
 
     gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
     if (!gRepositoryURLs) {
@@ -822,9 +826,11 @@ void LoadedKextCallback(CFNotificationCenterRef center,
         myValue = CFDictionaryGetValue(userInfo, CFSTR("KextArrayKey"));
        
        if (myValue && CFGetTypeID(myValue) == CFArrayGetTypeID()) {
-           /* synchronize access to our plist file */
+           /* synchronize access to our plist file,
+              and write after 5 secs delay to catch new kernel load requests.
+            */
            CFRetain(myValue);
-           dispatch_async(dispatch_get_main_queue(), ^ {
+           dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5LL * NSEC_PER_SEC)), dispatch_get_main_queue(), ^ {
                writeKextLoadPlist(myValue);
            });
        }

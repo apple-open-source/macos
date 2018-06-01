@@ -46,6 +46,7 @@
 #include <securityd/SecOCSPCache.h>
 #include <securityd/SecRevocationDb.h>
 #include <securityd/SecCertificateServer.h>
+#include <securityd/SecPolicyServer.h>
 
 #include <securityd/SecRevocationServer.h>
 
@@ -1108,6 +1109,62 @@ static bool SecRVCFetchNext(SecRVCRef rvc) {
     return OCSP_fetch_finished;
 }
 
+/* The SecPathBuilder state machine calls SecPathBuilderCheckRevocation twice --
+ * once in the ValidatePath state, and again in the ComputeDetails state. In the
+ * ValidatePath state we've not yet run the path checks, so for callers who set
+ * kSecRevocationCheckIfTrusted, we don't do any networking on that first call.
+ * Here, if we've already done revocation before (so we're in ComputeDetails now),
+ * we need to recheck (and enable networking) for trusted chains and
+ * kSecRevocationCheckIfTrusted. Otherwise, we skip the checks to save on the processing
+ * but update the PVCs with the revocation results from the last check. */
+static bool SecRevocationDidCheckRevocation(SecPathBuilderRef builder, bool *first_check_done) {
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(builder);
+    if (!SecCertificatePathVCIsRevocationDone(path)) {
+        return false;
+    }
+    if (first_check_done) {
+        *first_check_done = true;
+    }
+
+    SecPVCRef resultPVC = SecPathBuilderGetResultPVC(builder);
+    bool recheck = false;
+    if (SecPathBuilderGetCheckRevocationIfTrusted(builder) && SecPVCIsOkResult(resultPVC)) {
+        recheck = true;
+        secdebug("rvc", "Rechecking revocation because network now allowed");
+    } else {
+        secdebug("rvc", "Not rechecking revocation");
+    }
+
+    CFIndex certIX, certCount = SecPathBuilderGetCertificateCount(builder);
+    for (certIX = 0; certIX < certCount; ++certIX) {
+        SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, certIX);
+        if (rvc && !recheck) {
+            SecRVCUpdatePVC(rvc);
+        } else if (rvc) {
+            SecRVCDelete(rvc); // reset the RVC for the second pass
+        }
+    }
+    return !recheck;
+}
+
+static bool SecRevocationCanAccessNetwork(SecPathBuilderRef builder, bool first_check_done) {
+    /* CheckRevocationIfTrusted overrides NoNetworkAccess for revocation */
+    if (SecPathBuilderGetCheckRevocationIfTrusted(builder)) {
+        if (first_check_done) {
+            /* We're on the second pass. We need to now allow networking for revocation.
+             * SecRevocationDidCheckRevocation takes care of not running a second pass
+             * if the chain isn't trusted. */
+            return true;
+        } else {
+            /* We're on the first pass of the revocation checks, where we aren't
+             * supposed to do networking because we don't know if the chain
+             * is trusted yet. */
+            return false;
+        }
+    }
+    return SecPathBuilderCanAccessNetwork(builder);
+}
+
 bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
     secdebug("rvc", "checking revocation");
     CFIndex certIX, certCount = SecPathBuilderGetCertificateCount(builder);
@@ -1118,22 +1175,8 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
         return completed;
     }
 
-    /*
-     * Don't need to call SecPVCIsAnchored; having an issuer is sufficient here.
-     *
-     * Note: we can't check revocation for the last certificate in the chain
-     * via OCSP or CRL methods, since there isn't a separate issuer cert to
-     * sign those responses. However, since a self-signed root has an implied
-     * issuer of itself, we can check for it in the valid database.
-     */
-
-    if (SecCertificatePathVCIsRevocationDone(path)) {
-        /* We have done revocation checking already, set PVCs with results. */
-        for (certIX = 0; certIX < certCount; ++certIX) {
-            SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, certIX);
-            if (rvc) { SecRVCUpdatePVC(rvc); }
-        }
-        secdebug("rvc", "Not rechecking revocation");
+    bool first_check_done = false;
+    if (SecRevocationDidCheckRevocation(builder, &first_check_done)) {
         return completed;
     }
 
@@ -1189,7 +1232,7 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
             SecRVCProcessValidInfoResults(rvc);
         }
 #endif
-        /* Any other revocation method requires an issuer certificate;
+        /* Any other revocation method requires an issuer certificate to verify the response;
          * skip the last cert in the chain since it doesn't have one. */
         if (certIX+1 >= certCount) {
             continue;
@@ -1230,7 +1273,7 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
         /* If the cert is EV or if revocation checking was explicitly enabled, attempt to fire off an
          async http request for this cert's revocation status, unless we already successfully checked
          the revocation status of this cert based on the cache or stapled responses.  */
-        bool allow_fetch = SecPathBuilderCanAccessNetwork(builder) &&
+        bool allow_fetch = SecRevocationCanAccessNetwork(builder, first_check_done) &&
             (SecCertificatePathVCIsEV(path) || SecCertificatePathVCIsOptionallyEV(path) ||
              SecPathBuilderGetRevocationMethod(builder) || old_cached_response);
         bool fetch_done = true;

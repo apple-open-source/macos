@@ -75,15 +75,20 @@ static int mkrecord(struct passwd_ctx *ctx, char *user)
 {
     char hash_str[MAX_STRING_LEN];
     int ret;
+
     ctx->out = hash_str;
     ctx->out_len = sizeof(hash_str);
 
     ret = mkhash(ctx);
-    if (ret)
+    if (ret) {
+        ctx->out = NULL;
+        ctx->out_len = 0;
         return ret;
+    }
 
     ctx->out = apr_pstrcat(ctx->pool, user, ":", hash_str, NL, NULL);
-    if (strlen(ctx->out) >= MAX_STRING_LEN) {
+    ctx->out_len = strlen(ctx->out);
+    if (ctx->out_len >= MAX_STRING_LEN) {
         ctx->errstr = "resultant record too long";
         return ERR_OVERFLOW;
     }
@@ -324,13 +329,23 @@ int main(int argc, const char * const argv[])
      */
     if (!(mask & APHTP_NOFILE)) {
         existing_file = exists(pwfilename, pool);
-        if (existing_file) {
+        if (existing_file && (mask & APHTP_VERIFY) == 0) {
             /*
              * Check that this existing file is readable and writable.
              */
             if (!accessible(pool, pwfilename, APR_FOPEN_READ|APR_FOPEN_WRITE)) {
                 apr_file_printf(errfile, "%s: cannot open file %s for "
                                 "read/write access" NL, argv[0], pwfilename);
+                exit(ERR_FILEPERM);
+            }
+        }
+        else if (existing_file && (mask & APHTP_VERIFY) != 0) {
+            /*
+             * Check that this existing file is readable.
+             */
+            if (!accessible(pool, pwfilename, APR_FOPEN_READ)) {
+                apr_file_printf(errfile, "%s: cannot open file %s for "
+                                "read access" NL, argv[0], pwfilename);
                 exit(ERR_FILEPERM);
             }
         }

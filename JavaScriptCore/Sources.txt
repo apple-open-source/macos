@@ -178,7 +178,6 @@ bindings/ScriptObject.cpp
 bindings/ScriptValue.cpp
 
 builtins/BuiltinExecutables.cpp
-builtins/BuiltinExecutableCreator.cpp
 builtins/BuiltinNames.cpp
 
 bytecode/AccessCase.cpp
@@ -272,6 +271,7 @@ debugger/DebuggerParseData.cpp
 debugger/DebuggerScope.cpp
 
 dfg/DFGAbstractHeap.cpp
+dfg/DFGAbstractInterpreterClobberState.cpp
 dfg/DFGAbstractValue.cpp
 dfg/DFGAdaptiveInferredPropertyValueWatchpoint.cpp
 dfg/DFGAdaptiveStructureWatchpoint.cpp
@@ -651,6 +651,7 @@ parser/Nodes.cpp
 parser/NodesAnalyzeModule.cpp
 parser/Parser.cpp
 parser/ParserArena.cpp
+parser/ParserError.cpp
 parser/SourceProvider.cpp
 parser/SourceProviderCache.cpp
 parser/UnlinkedSourceCode.cpp

@@ -2017,6 +2017,7 @@ bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityCli
  */
 static bool
 SecItemServerDeleteAll(CFErrorRef *error) {
+    secerror("SecItemServerDeleteAll");
     return kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
         return (kc_transaction(dbt, error, ^bool {
             return (SecDbExec(dbt, CFSTR("DELETE from genp;"), error) &&

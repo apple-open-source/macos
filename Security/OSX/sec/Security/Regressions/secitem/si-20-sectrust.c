@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010,2012-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010,2012-2018 Apple Inc. All Rights Reserved.
  */
 
 #include <AssertMacros.h>
@@ -63,8 +63,8 @@ static void basic_tests(void)
     is(SecTrustGetCertificateCount(trust), 3, "cert count is 3");
     is(SecTrustGetCertificateAtIndex(trust, 0), cert0, "cert 0 is leaf");
 
-	/* Jul 30 2014. */
-    isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 30, 12, 0, 0),
+	/* Apr 14 2018. */
+    isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
          NULL, "create verify date");
     if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
@@ -77,14 +77,14 @@ SKIP: {
     skip("Can't fail to connect to securityd in NO_SERVER mode", 4, false);
 #endif
     // Test Restore OS environment
-    SecServerSetMachServiceName("com.apple.security.doesn't-exist");
+    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust without securityd running");
     is_status(trustResult, kSecTrustResultInvalid, "trustResult is kSecTrustResultInvalid");
 	is(SecTrustGetCertificateCount(trust), 1, "cert count is 1 without securityd running");
     SecKeyRef pubKey = NULL;
     ok(pubKey = SecTrustCopyPublicKey(trust), "copy public key without securityd running");
     CFReleaseNull(pubKey);
-    SecServerSetMachServiceName("com.apple.trustd");
+    SecServerSetTrustdMachServiceName("com.apple.trustd");
     // End of Restore OS environment tests
 }
 #endif

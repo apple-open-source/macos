@@ -5,19 +5,20 @@
 	<key>OpenSourceProject</key>
 	<string>apache</string>
 	<key>OpenSourceVersion</key>
-	<string>2.4.29</string>
+	<string>2.4.33</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://httpd.apache.org/</string>
 	<key>OriginalOpenSourceURL</key>
-	<string>http://www.apache.org/dist/httpd/httpd-2.4.29.tar.bz2</string>
+	<string>http://www.apache.org/dist/httpd/httpd-2.4.33.tar.bz2</string>
 	<key>OriginalOpenSourceSHA1</key>
-	<string>d99137fe45c6267653350f888bf745a3d242ddbe</string>
+	<string>9e56042515793a6992adc4b9f3a0345a0cb98176</string>
 	<key>OpenSourceImportDate</key>
-	<string>2017-10-31</string>
+	<string>2018-4-2</string>
 	<key>OpenSourceModifications</key>
 	<array>
                <string>Removed GPLv3 bison-generated parsers</string>
-               <string>Patch mod_ssl for SSLOptions LegacyCertChainVerify</string>		
+               <string>Patch mod_ssl for SSLOptions LegacyCertChainVerify</string>
+               <string>Removed unneeded binary apache.xdc</string>
 	</array>
 	<key>OpenSourceSHA1</key>
  	<string>93b3e2a803560b079234f63d27a14a8ac3425b7d</string>

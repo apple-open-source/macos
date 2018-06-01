@@ -1,9 +1,9 @@
 --- modules/proxy/mod_proxy_balancer.c.orig	2014-02-02 16:57:06.000000000 -0800
 +++ modules/proxy/mod_proxy_balancer.c	2014-02-02 18:46:32.000000000 -0800
-@@ -771,8 +771,8 @@
-                           (s->defn_name ? s->defn_name : "?"),
-                           s->defn_line_number,
-                           (s->error_fname ? s->error_fname : DEFAULT_ERRORLOG));
+@@ -770,8 +771,8 @@
+          * we have identifying info, we can create the real id
+          */
+         id = APR_ARRAY_IDX(ids, idx, const char *);
 -        conf->id = apr_psprintf(pconf, "p%x",
 -                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT));
 +        conf->id = apr_psprintf(pconf, "p%x-%d",

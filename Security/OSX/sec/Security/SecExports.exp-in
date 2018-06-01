@@ -1663,7 +1663,7 @@ _kSecXPCKeySendIDSMessage
 _SecCertificateXPCArrayCopyArray
 _SecPolicyXPCArrayCopyArray
 #if TARGET_OS_IPHONE
-_SecServerSetMachServiceName
+_SecServerSetTrustdMachServiceName
 #endif
 
 //

@@ -75,7 +75,7 @@ _unknown:*:99:
 _distnote:*:241:
 _astris:*:245:
 _ondemand:*:249:
-_analyticsusers:*:250:mobile,_analyticsd,_wireless,_networkd,_timed
+_analyticsusers:*:250:mobile,_analyticsd,_wireless,_networkd,_timed,_securityd
 _findmydevice:*:254:
 _datadetectors:*:257:
 _captiveagent:*:258:

@@ -1139,6 +1139,10 @@ bool SOSCCRequestSyncWithPeerOverKVS_Server(CFStringRef peerid, CFDataRef messag
 
 HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict, CFErrorRef* error)
 {
+    if (messageDict == NULL) {
+        return kHandleIDSMessageDontHandle;
+    }
+
     __block HandleIDSMessageReason result = kHandleIDSMessageSuccess;
     CFErrorRef action_error = NULL;
     
@@ -1633,6 +1637,10 @@ CFDictionaryRef SOSCCCopyBackupInformation_Server(CFErrorRef *error) {
 
 bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error){
    
+    if (escrow_label == NULL) {
+        return false;
+    }
+
     __block bool result = true;
     __block CFErrorRef block_error = NULL;
     

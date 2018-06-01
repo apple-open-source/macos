@@ -73,6 +73,7 @@ typedef void (^CompletionHandler)(void);
 @property CompletionHandler handler;
 @property dispatch_queue_t revDbUpdateQueue;
 @property os_transaction_t transaction;
+@property NSString *currentUpdateServer;
 @property NSFileHandle *currentUpdateFile;
 @property NSURL *currentUpdateFileURL;
 @property BOOL finishedDownloading;
@@ -99,8 +100,9 @@ typedef void (^CompletionHandler)(void);
     SecRevocationDbComputeAndSetNextUpdateTime();
 }
 
-- (void)updateDb:(NSUInteger)version{
+- (void)updateDb:(NSUInteger)version {
     __block NSURL *updateFileURL = self->_currentUpdateFileURL;
+    __block NSString *updateServer = self->_currentUpdateServer;
     __block NSFileHandle *updateFile = self->_currentUpdateFile;
     if (!updateFileURL || !updateFile) {
         [self reschedule];
@@ -126,7 +128,7 @@ typedef void (^CompletionHandler)(void);
         }
 
         secdebug("validupdate", "verifying and ingesting data from %@", updateFileURL);
-        SecValidUpdateVerifyAndIngest(updateData);
+        SecValidUpdateVerifyAndIngest(updateData, (__bridge CFStringRef)updateServer, (0 == version));
         if ((rtn = munmap((void *)CFDataGetBytePtr(updateData), CFDataGetLength(updateData))) != 0) {
             secerror("unable to unmap current update %ld bytes at %p (error %d)", CFDataGetLength(updateData), CFDataGetBytePtr(updateData), rtn);
         }
@@ -139,6 +141,7 @@ typedef void (^CompletionHandler)(void);
         }
         self->_currentUpdateFile = nil;
         self->_currentUpdateFileURL = nil;
+        self->_currentUpdateServer = nil;
 
         /* POWER LOG EVENT: background update finished */
         SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
@@ -255,6 +258,7 @@ didCompleteWithError:(NSError *)error {
         /* close file before we leave */
         [self->_currentUpdateFile closeFile];
         self->_currentUpdateFile = nil;
+        self->_currentUpdateServer = nil;
         self->_currentUpdateFileURL = nil;
     } else {
         /* POWER LOG EVENT: background download finished */
@@ -321,7 +325,7 @@ static ValidUpdateRequest *request = nil;
     return config;
 }
 
-- (void) createSession:(dispatch_queue_t)updateQueue {
+- (void) createSession:(dispatch_queue_t)updateQueue forServer:(NSString *)updateServer {
     NSURLSessionConfiguration *config = [self validUpdateConfiguration];
     ValidDelegate *delegate = [[ValidDelegate alloc] init];
     delegate.handler = ^(void) {
@@ -331,6 +335,7 @@ static ValidUpdateRequest *request = nil;
     delegate.transaction = NULL;
     delegate.revDbUpdateQueue = updateQueue;
     delegate.finishedDownloading = NO;
+    delegate.currentUpdateServer = [updateServer copy];
 
     /* Callbacks should be on a separate NSOperationQueue.
        We'll then dispatch the work on updateQueue and return from the callback. */
@@ -387,7 +392,7 @@ static ValidUpdateRequest *request = nil;
         });
 
         if (!self.backgroundSession) {
-            [self createSession:updateQueue];
+            [self createSession:updateQueue forServer:server];
         }
 
         /* POWER LOG EVENT: scheduling our background download session now */

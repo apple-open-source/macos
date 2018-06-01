@@ -2443,7 +2443,7 @@ ExitStatus filterKextsForCache(
 
     if (CFArrayGetCount(kextArray)) {
         if (earlyBoot == false) {
-            recordKextLoadListForMT(kextArray);
+            recordKextLoadListForMT(kextArray, false);
         }
     }
 

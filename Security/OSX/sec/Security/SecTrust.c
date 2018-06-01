@@ -598,7 +598,7 @@ static OSStatus SecTrustSetOptionInPolicies(CFArrayRef policies, CFStringRef key
         require_action_quiet(policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i), out, status = errSecInternal);
         CFMutableDictionaryRef options = NULL;
         require_action_quiet(options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options), out, status = errSecAllocate);
-        CFDictionaryAddValue(options, key, value);
+        CFDictionarySetValue(options, key, value);
         CFReleaseNull(policy->_options);
         policy->_options = options;
     }
@@ -654,13 +654,25 @@ OSStatus SecTrustSetNetworkFetchAllowed(SecTrustRef trust, Boolean allowFetch) {
 		return errSecParam;
 	}
     __block OSStatus status = errSecSuccess;
+    __block bool oldAllowFetch = true;
     dispatch_sync(trust->_trustQueue, ^{
+        CFArrayRef foundValues = SecTrustCopyOptionsFromPolicies(trust->_policies, kSecPolicyCheckNoNetworkAccess);
+        if (foundValues) {
+            /* We only disable fetch if there is a policy option set for NoNetworkAccess, so the old fetch
+             * status was false (don't allow network) if we find this option set in the policies. */
+            oldAllowFetch = false;
+            CFReleaseNull(foundValues);
+        }
         if (!allowFetch) {
             status = SecTrustSetOptionInPolicies(trust->_policies, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
         } else {
             status = SecTrustRemoveOptionInPolicies(trust->_policies, kSecPolicyCheckNoNetworkAccess);
         }
     });
+    /* If we switched from NoNetworkAccess to allowing access, we need to re-run the trust evaluation */
+    if (allowFetch && !oldAllowFetch) {
+        SecTrustSetNeedsEvaluation(trust);
+    }
 	return status;
 }
 
@@ -1173,6 +1185,7 @@ static CFErrorRef SecTrustCopyError(SecTrustRef trust) {
     CFErrorRef error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, status, userInfo);
     CFReleaseNull(userInfo);
     CFReleaseNull(simpleError);
+    CFReleaseNull(underlyingError);
     return error;
 }
 
@@ -1905,7 +1918,8 @@ static void applyDetailProperty(const void *_key, const void *_value,
     } else if (CFEqual(key, kSecPolicyCheckAnchorTrusted)
         || CFEqual(key, kSecPolicyCheckAnchorSHA1)
         || CFEqual(key, kSecPolicyCheckAnchorSHA256)
-        || CFEqual(key, kSecPolicyCheckAnchorApple)) {
+        || CFEqual(key, kSecPolicyCheckAnchorApple)
+        || CFEqual(key, kSecPolicyCheckMissingIntermediate)) {
         tf->untrustedAnchor = true;
     } else if (CFEqual(key, kSecPolicyCheckSSLHostname)) {
         tf->hostnameMismatch = true;

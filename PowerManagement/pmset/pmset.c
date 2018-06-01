@@ -6177,10 +6177,14 @@ static void printSleepWakeMsg(asl_object_t m, int logType)
     
 }
 
+#define kFilterDurationInSec (7 * 24 * 60 * 60)
+
 /* All PM messages in ASL log */
 static void show_log(char **argv)
 {
     asl_object_t        response = NULL;
+    asl_object_t        filtered_response = NULL;
+    bool                filter_logs = true;
     bool                json = false;
     char                *store = kPMASLStorePath;
 
@@ -6188,23 +6192,51 @@ static void show_log(char **argv)
         if (!strcmp(argv[0],"-json")) {
             json = true;
         }
+        else if (!strcmp(argv[0], "-all")) {
+            filter_logs = false;
+        }
         else if ((!strcmp(argv[0], "-f")) && argv[1]) {
             store = argv[1];
         }
     }
+
     response = open_pm_asl_store(store);
+
     if (!response) {
         printf("Error - no messages found in PM ASL data store at: %s\n", store);
         return;
     } else
         printf("PM ASL data store: %s\n", store);
-    
-    if (json) {
-        show_log_json(response);
+
+    if (filter_logs){
+        char         timestr[20] = {'\0'};
+        asl_object_t cq = asl_new(ASL_TYPE_QUERY);
+
+        if (cq == NULL) {
+            printf("Error - unable to create query filter for PM ASL data store at: %s\n", store);
+            return;
+        }
+        unsigned long long duration_sec = ((unsigned long long)CFAbsoluteTimeGetCurrent()) +
+            kCFAbsoluteTimeIntervalSince1970 - kFilterDurationInSec;
+        snprintf(timestr, sizeof(timestr), "%llu", duration_sec);
+
+        asl_set_query(cq, ASL_KEY_TIME, timestr, ASL_QUERY_OP_GREATER_EQUAL);
+        filtered_response = asl_search(response, cq);
+        asl_release(cq);
     }
     else {
-        show_log_text(response);
+        /* Use the query response without filtering */
+        filtered_response = response;
     }
+
+    if (json) {
+        show_log_json(filtered_response);
+    }
+    else {
+        show_log_text(filtered_response);
+    }
+
+    asl_release(filtered_response);
     return;
 }
 

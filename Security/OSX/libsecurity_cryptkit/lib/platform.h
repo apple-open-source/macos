@@ -54,12 +54,6 @@ extern "C" {
 
 extern void CKRaise(const char *reason) __attribute__((noreturn));
 
-/*
- * Come up with some kind of "really" random int with which to seed the
- * random number generator.
- */
-extern unsigned createRandomSeed(void);
-
 #ifdef __cplusplus
 }
 #endif

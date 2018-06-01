@@ -1616,12 +1616,6 @@
 
     __block NSError* error = nil;
 
-    if(self.accountStatus == CKKSAccountStatusNoAccount && syncCallback) {
-        // We're positively not logged into CloudKit, and therefore don't expect this item to be synced anytime particularly soon.
-        [self callSyncCallbackWithErrorNoAccount: syncCallback];
-        syncCallback = nil;
-    }
-
     // Tombstones come in as item modifications or item adds. Handle modifications here.
     bool addedTombstone   = added   && SecDbItemIsTombstone(added);
     bool deletedTombstone = deleted && SecDbItemIsTombstone(deleted);
@@ -1664,6 +1658,19 @@
     // Our caller gave us a database connection. We must get on the local queue to ensure atomicity
     // Note that we're at the mercy of the surrounding db transaction, so don't try to rollback here
     [self dispatchSyncWithConnection: dbconn block: ^bool {
+        // Schedule a "view changed" notification
+        [self.notifyViewChangedScheduler trigger];
+
+        if(self.accountStatus == CKKSAccountStatusNoAccount) {
+            // No account; CKKS shouldn't attempt anything.
+            self.droppedItems = true;
+
+            if(syncCallback) {
+                // We're positively not logged into CloudKit, and therefore don't expect this item to be synced anytime particularly soon.
+                [self callSyncCallbackWithErrorNoAccount: syncCallback];
+            }
+            return true;
+        }
 
         // Always record the callback, even if we can't encrypt the item right now. Maybe we'll get to it soon!
         if(syncCallback) {
@@ -1749,9 +1756,6 @@
                 ckkserror("ckks", self, "Couldn't delete error OQE sibling(%@) for %@: %@", reencryptOQE, oqe, error);
             }
         }
-
-        // Schedule a "view changed" notification
-        [self.notifyViewChangedScheduler trigger];
 
         [self processOutgoingQueue:operationGroup];
 

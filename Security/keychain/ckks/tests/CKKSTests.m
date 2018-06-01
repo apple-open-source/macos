@@ -3575,6 +3575,28 @@
     [partialKVMock stopMocking];
 }
 
+- (void)testSyncableItemsAddedWhileLoggedOut {
+    // Test that once CKKS is up and 'logged out', nothing happens when syncable items are added
+    self.accountStatus = CKAccountStatusNoAccount;
+    [self startCKAccountStatusMock];
+
+    XCTAssertEqual([self.keychainView.loggedOut wait:500*NSEC_PER_MSEC], 0, "CKKS should be told that it's logged out");
+
+    // CKKS shouldn't decide to poke its state machine, but it should still send the notification
+    XCTestExpectation* viewChangeNotification = [self expectChangeForView:self.keychainZoneID.zoneName];
+
+    // Reject all attempts to trigger a state machine update
+    id pokeKeyStateMachineScheduler = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMReject([pokeKeyStateMachineScheduler trigger]);
+    self.keychainView.pokeKeyStateMachineScheduler = pokeKeyStateMachineScheduler;
+
+    [self addGenericPassword: @"data" account: @"account-delete-me-2"];
+
+    [self waitForExpectations:@[viewChangeNotification] timeout:8];
+    [pokeKeyStateMachineScheduler stopMocking];
+}
+
+
 - (void)testNotStuckAfterReset {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 

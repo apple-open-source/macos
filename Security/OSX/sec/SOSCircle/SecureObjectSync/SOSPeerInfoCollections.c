@@ -242,7 +242,7 @@ CFArrayRef CreateArrayOfPeerInfoWithXPCObject(xpc_object_t peerArray, CFErrorRef
     }
     
     if (xpc_get_type(peerArray) != XPC_TYPE_DATA) {
-        SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Array of peer info not array, got %@"), peerArray);
+        SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Array of peer info not data"));
         return NULL;
     }
     

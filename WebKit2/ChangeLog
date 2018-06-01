@@ -1,6 +1,340 @@
-2018-02-28  Jason Marcell  <jmarcell@apple.com>
+2018-04-30  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r229028. rdar://problem/37992270
+        Apply patch. rdar://problem/39741039
+
+    2018-04-30  Brent Fulgham  <bfulgham@apple.com>
+
+            Don't Block First Party Cookies on Redirects
+            https://bugs.webkit.org/show_bug.cgi?id=184948
+            <rdar://problem/39534099>
+
+            Reviewed by Youenn Fablet.
+
+            Top-level navigations should not be subject to cookie blocking behavior. When performing redirects for main frame
+            navigation we are blocking cookies, leading to site breakage.
+
+            We need to keep track of which NetworkDataTasks are due to a main frame navigation. When a redirect is performed
+            on the main frame, we should treat the new origin as the 'first party for cookies' and avoid blocking cookies for
+            that URL.
+
+            * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+            (WebKit::NetworkConnectionToWebProcess::preconnectTo): Use the correct parameter type. We actually serialize
+            NetworkResourceLoadParameters over IPC, so we should get access to all the members of this child class.
+            * NetworkProcess/NetworkConnectionToWebProcess.h:
+            * NetworkProcess/NetworkDataTask.cpp:
+            (WebKit::NetworkDataTask::create): Pass new 'loadIsForNavigation' flag to create methods.
+            (WebKit::NetworkDataTask::NetworkDataTask): Capture 'loadIsForNavigation' in constructor.
+            * NetworkProcess/NetworkDataTask.h:
+            (WebKit::NetworkDataTask::isTopLevelNavigation const): Added.
+            * NetworkProcess/NetworkDataTaskBlob.cpp:
+            (WebKit::NetworkDataTaskBlob::NetworkDataTaskBlob): Accept new constructor argument.
+            * NetworkProcess/NetworkDataTaskBlob.h:
+            * NetworkProcess/NetworkLoad.cpp:
+            (WebKit::NetworkLoad::willPerformHTTPRedirection): Retain requester value from old request during redirect.
+            * NetworkProcess/NetworkResourceLoadParameters.cpp:
+            (NetworkResourceLoadParameters::decode): Update to pass new flag.
+            (NetworkResourceLoadParameters::encode): Ditto.
+            * NetworkProcess/NetworkLoadParameters.h:
+            * NetworkProcess/capture/NetworkDataTaskReplay.cpp:
+            (WebKit::NetworkCapture::NetworkDataTaskReplay::NetworkDataTaskReplay): Accept new constructor argument.
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.h:
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+            (WebKit::NetworkDataTaskCocoa::NetworkDataTaskCocoa): Accept new constructor argument.
+            (WebKit::NetworkDataTaskCocoa::willPerformHTTPRedirection):
+            * NetworkProcess/soup/NetworkDataTaskSoup.cpp:
+            (WebKit::NetworkDataTaskSoup::NetworkDataTaskSoup): Accept new constructor argument.
+            * NetworkProcess/soup/NetworkDataTaskSoup.h:
+
+2018-04-27  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r230903. rdar://problem/39766220
+
+    Web Inspector: WebInspectorProxy releases WKWebInspectorProxyObjCAdapter without removing corresponding observer
+    https://bugs.webkit.org/show_bug.cgi?id=184865
+    <rdar://problem/37764960>
+    
+    Reviewed by Brian Burg.
+    
+    Replace the early return removed in https://bugs.webkit.org/show_bug.cgi?id=177661,
+    so that WKWebInspectorProxyObjCAdapter and the view controller can be reused
+    when reopening the Inspector while the WebView is still alive.
+    
+    * UIProcess/mac/WebInspectorProxyMac.mm:
+    (WebKit::WebInspectorProxy::platformCreateFrontendPage):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230903 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-22  Matt Baker  <mattbaker@apple.com>
+
+            Web Inspector: WebInspectorProxy releases WKWebInspectorProxyObjCAdapter without removing corresponding observer
+            https://bugs.webkit.org/show_bug.cgi?id=184865
+            <rdar://problem/37764960>
+
+            Reviewed by Brian Burg.
+
+            Replace the early return removed in https://bugs.webkit.org/show_bug.cgi?id=177661,
+            so that WKWebInspectorProxyObjCAdapter and the view controller can be reused
+            when reopening the Inspector while the WebView is still alive.
+
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::platformCreateFrontendPage):
+
+2018-04-26  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/39532926
+
+    2018-04-26  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r230733): imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html is failing
+            <rdar://problem/39532926>
+
+            Reviewed by Ryosuke Niwa.
+
+            Update r230733 to do a more conservative roll out of r222468, since the download attribute code is relying
+            on some of the code.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+            Revert changes made to this method in r230733 as the download attribute code relies on
+            it.
+
+            * WebProcess/WebPage/WebFrame.cpp:
+            (WebKit::WebFrame::documentLoaderDetached):
+            Reintroduce null check that was dropped in r230733.
+
+2018-04-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/39305046
+
+    2018-04-17  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r222468 & r227758): Motion JPEG streams only show the first frame and frequently crash
+            <rdar://problem/39305046>
+
+            Reviewed by Chris Dumez.
+
+            Roll out r222468 as this patch introduced a null-dereference of the provisionalDocumentLoader.
+            The SPI added in r222468 is not used by any client yet so this is safe to roll out.
+
+            Also roll out r227758, which attempted to fix the crash introduced in r222468 but
+            ended up ignoring every following frame of Motion JPEG streams. This is because there
+            is no provisional document loader anymore for follow-up of Motion JPEG streams and the
+            r227758 was returning early and asking WebCore to ignore the response when the provisional
+            document loader was null. A proper fix would have been to set the navigationID to 0 when
+            the provisional document loader is null instead of returning early. However, it does not
+            matter in this patch since r222468 is being reverted too.
+
+            A proper fix will be landed on trunk via https://bugs.webkit.org/show_bug.cgi?id=184268.
+
+            * UIProcess/API/APINavigation.cpp:
+            (API::Navigation::Navigation):
+            (API::Navigation::appendRedirectionURL): Deleted.
+            * UIProcess/API/APINavigation.h:
+            (API::Navigation::takeRedirectChain): Deleted.
+            (API::Navigation::setWasUserInitiated): Deleted.
+            (API::Navigation::wasUserInitiated const): Deleted.
+            * UIProcess/API/C/WKDownload.cpp:
+            (WKDownloadCopyRedirectChain):
+            (WKDownloadGetWasUserInitiated): Deleted.
+            * UIProcess/API/C/WKDownload.h:
+            * UIProcess/API/Cocoa/_WKDownload.h:
+            * UIProcess/API/Cocoa/_WKDownload.mm:
+            (-[_WKDownload wasUserInitiated]): Deleted.
+            * UIProcess/Downloads/DownloadProxy.h:
+            (WebKit::DownloadProxy::setWasUserInitiated): Deleted.
+            (WebKit::DownloadProxy::wasUserInitiated const): Deleted.
+            (): Deleted.
+            * UIProcess/WebFrameProxy.cpp:
+            (WebKit::WebFrameProxy::didStartProvisionalLoad):
+            (WebKit::WebFrameProxy::didReceiveServerRedirectForProvisionalLoad):
+            (WebKit::WebFrameProxy::didFailProvisionalLoad):
+            (WebKit::WebFrameProxy::didFinishLoad):
+            (WebKit::WebFrameProxy::didFailLoad):
+            * UIProcess/WebFrameProxy.h:
+            (WebKit::WebFrameProxy::takeProvisionalLoadRedirectChain):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::receivedPolicyDecision):
+            (WebKit::WebPageProxy::didReceiveServerRedirectForProvisionalLoadForFrame):
+            (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+            (WebKit::WebPageProxy::decidePolicyForResponse):
+            (WebKit::WebPageProxy::decidePolicyForResponseSync):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+            * WebProcess/WebPage/WebFrame.cpp:
+            (WebKit::WebFrame::documentLoaderDetached):
+
+2018-04-11  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r229872. rdar://problem/39349363
+
+    Use the same SWServer for all ephemeral sessions
+    https://bugs.webkit.org/show_bug.cgi?id=183921
+    <rdar://problem/36873075>
+    
+    Reviewed by Youenn Fablet.
+    
+    Use the same SWServer for all ephemeral sessions. SWServers never go away and we create
+    one per sessionID. When browsing doing private browsing in Safari (and other fetching
+    favorite icons), the sessionID is ephemeral and keeps changing. This means that we kept
+    constructing new SWServers that would never go away. Each SWServer has a thread so we
+    would eventually hit the thread limit for the storage process.
+    
+    * StorageProcess/StorageProcess.cpp:
+    (WebKit::StorageProcess::swServerForSession):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@229872 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-03-22  Chris Dumez  <cdumez@apple.com>
+
+            Use the same SWServer for all ephemeral sessions
+            https://bugs.webkit.org/show_bug.cgi?id=183921
+            <rdar://problem/36873075>
+
+            Reviewed by Youenn Fablet.
+
+            Use the same SWServer for all ephemeral sessions. SWServers never go away and we create
+            one per sessionID. When browsing doing private browsing in Safari (and other fetching
+            favorite icons), the sessionID is ephemeral and keeps changing. This means that we kept
+            constructing new SWServers that would never go away. Each SWServer has a thread so we
+            would eventually hit the thread limit for the storage process.
+
+            * StorageProcess/StorageProcess.cpp:
+            (WebKit::StorageProcess::swServerForSession):
+
+2018-04-10  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230467. rdar://problem/39317878
+
+    Refactor Ignore HSTS code
+    https://bugs.webkit.org/show_bug.cgi?id=184433
+    <rdar://problem/39298238>
+    
+    Reviewed by Darin Adler.
+    
+    This patch refactors our ignore HSTS code. The convenience functions are moved
+    out of CFNetwork SPI in PAL, and into where they are used. It also switches
+    from performSelector: calls to straight function calls, after checking that
+    there is a responder.
+    
+    Source/WebCore:
+    
+    * platform/network/mac/WebCoreURLResponse.mm:
+    (WebCore::schemeWasUpgradedDueToDynamicHSTS):
+        Add convenience function here since it was moved out of
+        CFNetworkSPI.h.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/cf/CFNetworkSPI.h:
+    (schemeWasUpgradedDueToDynamicHSTS): Deleted.
+    (setIgnoreHSTS): Deleted.
+    (ignoreHSTS): Deleted.
+    
+    Source/WebKit:
+    
+    * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+    (schemeWasUpgradedDueToDynamicHSTS):
+    (setIgnoreHSTS):
+    (ignoreHSTS):
+        Add convenience functions here since they were moved out of
+        CFNetworkSPI.h.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230467 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-09  John Wilander  <wilander@apple.com>
+
+            Refactor Ignore HSTS code
+            https://bugs.webkit.org/show_bug.cgi?id=184433
+            <rdar://problem/39298238>
+
+            Reviewed by Darin Adler.
+
+            This patch refactors our ignore HSTS code. The convenience functions are moved
+            out of CFNetwork SPI in PAL, and into where they are used. It also switches
+            from performSelector: calls to straight function calls, after checking that
+            there is a responder.
+
+            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+            (schemeWasUpgradedDueToDynamicHSTS):
+            (setIgnoreHSTS):
+            (ignoreHSTS):
+                Add convenience functions here since they were moved out of
+                CFNetworkSPI.h.
+
+2018-03-21  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r229297. rdar://problem/38682578
+
+    2018-03-05  Andy Estes  <aestes@apple.com>
+
+            [Mac] Teach WebCore::Pasteboard about file promise drags
+            https://bugs.webkit.org/show_bug.cgi?id=183314
+            <rdar://problem/38105493>
+
+            Reviewed by Darin Adler.
+
+            Added a FIXME comment.
+
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::performDragOperation):
+
+2018-03-20  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r229643. rdar://problem/38651639
+
+    2018-03-15  Keith Rollin  <krollin@apple.com>
+
+            Telemetry for stalled webpage loads
+            https://bugs.webkit.org/show_bug.cgi?id=183221
+            <rdar://problem/36549013>
+
+            Reviewed by Chris Dumez.
+
+            Add telemetry for page loads, tracking the pages that succeed, fail,
+            or are canceled. This information will be used to track the overall
+            health of our page loading as time goes on.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::close):
+            (WebKit::WebPageProxy::didStartProvisionalLoadForFrame):
+            (WebKit::WebPageProxy::didFailProvisionalLoadForFrame):
+            (WebKit::WebPageProxy::didFinishLoadForFrame):
+            (WebKit::WebPageProxy::didFailLoadForFrame):
+            (WebKit::WebPageProxy::reportPageLoadResult):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::reportPageLoadResult):
+
+2018-03-11  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r229134. rdar://problem/38035474
+
+    2018-03-01  Antti Koivisto  <antti@apple.com>
+
+            Crash when updating cache entry after validation in apps that uses class A file protection
+            https://bugs.webkit.org/show_bug.cgi?id=183242
+            <rdar://problem/33289058>
+
+            Reviewed by Chris Dumez.
+
+            When validating a cache entry, we keep it alive until we get a network response. With 304 response
+            we then update the headers of this existing entry. This accesses the body data of the entry which
+            may be backed by a mapped file. If the app uses class A protection, user might have locked
+            the device and the entry might have become inaccessible, leading to a crash.
+
+            * NetworkProcess/cache/NetworkCacheEntry.cpp:
+            (WebKit::NetworkCache::Entry::setNeedsValidation):
+
+            In case of class A protection, pull the data to a memory buffer immediately before starting a revalidation request.
+            This makes the window where the file could become inaccessible much shorter (since it no longer depends on network).
+
+2018-03-11  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r229028. rdar://problem/37992284
 
     2018-02-26  Youenn Fablet  <youenn@apple.com>
 

@@ -93,3 +93,4 @@ POLICYCHECKMACRO(CTRequired,                     R, T,  ,  ,  , 0x8001212A, errS
 POLICYCHECKMACRO(NoNetworkAccess,                ,  , L,  ,  ,           , errSecInternal)
 POLICYCHECKMACRO(ExtendedValidation,             ,  ,  ,  ,  ,           , errSecInternal)
 POLICYCHECKMACRO(RevocationOnline,               ,  , L,  ,  ,           , errSecInternal)
+POLICYCHECKMACRO(RevocationIfTrusted,            ,  , L,  ,  ,           , errSecInternal)

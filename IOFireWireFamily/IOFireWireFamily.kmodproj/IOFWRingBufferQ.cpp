@@ -76,7 +76,7 @@ bool IOFWRingBufferQ::initQ( mach_vm_address_t address, mach_vm_size_t length, I
 		return false;
 	
 	fMemDescriptorPrepared = true;
-	fFrontOffset = NULL;
+	fFrontOffset = 0;
 	fQueueLength = 0;
 	fBufferSize = fMemDescriptor->getLength();
 	

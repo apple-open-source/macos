@@ -952,6 +952,7 @@ IOReturn IOPCIBridge::setDevicePowerState(IOPCIDevice * device, IOOptionBits opt
 			if (kIOPCIDevicePausedState != prevState)
 			{
 				if ((kIOPCIDeviceOffState == prevState) 
+				 && !configShadow(device)->tunnelRoot
 				 && ((kIOPCIClassGraphics == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24))
 				  || (kIOPCIClassMultimedia == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24))))
 				{

@@ -316,11 +316,8 @@ static NSInteger _reporterCleanups;
 
     _reporterWrites = 0;
     mockReporter = OCMClassMock([SFAnalyticsReporter class]);
-    OCMStub([mockReporter saveReport:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
+    OCMStub([mockReporter saveReport:[OCMArg isNotNil] fileName:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
         _reporterWrites++;
-    }).andReturn(YES);
-    OCMStub([mockReporter cleanupReportsDirectory]).andDo(^(NSInvocation *invocation) {
-        _reporterCleanups++;
     }).andReturn(YES);
 
     [supd removeInstance];
@@ -359,6 +356,40 @@ static NSInteger _reporterCleanups;
 - (void)testSplunkDefaultBagURLExists
 {
     XCTAssertNotNil([[self keySyncTopic] splunkBagURL]);
+}
+
+- (void)testHaveEligibleClientsKeySync
+{
+    // KeySyncTopic has no clients requiring deviceAnalytics currently
+    SFAnalyticsTopic* keytopic = [[SFAnalyticsTopic alloc] initWithDictionary:@{} name:@"KeySyncTopic" samplingRates:@{}];
+
+    XCTAssertTrue([keytopic haveEligibleClients], @"Both analytics enabled -> we have keysync clients");
+
+    deviceAnalyticsEnabled = NO;
+    XCTAssertTrue([keytopic haveEligibleClients], @"Only iCloud analytics enabled -> we have keysync clients");
+
+    iCloudAnalyticsEnabled = NO;
+    XCTAssertFalse([keytopic haveEligibleClients], @"Both analytics disabled -> no keysync clients");
+
+    deviceAnalyticsEnabled = YES;
+    XCTAssertFalse([keytopic haveEligibleClients], @"Only device analytics enabled -> no keysync clients");
+}
+
+- (void)testHaveEligibleClientsTrust
+{
+    // TrustTopic has no clients requiring iCloudAnalytics currently
+    SFAnalyticsTopic* trusttopic = [[SFAnalyticsTopic alloc] initWithDictionary:@{} name:@"TrustTopic" samplingRates:@{}];
+
+    XCTAssertTrue([trusttopic haveEligibleClients], @"Both analytics enabled -> we have trust clients");
+
+    deviceAnalyticsEnabled = NO;
+    XCTAssertFalse([trusttopic haveEligibleClients], @"Only iCloud analytics enabled -> no trust clients");
+
+    iCloudAnalyticsEnabled = NO;
+    XCTAssertFalse([trusttopic haveEligibleClients], @"Both analytics disabled -> no trust clients");
+
+    deviceAnalyticsEnabled = YES;
+    XCTAssertTrue([trusttopic haveEligibleClients], @"Only device analytics enabled -> we have trust clients");
 }
 
 - (void)testLoggingJSONSimple:(BOOL)analyticsEnabled
@@ -439,74 +470,11 @@ static NSInteger _reporterCleanups;
     BOOL writtenToLog = YES;
     size_t numWrites = 5;
     for (size_t i = 0; i < numWrites; i++) {
-        writtenToLog &= [reporter saveReport:reportData];
+        writtenToLog &= [reporter saveReport:reportData fileName:@"log.txt"];
     }
 
     XCTAssertTrue(writtenToLog, "Failed to write to log");
     XCTAssertTrue((int)_reporterWrites == (int)numWrites, "Expected %zu report, got %d", numWrites, (int)_reporterWrites);
-}
-
-- (void)testMockDiagnosticReportCleanup
-{
-    SFAnalyticsReporter *reporter = mockReporter;
-
-    // Write the log
-    uint8_t report_data[] = {0x00, 0x01, 0x02, 0x03};
-    NSData *reportData = [[NSData alloc] initWithBytes:report_data length:sizeof(report_data)];
-    BOOL writtenToLog = YES;
-    size_t numWrites = 5;
-    for (size_t i = 0; i < numWrites; i++) {
-        writtenToLog &= [reporter saveReport:reportData];
-    }
-
-    XCTAssertTrue(writtenToLog, "Failed to write to log");
-    XCTAssertTrue((int)_reporterWrites == (int)numWrites, "Expected %zu report, got %d", numWrites, (int)_reporterWrites);
-
-    // Now clean up...
-    [reporter cleanupReportsDirectory];
-    XCTAssertTrue((int)_reporterCleanups == 1, "Expected %d report, got %d", 1, (int)_reporterCleanups);
-}
-
-- (void)testFakeDiagnosticReportGeneration
-{
-    CFUUIDRef uuid = CFUUIDCreate(NULL);
-    CFStringRef uuidString = CFUUIDCreateString(NULL, uuid);
-    CFRelease(uuid);
-    NSString *temporaryDirectory = [NSString stringWithFormat:@"%@%@", @"/tmp/", (__bridge NSString *)uuidString];
-
-    NSTimeInterval validityInterval = 2;
-    SFAnalyticsReporter *reporter = [[SFAnalyticsReporter alloc] initWithPath:temporaryDirectory validity:validityInterval];
-    [reporter setupReportsDirectory];
-
-    // Write the log
-    uint8_t report_data[] = {0x00, 0x01, 0x02, 0x03};
-    NSData *reportData = [[NSData alloc] initWithBytes:report_data length:sizeof(report_data)];
-    BOOL writtenToLog = YES;
-    size_t numWrites = 1;
-    for (size_t i = 0; i < numWrites; i++) {
-        writtenToLog &= [reporter saveReport:reportData];
-    }
-
-    // Ensure the right number of reports is generated
-    XCTAssertTrue(writtenToLog, "Failed to write to log");
-    NSArray *directoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:[reporter reportsDirectoryPath] error:nil];
-    size_t reportCount = [directoryContent count];
-    XCTAssertTrue(reportCount == numWrites);
-
-    // Ensure the count stays even after cleanup, as they are not stale
-    [reporter cleanupReportsDirectory];
-    directoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:[reporter reportsDirectoryPath] error:nil];
-    reportCount = [directoryContent count];
-    XCTAssertTrue(reportCount == numWrites);
-
-    // Sleep for twice the validity interval
-    sleep(validityInterval * 2);
-
-    // Cleanup stale reports. We expect everything to be gone at this point.
-    [reporter cleanupReportsDirectory];
-    directoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:[reporter reportsDirectoryPath] error:nil];
-    reportCount = [directoryContent count];
-    XCTAssertTrue(reportCount == 0);
 }
 
 - (void)testSuccessCounts

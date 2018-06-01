@@ -1,5 +1,99 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+29 Mar 2018, PHP 7.1.16
+
+- Core:
+  . Fixed bug #76025 (Segfault while throwing exception in error_handler).
+    (Dmitry, Laruence)
+  . Fixed bug #76044 ('date: illegal option -- -' in ./configure on FreeBSD).
+    (Anatol)
+
+- FPM:
+  . Fixed bug #75605 (Dumpable FPM child processes allow bypassing opcache
+    access controls). (Jakub Zelenka)
+
+- GD:
+  . Fixed bug #73957 (signed integer conversion in imagescale()). (cmb)
+
+- ODBC:
+  . Fixed bug #76088 (ODBC functions are not available by default on Windows).
+    (cmb)
+
+- Opcache:
+  . Fixed bug #76074 (opcache corrupts variable in for-loop). (Bob)
+
+- Phar:
+  . Fixed bug #76085 (Segmentation fault in buildFromIterator when directory
+    name contains a \n). (Laruence)
+
+- Standard:
+  . Fixed bug #74139 (mail.add_x_header default inconsistent with docs). (cmb)
+  . Fixed bug #76068 (parse_ini_string fails to parse "[foo]\nbar=1|>baz" with
+    segfault). (Anatol)
+
+01 Mar 2018, PHP 7.1.15
+
+- Apache2Handler:
+  . Fixed bug #75882 (a simple way for segfaults in threadsafe php just with
+    configuration). (Anatol)
+
+- Date:
+  . Fixed bug #75857 (Timezone gets truncated when formatted). (carusogabriel)
+  . Fixed bug #75928 (Argument 2 for `DateTimeZone::listIdentifiers()` should
+    accept `null`). (Pedro Lacerda)
+  . Fixed bug #68406 (calling var_dump on a DateTimeZone object modifies it).
+    (jhdxr)
+
+- FTP:
+  . Fixed ftp_pasv arginfo. (carusogabriel)
+
+-GD:
+  . Fixed imagesetinterpolation arginfo. (Gabriel Caruso)
+
+- iconv:
+  . Fixed bug #75867 (Freeing uninitialized pointer). (Philip Prindeville)
+
+- LDAP:
+  . Fixed bug #49876 (Fix LDAP path lookup on 64-bit distros). (dzuelke)
+
+- libxml2:
+  . Fixed bug #75871 (use pkg-config where available). (pmmaga)
+
+- mysqlnd
+  . Fixed negotiation of MySQL authenticaton plugin. (Johannes)
+  . Fixed a memleak with SSL connections. (Johannes)
+
+- ODBC:
+  . Fixed bug #73725 (Unable to retrieve value of varchar(max) type). (Anatol)
+
+- Opcache:
+  . Fixed bug #75969 (Assertion failure in live range DCE due to block pass
+    misoptimization). (Nikita)
+
+- OpenSSL:
+  . Fixed openssl_* arginfos. (carusogabriel)
+
+- PCNTL:
+  . Fixed bug #75873 (pcntl_wexitstatus returns incorrect on Big_Endian platform
+    (s390x)). (Sam Ding)
+
+- PGSQL:
+  . Fixed #75838 (Memory leak in pg_escape_bytea()). (ard_1 at mail dot ru)
+
+- Phar:
+  . Fixed bug #65414 (deal with leading slash when adding files correctly).
+    (bishopb)
+
+- SPL:
+  . Fixed bug #74519 (strange behavior of AppendIterator). (jhdxr)
+
+- Standard:
+  . Fixed bug #75961 (Strange references behavior). (Laruence)
+  . Fixed bug #75916 (DNS_CAA record results contain garbage). (Mike, 
+    Philip Sharp)
+  . Fixed some arginfos. (carusogabriel)
+  . Fixed bug #75981 (stack-buffer-overflow while parsing HTTP response). (Stas)
+
 01 Feb 2018, PHP 7.1.14
 
 - Core:
@@ -18,6 +112,9 @@ PHP                                                                        NEWS
 
 - IMAP:
   . Fixed bug #75774 (imap_append HeapCorruction). (Anatol)
+
+- Mbstring:
+  . Fixed bug #62545 (wrong unicode mapping in some charsets). (cmb)
 
 - Opcache:
   . Fixed bug #75720 (File cache not populated after SHM runs full). (Dmitry)

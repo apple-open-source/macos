@@ -20,7 +20,7 @@
  *	Created.
  */
 
-#ifndef	_CK_FEERANDOM_H_
+#ifndef _CK_FEERANDOM_H_
 #define _CK_FEERANDOM_H_
 
 #ifdef __cplusplus
@@ -37,8 +37,8 @@ void feeRandFree(feeRand frand);
 unsigned feeRandNextNum(feeRand frand);
 
 void feeRandBytes(feeRand frand,
-	unsigned char *bytes,		/* must be alloc'd by caller */
-	unsigned numBytes);
+                  void *bytes,
+                  unsigned numBytes);
 
 void feeRandAddEntropy(feeRand frand, unsigned entropy);
 
@@ -46,4 +46,4 @@ void feeRandAddEntropy(feeRand frand, unsigned entropy);
 }
 #endif
 
-#endif	/* _CK_FEERANDOM_H_ */
+#endif /* _CK_FEERANDOM_H_ */

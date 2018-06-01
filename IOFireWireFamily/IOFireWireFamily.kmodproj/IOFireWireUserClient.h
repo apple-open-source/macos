@@ -219,7 +219,9 @@ class IOFireWireUserClient : public IOUserClient
 
 		IOFireWireLib::UserObjectHandle		fSessionRef;
 	
-        IOFireWireController  *              fController;
+        IOFireWireController  *             fController;
+    
+        IOLock *                            fUserClientLock;
     
 	public:
 	

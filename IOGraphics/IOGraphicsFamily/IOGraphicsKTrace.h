@@ -56,8 +56,6 @@ extern GMetricsRecorder * gGMetrics;
 #endif
 
 #if ENABLE_TELEMETRY
-#warning "**KTRACE TELEMETRY ENABLED**"
-
 
 // Trace Flags from NVRAM "iogt" property
 extern uint32_t gIOGATFlags;

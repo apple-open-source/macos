@@ -20,15 +20,15 @@
  #ifndef OPENSSL_NO_COMP
      sc->compression            = UNSET;
  #endif
-@@ -355,6 +356,8 @@
-     cfgMergeBool(compression);
+@@ -400,6 +401,8 @@
  #endif
+     cfgMergeBool(session_tickets);
  
 +    cfgMergeBool(allow_empty_fragments);
 +
-     modssl_ctx_cfg_merge_proxy(p, base->proxy, add->proxy, mrg->proxy);
- 
      modssl_ctx_cfg_merge_server(p, base->server, add->server, mrg->server);
+ 
+     return mrg;
 @@ -645,6 +648,22 @@
      return NULL;
  }

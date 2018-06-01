@@ -59,7 +59,7 @@ la charge des serveurs d'arrière-plan</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="intro" id="intro">Mise en cache des données d'authentification</a></h2>
-    <p>Certains utilisateurs qui mettent oeuvre une authentification
+    <p>Certains utilisateurs qui mettent en oeuvre une authentification
     lourde s'appuyant par exemple sur des requêtes SQL
     (<code class="module"><a href="../mod/mod_authn_dbd.html">mod_authn_dbd</a></code>) ont signalé une charge induite
     inacceptable sur leur fournisseur d'authentification. Cela se
@@ -164,7 +164,6 @@ cache</td></tr>
 endroit</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthnCacheEnable</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur</td></tr>
-<tr><th><a href="directive-dict.html#Override">AllowOverride:</a></th><td>None</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_authn_socache</td></tr>
 </table>
@@ -210,7 +209,6 @@ mise en cache</td></tr>
 utiliser</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthnCacheSOCache <var>nom-fournisseur[:arguments-fournisseur]</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur</td></tr>
-<tr><th><a href="directive-dict.html#Override">AllowOverride:</a></th><td>None</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_authn_socache</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Les arguments optionnels du fournisseur sont disponibles
@@ -277,7 +275,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authn_socach
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

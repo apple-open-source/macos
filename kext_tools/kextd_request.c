@@ -90,7 +90,8 @@ static OSReturn checkNonrootLoadAllowed(
 
 #pragma mark KextManager RPC routines & support
 /*******************************************************************************
-*******************************************************************************/
+ * MIG Server Routine
+ *******************************************************************************/
 kern_return_t _kextmanager_path_for_bundle_id(
     mach_port_t       server,
     kext_bundle_id_t  bundle_id,
@@ -172,9 +173,10 @@ finish:
 
 #pragma mark Loginwindow RPC routines & support
 /*******************************************************************************
-* This function is executed in the main thread after its run loop gets
-* kicked by a client request.
-*******************************************************************************/
+ * MIG Server Routine
+ * This function is executed in the main thread after its run loop gets
+ * kicked by a client request.
+ *******************************************************************************/
 kern_return_t _kextmanager_create_property_value_array(
     mach_port_t  server,
     char        * property_key,
@@ -588,8 +590,7 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     /*
      * The extension is definitely being loaded, so log it then perform the load.
      */
-    recordKextLoadForMT(osKext);
-
+    recordKextLoadForMT(osKext, false);
     osLoadResult = OSKextLoadWithOptions(osKext,
         /* startExclusion */ kOSKextExcludeNone,
         /* addPersonalitiesExclusion */ kOSKextExcludeAll,
@@ -804,8 +805,9 @@ finish:
 
 #pragma mark User Space Kext Load Requests
 /*******************************************************************************
-* User space load request.
-*******************************************************************************/
+ * MIG Server Routine
+ * User space load request.
+ *******************************************************************************/
 kern_return_t
 _kextmanager_load_kext(
     mach_port_t   server,
@@ -1405,7 +1407,7 @@ kextdProcessUserLoadRequest(
     /*
      * The extension is definitely being loaded, so log it then perform the load.
      */
-    recordKextLoadForMT(theKext);
+    recordKextLoadForMT(theKext, true);
 
     /* The codepath from this function will do any error logging
      * and cleanup needed.

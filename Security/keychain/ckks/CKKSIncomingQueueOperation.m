@@ -305,6 +305,29 @@
         return;
     }
 
+    __weak __typeof(self) weakSelf = self;
+    self.completionBlock = ^(void) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (!strongSelf) {
+            ckkserror("ckksincoming", ckks, "received callback for released object");
+            return;
+        }
+
+        CKKSAnalytics* logger = [CKKSAnalytics logger];
+
+        if (!strongSelf.error) {
+            [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:ckks];
+            if (!strongSelf.pendingClassAEntries) {
+                [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:ckks];
+            }
+        } else {
+            [logger logRecoverableError:strongSelf.error
+                               forEvent:strongSelf.errorOnClassAFailure ? CKKSEventProcessIncomingQueueClassA : CKKSEventProcessIncomingQueueClassC
+                                 inView:ckks
+                         withAttributes:NULL];
+        }
+    };
+
     [ckks dispatchSync: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
@@ -434,29 +457,6 @@
         if(self.pendingClassAEntries) {
             [self.ckks processIncomingQueueAfterNextUnlock];
         }
-
-        __weak __typeof(self) weakSelf = self;
-        self.completionBlock = ^(void) {
-            __strong __typeof(self) strongSelf = weakSelf;
-            if (!strongSelf) {
-                ckkserror("ckksincoming", ckks, "received callback for released object");
-                return;
-            }
-
-            CKKSAnalytics* logger = [CKKSAnalytics logger];
-
-            if (!strongSelf.error) {
-                [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:ckks];
-                if (!strongSelf.pendingClassAEntries) {
-                    [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:ckks];
-                }
-            } else {
-                [logger logRecoverableError:strongSelf.error
-                                   forEvent:CKKSEventProcessIncomingQueueClassA
-                                     inView:strongSelf.ckks
-                             withAttributes:NULL];
-            }
-        };
 
         return ok;
     }];

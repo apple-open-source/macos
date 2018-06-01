@@ -37,7 +37,6 @@ dispatch_source_t _gKextutilLock = NULL;
 void kextd_process_kernel_requests(void);
 
 /******************************************************************************
- * _kextmanager_lock_volume tries to lock volumes for clients (kextutil)
  *****************************************************************************/
 static void removeKextutilLock(void)
 {
@@ -54,7 +53,8 @@ static void removeKextutilLock(void)
 }
 
 /******************************************************************************
- * _kextmanager_lock_volume tries to lock volumes for clients (kextutil)
+ * MIG Server Routine
+ * _kextmanager_lock_kextload serializes kextutil clients
  *****************************************************************************/
 kern_return_t _kextmanager_lock_kextload(
     mach_port_t server,
@@ -62,7 +62,7 @@ kern_return_t _kextmanager_lock_kextload(
     int * lockstatus)
 {
     kern_return_t mig_result = KERN_FAILURE;
-    int result;
+    int result = ELAST + 1;
 
     if (!lockstatus) {
         OSKextLog(/* kext */ NULL,
@@ -115,6 +115,17 @@ kern_return_t _kextmanager_lock_kextload(
     }
 
 finish:
+    if (mig_result == KERN_SUCCESS && result != 0) {
+        /*
+         * if result == 0, then we're using the 'client' send right in a
+         * dispatch source. However, if we did not consume the 'client'
+         * send right (result != 0), and we're returning success
+         * (mig_result == KERN_SUCCESS), then we need to consume the right
+         * because MIG will not.
+         */
+        mach_port_deallocate(mach_task_self(), client);
+    }
+
     if (mig_result != KERN_SUCCESS) {
         if (gClientUID == 0) {
             OSKextLog(/* kext */ NULL,
@@ -131,7 +142,8 @@ finish:
 }
 
 /******************************************************************************
- * _kextmanager_unlock_kextload unlocks for clients (kextutil)
+ * MIG Server Routine
+ * _kextmanager_unlock_kextload unlocks kextutil clients
  *****************************************************************************/
 kern_return_t _kextmanager_unlock_kextload(
     mach_port_t server,

@@ -280,6 +280,9 @@
 		354A56E31E9C3F34006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		354A56E41E9C3F48006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		35C528FA1E9D5155002E15E9 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 35C528F91E9D5155002E15E9 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		3667FED62040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
+		3667FED72040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
+		3667FED82040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
 		4B5563471267821C009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		4B55634E1267837B009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		50473D77166C859800211829 /* fsremount in Install kcinstall */ = {isa = PBXBuildFile; fileRef = 50473D74166C855700211829 /* fsremount */; };
@@ -865,6 +868,7 @@
 		24FD2F6F0DC121DD0065A35B /* kextutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextutil_main.c; sourceTree = "<group>"; };
 		354A56E11E9C3F21006C72A2 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
 		35C528F91E9D5155002E15E9 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
+		3667FED52040E50200E3DE5F /* kextaudit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextaudit.c; sourceTree = "<group>"; };
 		4B5563461267821C009908A3 /* libcsfde.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcsfde.dylib; path = /usr/lib/libcsfde.dylib; sourceTree = "<absolute>"; };
 		50473D74166C855700211829 /* fsremount */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fsremount; sourceTree = "<group>"; };
 		50473D75166C855700211829 /* kcinstall */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = kcinstall; sourceTree = "<group>"; };
@@ -1422,6 +1426,7 @@
 				A65EA4661E57C5A000B49C4E /* staging.m */,
 				A6D698151E56AAAA0050FC06 /* syspolicy.m */,
 				A6D698171E56AAB70050FC06 /* syspolicy.h */,
+				3667FED52040E50200E3DE5F /* kextaudit.c */,
 			);
 			name = "shared source";
 			sourceTree = "<group>";
@@ -1938,6 +1943,7 @@
 				0509728D094910D30034B52C /* kextd_main.c in Sources */,
 				0509728F094910D30034B52C /* kextd_mig_server.c in Sources */,
 				A6D698161E56AAAA0050FC06 /* syspolicy.m in Sources */,
+				3667FED62040E50200E3DE5F /* kextaudit.c in Sources */,
 				245CC3670DDD6561002E3E22 /* kextd_personalities.c in Sources */,
 				05097291094910D30034B52C /* kextd_request.c in Sources */,
 				05E5D3F60B4DD7FC00E2E59F /* kextd_serialize_kextload.c in Sources */,
@@ -2047,6 +2053,7 @@
 				A6D6981A1E56B2730050FC06 /* syspolicy.m in Sources */,
 				24640A410EC58022000D6238 /* kextload_main.c in Sources */,
 				24C4E5810DD3EC9300A70AB5 /* kext_tools_util.c in Sources */,
+				3667FED72040E50200E3DE5F /* kextaudit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2075,6 +2082,7 @@
 				A6D6981F1E56B3380050FC06 /* syspolicy.m in Sources */,
 				2479E3BB0DCDAF8600DA4448 /* kext_tools_util.c in Sources */,
 				728BAE21167F7C97004193C6 /* security.c in Sources */,
+				3667FED82040E50200E3DE5F /* kextaudit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

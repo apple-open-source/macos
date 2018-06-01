@@ -1,0 +1,50 @@
+#!/bin/sh
+# Untar the apache archive, remove certain files, and re-archive
+if [ $# -lt 1 ]
+then
+        echo "Usage: $0 httpd-xxx.tar.bz2, from apache working directory"
+        exit 1
+fi
+gunzip -t $1
+if [ $? -ne 0 ]
+then
+        echo "$1 is not a gzipped file"
+        exit 1
+fi
+ARCHIVE=$1
+ARCHIVE_DIR=$(basename $ARCHIVE .tar.bz2)
+TMP_DIR=$(mktemp -d /tmp/apacheXXXX)
+cp $ARCHIVE $TMP_DIR
+pushd  $TMP_DIR
+tar xfj $ARCHIVE
+if [ $? -ne 0 ]
+then
+        echo "Could not untar $ARCHIVE"
+	popd
+	rm -rf "$TMP_DIR"
+        exit 1
+fi
+pushd $ARCHIVE_DIR
+#
+# Remove gplv3 files and a binary file not used on macOS
+rm -rf server/util_expr_parse.h
+rm -rf server/util_expr_parse.c
+rm -rf os/netware/apache.xdc
+#
+popd
+mv $ARCHIVE ${ARCHIVE}-old
+COPYFILE_DISABLE=1 tar cj -f $ARCHIVE $ARCHIVE_DIR
+if [ $? -ne 0 ]
+then
+        echo "Could not tar $ARCHIVE"
+        popd 
+        rm -rf "$TMP_DIR"
+        exit 1
+fi
+pwd
+ls -l
+popd
+mv $ARCHIVE ${ARCHIVE}-original
+cp ${TMP_DIR}/$ARCHIVE .
+#rm -rf "$TMP_DIR"
+

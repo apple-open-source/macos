@@ -57,6 +57,7 @@
 <tr><th>v</th><td>virtual host</td></tr>
 <tr><th>d</th><td>directorio</td></tr>
 <tr><th>h</th><td>.htaccess</td></tr>
+<tr><th /><td /></tr>
 </table></td>
 <td><table><tr><th>C</th><td>Core</td></tr>
 <tr><th>M</th><td>MPM</td></tr>
@@ -148,7 +149,7 @@ formatted email address</td></tr>
 <tr><td><a href="event.html#asyncrequestworkerfactor">AsyncRequestWorkerFactor <var>factor</var></a></td><td></td><td>s</td><td>M</td></tr><tr><td class="descr" colspan="4">Limit concurrent connections per process</td></tr>
 <tr class="odd"><td><a href="mod_auth_basic.html#authbasicauthoritative">AuthBasicAuthoritative On|Off</a></td><td> On </td><td>dh</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Sets whether authorization and authentication are passed to
 lower level modules</td></tr>
-<tr><td><a href="mod_auth_basic.html#authbasicfake">AuthBasicFake off|username [password]</a></td><td></td><td>dh</td><td>B</td></tr><tr><td class="descr" colspan="4">Fake basic authentication using the given expressions for
+<tr><td><a href="mod_auth_basic.html#authbasicfake">AuthBasicFake off|<var>username</var> [<var>password</var>]</a></td><td></td><td>dh</td><td>B</td></tr><tr><td class="descr" colspan="4">Fake basic authentication using the given expressions for
 username and password</td></tr>
 <tr class="odd"><td><a href="mod_auth_basic.html#authbasicprovider">AuthBasicProvider <var>provider-name</var>
 [<var>provider-name</var>] ...</a></td><td> file </td><td>dh</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Sets the authentication provider(s) for this location</td></tr>
@@ -674,6 +675,24 @@ simultaneously</td></tr>
 <tr class="odd"><td><a href="prefork.html#maxspareservers">MaxSpareServers <var>number</var></a></td><td> 10 </td><td>s</td><td>M</td></tr><tr class="odd"><td class="descr" colspan="4">Maximum number of idle child server processes</td></tr>
 <tr><td><a href="mpm_common.html#maxsparethreads">MaxSpareThreads <var>number</var></a></td><td></td><td>s</td><td>M</td></tr><tr><td class="descr" colspan="4">Maximum number of idle threads</td></tr>
 <tr class="odd"><td><a href="mpm_netware.html#maxthreads">MaxThreads <var>number</var></a></td><td> 2048 </td><td>s</td><td>M</td></tr><tr class="odd"><td class="descr" colspan="4">Set the maximum number of worker threads</td></tr>
+<tr><td><a href="mod_md.html#mdbaseserver">MDBaseServer on|off</a></td><td> off </td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Control if base server may be managed or only virtual hosts.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdcachallenges">MDCAChallenges name [ name ... ]</a></td><td> tls-sni-01 http-01 </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Type of ACME challenge used to prove domain ownership.</td></tr>
+<tr><td><a href="mod_md.html#mdcertificateagreement">MDCertificateAgreement url-of-terms-of-service</a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">The URL of the Terms-of-Service document, that the CA server requires you to accept.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdcertificateauthority">MDCertificateAuthority url</a></td><td> https://acme-v01.ap +</td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">The URL of the ACME Certificate Authority service.</td></tr>
+<tr><td><a href="mod_md.html#mdcertificateprotocol">MDCertificateProtocol protocol</a></td><td> ACME </td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">The protocol to use with the Certificate Authority.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mddrivemode">MDDriveMode always|auto|manual</a></td><td> auto </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Control when it is allowed to obtain/renew certificates.</td></tr>
+<tr><td><a href="mod_md.html#mdhttpproxy">MDHttpProxy url</a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Define a proxy for outgoing connections.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdmember">MDMember hostname</a></td><td></td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Additional hostname for the managed domain.</td></tr>
+<tr><td><a href="mod_md.html#mdmembers">MDMembers auto|manual</a></td><td> auto </td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Control if the alias domain names are automatically added.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdmuststaple">MDMustStaple on|off</a></td><td> off </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Control if new certificates carry the OCSP Must Staple flag.</td></tr>
+<tr><td><a href="mod_md.html#mdnotifycmd">MDNotifyCmd  path</a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Run a program when Managed Domain are ready.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdomain">MDomain <var>dns-name</var> [ <var>other-dns-name</var>... ] [auto|manual]</a></td><td></td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Define list of domain names that belong to one group.</td></tr>
+<tr><td><a href="mod_md.html#mdomainset">&lt;MDomainSet <var>dns-name</var> [ <var>other-dns-name</var>... ]&gt;...&lt;/MDomainSet&gt;</a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Container for directives applied to the same managed domains.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdportmap">MDPortMap map1 [ map2 ]</a></td><td> 80:80 443:443 </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Map external to internal ports for domain ownership verification.</td></tr>
+<tr><td><a href="mod_md.html#mdprivatekeys">MDPrivateKeys type [ params... ]</a></td><td> RSA 2048 </td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Set type and size of the private keys generated.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdrenewwindow">MDRenewWindow duration</a></td><td> 33% </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Control when a certificate will be renewed.</td></tr>
+<tr><td><a href="mod_md.html#mdrequirehttps">MDRequireHttps off|temporary|permanent</a></td><td> off </td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Redirects http: traffic to https: for Managed Domains.</td></tr>
+<tr class="odd"><td><a href="mod_md.html#mdstoredir">MDStoreDir path</a></td><td> md </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Path on the local file system to store the Managed Domains data.</td></tr>
 <tr><td><a href="mod_socache_memcache.html#memcacheconnttl">MemcacheConnTTL <em>num[units]</em></a></td><td> 15s </td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">Keepalive time for idle connections</td></tr>
 <tr class="odd"><td><a href="core.html#mergetrailers">MergeTrailers [on|off]</a></td><td> off </td><td>sv</td><td>C</td></tr><tr class="odd"><td class="descr" colspan="4">Determines whether trailers are merged into headers</td></tr>
 <tr><td><a href="mod_cern_meta.html#metadir">MetaDir <var>directory</var></a></td><td> .web </td><td>svdh</td><td>E</td></tr><tr><td class="descr" colspan="4">Name of the directory to find CERN-style meta information
@@ -743,19 +762,19 @@ proxied</td></tr>
 <tr><td><a href="mod_proxy_html.html#proxyhtmlbufsize">ProxyHTMLBufSize <var>bytes</var></a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Sets the buffer size increment for buffering inline scripts and
 stylesheets.</td></tr>
 <tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlcharsetout">ProxyHTMLCharsetOut <var>Charset | *</var></a></td><td></td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Specify a charset for mod_proxy_html output.</td></tr>
-<tr><td><a href="mod_proxy_html.html#proxyhtmldoctype">ProxyHTMLDocType <var>HTML|XHTML [Legacy]</var><br /><strong>OR</strong>
-<br />ProxyHTMLDocType <var>fpi [SGML|XML]</var></a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Sets an HTML or XHTML document type declaration.</td></tr>
-<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlenable">ProxyHTMLEnable <var>On|Off</var></a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Turns the proxy_html filter on or off.</td></tr>
+<tr><td><a href="mod_proxy_html.html#proxyhtmldoctype">ProxyHTMLDocType HTML|XHTML [Legacy]<br /><strong>OR</strong>
+<br />ProxyHTMLDocType <var>fpi</var> [SGML|XML]</a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Sets an HTML or XHTML document type declaration.</td></tr>
+<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlenable">ProxyHTMLEnable On|Off</a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Turns the proxy_html filter on or off.</td></tr>
 <tr><td><a href="mod_proxy_html.html#proxyhtmlevents">ProxyHTMLEvents <var>attribute [attribute ...]</var></a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Specify attributes to treat as scripting events.</td></tr>
-<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlextended">ProxyHTMLExtended <var>On|Off</var></a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Determines whether to fix links in inline scripts, stylesheets,
+<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlextended">ProxyHTMLExtended On|Off</a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Determines whether to fix links in inline scripts, stylesheets,
 and scripting events.</td></tr>
-<tr><td><a href="mod_proxy_html.html#proxyhtmlfixups">ProxyHTMLFixups <var>[lowercase] [dospath] [reset]</var></a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Fixes for simple HTML errors.</td></tr>
-<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlinterp">ProxyHTMLInterp <var>On|Off</var></a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Enables per-request interpolation of
+<tr><td><a href="mod_proxy_html.html#proxyhtmlfixups">ProxyHTMLFixups [lowercase] [dospath] [reset]</a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Fixes for simple HTML errors.</td></tr>
+<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlinterp">ProxyHTMLInterp On|Off</a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Enables per-request interpolation of
 <code class="directive">ProxyHTMLURLMap</code> rules.</td></tr>
 <tr><td><a href="mod_proxy_html.html#proxyhtmllinks">ProxyHTMLLinks <var>element attribute [attribute2 ...]</var></a></td><td></td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Specify HTML elements that have URL attributes to be rewritten.</td></tr>
-<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlmeta">ProxyHTMLMeta <var>On|Off</var></a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Turns on or off extra pre-parsing of metadata in HTML
+<tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlmeta">ProxyHTMLMeta On|Off</a></td><td> Off </td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Turns on or off extra pre-parsing of metadata in HTML
 <code>&lt;head&gt;</code> sections.</td></tr>
-<tr><td><a href="mod_proxy_html.html#proxyhtmlstripcomments">ProxyHTMLStripComments <var>On|Off</var></a></td><td> Off </td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Determines whether to strip HTML comments.</td></tr>
+<tr><td><a href="mod_proxy_html.html#proxyhtmlstripcomments">ProxyHTMLStripComments On|Off</a></td><td> Off </td><td>svd</td><td>B</td></tr><tr><td class="descr" colspan="4">Determines whether to strip HTML comments.</td></tr>
 <tr class="odd"><td><a href="mod_proxy_html.html#proxyhtmlurlmap">ProxyHTMLURLMap <var>from-pattern to-pattern [flags] [cond]</var></a></td><td></td><td>svd</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Defines a rule to rewrite HTML links</td></tr>
 <tr><td><a href="mod_proxy.html#proxyiobuffersize">ProxyIOBufferSize <var>bytes</var></a></td><td> 8192 </td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">Determine size of internal data throughput buffer</td></tr>
 <tr class="odd"><td><a href="mod_proxy.html#proxymatch">&lt;ProxyMatch <var>regex</var>&gt; ...&lt;/ProxyMatch&gt;</a></td><td></td><td>sv</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Container for directives applied to regular-expression-matched
@@ -816,6 +835,8 @@ a different URL</td></tr>
 <tr><td><a href="mod_remoteip.html#remoteipinternalproxy">RemoteIPInternalProxy <var>proxy-ip</var>|<var>proxy-ip/subnet</var>|<var>hostname</var> ...</a></td><td></td><td>sv</td><td>B</td></tr><tr><td class="descr" colspan="4">Declare client intranet IP addresses trusted to present the RemoteIPHeader value</td></tr>
 <tr class="odd"><td><a href="mod_remoteip.html#remoteipinternalproxylist">RemoteIPInternalProxyList <var>filename</var></a></td><td></td><td>sv</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Declare client intranet IP addresses trusted to present the RemoteIPHeader value</td></tr>
 <tr><td><a href="mod_remoteip.html#remoteipproxiesheader">RemoteIPProxiesHeader <var>HeaderFieldName</var></a></td><td></td><td>sv</td><td>B</td></tr><tr><td class="descr" colspan="4">Declare the header field which will record all intermediate IP addresses</td></tr>
+<tr class="odd"><td><a href="mod_remoteip.html#remoteipproxyprotocol">RemoteIPProxyProtocol On|Off</a></td><td></td><td>sv</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Enable or disable PROXY protocol handling</td></tr>
+<tr><td><a href="mod_remoteip.html#remoteipproxyprotocolexceptions">RemoteIPProxyProtocolExceptions host|range [host|range] [host|range]</a></td><td></td><td>sv</td><td>B</td></tr><tr><td class="descr" colspan="4">Disable processing of PROXY header for certain hosts or networks</td></tr>
 <tr class="odd"><td><a href="mod_remoteip.html#remoteiptrustedproxy">RemoteIPTrustedProxy <var>proxy-ip</var>|<var>proxy-ip/subnet</var>|<var>hostname</var> ...</a></td><td></td><td>sv</td><td>B</td></tr><tr class="odd"><td class="descr" colspan="4">Declare client intranet IP addresses trusted to present the RemoteIPHeader value</td></tr>
 <tr><td><a href="mod_remoteip.html#remoteiptrustedproxylist">RemoteIPTrustedProxyList <var>filename</var></a></td><td></td><td>sv</td><td>B</td></tr><tr><td class="descr" colspan="4">Declare client intranet IP addresses trusted to present the RemoteIPHeader value</td></tr>
 <tr class="odd"><td><a href="mod_mime.html#removecharset">RemoveCharset <var>extension</var> [<var>extension</var>]
@@ -1018,12 +1039,12 @@ Remote Server Auth</td></tr>
 </td></tr>
 <tr><td><a href="mod_ssl.html#sslproxycheckpeername">SSLProxyCheckPeerName on|off</a></td><td> on </td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">Configure host name checking for remote server certificates
 </td></tr>
-<tr class="odd"><td><a href="mod_ssl.html#sslproxyciphersuite">SSLProxyCipherSuite <em>cipher-spec</em></a></td><td> ALL:!ADH:RC4+RSA:+H +</td><td>svdh</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Cipher Suite available for negotiation in SSL
+<tr class="odd"><td><a href="mod_ssl.html#sslproxyciphersuite">SSLProxyCipherSuite <em>cipher-spec</em></a></td><td> ALL:!ADH:RC4+RSA:+H +</td><td>sv</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Cipher Suite available for negotiation in SSL
 proxy handshake</td></tr>
 <tr><td><a href="mod_ssl.html#sslproxyengine">SSLProxyEngine on|off</a></td><td> off </td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">SSL Proxy Engine Operation Switch</td></tr>
-<tr class="odd"><td><a href="mod_ssl.html#sslproxymachinecertificatechainfile">SSLProxyMachineCertificateChainFile <em>filename</em></a></td><td></td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">File of concatenated PEM-encoded CA certificates to be used by the proxy for choosing a certificate</td></tr>
-<tr><td><a href="mod_ssl.html#sslproxymachinecertificatefile">SSLProxyMachineCertificateFile <em>filename</em></a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">File of concatenated PEM-encoded client certificates and keys to be used by the proxy</td></tr>
-<tr class="odd"><td><a href="mod_ssl.html#sslproxymachinecertificatepath">SSLProxyMachineCertificatePath <em>directory</em></a></td><td></td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Directory of PEM-encoded client certificates and keys to be used by the proxy</td></tr>
+<tr class="odd"><td><a href="mod_ssl.html#sslproxymachinecertificatechainfile">SSLProxyMachineCertificateChainFile <em>filename</em></a></td><td></td><td>sv</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">File of concatenated PEM-encoded CA certificates to be used by the proxy for choosing a certificate</td></tr>
+<tr><td><a href="mod_ssl.html#sslproxymachinecertificatefile">SSLProxyMachineCertificateFile <em>filename</em></a></td><td></td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">File of concatenated PEM-encoded client certificates and keys to be used by the proxy</td></tr>
+<tr class="odd"><td><a href="mod_ssl.html#sslproxymachinecertificatepath">SSLProxyMachineCertificatePath <em>directory</em></a></td><td></td><td>sv</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Directory of PEM-encoded client certificates and keys to be used by the proxy</td></tr>
 <tr><td><a href="mod_ssl.html#sslproxyprotocol">SSLProxyProtocol [+|-]<em>protocol</em> ...</a></td><td> all -SSLv3 (up to 2 +</td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">Configure usable SSL protocol flavors for proxy usage</td></tr>
 <tr class="odd"><td><a href="mod_ssl.html#sslproxyverify">SSLProxyVerify <em>level</em></a></td><td> none </td><td>sv</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Type of remote server Certificate verification</td></tr>
 <tr><td><a href="mod_ssl.html#sslproxyverifydepth">SSLProxyVerifyDepth <em>number</em></a></td><td> 1 </td><td>sv</td><td>E</td></tr><tr><td class="descr" colspan="4">Maximum depth of CA Certificates in Remote Server
@@ -1148,7 +1169,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/quickreference.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

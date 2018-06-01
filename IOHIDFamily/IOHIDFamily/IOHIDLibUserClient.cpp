@@ -424,7 +424,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
                 char name[255];
                 bzero(name, sizeof(name));
                 proc_name(proc_pid(process), name, sizeof(name));
-                HIDLogError("%s is not entitled", name);
+                HIDLogError("%s is not entitled for IOHIDLibUserClient keyboard access", name);
             }
             break;
         }
@@ -1244,6 +1244,9 @@ IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uin
 {
     IOReturn    ret = kIOReturnError;
     
+    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    require_action(fValid, exit, ret = kIOReturnNotPermitted);
+    
     if (fNub && !isInactive()) {
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
         uint32_t   *cookies;
@@ -1266,6 +1269,7 @@ IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uin
         }
     }
     
+exit:
     return ret;
 }
 
@@ -1278,6 +1282,9 @@ IOReturn IOHIDLibUserClient::_postElementValues (IOHIDLibUserClient * target, vo
 IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint32_t cookieCount)
 {
     IOReturn    ret = kIOReturnError;
+    
+    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    require_action(fValid, exit, ret = kIOReturnNotPermitted);
     
     if (fNub && !isInactive()) {
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
@@ -1302,6 +1309,7 @@ IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint3
 
     }
     
+exit:
     return ret;
 }
 
@@ -1411,6 +1419,9 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
 {
     IOReturn ret = kIOReturnBadArgument;
     
+    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    require_action(fValid, exit, ret = kIOReturnNotPermitted);
+    
     // VTN3: Is there a real maximum report size? It looks like the current limit is around
     // 1024 bytes, but that will (or has) changed. 65536 is above every upper limit
     // I have seen by a few factors.
@@ -1450,8 +1461,8 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
         ret = kIOReturnNotAttached;
     }
 
+exit:
     return ret;
-
 }
 
 IOReturn IOHIDLibUserClient::_setReport(IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
@@ -1513,6 +1524,9 @@ IOReturn IOHIDLibUserClient::setReport(const void *reportBuffer, uint32_t report
 IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout, IOHIDCompletion * completion)
 {
     IOReturn            ret;
+    
+    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    require_action(fValid, exit, ret = kIOReturnNotPermitted);
 
     if (fNub && !isInactive()) {
         ret = mem->prepare();
@@ -1582,6 +1596,7 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
     else
         ret = kIOReturnNotAttached;
 
+exit:
     return ret;
 }
 

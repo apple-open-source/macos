@@ -276,9 +276,18 @@ extern const CFStringRef kSecPolicyRootDigest
  an online check if an online check was done within the last 5 minutes. Online
  checks are only applicable to OCSP; this constant will not force a fresh
  CRL download.
+ @constant kSecRevocationCheckIfTrusted If this flag is set, perform network-based
+ revocation checks only if the chain has no other validation errors. This flag
+ overrides SecTrustSetNetworkFetchAllowed and kSecRevocationNetworkAccessDisabled
+ for revocation checking (but not for intermediate fetching).
+ Note that this flag's behavior is not default because revoked certs produce Fatal
+ trust results, whereas most checks produce Recoverable trust results. If we skip
+ revocation checks on untrusted chains, the user may be able to ignore the failures
+ of a revoked cert.
  */
 CF_ENUM(CFOptionFlags) {
-    kSecRevocationOnlineCheck = (1 << 5)
+    kSecRevocationOnlineCheck = (1 << 5),
+    kSecRevocationCheckIfTrusted = (1 << 6),
 };
 
 /*!
@@ -1760,6 +1769,7 @@ extern const CFStringRef kSecPolicyCheckNotValidBefore;
 extern const CFStringRef kSecPolicyCheckPinningRequired;
 extern const CFStringRef kSecPolicyCheckPolicyConstraints;
 extern const CFStringRef kSecPolicyCheckRevocation;
+extern const CFStringRef kSecPolicyCheckRevocationIfTrusted;
 extern const CFStringRef kSecPolicyCheckRevocationOnline;
 extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
 extern const CFStringRef kSecPolicyCheckSSLHostname;

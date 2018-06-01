@@ -179,7 +179,7 @@ bool SOSAccountSyncWithKVSPeerWithMessage(SOSAccountTransaction* txn, CFStringRe
     secnotice("KVS Transport", "message: %@", message);
 
     require_quiet(message, xit);
-    require_quiet(peerid, xit);
+    require_quiet(peerid && CFStringGetLength(peerid) <= kSOSPeerIDLengthMax, xit);
 
     encapsulatedMessage = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerid, message, NULL);
 
@@ -391,6 +391,10 @@ CF_RETURNS_RETAINED CFMutableSetRef SOSAccountSyncWithPeers(SOSAccountTransactio
 
 bool SOSAccountClearPeerMessageKey(SOSAccountTransaction* txn, CFStringRef peerID, CFErrorRef *error)
 {
+    if (peerID == NULL) {
+        return false;
+    }
+
     SOSAccount* account = txn.account;
 
     secnotice("IDS Transport", "clearing peer message for %@", peerID);

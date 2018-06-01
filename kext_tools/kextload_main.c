@@ -10,6 +10,7 @@
 #include "kext_tools_util.h"
 #include "security.h"
 #include "staging.h"
+#include "kextaudit.h"
 
 #include <libc.h>
 #include <servers/bootstrap.h>
@@ -501,6 +502,9 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     _OSKextSetAuthenticationFunction(&authenticateKext, &authOptions);
     _OSKextSetStrictAuthentication(true);
     memcpy(&originalAuthOptions, &authOptions, sizeof(AuthOptions_t));
+
+    /* Set up auditing of kext loads, see kextaudit.c */
+    _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
 #endif
 
     count = CFArrayGetCount(toolArgs->kextIDs);

@@ -177,7 +177,7 @@ void SpeculativeJIT::cachedGetById(
     unsigned identifierNumber, JITCompiler::Jump slowPathTarget, SpillRegistersMode spillMode, AccessType type)
 {
     // This is a hacky fix for when the register allocator decides to alias the base payload with the result tag. This only happens
-    // in the case of GetByIdFlush, which has a relatively expensive register allocation story already so we probably don't need to
+    // in the case of GetByIdFlush/GetByIdDirectFlush, which has a relatively expensive register allocation story already so we probably don't need to
     // trip over one move instruction.
     if (basePayloadGPR == resultTagGPR) {
         RELEASE_ASSERT(basePayloadGPR != resultPayloadGPR);
@@ -209,22 +209,16 @@ void SpeculativeJIT::cachedGetById(
         slowCases.append(slowPathTarget);
     slowCases.append(gen.slowPathJump());
 
-    J_JITOperation_ESsiJI getByIdFunction;
-    if (type == AccessType::Get)
-        getByIdFunction = operationGetByIdOptimize;
-    else
-        getByIdFunction = operationTryGetByIdOptimize;
-
     std::unique_ptr<SlowPathGenerator> slowPath;
     if (baseTagGPROrNone == InvalidGPRReg) {
         slowPath = slowPathCall(
-            slowCases, this, getByIdFunction,
+            slowCases, this, appropriateOptimizingGetByIdFunction(type),
             JSValueRegs(resultTagGPR, resultPayloadGPR), gen.stubInfo(),
             static_cast<int32_t>(JSValue::CellTag), basePayloadGPR,
             identifierUID(identifierNumber));
     } else {
         slowPath = slowPathCall(
-            slowCases, this, getByIdFunction,
+            slowCases, this, appropriateOptimizingGetByIdFunction(type),
             JSValueRegs(resultTagGPR, resultPayloadGPR), gen.stubInfo(), JSValueRegs(baseTagGPROrNone, basePayloadGPR), identifierUID(identifierNumber));
     }
 
@@ -3847,55 +3841,27 @@ void SpeculativeJIT::compile(Node* node)
     }
 
     case TryGetById: {
-        compileTryGetById(node);
+        compileGetById(node, AccessType::TryGet);
+        break;
+    }
+
+    case GetByIdDirect: {
+        compileGetById(node, AccessType::GetDirect);
+        break;
+    }
+
+    case GetByIdDirectFlush: {
+        compileGetByIdFlush(node, AccessType::GetDirect);
         break;
     }
 
     case GetById: {
-        // FIXME https://bugs.webkit.org/show_bug.cgi?id=161158
-        // dedup with SpeculativeJIT::compileTryGetById and 64-bit version of this.
-        switch (node->child1().useKind()) {
-        case CellUse: {
-            SpeculateCellOperand base(this, node->child1());
-            GPRTemporary resultTag(this);
-            GPRTemporary resultPayload(this, Reuse, base);
-            
-            GPRReg baseGPR = base.gpr();
-            GPRReg resultTagGPR = resultTag.gpr();
-            GPRReg resultPayloadGPR = resultPayload.gpr();
+        compileGetById(node, AccessType::Get);
+        break;
+    }
 
-            base.use();
-            
-            cachedGetById(node->origin.semantic, InvalidGPRReg, baseGPR, resultTagGPR, resultPayloadGPR, node->identifierNumber());
-            
-            jsValueResult(resultTagGPR, resultPayloadGPR, node, UseChildrenCalledExplicitly);
-            break;
-        }
-        
-        case UntypedUse: {
-            JSValueOperand base(this, node->child1());
-            GPRTemporary resultTag(this);
-            GPRTemporary resultPayload(this, Reuse, base, TagWord);
-        
-            GPRReg baseTagGPR = base.tagGPR();
-            GPRReg basePayloadGPR = base.payloadGPR();
-            GPRReg resultTagGPR = resultTag.gpr();
-            GPRReg resultPayloadGPR = resultPayload.gpr();
-        
-            base.use();
-        
-            JITCompiler::Jump notCell = m_jit.branchIfNotCell(base.jsValueRegs());
-        
-            cachedGetById(node->origin.semantic, baseTagGPR, basePayloadGPR, resultTagGPR, resultPayloadGPR, node->identifierNumber(), notCell);
-        
-            jsValueResult(resultTagGPR, resultPayloadGPR, node, UseChildrenCalledExplicitly);
-            break;
-        }
-            
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
-        }
+    case GetByIdFlush: {
+        compileGetByIdFlush(node, AccessType::Get);
         break;
     }
 
@@ -3936,62 +3902,6 @@ void SpeculativeJIT::compile(Node* node)
             jsValueResult(resultTagGPR, resultPayloadGPR, node);
         }
         
-        break;
-    }
-
-    case GetByIdFlush: {
-        if (!node->prediction()) {
-            terminateSpeculativeExecution(InadequateCoverage, JSValueRegs(), 0);
-            break;
-        }
-        
-        switch (node->child1().useKind()) {
-        case CellUse: {
-            SpeculateCellOperand base(this, node->child1());
-            
-            GPRReg baseGPR = base.gpr();
-
-            GPRFlushedCallResult resultPayload(this);
-            GPRFlushedCallResult2 resultTag(this);
-            GPRReg resultPayloadGPR = resultPayload.gpr();
-            GPRReg resultTagGPR = resultTag.gpr();
-
-            base.use();
-            
-            flushRegisters();
-            
-            cachedGetById(node->origin.semantic, InvalidGPRReg, baseGPR, resultTagGPR, resultPayloadGPR, node->identifierNumber(), JITCompiler::Jump(), DontSpill);
-            
-            jsValueResult(resultTagGPR, resultPayloadGPR, node, UseChildrenCalledExplicitly);
-            break;
-        }
-        
-        case UntypedUse: {
-            JSValueOperand base(this, node->child1());
-            GPRReg baseTagGPR = base.tagGPR();
-            GPRReg basePayloadGPR = base.payloadGPR();
-
-            GPRFlushedCallResult resultPayload(this);
-            GPRFlushedCallResult2 resultTag(this);
-            GPRReg resultPayloadGPR = resultPayload.gpr();
-            GPRReg resultTagGPR = resultTag.gpr();
-
-            base.use();
-        
-            flushRegisters();
-        
-            JITCompiler::Jump notCell = m_jit.branchIfNotCell(base.jsValueRegs());
-        
-            cachedGetById(node->origin.semantic, baseTagGPR, basePayloadGPR, resultTagGPR, resultPayloadGPR, node->identifierNumber(), notCell, DontSpill);
-        
-            jsValueResult(resultTagGPR, resultPayloadGPR, node, UseChildrenCalledExplicitly);
-            break;
-        }
-            
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
-        }
         break;
     }
 

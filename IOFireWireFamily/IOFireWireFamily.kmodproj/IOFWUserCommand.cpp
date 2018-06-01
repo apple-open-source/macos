@@ -190,7 +190,7 @@ IOFWUserReadCommand::initWithSubmitParams(
 {
 	bool	result = true ;
 
-	result = (NULL != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
+	result = (0 != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
 	
 	if (result)
 	{
@@ -455,7 +455,7 @@ IOFWUserWriteCommand::initWithSubmitParams(
 {
 	bool	result = true ;
 
-	result = (NULL != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
+	result = (0 != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
 
 	if (result)
 	{
@@ -671,7 +671,7 @@ IOFWUserPHYCommand::initWithSubmitParams(
 {
 	bool	result = true ;
 
-	result = (NULL != IOFWUserCommand::initWithSubmitParams(params, inUserClient));
+	result = (0 != IOFWUserCommand::initWithSubmitParams(params, inUserClient));
 	
 	return result;
 }
@@ -817,7 +817,7 @@ IOFWUserCompareSwapCommand::initWithSubmitParams(
 {
 	bool	result = true ;
 
-	result = (NULL != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
+	result = (0 != IOFWUserCommand::initWithSubmitParams(params, inUserClient)) ;
 	
 	return result ;
 }
@@ -1013,7 +1013,7 @@ IOFWUserAsyncStreamCommand::initWithSubmitParams(
 {
 	bool	result = true ;
 
-	result = (NULL != IOFWUserCommand::initWithSubmitParams(params, inUserClient));
+	result = (0 != IOFWUserCommand::initWithSubmitParams(params, inUserClient));
 	
 	if (result)
 	{

@@ -726,6 +726,7 @@ MOD_LBMETHOD_HEARTBEAT_LDADD
 MOD_LBMETHOD_BYBUSYNESS_LDADD
 MOD_LBMETHOD_BYTRAFFIC_LDADD
 MOD_LBMETHOD_BYREQUESTS_LDADD
+MOD_MD_LDADD
 MOD_PROXY_HTTP2_LDADD
 MOD_HTTP2_LDADD
 APACHECTL_ULIMIT
@@ -746,7 +747,7 @@ MOD_OPTIONAL_FN_IMPORT_LDADD
 MOD_OPTIONAL_HOOK_IMPORT_LDADD
 MOD_OPTIONAL_HOOK_EXPORT_LDADD
 MOD_SSL_LDADD
-ab_LDFLAGS
+ab_LIBS
 ab_CFLAGS
 MOD_SLOTMEM_PLAIN_LDADD
 MOD_SLOTMEM_SHM_LDADD
@@ -760,6 +761,7 @@ MOD_PROXY_BALANCER_LDADD
 MOD_PROXY_AJP_LDADD
 MOD_PROXY_WSTUNNEL_LDADD
 MOD_PROXY_FDPASS_LDADD
+MOD_PROXY_UWSGI_LDADD
 MOD_PROXY_SCGI_LDADD
 MOD_PROXY_FCGI_LDADD
 MOD_PROXY_HTTP_LDADD
@@ -1068,6 +1070,7 @@ enable_proxy_ftp
 enable_proxy_http
 enable_proxy_fcgi
 enable_proxy_scgi
+enable_proxy_uwsgi
 enable_proxy_fdpass
 enable_proxy_wstunnel
 enable_proxy_ajp
@@ -1103,6 +1106,11 @@ enable_http2
 with_nghttp2
 enable_nghttp2_staticlib_deps
 enable_proxy_http2
+enable_md
+with_jansson
+enable_jansson_staticlib_deps
+with_curl
+enable_curl_staticlib_deps
 enable_lbmethod_byrequests
 enable_lbmethod_bytraffic
 enable_lbmethod_bybusyness
@@ -1890,6 +1898,7 @@ Optional Features:
   --enable-proxy-fcgi     Apache proxy FastCGI module. Requires
                           --enable-proxy.
   --enable-proxy-scgi     Apache proxy SCGI module. Requires --enable-proxy.
+  --enable-proxy-uwsgi    Apache proxy UWSGI module. Requires --enable-proxy.
   --enable-proxy-fdpass   Apache proxy to Unix Daemon Socket module. Requires
                           --enable-proxy.
   --enable-proxy-wstunnel Apache proxy Websocket Tunnel module. Requires
@@ -1955,6 +1964,15 @@ Optional Features:
                           libnghttp2 installation. See --with-nghttp2 on how
                           to manage non-standard locations. Also requires
                           --enable-proxy.
+  --enable-md             Managed Domain handling
+  --enable-jansson-staticlib-deps
+                          link mod_md with dependencies of libjansson's static
+                          libraries (as indicated by "pkg-config --static").
+                          Must be specified in addition to --enable-md.
+  --enable-curl-staticlib-deps
+                          link mod_md with dependencies of libcurl's static
+                          libraries (as indicated by "pkg-config --static").
+                          Must be specified in addition to --enable-md.
   --enable-lbmethod-byrequests
                           Apache proxy Load balancing by request counting
   --enable-lbmethod-bytraffic
@@ -2013,6 +2031,8 @@ Optional Packages:
   --with-lua=PATH         Path to the Lua 5.3/5.2/5.1 prefix
   --with-ssl=PATH         OpenSSL installation directory
   --with-nghttp2=PATH     nghttp2 installation directory
+  --with-jansson=PATH     jansson installation directory
+  --with-curl=PATH        curl installation directory
   --with-mpm=MPM          Choose the process model for Apache to use by
                           default. MPM={event|worker|prefork|winnt} This will
                           be statically linked as the only available MPM
@@ -18431,7 +18451,7 @@ else
 
 # Check whether --with-libxml2 was given.
 if test "${with_libxml2+set}" = set; then :
-  withval=$with_libxml2; test_paths="${with_libxml2}"
+  withval=$with_libxml2; test_paths="${with_libxml2}/include/libxml2 ${with_libxml2}/include ${with_libxml2}"
 else
   test_paths="/usr/include/libxml2 /usr/local/include/libxml2 /usr/include /usr/local/include"
 
@@ -18668,7 +18688,7 @@ else
 
 # Check whether --with-libxml2 was given.
 if test "${with_libxml2+set}" = set; then :
-  withval=$with_libxml2; test_paths="${with_libxml2}"
+  withval=$with_libxml2; test_paths="${with_libxml2}/include/libxml2 ${with_libxml2}/include ${with_libxml2}"
 else
   test_paths="/usr/include/libxml2 /usr/local/include/libxml2 /usr/include /usr/local/include"
 
@@ -20526,7 +20546,15 @@ else
     test_paths="${lua_path}"
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for pow in -lm" >&5
+if test -n "$PKGCONFIG" -a -z "$lua_path" \
+   && $PKGCONFIG --atleast-version=5.1 lua; then
+  LUA_LIBS="`$PKGCONFIG --libs lua`"
+  LUA_CFLAGS="`$PKGCONFIG --cflags lua`"
+  LUA_VERSION="`$PKGCONFIG --modversion lua`"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: using Lua $LUA_VERSION configuration from pkg-config" >&5
+$as_echo "$as_me: using Lua $LUA_VERSION configuration from pkg-config" >&6;}
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pow in -lm" >&5
 $as_echo_n "checking for pow in -lm... " >&6; }
 if ${ac_cv_lib_m_pow+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -20566,7 +20594,7 @@ if test "x$ac_cv_lib_m_pow" = xyes; then :
   lib_m="-lm"
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqrt in -lm" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqrt in -lm" >&5
 $as_echo_n "checking for sqrt in -lm... " >&6; }
 if ${ac_cv_lib_m_sqrt+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -20606,7 +20634,7 @@ if test "x$ac_cv_lib_m_sqrt" = xyes; then :
   lib_m="-lm"
 fi
 
-for x in $test_paths ; do
+  for x in $test_paths ; do
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua-5.3" >&5
 $as_echo_n "checking for lua.h in ${x}/include/lua-5.3... " >&6; }
     if test -f ${x}/include/lua-5.3/lua.h; then
@@ -21470,7 +21498,8 @@ fi
 $as_echo "no" >&6; }
     fi
 
-done
+  done
+fi
 
 
 
@@ -21544,10 +21573,10 @@ fi
 
 
   if test "x$MOD_LUA_LDADD" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LUA_LDADD to \"$LUA_LIBS\""
-    MOD_LUA_LDADD="$LUA_LIBS"
+    test "x$silent" != "xyes" && echo "  setting MOD_LUA_LDADD to \"$LUA_LIBS $CRYPT_LIBS\""
+    MOD_LUA_LDADD="$LUA_LIBS $CRYPT_LIBS"
   else
-    apr_addto_bugger="$LUA_LIBS"
+    apr_addto_bugger="$LUA_LIBS $CRYPT_LIBS"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $MOD_LUA_LDADD; do
@@ -23491,6 +23520,7 @@ proxy_ftp_objs="mod_proxy_ftp.lo"
 proxy_http_objs="mod_proxy_http.lo"
 proxy_fcgi_objs="mod_proxy_fcgi.lo"
 proxy_scgi_objs="mod_proxy_scgi.lo"
+proxy_uwsgi_objs="mod_proxy_uwsgi.lo"
 proxy_fdpass_objs="mod_proxy_fdpass.lo"
 proxy_ajp_objs="mod_proxy_ajp.lo ajp_header.lo ajp_link.lo ajp_msg.lo ajp_utils.lo"
 proxy_wstunnel_objs="mod_proxy_wstunnel.lo"
@@ -23505,6 +23535,7 @@ case "$host" in
     proxy_http_objs="$proxy_http_objs mod_proxy.la"
     proxy_fcgi_objs="$proxy_fcgi_objs mod_proxy.la"
     proxy_scgi_objs="$proxy_scgi_objs mod_proxy.la"
+    proxy_uwsgi_objs="$proxy_uwsgi_objs mod_proxy.la"
     proxy_fdpass_objs="$proxy_fdpass_objs mod_proxy.la"
     proxy_ajp_objs="$proxy_ajp_objs mod_proxy.la"
     proxy_wstunnel_objs="$proxy_wstunnel_objs mod_proxy.la"
@@ -24317,6 +24348,168 @@ EOF
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_PROXY_SCGI_LDADD"
+
+
+
+  fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_proxy_uwsgi" >&5
+$as_echo_n "checking whether to enable mod_proxy_uwsgi... " >&6; }
+    # Check whether --enable-proxy-uwsgi was given.
+if test "${enable_proxy_uwsgi+set}" = set; then :
+  enableval=$enable_proxy_uwsgi; force_proxy_uwsgi=$enableval
+else
+  enable_proxy_uwsgi=most
+fi
+
+    _apmod_extra_msg=""
+      case "$enable_proxy_uwsgi" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      _apmod_required="no"
+      ;;
+  esac
+  if test "$enable_proxy_uwsgi" = "static" -o "$enable_proxy_uwsgi" = "shared"; then
+    :
+  elif test "$enable_proxy_uwsgi" = "yes"; then
+    enable_proxy_uwsgi=$module_default
+  elif test "$enable_proxy_uwsgi" = "few"; then
+    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
+            "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_proxy_uwsgi=$module_default
+    else
+      enable_proxy_uwsgi=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_proxy_uwsgi" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_proxy_uwsgi=$module_default
+    else
+      enable_proxy_uwsgi=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_proxy_uwsgi" = "all" -o "$enable_proxy_uwsgi" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_proxy_uwsgi=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_proxy_uwsgi=no
+    fi
+  elif test "$enable_proxy_uwsgi" = "reallyall" -o "$enable_proxy_uwsgi" = "no" ; then
+    if test "$module_selection" = "reallyall" -a "$force_proxy_uwsgi" != "no" ; then
+      enable_proxy_uwsgi=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_proxy_uwsgi=no
+    fi
+  else
+    enable_proxy_uwsgi=no
+  fi
+  if test "$enable_proxy_uwsgi" != "no"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: checking dependencies" >&5
+$as_echo "checking dependencies" >&6; }
+            if test "$enable_proxy" = "no" ; then
+                              enable_proxy_uwsgi=no
+                              { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"mod_proxy is disabled but required for mod_proxy_uwsgi\"" >&5
+$as_echo "$as_me: WARNING: \"mod_proxy is disabled but required for mod_proxy_uwsgi\"" >&2;}
+                            elif test "$enable_proxy_uwsgi" = "static" && test "$enable_proxy" != "static" ; then
+                              enable_proxy_uwsgi=$enable_proxy
+                              { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"building mod_proxy_uwsgi shared because mod_proxy is built shared\"" >&5
+$as_echo "$as_me: WARNING: \"building mod_proxy_uwsgi shared because mod_proxy is built shared\"" >&2;}
+                            else
+            :
+            fi
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_proxy_uwsgi" >&5
+$as_echo_n "checking whether to enable mod_proxy_uwsgi... " >&6; }
+            if test "$enable_proxy_uwsgi" = "no"; then
+              if test "$_apmod_required" = "no"; then
+                _apmod_extra_msg=" (disabled)"
+              else
+                as_fn_error $? "mod_proxy_uwsgi has been requested but can not be built due to prerequisite failures" "$LINENO" 5
+              fi
+            fi
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_proxy_uwsgi$_apmod_extra_msg" >&5
+$as_echo "$enable_proxy_uwsgi$_apmod_extra_msg" >&6; }
+  if test "$enable_proxy_uwsgi" != "no"; then
+    case "$enable_proxy_uwsgi" in
+    static*)
+      MODLIST="$MODLIST proxy_uwsgi"
+      if test "proxy_uwsgi" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES proxy_uwsgi"
+      if test "most" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},proxy_uwsgi"
+      fi
+      ;;
+    esac
+
+
+  if test -z "$proxy_uwsgi_objs"; then
+    objects="mod_proxy_uwsgi.lo"
+  else
+    objects="$proxy_uwsgi_objs"
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_proxy_uwsgi.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_PROXY_UWSGI_LDADD)
+EOF
+      if test ! -z "\$(MOD_PROXY_UWSGI_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_PROXY_UWSGI_LDADD)\""
+    AP_LIBS="\$(MOD_PROXY_UWSGI_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_PROXY_UWSGI_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_proxy_uwsgi.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_PROXY_UWSGI_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_PROXY_UWSGI_LDADD"
 
 
 
@@ -26785,10 +26978,10 @@ fi
 
 
   if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L/usr/lib\""
-    LDFLAGS="-L/usr/lib"
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L\$(SDKROOT)/usr/lib\""
+    LDFLAGS="-L\$(SDKROOT)/usr/lib"
   else
-    apr_addto_bugger="-L/usr/lib"
+    apr_addto_bugger="-L\$(SDKROOT)/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $LDFLAGS; do
@@ -26806,10 +26999,10 @@ fi
 
 
   if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L/usr/lib\""
-    MOD_LDFLAGS="-L/usr/lib"
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L\$(SDKROOT)/usr/lib\""
+    MOD_LDFLAGS="-L\$(SDKROOT)/usr/lib"
   else
-    apr_addto_bugger="-L/usr/lib"
+    apr_addto_bugger="-L\$(SDKROOT)/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $MOD_LDFLAGS; do
@@ -26945,15 +27138,15 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
   fi
 
 
-  test "x$silent" != "xyes" && echo "  forcing ab_LDFLAGS to \"$MOD_LDFLAGS\""
-  ab_LDFLAGS="$MOD_LDFLAGS"
+  test "x$silent" != "xyes" && echo "  forcing ab_LIBS to \"$MOD_LDFLAGS\""
+  ab_LIBS="$MOD_LDFLAGS"
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_CFLAGS"
 
 
 
-  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LDFLAGS"
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LIBS"
 
 
 
@@ -29802,15 +29995,15 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
   fi
 
 
-  test "x$silent" != "xyes" && echo "  forcing ab_LDFLAGS to \"$MOD_LDFLAGS\""
-  ab_LDFLAGS="$MOD_LDFLAGS"
+  test "x$silent" != "xyes" && echo "  forcing ab_LIBS to \"$MOD_LDFLAGS\""
+  ab_LIBS="$MOD_LDFLAGS"
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_CFLAGS"
 
 
 
-  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LDFLAGS"
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LIBS"
 
 
 
@@ -31401,6 +31594,1666 @@ EOF
 
 
 
+
+
+
+
+
+
+
+  current_dir=md
+  modpath_current=modules/md
+  modpath_static=
+  modpath_shared=
+  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
+    eval MOD_$var=
+  done
+  test -d md || $srcdir/build/mkdir.sh $modpath_current
+  > $modpath_current/modules.mk
+
+
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_reg.lo md_store.lo md_store_fs.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_os.lo "
+
+# Ensure that other modules can pick up mod_md.h
+
+  if test "x$INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting INCLUDES to \"-I\$(top_srcdir)/$modpath_current\""
+    INCLUDES="-I\$(top_srcdir)/$modpath_current"
+  else
+    apr_addto_bugger="-I\$(top_srcdir)/$modpath_current"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to INCLUDES"
+        INCLUDES="$INCLUDES $i"
+      fi
+    done
+  fi
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_md" >&5
+$as_echo_n "checking whether to enable mod_md... " >&6; }
+    # Check whether --enable-md was given.
+if test "${enable_md+set}" = set; then :
+  enableval=$enable_md; force_md=$enableval
+else
+  enable_md=most
+fi
+
+    _apmod_extra_msg=""
+      case "$enable_md" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      _apmod_required="no"
+      ;;
+  esac
+  if test "$enable_md" = "static" -o "$enable_md" = "shared"; then
+    :
+  elif test "$enable_md" = "yes"; then
+    enable_md=$module_default
+  elif test "$enable_md" = "few"; then
+    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
+            "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_md=$module_default
+    else
+      enable_md=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_md" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_md=$module_default
+    else
+      enable_md=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_md" = "all" -o "$enable_md" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_md=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_md=no
+    fi
+  elif test "$enable_md" = "reallyall" -o "$enable_md" = "no" ; then
+    if test "$module_selection" = "reallyall" -a "$force_md" != "no" ; then
+      enable_md=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_md=no
+    fi
+  else
+    enable_md=no
+  fi
+  if test "$enable_md" != "no"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: checking dependencies" >&5
+$as_echo "checking dependencies" >&6; }
+            :
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OpenSSL" >&5
+$as_echo_n "checking for OpenSSL... " >&6; }
+if ${ac_cv_openssl+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ac_cv_openssl=no
+    ap_openssl_found=""
+    ap_openssl_base=""
+    ap_openssl_libs=""
+    ap_openssl_mod_cflags=""
+    ap_openssl_mod_ldflags=""
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for user-provided OpenSSL base directory" >&5
+$as_echo_n "checking for user-provided OpenSSL base directory... " >&6; }
+
+# Check whether --with-ssl was given.
+if test "${with_ssl+set}" = set; then :
+  withval=$with_ssl;
+            if test "x$withval" != "xyes" -a "x$withval" != "x"; then
+                ap_openssl_base="`cd $withval ; pwd`"
+      fi
+
+fi
+
+    if test "x$ap_openssl_base" = "x"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: none" >&5
+$as_echo "none" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ap_openssl_base" >&5
+$as_echo "$ap_openssl_base" >&6; }
+    fi
+
+        saved_CPPFLAGS="$CPPFLAGS"
+    saved_LIBS="$LIBS"
+    saved_LDFLAGS="$LDFLAGS"
+
+        if test -n "$PKGCONFIG"; then
+      saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+      if test "x$ap_openssl_base" != "x" -a \
+              -f "${ap_openssl_base}/lib/pkgconfig/openssl.pc"; then
+                        PKG_CONFIG_PATH="${ap_openssl_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+        export PKG_CONFIG_PATH
+      fi
+      # Check whether --enable-ssl-staticlib-deps was given.
+if test "${enable_ssl_staticlib_deps+set}" = set; then :
+  enableval=$enable_ssl_staticlib_deps;
+        if test "$enableval" = "yes"; then
+          PKGCONFIG_LIBOPTS="--static"
+        fi
+
+fi
+
+      ap_openssl_libs="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-l --silence-errors openssl`"
+      if test $? -eq 0; then
+        ap_openssl_found="yes"
+        pkglookup="`$PKGCONFIG --cflags-only-I openssl`"
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$pkglookup\""
+    CPPFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$pkglookup\""
+    MOD_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$ab_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting ab_CFLAGS to \"$pkglookup\""
+    ab_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $ab_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to ab_CFLAGS"
+        ab_CFLAGS="$ab_CFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-L openssl`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-other openssl`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      PKG_CONFIG_PATH="$saved_PKG_CONFIG_PATH"
+    fi
+
+        if test "x$ap_openssl_base" != "x" -a "x$ap_openssl_found" = "x"; then
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-I$ap_openssl_base/include\""
+    CPPFLAGS="-I$ap_openssl_base/include"
+  else
+    apr_addto_bugger="-I$ap_openssl_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"-I$ap_openssl_base/include\""
+    MOD_CFLAGS="-I$ap_openssl_base/include"
+  else
+    apr_addto_bugger="-I$ap_openssl_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$ab_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting ab_CFLAGS to \"-I$ap_openssl_base/include\""
+    ab_CFLAGS="-I$ap_openssl_base/include"
+  else
+    apr_addto_bugger="-I$ap_openssl_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $ab_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to ab_CFLAGS"
+        ab_CFLAGS="$ab_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_openssl_base/lib\""
+    LDFLAGS="-L$ap_openssl_base/lib"
+  else
+    apr_addto_bugger="-L$ap_openssl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_openssl_base/lib\""
+    MOD_LDFLAGS="-L$ap_openssl_base/lib"
+  else
+    apr_addto_bugger="-L$ap_openssl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
+    LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
+    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+    fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OpenSSL version >= 0.9.8a" >&5
+$as_echo_n "checking for OpenSSL version >= 0.9.8a... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <openssl/opensslv.h>
+int
+main ()
+{
+
+#if !defined(OPENSSL_VERSION_NUMBER)
+#error "Missing OpenSSL version"
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x0090801f
+#error "Unsupported OpenSSL version " OPENSSL_VERSION_TEXT
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: OK" >&5
+$as_echo "OK" >&6; }
+       ac_cv_openssl=yes
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: FAILED" >&5
+$as_echo "FAILED" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+    if test "x$ac_cv_openssl" = "xyes"; then
+      ap_openssl_libs="${ap_openssl_libs:--lssl -lcrypto} `$apr_config --libs`"
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_openssl_libs\""
+    MOD_LDFLAGS="$ap_openssl_libs"
+  else
+    apr_addto_bugger="$ap_openssl_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LIBS to \"$ap_openssl_libs\""
+    LIBS="$ap_openssl_libs"
+  else
+    apr_addto_bugger="$ap_openssl_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LIBS"
+        LIBS="$LIBS $i"
+      fi
+    done
+  fi
+
+
+  test "x$silent" != "xyes" && echo "  forcing ab_LIBS to \"$MOD_LDFLAGS\""
+  ab_LIBS="$MOD_LDFLAGS"
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_CFLAGS"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LIBS"
+
+
+
+            liberrors=""
+      for ac_header in openssl/engine.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/engine.h" "ac_cv_header_openssl_engine_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_engine_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_ENGINE_H 1
+_ACEOF
+
+fi
+
+done
+
+      for ac_func in SSL_CTX_new
+do :
+  ac_fn_c_check_func "$LINENO" "SSL_CTX_new" "ac_cv_func_SSL_CTX_new"
+if test "x$ac_cv_func_SSL_CTX_new" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_SSL_CTX_NEW 1
+_ACEOF
+
+else
+  liberrors="yes"
+fi
+done
+
+      for ac_func in ENGINE_init ENGINE_load_builtin_engines RAND_egd
+do :
+  as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+if eval test \"x\$"$as_ac_var"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+      if test "x$liberrors" != "x"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: OpenSSL libraries are unusable" >&5
+$as_echo "$as_me: WARNING: OpenSSL libraries are unusable" >&2;}
+      fi
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: OpenSSL version is too old" >&5
+$as_echo "$as_me: WARNING: OpenSSL version is too old" >&2;}
+    fi
+
+        CPPFLAGS="$saved_CPPFLAGS"
+    LIBS="$saved_LIBS"
+    LDFLAGS="$saved_LDFLAGS"
+
+        ap_openssl_mod_cflags=$MOD_CFLAGS
+    ap_openssl_mod_ldflags=$MOD_LDFLAGS
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_openssl" >&5
+$as_echo "$ac_cv_openssl" >&6; }
+  if test "x$ac_cv_openssl" = "xyes"; then
+
+$as_echo "#define HAVE_OPENSSL 1" >>confdefs.h
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_openssl_mod_ldflags\""
+    MOD_LDFLAGS="$ap_openssl_mod_ldflags"
+  else
+    apr_addto_bugger="$ap_openssl_mod_ldflags"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$ap_openssl_mod_cflags\""
+    MOD_CFLAGS="$ap_openssl_mod_cflags"
+  else
+    apr_addto_bugger="$ap_openssl_mod_cflags"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+  fi
+
+    if test "x$ac_cv_openssl" = "xno" ; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: libssl (or compatible) not found" >&5
+$as_echo "$as_me: WARNING: libssl (or compatible) not found" >&2;}
+        enable_md=no
+    fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for jansson" >&5
+$as_echo_n "checking for jansson... " >&6; }
+if ${ac_cv_jansson+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ac_cv_jansson=no
+    ap_jansson_found=""
+    ap_jansson_base=""
+    ap_jansson_libs=""
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for user-provided jansson base directory" >&5
+$as_echo_n "checking for user-provided jansson base directory... " >&6; }
+
+# Check whether --with-jansson was given.
+if test "${with_jansson+set}" = set; then :
+  withval=$with_jansson;
+            if test "x$withval" != "xyes" -a "x$withval" != "x"; then
+                ap_jansson_base="`cd $withval ; pwd`"
+      fi
+
+fi
+
+    if test "x$ap_jansson_base" = "x"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: none" >&5
+$as_echo "none" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ap_jansson_base" >&5
+$as_echo "$ap_jansson_base" >&6; }
+    fi
+
+        saved_CPPFLAGS="$CPPFLAGS"
+    saved_LIBS="$LIBS"
+    saved_LDFLAGS="$LDFLAGS"
+
+        if test -n "$PKGCONFIG"; then
+      saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
+$as_echo_n "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
+      if test "x$ap_jansson_base" != "x" ; then
+        if test -f "${ap_jansson_base}/lib/pkgconfig/libjansson.pc"; then
+                              PKG_CONFIG_PATH="${ap_jansson_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        elif test -f "${ap_jansson_base}/lib64/pkgconfig/libjansson.pc"; then
+                              PKG_CONFIG_PATH="${ap_jansson_base}/lib64/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        fi
+      fi
+      # Check whether --enable-jansson-staticlib-deps was given.
+if test "${enable_jansson_staticlib_deps+set}" = set; then :
+  enableval=$enable_jansson_staticlib_deps;
+        if test "$enableval" = "yes"; then
+          PKGCONFIG_LIBOPTS="--static"
+        fi
+
+fi
+
+      ap_jansson_libs="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-l --silence-errors libjansson`"
+      if test $? -eq 0; then
+        ap_jansson_found="yes"
+        pkglookup="`$PKGCONFIG --cflags-only-I libjansson`"
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$pkglookup\""
+    CPPFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$pkglookup\""
+    MOD_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-L libjansson`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-other libjansson`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      PKG_CONFIG_PATH="$saved_PKG_CONFIG_PATH"
+    fi
+
+        if test "x$ap_jansson_base" != "x" -a "x$ap_jansson_found" = "x"; then
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-I$ap_jansson_base/include\""
+    CPPFLAGS="-I$ap_jansson_base/include"
+  else
+    apr_addto_bugger="-I$ap_jansson_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"-I$ap_jansson_base/include\""
+    MOD_CFLAGS="-I$ap_jansson_base/include"
+  else
+    apr_addto_bugger="-I$ap_jansson_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_jansson_base/lib\""
+    LDFLAGS="-L$ap_jansson_base/lib"
+  else
+    apr_addto_bugger="-L$ap_jansson_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_jansson_base/lib\""
+    MOD_LDFLAGS="-L$ap_jansson_base/lib"
+  else
+    apr_addto_bugger="-L$ap_jansson_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_jansson_base/lib\""
+    LDFLAGS="$ap_platform_runtime_link_flag$ap_jansson_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_jansson_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_jansson_base/lib\""
+    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_jansson_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_jansson_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+    fi
+
+    # attempts to include jansson.h fail me. So lets make sure we can at least
+    # include its other header file
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <jansson_config.h>
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: OK" >&5
+$as_echo "OK" >&6; }
+       ac_cv_jansson=yes
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: FAILED" >&5
+$as_echo "FAILED" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+    if test "x$ac_cv_jansson" = "xyes"; then
+      ap_jansson_libs="${ap_jansson_libs:--ljansson} `$apr_config --libs`"
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_jansson_libs\""
+    MOD_LDFLAGS="$ap_jansson_libs"
+  else
+    apr_addto_bugger="$ap_jansson_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LIBS to \"$ap_jansson_libs\""
+    LIBS="$ap_jansson_libs"
+  else
+    apr_addto_bugger="$ap_jansson_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LIBS"
+        LIBS="$LIBS $i"
+      fi
+    done
+  fi
+
+    fi
+
+        CPPFLAGS="$saved_CPPFLAGS"
+    LIBS="$saved_LIBS"
+    LDFLAGS="$saved_LDFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_jansson" >&5
+$as_echo "$ac_cv_jansson" >&6; }
+  if test "x$ac_cv_jansson" = "xyes"; then
+
+$as_echo "#define HAVE_JANSSON 1" >>confdefs.h
+
+  fi
+
+    if test "x$ac_cv_jansson" != "xyes" ; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: libjansson not found" >&5
+$as_echo "$as_me: WARNING: libjansson not found" >&2;}
+        enable_md=no
+    fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl" >&5
+$as_echo_n "checking for curl... " >&6; }
+if ${ac_cv_curl+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ac_cv_curl=no
+    ap_curl_found=""
+    ap_curl_base=""
+    ap_curl_libs=""
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for user-provided curl base directory" >&5
+$as_echo_n "checking for user-provided curl base directory... " >&6; }
+
+# Check whether --with-curl was given.
+if test "${with_curl+set}" = set; then :
+  withval=$with_curl;
+            if test "x$withval" != "xyes" -a "x$withval" != "x"; then
+                ap_curl_base="`cd $withval ; pwd`"
+      fi
+
+fi
+
+    if test "x$ap_curl_base" = "x"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: none" >&5
+$as_echo "none" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ap_curl_base" >&5
+$as_echo "$ap_curl_base" >&6; }
+    fi
+
+        saved_CPPFLAGS="$CPPFLAGS"
+    saved_LIBS="$LIBS"
+    saved_LDFLAGS="$LDFLAGS"
+
+        if test -n "$PKGCONFIG"; then
+      saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
+$as_echo_n "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
+      if test "x$ap_curl_base" != "x" ; then
+        if test -f "${ap_curl_base}/lib/pkgconfig/libcurl.pc"; then
+                              PKG_CONFIG_PATH="${ap_curl_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        elif test -f "${ap_curl_base}/lib64/pkgconfig/libcurl.pc"; then
+                              PKG_CONFIG_PATH="${ap_curl_base}/lib64/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH
+        fi
+      fi
+      # Check whether --enable-curl-staticlib-deps was given.
+if test "${enable_curl_staticlib_deps+set}" = set; then :
+  enableval=$enable_curl_staticlib_deps;
+        if test "$enableval" = "yes"; then
+          PKGCONFIG_LIBOPTS="--static"
+        fi
+
+fi
+
+      ap_curl_libs="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-l --silence-errors libcurl`"
+      if test $? -eq 0; then
+        ap_curl_found="yes"
+        pkglookup="`$PKGCONFIG --cflags-only-I libcurl`"
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$pkglookup\""
+    CPPFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$pkglookup\""
+    MOD_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-L libcurl`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-other libcurl`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      PKG_CONFIG_PATH="$saved_PKG_CONFIG_PATH"
+    fi
+
+        if test "x$ap_curl_base" != "x" -a "x$ap_curl_found" = "x"; then
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-I$ap_curl_base/include\""
+    CPPFLAGS="-I$ap_curl_base/include"
+  else
+    apr_addto_bugger="-I$ap_curl_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"-I$ap_curl_base/include\""
+    MOD_CFLAGS="-I$ap_curl_base/include"
+  else
+    apr_addto_bugger="-I$ap_curl_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_curl_base/lib\""
+    LDFLAGS="-L$ap_curl_base/lib"
+  else
+    apr_addto_bugger="-L$ap_curl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_curl_base/lib\""
+    MOD_LDFLAGS="-L$ap_curl_base/lib"
+  else
+    apr_addto_bugger="-L$ap_curl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_curl_base/lib\""
+    LDFLAGS="$ap_platform_runtime_link_flag$ap_curl_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_curl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_curl_base/lib\""
+    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_curl_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_curl_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+    fi
+
+    for ac_header in curl/curl.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "curl/curl.h" "ac_cv_header_curl_curl_h" "$ac_includes_default"
+if test "x$ac_cv_header_curl_curl_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_CURL_CURL_H 1
+_ACEOF
+
+fi
+
+done
+
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl version >= 7.50" >&5
+$as_echo_n "checking for curl version >= 7.50... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <curl/curlver.h>
+int
+main ()
+{
+
+#if !defined(LIBCURL_VERSION_MAJOR)
+#error "Missing libcurl version"
+#endif
+#if LIBCURL_VERSION_MAJOR < 7
+#error "Unsupported libcurl version " LIBCURL_VERSION
+#endif
+#if LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 50
+#error "Unsupported libcurl version " LIBCURL_VERSION
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: OK" >&5
+$as_echo "OK" >&6; }
+       ac_cv_curl=yes
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: FAILED" >&5
+$as_echo "FAILED" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+    if test "x$ac_cv_curl" = "xyes"; then
+      ap_curl_libs="${ap_curl_libs:--lcurl} `$apr_config --libs`"
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_curl_libs\""
+    MOD_LDFLAGS="$ap_curl_libs"
+  else
+    apr_addto_bugger="$ap_curl_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LIBS to \"$ap_curl_libs\""
+    LIBS="$ap_curl_libs"
+  else
+    apr_addto_bugger="$ap_curl_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LIBS"
+        LIBS="$LIBS $i"
+      fi
+    done
+  fi
+
+    fi
+
+        CPPFLAGS="$saved_CPPFLAGS"
+    LIBS="$saved_LIBS"
+    LDFLAGS="$saved_LDFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_curl" >&5
+$as_echo "$ac_cv_curl" >&6; }
+  if test "x$ac_cv_curl" = "xyes"; then
+
+$as_echo "#define HAVE_CURL 1" >>confdefs.h
+
+  fi
+
+    if test "x$ac_cv_curl" != "xyes" ; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: libcurl not found" >&5
+$as_echo "$as_me: WARNING: libcurl not found" >&2;}
+        enable_md=no
+    fi
+
+    for ac_func in arc4random_buf
+do :
+  ac_fn_c_check_func "$LINENO" "arc4random_buf" "ac_cv_func_arc4random_buf"
+if test "x$ac_cv_func_arc4random_buf" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_ARC4RANDOM_BUF 1
+_ACEOF
+
+  if test "x$MOD_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CPPFLAGS to \""-DMD_HAVE_ARC4RANDOM"\""
+    MOD_CPPFLAGS=""-DMD_HAVE_ARC4RANDOM""
+  else
+    apr_addto_bugger=""-DMD_HAVE_ARC4RANDOM""
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CPPFLAGS"
+        MOD_CPPFLAGS="$MOD_CPPFLAGS $i"
+      fi
+    done
+  fi
+
+fi
+done
+
+
+
+            :
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_md" >&5
+$as_echo_n "checking whether to enable mod_md... " >&6; }
+            if test "$enable_md" = "no"; then
+              if test "$_apmod_required" = "no"; then
+                _apmod_extra_msg=" (disabled)"
+              else
+                as_fn_error $? "mod_md has been requested but can not be built due to prerequisite failures" "$LINENO" 5
+              fi
+            fi
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_md$_apmod_extra_msg" >&5
+$as_echo "$enable_md$_apmod_extra_msg" >&6; }
+  if test "$enable_md" != "no"; then
+    case "$enable_md" in
+    static*)
+      MODLIST="$MODLIST md"
+      if test "md" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES md"
+      if test "most" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},md"
+      fi
+      ;;
+    esac
+
+
+  if test -z "$md_objs"; then
+    objects="mod_md.lo"
+  else
+    objects="$md_objs"
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_md.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_MD_LDADD)
+EOF
+      if test ! -z "\$(MOD_MD_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_MD_LDADD)\""
+    AP_LIBS="\$(MOD_MD_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_MD_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_md.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_MD_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_MD_LDADD"
+
+
+
+  fi
+
+
+
+  echo "DISTCLEAN_TARGETS = modules.mk" >> $modpath_current/modules.mk
+  echo "static = $modpath_static" >> $modpath_current/modules.mk
+  echo "shared = $modpath_shared" >> $modpath_current/modules.mk
+  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
+    if eval val=\"\$MOD_$var\"; test -n "$val"; then
+      echo "MOD_$var = $val" >> $modpath_current/modules.mk
+    fi
+  done
+  if test ! -z "$modpath_static" -o ! -z "$modpath_shared"; then
+    MODULE_DIRS="$MODULE_DIRS $current_dir"
+  else
+    MODULE_CLEANDIRS="$MODULE_CLEANDIRS $current_dir"
+  fi
+
+  APACHE_FAST_OUTPUT_FILES="$APACHE_FAST_OUTPUT_FILES $modpath_current/Makefile"
+
+
+
+
+
   current_dir=proxy/balancers
   modpath_current=modules/proxy/balancers
   modpath_static=
@@ -32217,10 +34070,10 @@ MPM_SUBDIRS=$ap_enabled_mpms
 
 
     if ap_mpm_is_enabled event; then
-        if test -z "event.lo fdqueue.lo"; then
+        if test -z "event.lo"; then
             objects="event.lo"
         else
-            objects="event.lo fdqueue.lo"
+            objects="event.lo"
         fi
 
         if test -z ""; then
@@ -32444,10 +34297,10 @@ EOF
 
 
     if ap_mpm_is_enabled worker; then
-        if test -z "worker.lo fdqueue.lo"; then
+        if test -z "worker.lo"; then
             objects="worker.lo"
         else
-            objects="worker.lo fdqueue.lo"
+            objects="worker.lo"
         fi
 
         if test -z ""; then

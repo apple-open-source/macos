@@ -133,6 +133,7 @@ struct SecPathBuilder {
     SecCertificatePathVCRef path;
     unsigned int            asyncJobCount;
     bool                    online_revocation;
+    bool                    trusted_revocation;
     CFStringRef             revocation_check_method;
 
     SecCertificatePathVCRef bestPath;
@@ -527,6 +528,15 @@ bool SecPathBuilderGetCheckRevocationOnline(SecPathBuilderRef builder) {
 void SecPathBuilderSetCheckRevocationOnline(SecPathBuilderRef builder) {
     builder->online_revocation = true;
     secdebug("rvc", "revocation force online check");
+}
+
+bool SecPathBuilderGetCheckRevocationIfTrusted(SecPathBuilderRef builder) {
+    return builder->trusted_revocation;
+}
+
+void SecPathBuilderSetCheckRevocationIfTrusted(SecPathBuilderRef builder) {
+    builder->trusted_revocation = true;
+    secdebug("rvc", "revocation check only if trusted");
 }
 
 CFArrayRef SecPathBuilderGetExceptions(SecPathBuilderRef builder) {
@@ -1316,7 +1326,7 @@ SecTrustServerEvaluateCompleted(const void *userData,
                                 CFArrayRef chain, CFArrayRef details, CFDictionaryRef info,
                                 SecTrustResultType result) {
     SecTrustServerEvaluationCompleted evaluated = (SecTrustServerEvaluationCompleted)userData;
-    TrustdHealthAnalyticsLogSuccess(TAEventEvaluationCompleted);
+    TrustdHealthAnalyticsLogEvaluationCompleted();
     evaluated(result, details, info, chain, NULL);
     Block_release(evaluated);
 }

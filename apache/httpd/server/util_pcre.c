@@ -1,16 +1,25 @@
-/*************************************************
- *      Perl-Compatible Regular Expressions      *
- *************************************************/
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-/*
-This is a library of functions to support regular expressions whose syntax
-and semantics are as close as possible to those of the Perl 5 language. See
-the file Tech.Notes for some information on the internals.
-
-This module is a wrapper that provides a POSIX API to the underlying PCRE
-functions.
-
-Written by: Philip Hazel <ph10@cam.ac.uk>
+/* This code is based on pcreposix.c from the PCRE Library distribution,
+ * as originally written by Philip Hazel <ph10@cam.ac.uk>, and forked by
+ * the Apache HTTP Server project to provide POSIX-style regex function
+ * wrappers around underlying PCRE library functions for httpd.
+ * 
+ * The original source file pcreposix.c is copyright and licensed as follows;
 
            Copyright (c) 1997-2004 University of Cambridge
 
@@ -111,6 +120,38 @@ AP_DECLARE(void) ap_regfree(ap_regex_t *preg)
  *            Compile a regular expression       *
  *************************************************/
 
+static int default_cflags = AP_REG_DOLLAR_ENDONLY;
+
+AP_DECLARE(int) ap_regcomp_get_default_cflags(void)
+{
+    return default_cflags;
+}
+
+AP_DECLARE(void) ap_regcomp_set_default_cflags(int cflags)
+{
+    default_cflags = cflags;
+}
+
+AP_DECLARE(int) ap_regcomp_default_cflag_by_name(const char *name)
+{
+    int cflag = 0;
+
+    if (ap_cstr_casecmp(name, "ICASE") == 0) {
+        cflag = AP_REG_ICASE;
+    }
+    else if (ap_cstr_casecmp(name, "DOTALL") == 0) {
+        cflag = AP_REG_DOTALL;
+    }
+    else if (ap_cstr_casecmp(name, "DOLLAR_ENDONLY") == 0) {
+        cflag = AP_REG_DOLLAR_ENDONLY;
+    }
+    else if (ap_cstr_casecmp(name, "EXTENDED") == 0) {
+        cflag = AP_REG_EXTENDED;
+    }
+
+    return cflag;
+}
+
 /*
  * Arguments:
  *  preg        points to a structure for recording the compiled expression
@@ -127,12 +168,15 @@ AP_DECLARE(int) ap_regcomp(ap_regex_t * preg, const char *pattern, int cflags)
     int errcode = 0;
     int options = PCRE_DUPNAMES;
 
+    cflags |= default_cflags;
     if ((cflags & AP_REG_ICASE) != 0)
         options |= PCRE_CASELESS;
     if ((cflags & AP_REG_NEWLINE) != 0)
         options |= PCRE_MULTILINE;
     if ((cflags & AP_REG_DOTALL) != 0)
         options |= PCRE_DOTALL;
+    if ((cflags & AP_REG_DOLLAR_ENDONLY) != 0)
+        options |= PCRE_DOLLAR_ENDONLY;
 
     preg->re_pcre =
         pcre_compile2(pattern, options, &errcode, &errorptr, &erroffset, NULL);

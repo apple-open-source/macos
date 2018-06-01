@@ -42,6 +42,7 @@
 	<array>
 		<string>com.apple.security.regressions</string>
 		<string>lockdown-identities</string>
+		<string>com.apple.bluetooth</string>
 		<string>apple</string>
 		<string>123456.test.group</string>
 		<string>123456.test.group2</string>

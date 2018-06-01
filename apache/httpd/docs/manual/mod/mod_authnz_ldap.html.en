@@ -490,7 +490,7 @@ AuthLDAPMaxSubGroupDepth 1</pre>
     <p>The following directive would grant access to anyone with
     the attribute employeeType = active</p>
 
-    <pre class="prettyprint lang-config">Require ldap-attribute "employeeType=active"</pre>
+    <pre class="prettyprint lang-config">Require ldap-attribute employeeType="active"</pre>
 
 
     <p>Multiple attribute/value pairs can be specified on the same line
@@ -504,7 +504,7 @@ AuthLDAPMaxSubGroupDepth 1</pre>
     <p>The following directive would grant access to anyone with
     the city attribute equal to "San Jose" or status equal to "Active"</p>
 
-    <pre class="prettyprint lang-config">Require ldap-attribute city="San Jose" "status=active"</pre>
+    <pre class="prettyprint lang-config">Require ldap-attribute city="San Jose" status="active"</pre>
 
 
 
@@ -1417,7 +1417,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_ldap.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

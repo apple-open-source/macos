@@ -394,6 +394,7 @@ static Boolean                __sOSKextStrictRecordingByLastOpened = FALSE;
 static Boolean                __sOSKextStrictAuthentication        = FALSE;
 static Boolean                __sOSKextIsSIPDisabled               = FALSE;
 static OSKextAuthFnPtr        __sOSKextAuthenticationFunction      = _OSKextBasicFilesystemAuthentication;
+static OSKextLoadAuditFnPtr   __sOSKextLoadAuditFunction           = NULL;
 static void                 * __sOSKextAuthenticationContext       = NULL;
 
 static CFArrayRef             __sOSKextPackageTypeValues       = NULL;
@@ -2296,6 +2297,15 @@ void _OSKextSetAuthenticationFunction(OSKextAuthFnPtr authFn, void *context)
     return;
 }
 
+/*********************************************************************
+ * An interface to set the load audit function, used by OSKextLoad
+ * in the current context for monitoring kext load information.
+ *********************************************************************/
+void _OSKextSetLoadAuditFunction(OSKextLoadAuditFnPtr authFn)
+{
+    __sOSKextLoadAuditFunction = authFn;
+    return;
+}
 
 #pragma mark Instance Management
 /*********************************************************************
@@ -9719,6 +9729,18 @@ OSReturn __OSKextLoadWithArgsDict(
 
     requestBuffer = CFDataGetBytePtr(mkext);
     requestLength = CFDataGetLength(mkext);
+
+    if (!__sOSKextLoadAuditFunction) {
+        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+             "No load audit function set, cannot load %s", kextPath);
+        goto finish;
+    }
+
+    if (!__sOSKextLoadAuditFunction(aKext)) {
+        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+             "Load audit function returned false, bailing on load of %s", kextPath);
+        goto finish;
+    }
 
     OSKextLog(aKext, kOSKextLogProgressLevel | kOSKextLogLoadFlag,
          "Loading %s.", kextPath);

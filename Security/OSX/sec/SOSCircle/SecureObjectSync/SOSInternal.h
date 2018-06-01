@@ -39,6 +39,8 @@ __BEGIN_DECLS
 
 #define ENABLE_IDS 0
 
+#define kSOSPeerIDLengthMax (26)
+
 enum {
     // Public errors are first (See SOSCloudCircle)
 

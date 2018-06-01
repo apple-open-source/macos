@@ -1702,6 +1702,11 @@ checkAllWatched(mountpoint_t busyVol)
     return result;
 }
 
+
+/******************************************************************************
+ * MIG Server Routine
+ * _kextmanager_lock_reboot can block reboot if caches are not yet up to date
+ *****************************************************************************/
 kern_return_t _kextmanager_lock_reboot(mach_port_t p, mach_port_t replyPort,
     mach_port_t client, int waitForLock, mountpoint_t busyVol, int *busyStatus)
 {
@@ -1766,6 +1771,13 @@ kern_return_t _kextmanager_lock_reboot(mach_port_t p, mach_port_t replyPort,
 finish:
     if (rval == KERN_SUCCESS) {
         if (busyStatus) *busyStatus = result;
+        if (result != 0) {
+            // consume the send-right provided by MIG, but only when we
+            // haven't already consumed the reference. We conly consume the
+            // reference via createWatchedPort(), and on success those paths
+            // set 'result = 0'
+            mach_port_deallocate(mach_task_self(), client);
+	}
     } else if (rval != MIG_NO_REPLY) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
@@ -1787,6 +1799,7 @@ finish:
 }
 
 /******************************************************************************
+ * MIG Server Routine
  * _kextmanager_lock_volume locks volumes for kextcache
  * - vol_uuid is in CFUUIDBytes
  *****************************************************************************/
@@ -1877,6 +1890,12 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
              "granting lock for %s to %d", watched->caches->root,client);
         result = 0;             // success; lock granted
         rval = KERN_SUCCESS;    // for MiG
+        // if rval changes after this point, we need to cleanup watched->lock,
+        // but we would need to do it carefully because cleanupPort() also
+        // deallocates the associated send right, and if we return an error
+        // from this function (rval != KERN_SUCCESS) then MIG will also try to
+        // deallocate the same send right! Fortunately, right now we don't
+        // modify rval after this point.
     } else {
         // lock can't be granted; let the client wait if willing
         if (waitForLock) {
@@ -1916,14 +1935,15 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
 
 
 finish:
-    // circa 8679674, creating the lock => rval = success
-    // but this ensures future code won't destroy an existing lock on error
-    if (rval != KERN_SUCCESS && createdLock && watched->lock) {
-        cleanupPort(&watched->lock);
-    }
-
     if (rval == KERN_SUCCESS) {
         *lockStatus = result;
+        if (result != 0) {
+            // consume the send-right provided by MIG, but only when we
+            // haven't already consumed the reference. We conly consume the
+            // reference via createWatchedPort(), and on success those paths
+            // set 'result = 0'
+            mach_port_deallocate(mach_task_self(), client);
+        }
     } else if (rval == MIG_NO_REPLY) {
         // not replying yet
     } else if (watched) {
@@ -1939,6 +1959,7 @@ finish:
 }
 
 /******************************************************************************
+ * MIG Server Routine
  * _kextmanager_unlock_volume unlocks for clients (i.e. kextcache)
  *****************************************************************************/
 kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
@@ -1950,9 +1971,6 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
     CFUUIDBytes uuidBytes;
     // OSKextLog(/* kext */ NULL, kOSKextLogDebugLevel | kOSKextLogGeneralFlag, "DEBUG: _kextmanager_unlock_volume()...");
 
-    // since we don't need the extra send right added by MiG (XX why?)
-    if (mach_port_deallocate(mach_task_self(), client))  goto finish;
-
     if (gClientUID != 0 /*watched->fsinfo->f_owner ?*/) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
@@ -1962,13 +1980,19 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
     }
 
     // make sure we're set up
-    if (!sFsysWatchDict)    goto finish;
+    if (!sFsysWatchDict)  {
+        goto finish;
+    }
 
     memcpy(&uuidBytes.byte0, vol_uuid, sizeof(uuid_t));
     volUUID = CFUUIDCreateFromUUIDBytes(nil, uuidBytes);
-    if (!volUUID)           goto finish;
+    if (!volUUID) {
+        goto finish;
+    }
     watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);
-    if (!watched)           goto finish;
+    if (!watched) {
+        goto finish;
+    }
 
     if (!watched->lock) {
         OSKextLog(/* kext */ NULL,
@@ -2026,11 +2050,18 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
     rval = KERN_SUCCESS;
 
 finish:
-    if (volUUID)    CFRelease(volUUID);
+    if (volUUID) {
+        CFRelease(volUUID);
+    }
     if (rval && watched) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
             "Couldn't unlock '%s'.", watched->caches->root);
+    }
+    if (rval == KERN_SUCCESS) {
+        // release the send right given to us by MIG
+        // (we didn't do anything with 'client' in this function)
+        mach_port_deallocate(mach_task_self(), client);
     }
 
     return rval;

@@ -259,7 +259,7 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
     DEBG(fName, "\n");
 
     static bool          havePublishedResource;
-    IOMemoryDescriptor * mem;
+    IOMemoryDescriptor * mem = NULL;
     IOReturn             err = kIOReturnSuccess;
 
     RPC_GUARD(this, clientMemoryForType);

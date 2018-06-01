@@ -61,6 +61,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
     const UTrie *trie = &fData->fTrie;
     while (outTokenP < outTokenLimit) {
         // LookAheadResults lookAheadMatches; // added in RBBI, #12081/r38387
+        result = prev; // fallback initialization, prevent uninitialized use
         c = UTEXT_NEXT32(text);
         if (c == U_SENTINEL)
         {

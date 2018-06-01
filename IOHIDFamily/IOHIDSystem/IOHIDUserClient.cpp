@@ -90,7 +90,6 @@ IOReturn IOHIDUserClient::close( void )
             }
         }
         owner->evClose();
-        owner->serverConnect = 0;
         owner = NULL;
     }
     
@@ -280,6 +279,12 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
     }
 
     return result;
+}
+
+IOReturn IOHIDParamUserClient::clientClose(void)
+{
+    terminate();
+    return kIOReturnSuccess;
 }
 
 IOReturn IOHIDParamUserClient::extPostEvent(void*p1,void*p2,void*,void*,void*,void*)

@@ -9,7 +9,8 @@ LTLIBRARY_NAME    = libmain.la
 LTLIBRARY_SOURCES = \
 	config.c log.c main.c vhost.c util.c util_fcgi.c \
 	util_script.c util_md5.c util_cfgtree.c util_ebcdic.c util_time.c \
-	connection.c listen.c util_mutex.c mpm_common.c mpm_unix.c \
+	connection.c listen.c util_mutex.c \
+	mpm_common.c mpm_unix.c mpm_fdqueue.c \
 	util_charset.c util_cookies.c util_debug.c util_xml.c \
 	util_filter.c util_pcre.c util_regex.c exports.c \
 	scoreboard.c error_bucket.c protocol.c core.c request.c provider.c \
@@ -23,11 +24,9 @@ TARGETS = delete-exports $(LTLIBRARY_NAME) $(CORE_IMPLIB_FILE) export_vars.h htt
 include $(top_builddir)/build/rules.mk
 include $(top_srcdir)/build/library.mk
 
-gen_test_char_OBJECTS = gen_test_char.lo
-gen_test_char: $(gen_test_char_OBJECTS)
-	$(LINK) $(EXTRA_LDFLAGS) $(gen_test_char_OBJECTS) $(EXTRA_LIBS)
-
-test_char.h: gen_test_char
+test_char.h:
+	cp $(top_srcdir)/server/gen_test_char.c . 
+	cc -I$(SDKROOT)/usr/include/apr-1 gen_test_char.c -o gen_test_char
 	./gen_test_char > test_char.h
 
 util.lo: test_char.h
@@ -58,6 +57,7 @@ export_files:
 	( for dir in $(EXPORT_DIRS); do \
 	      ls $$dir/*.h ; \
 	  done; \
+	  echo "$(top_srcdir)/server/mpm_fdqueue.h"; \
 	  for dir in $(EXPORT_DIRS_APR); do \
 	      ls $$dir/ap[ru].h $$dir/ap[ru]_*.h 2>/dev/null; \
 	  done; \

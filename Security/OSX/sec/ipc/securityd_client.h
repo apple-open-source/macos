@@ -463,7 +463,7 @@ bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
                                 bool (^handle_response)(xpc_object_t response, CFErrorRef* error));
 
 // For testing only, never call this in a threaded program!
-void SecServerSetMachServiceName(const char *name);
+void SecServerSetTrustdMachServiceName(const char *name);
 
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyEndpoint(enum SecXPCOperation op, CFErrorRef *error);
 

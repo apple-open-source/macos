@@ -170,7 +170,7 @@
 #define SK_VALUE(x,y) sk_X509_value(x,y)
 typedef STACK_OF(X509) X509_STACK_TYPE;
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(LIBRESSL_VERSION_NUMBER)
 /* The following logic ensures we correctly glue FILE* within one CRT used
  * by the OpenSSL library build to another CRT used by the ab.exe build.
  * This became especially problematic with Visual Studio 2015.
@@ -366,6 +366,7 @@ apr_time_t start, lasttime, stoptime;
 char _request[8192];
 char *request = _request;
 apr_size_t reqlen;
+int requests_initialized = 0;
 
 /* one global throw-away buffer to read stuff into */
 char buffer[8192];
@@ -739,8 +740,8 @@ static void ssl_proceed_handshake(struct connection *c)
             do_next = 0;
             break;
         case SSL_ERROR_WANT_WRITE:
-            /* Try again */
-            do_next = 1;
+            set_polled_events(c, APR_POLLOUT);
+            do_next = 0;
             break;
         case SSL_ERROR_WANT_CONNECT:
         case SSL_ERROR_SSL:
@@ -780,6 +781,7 @@ static void write_request(struct connection * c)
             c->rwrite = reqlen;
             if (send_body)
                 c->rwrite += postlen;
+            l = c->rwrite;
         }
         else if (tnow > c->connect + aprtimeout) {
             printf("Send request timed out!\n");
@@ -789,26 +791,40 @@ static void write_request(struct connection * c)
 
 #ifdef USE_SSL
         if (c->ssl) {
-            apr_size_t e_ssl;
-            e_ssl = SSL_write(c->ssl,request + c->rwrote, l);
-            if (e_ssl != l) {
-                BIO_printf(bio_err, "SSL write failed - closing connection\n");
-                ERR_print_errors(bio_err);
-                close_connection (c);
+            e = SSL_write(c->ssl, request + c->rwrote, l);
+            if (e <= 0) {
+                switch (SSL_get_error(c->ssl, e)) {
+                case SSL_ERROR_WANT_READ:
+                    set_polled_events(c, APR_POLLIN);
+                    break;
+                case SSL_ERROR_WANT_WRITE:
+                    set_polled_events(c, APR_POLLOUT);
+                    break;
+                default:
+                    BIO_printf(bio_err, "SSL write failed - closing connection\n");
+                    ERR_print_errors(bio_err);
+                    close_connection (c);
+                    break;
+                }
                 return;
             }
-            l = e_ssl;
-            e = APR_SUCCESS;
+            l = e;
         }
         else
 #endif
+        {
             e = apr_socket_send(c->aprsock, request + c->rwrote, &l);
-
-        if (e != APR_SUCCESS && !APR_STATUS_IS_EAGAIN(e)) {
-            epipe++;
-            printf("Send request failed!\n");
-            close_connection(c);
-            return;
+            if (e != APR_SUCCESS && !l) {
+                if (!APR_STATUS_IS_EAGAIN(e)) {
+                    epipe++;
+                    printf("Send request failed!\n");
+                    close_connection(c);
+                }
+                else {
+                    set_polled_events(c, APR_POLLOUT);
+                }
+                return;
+            }
         }
         totalposted += l;
         c->rwrote += l;
@@ -1091,7 +1107,7 @@ static void output_results(int sig)
                            ap_round_ms(stats[done - 1].time));
                 else
                     printf("  %d%%  %5" APR_TIME_T_FMT "\n", percs[i],
-                           ap_round_ms(stats[(int) (done * percs[i] / 100)].time));
+                           ap_round_ms(stats[(unsigned long)done * percs[i] / 100].time));
             }
         }
         if (csvperc) {
@@ -1108,7 +1124,7 @@ static void output_results(int sig)
                 else if (i == 100)
                     t = ap_double_ms(stats[done - 1].time);
                 else
-                    t = ap_double_ms(stats[(int) (0.5 + done * i / 100.0)].time);
+                    t = ap_double_ms(stats[(unsigned long) (0.5 + (double)done * i / 100.0)].time);
                 fprintf(out, "%d,%.3f\n", i, t);
             }
             fclose(out);
@@ -1346,6 +1362,7 @@ static void start_connect(struct connection * c)
         ssl_rand_seed();
         apr_os_sock_get(&fd, c->aprsock);
         bio = BIO_new_socket(fd, BIO_NOCLOSE);
+        BIO_set_nbio(bio, 1);
         SSL_set_bio(c->ssl, bio, bio);
         SSL_set_connect_state(c->ssl);
         if (verbosity >= 4) {
@@ -1370,11 +1387,17 @@ static void start_connect(struct connection * c)
         else {
             set_conn_state(c, STATE_UNCONNECTED);
             apr_socket_close(c->aprsock);
-            err_conn++;
-            if (bad++ > 10) {
+            if (good == 0 && destsa->next) {
+                destsa = destsa->next;
+                err_conn = 0;
+            }
+            else if (bad++ > 10) {
                 fprintf(stderr,
                    "\nTest aborted after 10 failures\n\n");
                 apr_err("apr_socket_connect()", rv);
+            }
+            else {
+                err_conn++;
             }
 
             start_connect(c);
@@ -1456,8 +1479,10 @@ static void read_connection(struct connection * c)
     apr_status_t status;
     char *part;
     char respcode[4];       /* 3 digits and null */
+    int i;
 
     r = sizeof(buffer);
+read_more:
 #ifdef USE_SSL
     if (c->ssl) {
         status = SSL_read(c->ssl, buffer, r);
@@ -1479,8 +1504,20 @@ static void read_connection(struct connection * c)
                 good++;
                 close_connection(c);
             }
-            else if (scode != SSL_ERROR_WANT_WRITE
-                     && scode != SSL_ERROR_WANT_READ) {
+            else if (scode == SSL_ERROR_SYSCALL 
+                     && c->read == 0
+                     && destsa->next
+                     && c->state == STATE_CONNECTING
+                     && good == 0) {
+                return;
+            }
+            else if (scode == SSL_ERROR_WANT_READ) {
+                set_polled_events(c, APR_POLLIN);
+            }
+            else if (scode == SSL_ERROR_WANT_WRITE) {
+                set_polled_events(c, APR_POLLOUT);
+            }
+            else {
                 /* some fatal error: */
                 c->read = 0;
                 BIO_printf(bio_err, "SSL read failed (%d) - closing connection\n", scode);
@@ -1504,8 +1541,8 @@ static void read_connection(struct connection * c)
         }
         /* catch legitimate fatal apr_socket_recv errors */
         else if (status != APR_SUCCESS) {
-            err_recv++;
             if (recverrok) {
+                err_recv++;
                 bad++;
                 close_connection(c);
                 if (verbosity >= 1) {
@@ -1513,7 +1550,12 @@ static void read_connection(struct connection * c)
                     fprintf(stderr,"%s: %s (%d)\n", "apr_socket_recv", apr_strerror(status, buf, sizeof buf), status);
                 }
                 return;
-            } else {
+            } else if (destsa->next && c->state == STATE_CONNECTING
+                       && c->read == 0 && good == 0) {
+                return;
+            }
+            else {
+                err_recv++;
                 apr_err("apr_socket_recv", status);
             }
         }
@@ -1635,12 +1677,26 @@ static void read_connection(struct connection * c)
             }
             c->bread += c->cbx - (s + l - c->cbuff) + r - tocopy;
             totalbread += c->bread;
+
+            /* We have received the header, so we know this destination socket
+             * address is working, so initialize all remaining requests. */
+            if (!requests_initialized) {
+                for (i = 1; i < concurrency; i++) {
+                    con[i].socknum = i;
+                    start_connect(&con[i]);
+                }
+                requests_initialized = 1;
+            }
         }
     }
     else {
         /* outside header, everything we have read is entity body */
         c->bread += r;
         totalbread += r;
+    }
+    if (r == sizeof(buffer) && c->bread < c->length) {
+        /* read was full, try more immediately (nonblocking already) */
+        goto read_more;
     }
 
     if (c->keepalive && (c->bread >= c->length)) {
@@ -1675,6 +1731,7 @@ static void read_connection(struct connection * c)
         c->read = c->bread = 0;
         /* zero connect time with keep-alive */
         c->start = c->connect = lasttime = apr_time_now();
+        set_conn_state(c, STATE_CONNECTED);
         write_request(c);
     }
 }
@@ -1851,11 +1908,10 @@ static void test(void)
     apr_signal(SIGINT, output_results);
 #endif
 
-    /* initialise lots of requests */
-    for (i = 0; i < concurrency; i++) {
-        con[i].socknum = i;
-        start_connect(&con[i]);
-    }
+    /* initialise first connection to determine destination socket address
+     * which should be used for next connections. */
+    con[0].socknum = 0;
+    start_connect(&con[0]);
 
     do {
         apr_int32_t n;
@@ -1903,19 +1959,26 @@ static void test(void)
             if ((rtnev & APR_POLLIN) || (rtnev & APR_POLLPRI) || (rtnev & APR_POLLHUP))
                 read_connection(c);
             if ((rtnev & APR_POLLERR) || (rtnev & APR_POLLNVAL)) {
-                bad++;
-                err_except++;
-                /* avoid apr_poll/EINPROGRESS loop on HP-UX, let recv discover ECONNREFUSED */
-                if (c->state == STATE_CONNECTING) {
-                    read_connection(c);
+                if (destsa->next && c->state == STATE_CONNECTING && good == 0) {
+                    destsa = destsa->next;
+                    start_connect(c);
                 }
                 else {
-                    start_connect(c);
+                    bad++;
+                    err_except++;
+                    /* avoid apr_poll/EINPROGRESS loop on HP-UX, let recv discover ECONNREFUSED */
+                    if (c->state == STATE_CONNECTING) {
+                        read_connection(c);
+                    }
+                    else {
+                        start_connect(c);
+                    }
                 }
                 continue;
             }
             if (rtnev & APR_POLLOUT) {
                 if (c->state == STATE_CONNECTING) {
+                    /* call connect() again to detect errors */
                     rv = apr_socket_connect(c->aprsock, destsa);
                     if (rv != APR_SUCCESS) {
                         set_conn_state(c, STATE_UNCONNECTED);
@@ -1940,7 +2003,14 @@ static void test(void)
                     }
                 }
                 else {
-                    write_request(c);
+                    /* POLLOUT is one shot */
+                    set_polled_events(c, APR_POLLIN);
+                    if (c->state == STATE_READ) {
+                        read_connection(c);
+                    }
+                    else {
+                        write_request(c);
+                    }
                 }
             }
         }
@@ -1963,14 +2033,14 @@ static void test(void)
 static void copyright(void)
 {
     if (!use_html) {
-        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1807734 $>");
+        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1826891 $>");
         printf("Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/\n");
         printf("Licensed to The Apache Software Foundation, http://www.apache.org/\n");
         printf("\n");
     }
     else {
         printf("<p>\n");
-        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1807734 $");
+        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1826891 $");
         printf(" Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/<br>\n");
         printf(" Licensed to The Apache Software Foundation, http://www.apache.org/<br>\n");
         printf("</p>\n<p>\n");

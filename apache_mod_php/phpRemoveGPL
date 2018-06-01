@@ -35,6 +35,7 @@ rm -rf pear/install-pear-nozlib.phar
 rm -rf ext/json/json_parser.tab.c
 rm -rf ext/json/json_parser.tab.h
 rm -rf ext/phar/tests
+rm -rf scripts/dev/generate-phpt.phar
 popd
 mv $ARCHIVE ${ARCHIVE}-old
 COPYFILE_DISABLE=1 tar cj -f $ARCHIVE $ARCHIVE_DIR

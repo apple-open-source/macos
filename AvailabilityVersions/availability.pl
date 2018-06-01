@@ -66,6 +66,7 @@ my @ios_versions = (
     "11.1",
     "11.2",
     "11.3",
+    "11.4",
 );
 
 my @appletvos_versions = (
@@ -80,6 +81,7 @@ my @appletvos_versions = (
     "11.1",
     "11.2",
     "11.3",
+    "11.4",
 );
 
 my @watchos_versions = (

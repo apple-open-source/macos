@@ -464,7 +464,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	
 	// get a backing store if needed
 	if ( status )
-		if ( NULL != params->backingStore )
+		if ( 0 != params->backingStore )
 		{
 			// Note: even though the memory descriptor is created with the size of the address space,
 			// rather than the size of the backingstore, this creation should fail if the size is outside

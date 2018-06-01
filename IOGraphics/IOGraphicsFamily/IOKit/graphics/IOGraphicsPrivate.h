@@ -233,6 +233,7 @@ enum {
     kIOGDbgNoClamshellOffline           = 0x00000200,
     kIOGDbgNoWaitQuietController        = 0x00000400,
     kIOGDbgRemoveShutdownProtection     = 0x00000800,
+    kIOGDbgDisableProbeAfterOpen        = 0x00001000,
 
     kIOGDbgEnableAutomatedTestSupport   = 0x00010000,
     kIOGDbgEnableGMetrics               = 0x40000000,

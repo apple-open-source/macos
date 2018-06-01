@@ -46,11 +46,20 @@
 /* Using autoconf to configure Apache */
 #undef AP_USING_AUTOCONF
 
+/* Define to 1 if you have the `arc4random_buf' function. */
+#undef HAVE_ARC4RANDOM_BUF
+
 /* Define to 1 if you have the `bindprocessor' function. */
 #undef HAVE_BINDPROCESSOR
 
 /* Define to 1 if you have the <bstring.h> header file. */
 #undef HAVE_BSTRING_H
+
+/* Define if curl is available */
+#undef HAVE_CURL
+
+/* Define to 1 if you have the <curl/curl.h> header file. */
+#undef HAVE_CURL_CURL_H
 
 /* Define if distcache support is enabled */
 #undef HAVE_DISTCACHE
@@ -96,6 +105,9 @@
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define if jansson is available */
+#undef HAVE_JANSSON
 
 /* Define to 1 if you have the `killpg' function. */
 #undef HAVE_KILLPG

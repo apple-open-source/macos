@@ -1,7 +1,7 @@
 .\"
 .\" cupsd.conf man page for CUPS.
 .\"
-.\" Copyright 2007-2017 by Apple Inc.
+.\" Copyright 2007-2018 by Apple Inc.
 .\" Copyright 1997-2006 by Easy Software Products.
 .\"
 .\" These coded instructions, statements, and computer programs are the
@@ -10,7 +10,7 @@
 .\" which should have been included with this file.  If this file is
 .\" file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsd.conf 5 "CUPS" "26 June 2017" "Apple Inc."
+.TH cupsd.conf 5 "CUPS" "25 February 2018" "Apple Inc."
 .SH NAME
 cupsd.conf \- server configuration file for cups
 .SH DESCRIPTION
@@ -377,10 +377,6 @@ The following percent sequences are recognized:
 .fi
 The default is the empty string, which disables page logging.
 The string "%p %u %j %T %P %C %{job-billing} %{job-originating-host-name} %{job-name} %{media} %{sides}" creates a page log with the standard items.
-.\"#PassEnv
-.TP 5
-\fBPassEnv \fIvariable \fR[ ... \fIvariable \fR]
-Passes the specified environment variable(s) to child processes.
 .\"#Policy
 .TP 5
 \fB<Policy \fIname\fB> \fR... \fB</Policy>\fR
@@ -466,10 +462,6 @@ Specifies what information is included in the Server header of HTTP responses.
 command.
 "Full" reports "CUPS 2.0.0 (UNAME) IPP/2.0".
 The default is "Minimal".
-.\"#SetEnv
-.TP 5
-\fBSetEnv \fIvariable value\fR
-Set the specified environment variable to be passed to child processes.
 .\"#SSLListen
 .TP 5
 \fBSSLListen \fIipv4-address\fB:\fIport\fR

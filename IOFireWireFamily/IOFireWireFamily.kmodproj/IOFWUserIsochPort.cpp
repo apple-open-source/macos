@@ -768,7 +768,7 @@ IOFWUserLocalIsochPort::importUserProgram (
 		tempRange.length = 0;		// supress warning
 		if ( getDCLDataBuffer ( pExportDCL, tempRange.address, tempRange.length ) )
 		{
-			if ( tempRange.address != NULL && tempRange.length > 0 )
+			if ( tempRange.address != 0 && tempRange.length > 0 )
 			{
 				IOByteCount offset ;
 				if ( ! findOffsetInRanges (	tempRange.address, userBufferRangeCount, userBufferRanges, offset ) )
@@ -787,7 +787,7 @@ IOFWUserLocalIsochPort::importUserProgram (
 		++fProgramCount ;			
 		
 		// Break out of this loop if we found the end.
-		if (pExportDCL->pNextDCLCommand == NULL)
+		if (pExportDCL->pNextDCLCommand == 0)
 			break;
 		else
 			nextUserExportDCLOffset += size;

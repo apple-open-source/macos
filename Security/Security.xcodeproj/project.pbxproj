@@ -12559,6 +12559,7 @@
 		EBCF73FC1CE45F9C00BED7CA /* secitemfunctionality */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secitemfunctionality; sourceTree = BUILT_PRODUCTS_DIR; };
 		EBD8AD632004B45500588BBA /* SecurityCustomSignposts.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = SecurityCustomSignposts.plist; path = base/SecurityCustomSignposts.plist; sourceTree = "<group>"; };
 		EBE54D771BE33227000C4856 /* libmis.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmis.dylib; path = usr/lib/libmis.dylib; sourceTree = SDKROOT; };
+		EBE700FE204676E700E00A87 /* secdmock_db_version_11_1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = secdmock_db_version_11_1.h; sourceTree = "<group>"; };
 		EBEEEE351EA31A8300E15F5C /* SOSControlHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSControlHelper.h; sourceTree = "<group>"; };
 		EBEEEE361EA31A8300E15F5C /* SOSControlHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SOSControlHelper.m; sourceTree = "<group>"; };
 		EBF3745E1DBFB32A0065D840 /* libobjc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libobjc.dylib; path = usr/lib/libobjc.dylib; sourceTree = SDKROOT; };
@@ -20624,6 +20625,7 @@
 			isa = PBXGroup;
 			children = (
 				72D1E5F3202FE43C003A38C5 /* secdmock_db_version_10_5.h */,
+				EBE700FE204676E700E00A87 /* secdmock_db_version_11_1.h */,
 				EB49B2B0202D8780003F34A0 /* secdmockaks.m */,
 				EB6667BE204CD65E000B404F /* testPlistDER.m */,
 				EB49B303202FB8DE003F34A0 /* mockaks.h */,

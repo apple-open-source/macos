@@ -1330,7 +1330,8 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
 	'on' signifie que le tampon sera vidé après chaque envoi d'un
 	tronçon de données, et 'auto' que le tampon sera vidé après un
 	délai de 'flushwait' millisecondes si aucune entrée n'est reçue.
-	Actuellement, cette clé n'est supportée que par AJP.
+	Actuellement, cette clé n'est supportée que par mod_proxy_ajp et
+	mod_proxy_fcgi.
     </td></tr>
     <tr><td>flushwait</td>
         <td>10</td>
@@ -2280,7 +2281,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -129,7 +129,7 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
         return kIOReturnBusy;
     }
 
-    if (wrapped_key_size < 8) {
+    if (wrapped_key_size < PADDINGSIZE) {
         abort();
     }
     static const char expected_padding[PADDINGSIZE] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };

@@ -77,7 +77,7 @@ extern os_log_t secLogObjForCFScope(CFStringRef scope);
 void SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser);
 #endif // TARGET_OS_IOS
 
-void SecServerSetMachServiceName(const char *name);
+void SecServerSetTrustdMachServiceName(const char *name);
 
 #endif /* ios_tapi_hacks_h */
 

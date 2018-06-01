@@ -330,10 +330,12 @@ static inline bool isNSDictionary(id nsType) {
 
     if (!ok || error) {
         secerror("SecPinningDb: error installing updated pinning list version %@: %@", [pinningList objectAtIndex:0], error);
+#if ENABLE_TRUSTD_ANALYTICS
         [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationWrite) }];
+#endif // ENABLE_TRUSTD_ANALYTICS
         CFReleaseNull(error);
     }
 
@@ -456,10 +458,12 @@ static inline bool isNSDictionary(id nsType) {
                  }
                  if (!ok) {
                      secerror("SecPinningDb: %s failed: %@", didCreate ? "Create" : "Open", error ? *error : NULL);
+#if ENABLE_TRUSTD_ANALYTICS
                      [[TrustdHealthAnalytics logger] logHardError:(error ? (__bridge NSError *)*error : nil)
                                                     withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                                    withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                                     TrustdHealthAnalyticsAttributeDatabaseOperation : didCreate ? @(TAOperationCreate) : @(TAOperationOpen)}];
+#endif // ENABLE_TRUSTD_ANALYTICS
                  }
              });
              return ok;
@@ -610,10 +614,12 @@ static void verify_create_path(const char *path)
 
     if (!ok || error) {
         secerror("SecPinningDb: error querying DB for hostname: %@", error);
+#if ENABLE_TRUSTD_ANALYTICS
         [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
+#endif // ENABLE_TRUSTD_ANALYTICS
         CFReleaseNull(error);
     }
 
@@ -666,10 +672,12 @@ static void verify_create_path(const char *path)
 
     if (!ok || error) {
         secerror("SecPinningDb: error querying DB for policyName: %@", error);
+#if ENABLE_TRUSTD_ANALYTICS
         [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
+#endif // ENABLE_TRUSTD_ANALYTICS
         CFReleaseNull(error);
     }
 
@@ -699,10 +707,12 @@ void SecPinningDbInitialize(void) {
             });
             if (!ok || error) {
                 secerror("SecPinningDb: unable to initialize db: %@", error);
+#if ENABLE_TRUSTD_ANALYTICS
                 [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
                                                withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                               withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                                TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
+#endif // ENABLE_TRUSTD_ANALYTICS
             }
             CFReleaseNull(error);
         }

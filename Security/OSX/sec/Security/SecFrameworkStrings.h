@@ -318,6 +318,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_NoNetworkAccess             SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_ExtendedValidation          SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_RevocationOnline            SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
+#define SEC_TRUST_ERROR_RevocationIfTrusted         SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 
 __END_DECLS
 

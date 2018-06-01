@@ -1099,6 +1099,13 @@ abort:
 
 void AppleSmartBattery::clearBatteryState(bool do_update)
 {
+    if (!fWorkLoop->inGate()) {
+        fWorkLoop->runAction(
+                OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::clearBatteryState),
+                this, VOIDPTR(do_update));
+        return;
+    }
+
     // Only clear out battery state; don't clear manager state like AC Power.
     // We just zero out the int and bool values, but remove the OSType values.
 
@@ -1154,6 +1161,13 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
 
  void AppleSmartBattery::rebuildLegacyIOBatteryInfo(void)
  {
+    if (!fWorkLoop->inGate()) {
+        fWorkLoop->runAction(
+                OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::rebuildLegacyIOBatteryInfo),
+                this);
+        return;
+    }
+
     OSDictionary        *legacyDict = OSDictionary::withCapacity(5);
     uint32_t            flags = 0;
     OSNumber            *flags_num = NULL;

@@ -1645,8 +1645,8 @@ AppleVTD::initHardware(IOService *provider)
 			fDomainSize, fContextWidth, fTreeBits, fMaxRoundSize);
 
     // need better legacy checks
-	if (!fMaxRoundSize)                                                   return (false);
-	if (!(CPUID_LEAF7_FEATURE_SMEP & cpuid_info()->cpuid_leaf7_features)) return (false);
+	if (!fMaxRoundSize)                                                                              return (false);
+	if (!((CPUID_LEAF7_FEATURE_SMEP|CPUID_LEAF7_FEATURE_SMAP) & cpuid_info()->cpuid_leaf7_features)) return (false);
 	//
 
 	fHWLock = IOSimpleLockAlloc();

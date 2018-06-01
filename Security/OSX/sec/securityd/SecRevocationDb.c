@@ -63,19 +63,21 @@
 #include <xpc/activity.h>
 #include <xpc/private.h>
 #include <os/transaction_private.h>
+#include <os/variant_private.h>
 
 #include <CFNetwork/CFHTTPMessage.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFUtilities.h>
 
-static CFStringRef kValidUpdateServer   = CFSTR("valid.apple.com");
+static CFStringRef kValidUpdateProdServer   = CFSTR("valid.apple.com");
+static CFStringRef kValidUpdateCarryServer  = CFSTR("valid.apple.com/carry");
 
-static CFStringRef kSecPrefsDomain      = CFSTR("com.apple.security");
-static CFStringRef kUpdateServerKey     = CFSTR("ValidUpdateServer");
-static CFStringRef kUpdateEnabledKey    = CFSTR("ValidUpdateEnabled");
-static CFStringRef kUpdateIntervalKey   = CFSTR("ValidUpdateInterval");
-static CFStringRef kBoolTrueKey         = CFSTR("1");
-static CFStringRef kBoolFalseKey        = CFSTR("0");
+static CFStringRef kSecPrefsDomain          = CFSTR("com.apple.security");
+static CFStringRef kUpdateServerKey         = CFSTR("ValidUpdateServer");
+static CFStringRef kUpdateEnabledKey        = CFSTR("ValidUpdateEnabled");
+static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
+static CFStringRef kBoolTrueKey             = CFSTR("1");
+static CFStringRef kBoolFalseKey            = CFSTR("0");
 
 /* constant length of boolean string keys */
 #define BOOL_STRING_KEY_LENGTH          1
@@ -504,13 +506,24 @@ static bool SecValidUpdateProcessData(CFIndex format, CFDataRef updateData) {
     return result;
 }
 
-void SecValidUpdateVerifyAndIngest(CFDataRef updateData) {
+void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServer, bool fullUpdate) {
     if (!updateData) {
         secnotice("validupdate", "invalid update data");
         return;
     }
     /* Verify CMS signature on signed data */
     if (SecRevocationDbVerifyUpdate((void *)CFDataGetBytePtr(updateData), CFDataGetLength(updateData))) {
+        CFStringRef dbSource = SecRevocationDbCopyUpdateSource();
+        if (dbSource && updateServer && (kCFCompareEqualTo != CFStringCompare(dbSource, updateServer,
+            kCFCompareCaseInsensitive))) {
+            secnotice("validupdate", "switching db source from \"%@\" to \"%@\"", dbSource, updateServer);
+        }
+        CFReleaseNull(dbSource);
+        if (fullUpdate) {
+            /* Must completely replace existing database contents */
+            SecRevocationDbRemoveAllEntries();
+            SecRevocationDbSetUpdateSource(updateServer);
+        }
         bool result = SecValidUpdateProcessData(kSecValidUpdateFormatG3, updateData);
         if (!result) {
             // Try g2 update format as a fallback if we failed to read g3
@@ -556,6 +569,7 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
     __block bool result = false;
     CFDataRef data = NULL;
     SecOTAPKIRef otapkiRef = NULL;
+    bool relaunching = false;
     int rtn = 0;
     static int sNumLocalUpdates = 0;
 
@@ -568,7 +582,7 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
 
     // if a non-production server is specified, we will not be able to use a
     // local production asset since its update sequence will be different.
-    if (kCFCompareEqualTo != CFStringCompare(server, kValidUpdateServer,
+    if (kCFCompareEqualTo != CFStringCompare(server, kValidUpdateProdServer,
         kCFCompareCaseInsensitive)) {
         secdebug("validupdate", "non-production server specified, ignoring local asset");
         goto updateExit;
@@ -599,17 +613,21 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
             int fd = open(semPathBuf, O_WRONLY | O_CREAT, DEFFILEMODE);
             if (fd == -1 || fstat(fd, &sb)) {
                 secnotice("validupdate", "unable to write %s", semPathBuf);
+            } else {
+                relaunching = true;
             }
             if (fd >= 0) {
                 close(fd);
             }
             free(semPathBuf);
         }
-        // exit as gracefully as possible so we can replace the database
-        secnotice("validupdate", "process exiting to replace db file");
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3ull*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            xpc_transaction_exit_clean();
-        });
+        if (relaunching) {
+            // exit as gracefully as possible so we can replace the database
+            secnotice("validupdate", "process exiting to replace db file");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3ull*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                xpc_transaction_exit_clean();
+            });
+        }
         goto updateExit;
     }
 
@@ -662,6 +680,10 @@ updateExit:
     } else {
         sNumLocalUpdates = 0; // reset counter
     }
+    if (relaunching) {
+        // request is locally satisfied; don't schedule a network update
+        result = true;
+    }
     return result;
 }
 
@@ -683,6 +705,18 @@ static bool SecValidUpdateSchedule(bool updateEnabled, CFStringRef server, CFInd
 #else
     return false;
 #endif
+}
+
+static CFStringRef SecRevocationDbGetDefaultServer(void) {
+#if RC_SEED_BUILD
+    return kValidUpdateCarryServer;
+#else // !RC_SEED_BUILD
+    CFStringRef defaultServer = kValidUpdateProdServer;
+    if (os_variant_has_internal_diagnostics("com.apple.security")) {
+        defaultServer = kValidUpdateCarryServer;
+    }
+    return defaultServer;
+#endif // !RC_SEED_BUILD
 }
 
 void SecRevocationDbInitialize() {
@@ -727,7 +761,7 @@ void SecRevocationDbInitialize() {
 
     /* initialize database from local asset */
     CFTypeRef value = (CFStringRef)CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    CFStringRef server = (isString(value)) ? (CFStringRef)value : (CFStringRef)kValidUpdateServer;
+    CFStringRef server = (isString(value)) ? (CFStringRef)value : (CFStringRef)SecRevocationDbGetDefaultServer();
     CFIndex version = 0;
     secnotice("validupdate", "initializing database");
     if (!SecValidUpdateSatisfiedLocally(server, version, true)) {
@@ -893,7 +927,7 @@ static bool _SecRevocationDbCheckNextUpdate(void) {
     if (isString(value)) {
         server = (CFStringRef) CFRetain(value);
     } else {
-        server = (CFStringRef) CFRetain(kValidUpdateServer);
+        server = (CFStringRef) CFRetain(SecRevocationDbGetDefaultServer());
     }
     CFReleaseNull(value);
 
@@ -911,7 +945,7 @@ static bool _SecRevocationDbCheckNextUpdate(void) {
     // (if this ever changes, we will need to reload the db)
     CFStringRef db_source = SecRevocationDbCopyUpdateSource();
     if (!db_source) {
-        db_source = (CFStringRef) CFRetain(kValidUpdateServer);
+        db_source = (CFStringRef) CFRetain(kValidUpdateProdServer);
     }
 
     // determine whether we need to recreate the database
@@ -1164,44 +1198,45 @@ CFIndex SecRevocationDbIngestUpdate(CFDictionaryRef update, CFIndex chunkVersion
  --> entries in dates table are unique by groupid, and only exist if kSecValidInfoDateConstraints is true
 
  */
-#define createTablesSQL   CFSTR("CREATE TABLE admin(" \
+#define createTablesSQL   CFSTR("CREATE TABLE IF NOT EXISTS admin(" \
                                     "key TEXT PRIMARY KEY NOT NULL," \
                                     "ival INTEGER NOT NULL," \
                                     "value BLOB" \
                                 ");" \
-                                "CREATE TABLE issuers(" \
+                                "CREATE TABLE IF NOT EXISTS issuers(" \
                                     "groupid INTEGER NOT NULL," \
                                     "issuer_hash BLOB PRIMARY KEY NOT NULL" \
                                 ");" \
-                                "CREATE INDEX issuer_idx ON issuers(issuer_hash);" \
-                                "CREATE TABLE groups(" \
+                                "CREATE INDEX IF NOT EXISTS issuer_idx ON issuers(issuer_hash);" \
+                                "CREATE TABLE IF NOT EXISTS groups(" \
                                     "groupid INTEGER PRIMARY KEY AUTOINCREMENT," \
                                     "flags INTEGER," \
                                     "format INTEGER," \
                                     "data BLOB" \
                                 ");" \
-                                "CREATE TABLE serials(" \
+                                "CREATE TABLE IF NOT EXISTS serials(" \
                                     "groupid INTEGER NOT NULL," \
                                     "serial BLOB NOT NULL," \
                                     "UNIQUE(groupid,serial)" \
                                 ");" \
-                                "CREATE TABLE hashes(" \
+                                "CREATE TABLE IF NOT EXISTS hashes(" \
                                     "groupid INTEGER NOT NULL," \
                                     "sha256 BLOB NOT NULL," \
                                     "UNIQUE(groupid,sha256)" \
                                 ");" \
-                                "CREATE TABLE dates(" \
+                                "CREATE TABLE IF NOT EXISTS dates(" \
                                     "groupid INTEGER PRIMARY KEY NOT NULL," \
                                     "notbefore REAL," \
-                                    "notafter REAL," \
+                                    "notafter REAL" \
                                 ");" \
-                                "CREATE TRIGGER group_del BEFORE DELETE ON groups FOR EACH ROW " \
-                                "BEGIN " \
-                                    "DELETE FROM serials WHERE groupid=OLD.groupid; " \
-                                    "DELETE FROM hashes WHERE groupid=OLD.groupid; " \
-                                    "DELETE FROM issuers WHERE groupid=OLD.groupid; " \
-                                    "DELETE FROM dates WHERE groupid=OLD.groupid; " \
-                                "END;")
+                                "CREATE TRIGGER IF NOT EXISTS group_del " \
+                                    "BEFORE DELETE ON groups FOR EACH ROW " \
+                                    "BEGIN " \
+                                        "DELETE FROM serials WHERE groupid=OLD.groupid; " \
+                                        "DELETE FROM hashes WHERE groupid=OLD.groupid; " \
+                                        "DELETE FROM issuers WHERE groupid=OLD.groupid; " \
+                                        "DELETE FROM dates WHERE groupid=OLD.groupid; " \
+                                    "END;")
 
 #define selectGroupIdSQL  CFSTR("SELECT DISTINCT groupid " \
     "FROM issuers WHERE issuer_hash=?")
@@ -1240,14 +1275,14 @@ CFIndex SecRevocationDbIngestUpdate(CFDictionaryRef update, CFIndex chunkVersion
 #define deleteGroupRecordSQL CFSTR("DELETE FROM groups WHERE groupid=?")
 
 #define updateConstraintsTablesSQL CFSTR("" \
-"CREATE TABLE if not exists dates(" \
+"CREATE TABLE IF NOT EXISTS dates(" \
     "groupid INTEGER PRIMARY KEY NOT NULL," \
     "notbefore REAL," \
-    "notafter REAL," \
+    "notafter REAL" \
 ");")
 
 #define updateGroupDeleteTriggerSQL CFSTR("" \
-    "DROP TRIGGER if exists group_del;" \
+    "DROP TRIGGER IF EXISTS group_del;" \
     "CREATE TRIGGER group_del BEFORE DELETE ON groups FOR EACH ROW " \
     "BEGIN " \
         "DELETE FROM serials WHERE groupid=OLD.groupid; " \
@@ -1256,10 +1291,10 @@ CFIndex SecRevocationDbIngestUpdate(CFDictionaryRef update, CFIndex chunkVersion
         "DELETE FROM dates WHERE groupid=OLD.groupid; " \
     "END;")
 
-#define deleteTablesSQL CFSTR("DROP TABLE hashes; " \
-    "DROP TABLE serials; DROP TABLE issuers; " \
-    "DROP TABLE dates; DROP TABLE groups; " \
-    "DROP TABLE admin; DELETE from sqlite_sequence")
+#define deleteAllEntriesSQL CFSTR("" \
+    "DELETE FROM groups; " \
+    "DELETE FROM admin WHERE key='version'; " \
+    "DELETE FROM sqlite_sequence")
 
 /* Database management */
 
@@ -1697,14 +1732,14 @@ static bool _SecRevocationDbRemoveAllEntries(SecRevocationDbRef rdb) {
 
     ok &= SecDbPerformWrite(rdb->db, &localError, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, &localError, ^(bool *commit) {
-            /* drop all tables and recreate them, in case of schema changes */
-            ok &= SecDbExec(dbconn, deleteTablesSQL, &localError);
-            ok &= SecDbExec(dbconn, createTablesSQL, &localError);
-            secdebug("validupdate", "resetting database, result: %d", (ok) ? 1 : 0);
+            /* delete all entries */
+            ok &= SecDbExec(dbconn, deleteAllEntriesSQL, &localError);
+            secnotice("validupdate", "resetting database, result: %d (expected 1)", (ok) ? 1 : 0);
             *commit = ok;
         });
         /* compact the db (must be done outside transaction scope) */
         ok &= SecDbExec(dbconn, CFSTR("VACUUM"), &localError);
+        secnotice("validupdate", "compacting database, result: %d (expected 1)", (ok) ? 1 : 0);
     });
     /* one more thing: update the schema version and format to current */
     _SecRevocationDbSetSchemaVersion(rdb, kSecRevocationDbSchemaVersion);

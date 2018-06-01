@@ -27,6 +27,8 @@
 #include <Security/SecTaskPriv.h>
 #include <Security/SecKeychainPriv.h>
 #include <MobileKeyBag/MobileKeyBag.h>
+#include <corecrypto/ccsha2.h>
+#include <corecrypto/cchmac.h>
 
 #include <IOKit/IOKitLib.h>
 #include <Kernel/IOKit/crypto/AppleFDEKeyStoreDefs.h>
@@ -169,6 +171,15 @@ static const char * get_host_uuid()
     return hostuuid;
 }
 
+static uint64_t
+compute_kcv(uint8_t * key, size_t key_len)
+{
+    uint8_t hmac[CCSHA256_OUTPUT_SIZE] = { 0 };
+    uint8_t kcv_data[] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01};
+    cchmac(ccsha256_di(), key_len, key, sizeof(kcv_data), kcv_data, hmac);
+    return (uint64_t)(*(uint64_t *)hmac);
+}
+
 static char *
 _kb_copy_bag_filename(service_user_record_t * ur, kb_bag_type_t type)
 {
@@ -275,7 +286,7 @@ done:
 }
 
 static bool
-_kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * data, size_t length)
+_kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * data, size_t length, uint64_t * kcv)
 {
     bool result = false;
     char tmp_bag[PATH_MAX];
@@ -294,12 +305,12 @@ _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * d
 
     /* try atomic swap (will fail if destination doesn't exist); if that fails, try regular rename */
     if (renamex_np(tmp_bag, bag_file, RENAME_SWAP) != 0) {
-        os_log(OS_LOG_DEFAULT, "Warning: atomic swap failed");
-        require_noerr_action(rename(tmp_bag, bag_file), done, os_log(OS_LOG_DEFAULT, "could not save keybag file"));
+        os_log(OS_LOG_DEFAULT, "Warning: atomic swap failed, error=%i (%s)", errno, strerror(errno));
+        require_noerr_action(rename(tmp_bag, bag_file), done, os_log(OS_LOG_DEFAULT, "could not save keybag file, error=%i (%s)", errno, strerror(errno)));
     } else {
         (void)unlink(tmp_bag);
     }
-
+    *kcv = compute_kcv(data, length);
     result = true;
 
 done:
@@ -309,7 +320,7 @@ done:
 }
 
 static bool
-_kb_load_bag_from_disk(service_user_record_t * ur, const char * bag_file, uint8_t ** data, size_t * length)
+_kb_load_bag_from_disk(service_user_record_t * ur, const char * bag_file, uint8_t ** data, size_t * length, uint64_t * kcv)
 {
     bool result = false;
     int fd = -1;
@@ -332,6 +343,7 @@ _kb_load_bag_from_disk(service_user_record_t * ur, const char * bag_file, uint8_
     require(buf != NULL, done);
     require(read(fd, buf, buf_size) == buf_size, done);
 
+    *kcv = compute_kcv(buf, buf_size);
     *data = buf;
     *length = buf_size;
     buf = NULL;
@@ -345,14 +357,14 @@ done:
 }
 
 static void
-_kb_invalidate_bag(service_user_record_t *ur, const char * bag_file)
+_kb_invalidate_bag(service_user_record_t *ur, const char * bag_file, uint64_t * kcv)
 {
     uint8_t *buf = NULL;
     size_t buf_size = 0;
 
     require(ur, out);
 
-    if (_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size)) {
+    if (_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size, kcv)) {
         require_action(buf && buf_size <= INT_MAX, out, os_log(OS_LOG_DEFAULT, "failed to read: %s", bag_file));
         require_noerr_action(aks_invalidate_bag(buf, (int)buf_size), out, os_log(OS_LOG_DEFAULT, "failed to invalidate file: %s", bag_file));
     } else {
@@ -364,7 +376,7 @@ out:
 }
 
 static void
-_kb_rename_bag_on_disk(service_user_record_t * ur, const char * bag_file)
+_kb_rename_bag_on_disk(service_user_record_t * ur, const char * bag_file, uint64_t * kcv)
 {
     char new_file[PATH_MAX] = {};
     if (bag_file) {
@@ -372,24 +384,24 @@ _kb_rename_bag_on_disk(service_user_record_t * ur, const char * bag_file)
         snprintf(new_file, sizeof(new_file), "%s-invalid", bag_file);
         unlink(new_file);
         rename(bag_file, new_file);
-        _kb_invalidate_bag(ur, new_file);
+        _kb_invalidate_bag(ur, new_file, kcv);
         _clear_thread_credentials();
     }
 }
 
 static void
-_kb_delete_bag_on_disk(service_user_record_t * ur, const char * bag_file)
+_kb_delete_bag_on_disk(service_user_record_t * ur, const char * bag_file, uint64_t * kcv)
 {
     if (bag_file) {
         _set_thread_credentials(ur);
-        _kb_invalidate_bag(ur, bag_file);
+        _kb_invalidate_bag(ur, bag_file, kcv);
         unlink(bag_file);
         _clear_thread_credentials();
     }
 }
 
-static int service_kb_load(service_context_t *context);
-static int service_kb_load_uid(uid_t s_uid);
+static int service_kb_load(service_context_t *context, uint64_t * kcv);
+static int service_kb_load_uid(uid_t s_uid, uint64_t * kcv);
 
 #ifndef AKS_MACOS_ROOT_HANDLE
 #define AKS_MACOS_ROOT_HANDLE  4  //temporary define to avoid dependency on AKS change, filed rdar://problem/30542034
@@ -410,7 +422,7 @@ _service_kb_get_system(keybag_handle_t special_handle, keybag_handle_t * handle_
 }
 
 static int
-_kb_get_session_handle(service_context_t * context, keybag_handle_t * handle_out)
+_kb_get_session_handle(service_context_t * context, keybag_handle_t * handle_out, uint64_t * kcv)
 {
     int rc = KB_BagNotLoaded;
     require_noerr_quiet(_service_kb_get_system(context->s_uid, handle_out), done);
@@ -419,7 +431,7 @@ _kb_get_session_handle(service_context_t * context, keybag_handle_t * handle_out
 
 done:
     if (rc == KB_BagNotLoaded) {
-        if (service_kb_load(context) == KB_Success) {
+        if (service_kb_load(context, kcv) == KB_Success) {
             if (_service_kb_get_system(context->s_uid, handle_out) == kIOReturnSuccess) {
                 rc = KB_Success;
             }
@@ -436,13 +448,14 @@ static void update_keybag_handle(keybag_handle_t handle)
         size_t buf_size = 0;
         service_user_record_t * ur = NULL;
         char * bag_file = NULL;
+        uint64_t kcv = 0;
 
         require_noerr(aks_save_bag(handle, (void**)&buf, (int*)&buf_size), done);
         require(ur = get_user_record(uid), done);
         require(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done);
-        require(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size), done);
+        require(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, &kcv), done);
 
-        os_log(OS_LOG_DEFAULT, "successfully updated handle %d", handle);
+        os_log(OS_LOG_DEFAULT, "successfully updated handle %d, save keybag kcv: 0x%0llx", handle, kcv);
 
     done:
         if (buf) free(buf);
@@ -506,7 +519,7 @@ done:
 }
 
 static int
-service_kb_create(service_context_t * context, const void * secret, int secret_len)
+service_kb_create(service_context_t * context, const void * secret, int secret_len, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
 
@@ -524,9 +537,9 @@ service_kb_create(service_context_t * context, const void * secret, int secret_l
 
         require_noerr(rc = aks_create_bag(secret, secret_len, kAppleKeyStoreDeviceBag, &private_handle), done);
         require_noerr(rc = aks_save_bag(private_handle, (void**)&buf, (int*)&buf_size), done);
-        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size), done, rc = KB_BagError);
+        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, kcv), done, rc = KB_BagError);
         require_noerr(rc = _service_kb_set_system(private_handle, context->s_uid), done);
-        require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+        require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
         if (secret && rc == KB_Success) {
             aks_unlock_bag(session_handle, secret, secret_len);
@@ -550,7 +563,7 @@ service_kb_create(service_context_t * context, const void * secret, int secret_l
 
 /* Load s_uid's keybag, unless already loaded */
 static int
-_service_kb_load_uid(uid_t s_uid)
+_service_kb_load_uid(uid_t s_uid, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
 
@@ -566,7 +579,7 @@ _service_kb_load_uid(uid_t s_uid)
         if (rc == kIOReturnNotFound) {
             require_action(ur = get_user_record(s_uid), done, rc = KB_GeneralError; _stage = 1);
             require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done, rc = KB_GeneralError; _stage = 2);
-            require_action_quiet(_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size), done, rc = KB_BagNotFound; _stage = 3);
+            require_action_quiet(_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size, kcv), done, rc = KB_BagNotFound; _stage = 3);
             rc = aks_load_bag(buf, (int)buf_size, &private_handle);
             switch (rc) {
                 case kAKSReturnBadDeviceKey:
@@ -574,7 +587,7 @@ _service_kb_load_uid(uid_t s_uid)
                 case kAKSReturnDecodeError:
                 case kAKSReturnPolicyInvalid:
                     os_log(OS_LOG_DEFAULT, "bag load failed 0x%x for uid (%i), discarding", rc, s_uid);
-                    _kb_rename_bag_on_disk(ur, bag_file);
+                    _kb_rename_bag_on_disk(ur, bag_file, kcv);
                     rc = KB_BagNotFound;
                     break;
                 case kAKSReturnSuccess:
@@ -606,15 +619,15 @@ _service_kb_load_uid(uid_t s_uid)
 }
 
 static int
-service_kb_load_uid(uid_t s_uid)
+service_kb_load_uid(uid_t s_uid, uint64_t * kcv)
 {
-    return _service_kb_load_uid(s_uid);
+    return _service_kb_load_uid(s_uid, kcv);
 }
 
 static int
-service_kb_load(service_context_t * context)
+service_kb_load(service_context_t * context, uint64_t * kcv)
 {
-    return _service_kb_load_uid(context->s_uid);
+    return _service_kb_load_uid(context->s_uid, kcv);
 }
 
 static int
@@ -649,11 +662,11 @@ service_kb_unload(service_context_t *context)
 }
 
 static int
-service_kb_save(service_context_t * context)
+service_kb_save(service_context_t * context, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
     keybag_handle_t session_handle;
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     dispatch_sync(_kb_service_get_dispatch_queue(), ^{
         uint8_t * buf = NULL;
@@ -664,7 +677,7 @@ service_kb_save(service_context_t * context)
         require_noerr(rc = aks_save_bag(session_handle, (void**)&buf, (int*)&buf_size), done);
         require_action(ur = get_user_record(context->s_uid), done, rc = KB_GeneralError);
         require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done, rc = KB_GeneralError);
-        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size), done, rc = KB_BagError);
+        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, kcv), done, rc = KB_BagError);
 
         rc = KB_Success;
 
@@ -680,7 +693,7 @@ done:
 }
 
 static int
-service_kb_unlock(service_context_t * context, const void * secret, int secret_len)
+service_kb_unlock(service_context_t * context, const void * secret, int secret_len, uint64_t * kcv)
 {
     int rc = KB_GeneralError;
     keybag_handle_t session_handle;
@@ -690,12 +703,12 @@ service_kb_unlock(service_context_t * context, const void * secret, int secret_l
     require_noerr(_kb_get_options_for_uid(context->s_uid, &options), done);
 
     /* technically, session_handle is not needed. Call this to handle lazy keybag loading */
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     require(passcode = CFDataCreateWithBytesNoCopy(NULL, secret, secret_len, kCFAllocatorNull), done);
 
     rc = MKBUnlockDevice(passcode, options);
-    os_log(OS_LOG_DEFAULT, "MKBUnlockDevice result: (%ld)", (long)rc);
+    os_log_info(OS_LOG_DEFAULT, "MKBUnlockDevice result: (%ld), caller pid: %d", (long)rc, get_caller_pid(&context->procToken));
 
 done:
     if (options) { CFRelease(options); }
@@ -711,11 +724,11 @@ service_kb_lock(service_context_t * context)
 }
 
 static int
-service_kb_change_secret(service_context_t * context, const void * secret, int secret_len, const void * new_secret, int new_secret_len)
+service_kb_change_secret(service_context_t * context, const void * secret, int secret_len, const void * new_secret, int new_secret_len, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
     keybag_handle_t session_handle;
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     dispatch_sync(_kb_service_get_dispatch_queue(), ^{
         uint8_t * buf = NULL;
@@ -727,7 +740,7 @@ service_kb_change_secret(service_context_t * context, const void * secret, int s
         require_noerr(rc = aks_save_bag(session_handle, (void**)&buf, (int*)&buf_size), done);
         require_action(ur = get_user_record(context->s_uid), done, rc = KB_GeneralError);
         require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done, rc = KB_GeneralError);
-        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size), done, rc = KB_BagError);
+        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, kcv), done, rc = KB_BagError);
 
         rc = KB_Success;
 
@@ -743,7 +756,7 @@ done:
 }
 
 static int
-service_kb_reset(service_context_t * context, const void * secret, int secret_len)
+service_kb_reset(service_context_t * context, const void * secret, int secret_len, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
     service_user_record_t * ur = NULL;
@@ -758,13 +771,13 @@ service_kb_reset(service_context_t * context, const void * secret, int secret_le
         keybag_handle_t private_handle = bad_keybag_handle, session_handle = bad_keybag_handle;
 
         os_log(OS_LOG_DEFAULT, "resetting keybag for uid (%i) in session (%i)", context->s_uid, context->s_id);
-        _kb_rename_bag_on_disk(ur, bag_file);
+        _kb_rename_bag_on_disk(ur, bag_file, kcv);
 
         require_noerr(rc = aks_create_bag(secret, secret_len, kAppleKeyStoreDeviceBag, &private_handle), done);
         require_noerr(rc = aks_save_bag(private_handle, (void**)&buf, (int*)&buf_size), done);
-        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size), done, rc = KB_BagError);
+        require_action(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, kcv), done, rc = KB_BagError);
         require_noerr(rc = _service_kb_set_system(private_handle, context->s_uid), done);
-        require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+        require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
         if (secret && rc == KB_Success) {
             aks_unlock_bag(session_handle, secret, secret_len);
@@ -789,12 +802,12 @@ done:
 }
 
 static int
-service_kb_is_locked(service_context_t * context, xpc_object_t reply)
+service_kb_is_locked(service_context_t * context, xpc_object_t reply, uint64_t * kcv)
 {
     int rc = KB_GeneralError;
     keybag_state_t state;
     keybag_handle_t session_handle;
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     require_noerr(rc = aks_get_lock_state(session_handle, &state), done);
 
@@ -806,7 +819,7 @@ done:
 }
 
 static int
-service_kb_wrap_key(service_context_t *context, xpc_object_t event, xpc_object_t reply)
+service_kb_wrap_key(service_context_t *context, xpc_object_t event, xpc_object_t reply, uint64_t * kcv)
 {
     int rc = KB_GeneralError;
     size_t sz;
@@ -818,7 +831,7 @@ service_kb_wrap_key(service_context_t *context, xpc_object_t event, xpc_object_t
     int wrapped_key_size;
     keyclass_t wrapped_key_class;
 
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     key = xpc_dictionary_get_data(event, SERVICE_XPC_KEY, &sz);
     require_action(key != NULL, done, rc = KB_GeneralError);
@@ -841,7 +854,7 @@ done:
 }
 
 static int
-service_kb_unwrap_key(service_context_t *context, xpc_object_t event, xpc_object_t reply)
+service_kb_unwrap_key(service_context_t *context, xpc_object_t event, xpc_object_t reply, uint64_t * kcv)
 {
     int rc = KB_GeneralError;
     size_t sz;
@@ -852,7 +865,7 @@ service_kb_unwrap_key(service_context_t *context, xpc_object_t event, xpc_object
     void *key = NULL;
     int key_size;
 
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
 
     wrapped_key = xpc_dictionary_get_data(event, SERVICE_XPC_WRAPPED_KEY, &sz);
     require_action(wrapped_key != NULL, done, rc = KB_GeneralError);
@@ -874,7 +887,7 @@ done:
 }
 
 static int
-service_kb_stash_create(service_context_t * context, const void * key, unsigned key_size)
+service_kb_stash_create(service_context_t * context, const void * key, unsigned key_size, uint64_t * kcv)
 {
     int rc = KB_GeneralError;
     char * bag_file = NULL;
@@ -885,14 +898,14 @@ service_kb_stash_create(service_context_t * context, const void * key, unsigned 
     __block bool saved = false;
 
     require(key, done);
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
     require_action(ur = get_user_record(context->s_uid), done, rc = KB_GeneralError);
     require_noerr(rc = aks_stash_escrow(session_handle, true, key, key_size, NULL, 0, (void**)&stashbag, &stashbag_size), done);
     require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_stash), done, rc = KB_GeneralError);
 
     // sync writing the bag to disk
     dispatch_sync(_kb_service_get_dispatch_queue(), ^{
-        saved = _kb_save_bag_to_disk(ur, bag_file, stashbag, stashbag_size);
+        saved = _kb_save_bag_to_disk(ur, bag_file, stashbag, stashbag_size, kcv);
     });
     require_action(saved, done, rc = KB_BagError);
     rc = KB_Success;
@@ -905,7 +918,7 @@ done:
 }
 
 static int
-service_kb_stash_load(service_context_t * context, const void * key, unsigned key_size, bool nondestructive)
+service_kb_stash_load(service_context_t * context, const void * key, unsigned key_size, bool nondestructive, uint64_t * kcv)
 {
     __block int rc = KB_GeneralError;
     char * bag_file = NULL;
@@ -915,13 +928,13 @@ service_kb_stash_load(service_context_t * context, const void * key, unsigned ke
     __block size_t stashbag_size = 0;
 
     require(key, done);
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
+    require_noerr(rc = _kb_get_session_handle(context, &session_handle, kcv), done);
     require_action(ur = get_user_record(context->s_uid), done, rc = KB_GeneralError);
     require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_stash), done, rc = KB_GeneralError);
 
     // sync loading the bag from disk
     dispatch_sync(_kb_service_get_dispatch_queue(), ^{
-        if (!_kb_load_bag_from_disk(ur, bag_file, &stashbag, &stashbag_size)) {
+        if (!_kb_load_bag_from_disk(ur, bag_file, &stashbag, &stashbag_size, kcv)) {
             rc = KB_BagError;
         }
     });
@@ -933,7 +946,7 @@ service_kb_stash_load(service_context_t * context, const void * key, unsigned ke
 done:
     if (stashbag) { free(stashbag); }
     if ((bag_file) && (!nondestructive)) {
-        _kb_delete_bag_on_disk(ur, bag_file);
+        _kb_delete_bag_on_disk(ur, bag_file, kcv);
         free(bag_file);
     }
     if (ur) free_user_record(ur);
@@ -946,7 +959,7 @@ done:
 // removed from the keystore after it is returned.
 // Requires the entitlement: com.apple.private.securityd.keychain
 //
-OSStatus service_stash_get_key(service_context_t * context, xpc_object_t event, xpc_object_t reply)
+OSStatus service_stash_get_key(service_context_t * context, xpc_object_t event, xpc_object_t reply, uint64_t * kcv)
 {
     getStashKey_InStruct_t inStruct;
     getStashKey_OutStruct_t outStruct;
@@ -965,7 +978,7 @@ OSStatus service_stash_get_key(service_context_t * context, xpc_object_t event, 
 
     if (kr == KERN_SUCCESS) {
         xpc_dictionary_set_data(reply, SERVICE_XPC_KEY, outStruct.outBuf.key.key, outStruct.outBuf.key.keysize);
-        service_kb_stash_load(context, outStruct.outBuf.key.key, outStruct.outBuf.key.keysize, false);
+        service_kb_stash_load(context, outStruct.outBuf.key.key, outStruct.outBuf.key.keysize, false, kcv);
     } else {
         os_log(OS_LOG_DEFAULT, "failed to get stash key: %d", (int)kr);
     }
@@ -985,7 +998,7 @@ done:
 // key and get its uuid.  The second uses the uuid to flag the
 // key for blob inclusion.
 //
-OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, xpc_object_t reply)
+OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, xpc_object_t reply, uint64_t * kcv)
 {
     kern_return_t kr = KERN_INVALID_ARGUMENT;
     io_connect_t conn = IO_OBJECT_NULL;
@@ -994,7 +1007,7 @@ OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, 
 
     keybag_state_t state;
     keybag_handle_t session_handle;
-    require_noerr(_kb_get_session_handle(context, &session_handle), done);
+    require_noerr(_kb_get_session_handle(context, &session_handle, kcv), done);
     require_noerr(aks_get_lock_state(session_handle, &state), done);
     require_action(!(state & keybag_lock_locked), done, kr = CSSMERR_CSP_OS_ACCESS_DENIED; LOG("stash failed keybag locked"));
 
@@ -1031,7 +1044,7 @@ OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, 
                              NULL, NULL);
 
     if  (kr == KERN_SUCCESS) {
-        service_kb_stash_create(context, keydata, (unsigned)keydata_len);
+        service_kb_stash_create(context, keydata, (unsigned)keydata_len, kcv);
     }
 done:
     os_log(OS_LOG_DEFAULT, "set stashkey %d", (int)kr);
@@ -1045,7 +1058,7 @@ done:
 //
 // Load the master stash key
 //
-OSStatus service_stash_load_key(service_context_t * context, xpc_object_t event, xpc_object_t reply)
+OSStatus service_stash_load_key(service_context_t * context, xpc_object_t event, xpc_object_t reply, uint64_t * kcv)
 {
     kern_return_t kr = KERN_SUCCESS;
     size_t keydata_len = 0;
@@ -1053,7 +1066,7 @@ OSStatus service_stash_load_key(service_context_t * context, xpc_object_t event,
     const uint8_t *keydata = xpc_dictionary_get_data(event, SERVICE_XPC_KEY, &keydata_len);
     require(keydata, done);
 
-    kr = service_kb_stash_load(context, keydata, (cryptosize_t) keydata_len, true);
+    kr = service_kb_stash_load(context, keydata, (cryptosize_t) keydata_len, true, kcv);
 done:
 
     return kr;
@@ -1159,6 +1172,27 @@ static char * err_to_char(int err)
     }
 }
 
+static bool log_kcv(uint64_t request)
+{
+    if ((request == SERVICE_KB_CREATE)                      ||
+        (request == SERVICE_KB_LOAD)                        ||
+        (request == SERVICE_KB_SAVE)                        ||
+        (request == SERVICE_KB_UNLOCK)                      ||
+        (request == SERVICE_KB_CHANGE_SECRET)               ||
+        (request == SERVICE_KB_RESET)                       ||
+        (request == SERVICE_KB_IS_LOCKED)                   ||
+        (request == SERVICE_STASH_GET_KEY)                  ||
+        (request == SERVICE_STASH_SET_KEY)                  ||
+        (request == SERVICE_STASH_LOAD_KEY)                 ||
+        (request == SERVICE_KB_LOAD_UID)                    ||
+        (request == SERVICE_KB_WRAP_KEY)                    ||
+        (request == SERVICE_KB_UNWRAP_KEY)) {
+
+        return true;
+    }
+    return false;
+}
+
 void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 {
     xpc_type_t type = xpc_get_type(event);
@@ -1178,6 +1212,7 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
         bool free_context = false;
         const void * data;
         const char *entitlement;
+        uint64_t kcv = 0;
 
         xpc_object_t reply = xpc_dictionary_create_reply(event);
 
@@ -1232,21 +1267,21 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
             case SERVICE_KB_CREATE:
                 //                if (kb_service_has_entitlement(peer, "com.apple.keystore.device")) {
                 secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET, &secret_len);
-                rc = service_kb_create(context, secret, (int)secret_len);
+                rc = service_kb_create(context, secret, (int)secret_len, &kcv);
                 //                }
                 break;
             case SERVICE_KB_LOAD:
-                rc = service_kb_load(context);
+                rc = service_kb_load(context, &kcv);
                 break;
             case SERVICE_KB_UNLOAD:
                 rc = service_kb_unload(context);
                 break;
             case SERVICE_KB_SAVE:
-                rc = service_kb_save(context);
+                rc = service_kb_save(context, &kcv);
                 break;
             case SERVICE_KB_UNLOCK:
                 secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET, &secret_len);
-                rc = service_kb_unlock(context, secret, (int)secret_len);
+                rc = service_kb_unlock(context, secret, (int)secret_len, &kcv);
                 break;
             case SERVICE_KB_LOCK:
                 rc = service_kb_lock(context);
@@ -1254,33 +1289,33 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
             case SERVICE_KB_CHANGE_SECRET:
                 secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET, &secret_len);
                 new_secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET_NEW, &new_secret_len);
-                rc = service_kb_change_secret(context, secret, (int)secret_len, new_secret, (int)new_secret_len);
+                rc = service_kb_change_secret(context, secret, (int)secret_len, new_secret, (int)new_secret_len, &kcv);
                 break;
             case SERVICE_KB_RESET:
                 secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET, &secret_len);
-                rc = service_kb_reset(context, secret, (int)secret_len);
+                rc = service_kb_reset(context, secret, (int)secret_len, &kcv);
                 break;
             case SERVICE_KB_IS_LOCKED:
-                rc = service_kb_is_locked(context, reply);
+                rc = service_kb_is_locked(context, reply, &kcv);
                 break;
             case SERVICE_STASH_GET_KEY:
-                rc = service_stash_get_key(context, event, reply);
+                rc = service_stash_get_key(context, event, reply, &kcv);
                 break;
             case SERVICE_STASH_SET_KEY:
-                rc = service_stash_set_key(context, event, reply);
+                rc = service_stash_set_key(context, event, reply, &kcv);
                 break;
             case SERVICE_STASH_LOAD_KEY:
-                rc = service_stash_load_key(context, event, reply);
+                rc = service_stash_load_key(context, event, reply, &kcv);
                 break;
             case SERVICE_KB_LOAD_UID:
                 uid = (uid_t)xpc_dictionary_get_uint64(event, SERVICE_XPC_UID);
-                rc = service_kb_load_uid(uid);
+                rc = service_kb_load_uid(uid, &kcv);
                 break;
             case SERVICE_KB_WRAP_KEY:
-                rc = service_kb_wrap_key(context, event, reply);
+                rc = service_kb_wrap_key(context, event, reply, &kcv);
                 break;
             case SERVICE_KB_UNWRAP_KEY:
-                rc = service_kb_unwrap_key(context, event, reply);
+                rc = service_kb_unwrap_key(context, event, reply, &kcv);
                 break;
 #if DEBUG
             case SERVICE_STASH_BLOB:
@@ -1293,13 +1328,22 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
         }
 
     done:
+        {
+            char log[200] = { 0 };
+            int count = snprintf(log, sizeof(log), "selector: %s (%llu), error: %s (%x), sid: %d, suid: %d, pid: %d", sel_to_char(request), request, err_to_char(rc), rc, context ? context->s_id : 0, context ? context->s_uid : 0, context ? get_caller_pid(&context->procToken) : 0);
+            if (log_kcv(request) && (count < sizeof(log) - 1) && (count > 0) && (kcv > 0)) {
+                count = snprintf(log + count, sizeof(log) - count, ", kcv: 0x%0llx", kcv);
+            }
+            if (count > 0) {
 #if DEBUG
-        LOG("selector: %s (%llu), error: %s (%x), sid: %d, suid: %d, pid: %d", sel_to_char(request), request, err_to_char(rc), rc, context ? context->s_id : 0, context ? context->s_uid : 0, context ? get_caller_pid(&context->procToken) : 0);
+                LOG("%s", log);
 #else
-        if (rc != 0) {
-            os_log(OS_LOG_DEFAULT, "selector: %s (%llu), error: %s (%x), sid: %d, suid: %d, pid: %d", sel_to_char(request), request, err_to_char(rc), rc, context ? context->s_id : 0, context ? context->s_uid : 0, context ? get_caller_pid(&context->procToken) : 0);
-        }
+                if ((rc != 0) || log_kcv(request)) {
+                    os_log(OS_LOG_DEFAULT, "%s", log);
+                }
 #endif
+            }
+        }
         xpc_dictionary_set_int64(reply, SERVICE_XPC_RC, rc);
         xpc_connection_send_message(connection, reply);
         xpc_release(reply);

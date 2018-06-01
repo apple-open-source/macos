@@ -901,6 +901,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -1146,6 +1147,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1398,6 +1400,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1535,7 +1546,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1688,6 +1699,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -3650,7 +3662,7 @@ ac_config_headers="$ac_config_headers main/php_config.h"
 
 PHP_MAJOR_VERSION=7
 PHP_MINOR_VERSION=1
-PHP_RELEASE_VERSION=14
+PHP_RELEASE_VERSION=16
 PHP_EXTRA_VERSION=""
 PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
 PHP_VERSION_ID=`expr $PHP_MAJOR_VERSION \* 10000 + $PHP_MINOR_VERSION \* 100 + $PHP_RELEASE_VERSION`
@@ -16859,18 +16871,20 @@ if test "$PHP_LIBXML" != "no"; then
     ext_shared=no
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -16885,8 +16899,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -17017,7 +17094,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -17026,8 +17103,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $LIBXML_SHARED_LIBADD
-         $LIBS"
+        $LIBXML_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -17048,16 +17125,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -17070,11 +17147,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
@@ -17392,11 +17469,8 @@ EOF
 
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -28888,18 +28962,20 @@ if test "$PHP_DOM" != "no"; then
   fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -28914,8 +28990,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -29046,7 +29185,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -29055,8 +29194,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $DOM_SHARED_LIBADD
-         $LIBS"
+        $DOM_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -29077,16 +29216,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -29099,11 +29238,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_DOM 1" >>confdefs.h
@@ -29479,11 +29618,8 @@ but you've either not enabled libxml, or have disabled it.
   fi
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -47180,7 +47316,9 @@ _ACEOF
     LDAP_PTHREAD=
   fi
 
-  if test -f $LDAP_LIBDIR/liblber.a || test -f $LDAP_LIBDIR/liblber.$SHLIB_SUFFIX_NAME; then
+  MACHINE_INCLUDES=$($CC -dumpmachine)
+
+  if test -f $LDAP_LIBDIR/liblber.a || test -f $LDAP_LIBDIR/liblber.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/liblber.a || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/liblber.$SHLIB_SUFFIX_NAME; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -47376,7 +47514,7 @@ _ACEOF
 
 
 
-  elif test -f $LDAP_LIBDIR/libldap.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/libldap.$SHLIB_SUFFIX_NAME.3 || test -f $LDAP_LIBDIR/libldap.3.dylib; then
+  elif test -f $LDAP_LIBDIR/libldap.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/libldap.$SHLIB_SUFFIX_NAME.3 || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libldap.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libldap.$SHLIB_SUFFIX_NAME.3 || test -f $LDAP_LIBDIR/libldap.3.dylib; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -47475,7 +47613,7 @@ _ACEOF
 
 
 
-  elif test -f $LDAP_LIBDIR/libssldap50.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libssldap50.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libssldap50.$SHLIB_SUFFIX_NAME; then
     if test -n "$LDAP_PTHREAD"; then
 
 
@@ -48171,7 +48309,7 @@ _ACEOF
 $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libldapssl41.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libldapssl41.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libldapssl41.$SHLIB_SUFFIX_NAME; then
     if test -n "$LDAP_PTHREAD"; then
 
 
@@ -48576,7 +48714,7 @@ $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libldapssl30.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libldapssl30.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libldapssl30.$SHLIB_SUFFIX_NAME; then
     if test -n "$LDAP_PTHREAD"; then
 
 
@@ -48690,7 +48828,7 @@ $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libldap30.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libldap30.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libldap30.$SHLIB_SUFFIX_NAME; then
     if test -n "$LDAP_PTHREAD"; then
 
 
@@ -48804,7 +48942,7 @@ $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libumich_ldap.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libumich_ldap.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libumich_ldap.$SHLIB_SUFFIX_NAME; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -49000,7 +49138,7 @@ $as_echo "#define HAVE_NSLDAP 1" >>confdefs.h
 
 
 
-  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME.12.1; then
+  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME.12.1 || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libclntsh.$SHLIB_SUFFIX_NAME.12.1; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -49105,7 +49243,7 @@ $as_echo "#define HAVE_ORALDAP 1" >>confdefs.h
 $as_echo "#define HAVE_ORALDAP_12 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME.11.1; then
+  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME.11.1 || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libclntsh.$SHLIB_SUFFIX_NAME.11.1; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -49210,7 +49348,7 @@ $as_echo "#define HAVE_ORALDAP 1" >>confdefs.h
 $as_echo "#define HAVE_ORALDAP_11 1" >>confdefs.h
 
 
-  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME; then
+  elif test -f $LDAP_LIBDIR/libclntsh.$SHLIB_SUFFIX_NAME || test -f $LDAP_LIBDIR/$MACHINE_INCLUDES/libclntsh.$SHLIB_SUFFIX_NAME; then
 
 
   if test "$ext_shared" = "yes"; then
@@ -76502,18 +76640,20 @@ if test "$PHP_SIMPLEXML" != "no"; then
   fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -76528,8 +76668,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -76660,7 +76863,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -76669,8 +76872,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $SIMPLEXML_SHARED_LIBADD
-         $LIBS"
+        $SIMPLEXML_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -76691,16 +76894,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -76713,11 +76916,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_SIMPLEXML 1" >>confdefs.h
@@ -77038,11 +77241,8 @@ EOF
   PHP_VAR_SUBST="$PHP_VAR_SUBST SIMPLEXML_SHARED_LIBADD"
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -78042,18 +78242,20 @@ if test "$PHP_SOAP" != "no"; then
   fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -78068,8 +78270,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -78200,7 +78465,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -78209,8 +78474,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $SOAP_SHARED_LIBADD
-         $LIBS"
+        $SOAP_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -78231,16 +78496,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -78253,11 +78518,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_SOAP 1" >>confdefs.h
@@ -78560,11 +78825,8 @@ EOF
   PHP_VAR_SUBST="$PHP_VAR_SUBST SOAP_SHARED_LIBADD"
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -85899,18 +86161,20 @@ if test "$PHP_WDDX" != "no"; then
     fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -85925,8 +86189,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -86057,7 +86384,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -86066,8 +86393,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $WDDX_SHARED_LIBADD
-         $LIBS"
+        $WDDX_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -86088,16 +86415,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -86110,11 +86437,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
       if test "$PHP_XML" = "no"; then
 
@@ -86167,11 +86494,8 @@ EOF
 
       fi
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-      as_fn_error $? "xml2-config not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
+      as_fn_error $? "libxml2 not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
 
   fi
 
@@ -86750,18 +87074,20 @@ if test "$PHP_XML" != "no"; then
     fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -86776,8 +87102,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -86908,7 +87297,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -86917,8 +87306,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $XML_SHARED_LIBADD
-         $LIBS"
+        $XML_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -86939,16 +87328,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -86961,11 +87350,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
       xml_extra_sources="compat.c"
 
@@ -86988,11 +87377,8 @@ but you've either not enabled libxml, or have disabled it.
   fi
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-      as_fn_error $? "xml2-config not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
+      as_fn_error $? "libxml2 not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
 
   fi
 
@@ -87544,18 +87930,20 @@ if test "$PHP_XMLREADER" != "no"; then
   fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -87570,8 +87958,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -87702,7 +88153,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -87711,8 +88162,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $XMLREADER_SHARED_LIBADD
-         $LIBS"
+        $XMLREADER_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -87733,16 +88184,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -87755,11 +88206,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_XMLREADER 1" >>confdefs.h
@@ -88081,11 +88532,8 @@ but you've either not enabled dom, or have disabled it.
   PHP_VAR_SUBST="$PHP_VAR_SUBST XMLREADER_SHARED_LIBADD"
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -88262,18 +88710,20 @@ $as_echo "#define HAVE_XMLRPC 1" >>confdefs.h
     fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -88288,8 +88738,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -88420,7 +88933,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -88429,8 +88942,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $XMLRPC_SHARED_LIBADD
-         $LIBS"
+        $XMLRPC_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -88451,16 +88964,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -88473,11 +88986,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
       if test "$PHP_XML" = "no"; then
 
@@ -88530,11 +89043,8 @@ EOF
 
       fi
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-      as_fn_error $? "xml2-config not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
+      as_fn_error $? "libxml2 not found. Use --with-libxml-dir=<DIR>" "$LINENO" 5
 
   fi
 
@@ -90591,18 +91101,20 @@ if test "$PHP_XMLWRITER" != "no"; then
   fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
+  found_libxml=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xml2-config path" >&5
 $as_echo_n "checking for xml2-config path... " >&6; }
 if ${ac_cv_php_xml2_config_path+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
-  for i in $PHP_LIBXML_DIR /usr/local /usr; do
-    if test -x "$i/bin/xml2-config"; then
-      ac_cv_php_xml2_config_path="$i/bin/xml2-config"
-      break
-    fi
-  done
+    for i in $PHP_LIBXML_DIR /usr/local /usr; do
+      if test -x "$i/bin/xml2-config"; then
+        ac_cv_php_xml2_config_path="$i/bin/xml2-config"
+        break
+      fi
+    done
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_php_xml2_config_path" >&5
@@ -90617,8 +91129,71 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
     IFS=$ac_IFS
     LIBXML_VERSION=`expr $1 \* 1000000 + $2 \* 1000 + $3`
     if test "$LIBXML_VERSION" -ge "2006011"; then
+      found_libxml=yes
       LIBXML_LIBS=`$XML2_CONFIG --libs`
       LIBXML_INCS=`$XML2_CONFIG --cflags`
+    else
+      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+    fi
+  fi
+
+    if test "$found_libxml" = "no"; then
+    if test -z "$PKG_CONFIG"; then
+      # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG="no"
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    fi
+
+        if test -x "$PKG_CONFIG" && $PKG_CONFIG --exists libxml-2.0; then
+      if $PKG_CONFIG --atleast-version=2.6.11 libxml-2.0; then
+        found_libxml=yes
+        LIBXML_LIBS=`$PKG_CONFIG --libs libxml-2.0`
+        LIBXML_INCS=`$PKG_CONFIG --cflags-only-I libxml-2.0`
+      else
+        as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
+      fi
+    fi
+  fi
+
+  if test "$found_libxml" = "yes"; then
 
   for ac_i in $LIBXML_LIBS; do
     case $ac_i in
@@ -90749,7 +91324,7 @@ $as_echo "$ac_cv_php_xml2_config_path" >&6; }
   done
 
 
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether libxml build works" >&5
 $as_echo_n "checking whether libxml build works... " >&6; }
 if ${php_cv_libxml_build_works+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -90758,8 +91333,8 @@ else
 
   old_LIBS=$LIBS
   LIBS="
-          $XMLWRITER_SHARED_LIBADD
-         $LIBS"
+        $XMLWRITER_SHARED_LIBADD
+       $LIBS"
   if test "$cross_compiling" = yes; then :
 
     LIBS=$old_LIBS
@@ -90780,16 +91355,16 @@ if ac_fn_c_try_run "$LINENO"; then :
 
     LIBS=$old_LIBS
 
-          php_cv_libxml_build_works=yes
+        php_cv_libxml_build_works=yes
 
 
 else
 
     LIBS=$old_LIBS
 
-          { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-          as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
+        as_fn_error $? "build test failed.  Please check the config.log for details." "$LINENO" 5
 
 
 fi
@@ -90802,11 +91377,11 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $php_cv_libxml_build_works" >&5
 $as_echo "$php_cv_libxml_build_works" >&6; }
-      if test "$php_cv_libxml_build_works" = "yes"; then
+    if test "$php_cv_libxml_build_works" = "yes"; then
 
 $as_echo "#define HAVE_LIBXML 1" >>confdefs.h
 
-      fi
+    fi
 
 
 $as_echo "#define HAVE_XMLWRITER 1" >>confdefs.h
@@ -91109,11 +91684,8 @@ EOF
   PHP_VAR_SUBST="$PHP_VAR_SUBST XMLWRITER_SHARED_LIBADD"
 
 
-    else
-      as_fn_error $? "libxml2 version 2.6.11 or greater required." "$LINENO" 5
-    fi
 else
-    as_fn_error $? "xml2-config not found. Please check your libxml2 installation." "$LINENO" 5
+    as_fn_error $? "libxml2 not found. Please check your libxml2 installation." "$LINENO" 5
 
   fi
 
@@ -96080,7 +96652,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 96083 "configure"
+#line 96655 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -97285,7 +97857,10 @@ EXTRA_LDFLAGS="$EXTRA_LDFLAGS $PHP_LDFLAGS"
 EXTRA_LDFLAGS_PROGRAM="$EXTRA_LDFLAGS_PROGRAM $PHP_LDFLAGS"
 
 # SOURCE_DATE_EPOCH for reproducible builds https://reproducible-builds.org/specs/source-date-epoch/
-PHP_BUILD_DATE=`date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y-%m-%d`
+PHP_BUILD_DATE=`date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y-%m-%d 2>/dev/null`
+if test $? -ne 0 ; then
+PHP_BUILD_DATE=`date -u +%Y-%m-%d`
+fi
 
 cat >>confdefs.h <<_ACEOF
 #define PHP_BUILD_DATE "$PHP_BUILD_DATE"
@@ -98134,7 +98709,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 98137 "configure"' > conftest.$ac_ext
+  echo '#line 98712 "configure"' > conftest.$ac_ext
   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -99532,7 +100107,7 @@ else
       LDFLAGS="$LDFLAGS -Wl,-exported_symbols_list,conftest.sym"
 
 cat > conftest.$ac_ext <<EOF
-#line 99535 "configure"
+#line 100110 "configure"
 #include "confdefs.h"
 int main() {
 ; return 0; }
@@ -99690,11 +100265,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"configure:99693: $lt_compile\"" >&5)
+   (eval echo "\"configure:100268: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "configure:99697: \$? = $ac_status" >&5
+   echo "configure:100272: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -99988,11 +100563,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"configure:99991: $lt_compile\"" >&5)
+   (eval echo "\"configure:100566: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "configure:99995: \$? = $ac_status" >&5
+   echo "configure:100570: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -100092,11 +100667,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"configure:100095: $lt_compile\"" >&5)
+   (eval echo "\"configure:100670: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "configure:100099: \$? = $ac_status" >&5
+   echo "configure:100674: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -100556,7 +101131,7 @@ _LT_EOF
        # Determine the default libpath from the value encoded in an empty executable.
 
 cat > conftest.$ac_ext <<EOF
-#line 100559 "configure"
+#line 101134 "configure"
 #include "confdefs.h"
 int main() {
 ; return 0; }
@@ -100598,7 +101173,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
 	 # Determine the default libpath from the value encoded in an empty executable.
 
 cat > conftest.$ac_ext <<EOF
-#line 100601 "configure"
+#line 101176 "configure"
 #include "confdefs.h"
 int main() {
 ; return 0; }
@@ -102115,7 +102690,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 102118 "configure"
+#line 102693 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -102215,7 +102790,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 102218 "configure"
+#line 102793 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -103280,7 +103855,7 @@ case $host_os in
       # Determine the default libpath from the value encoded in an empty executable.
 
 cat > conftest.$ac_ext <<EOF
-#line 103283 "configure"
+#line 103858 "configure"
 #include "confdefs.h"
 int main() {
 ; return 0; }
@@ -103323,7 +103898,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
 	# Determine the default libpath from the value encoded in an empty executable.
 
 cat > conftest.$ac_ext <<EOF
-#line 103326 "configure"
+#line 103901 "configure"
 #include "confdefs.h"
 int main() {
 ; return 0; }
@@ -104575,11 +105150,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"configure:104578: $lt_compile\"" >&5)
+   (eval echo "\"configure:105153: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "configure:104582: \$? = $ac_status" >&5
+   echo "configure:105157: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -104679,11 +105254,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"configure:104682: $lt_compile\"" >&5)
+   (eval echo "\"configure:105257: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "configure:104686: \$? = $ac_status" >&5
+   echo "configure:105261: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized

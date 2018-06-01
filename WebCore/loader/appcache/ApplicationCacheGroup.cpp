@@ -32,6 +32,7 @@
 #include "ApplicationCacheStorage.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CookieJar.h"
 #include "DOMApplicationCache.h"
 #include "DocumentLoader.h"
 #include "EventNames.h"
@@ -464,6 +465,12 @@ RefPtr<ResourceHandle> ApplicationCacheGroup::createResourceHandle(const URL& ur
     ResourceRequest request(url);
     m_frame->loader().applyUserAgentIfNeeded(request);
     request.setHTTPHeaderField(HTTPHeaderName::CacheControl, "max-age=0");
+
+    if (auto* document = m_frame->document()) {
+        auto cookie = cookieRequestHeaderFieldValue(*document, url);
+        if (!cookie.isEmpty())
+            request.setHTTPHeaderField(HTTPHeaderName::Cookie, cookie);
+    }
 
     if (newestCachedResource) {
         const String& lastModified = newestCachedResource->response().httpHeaderField(HTTPHeaderName::LastModified);

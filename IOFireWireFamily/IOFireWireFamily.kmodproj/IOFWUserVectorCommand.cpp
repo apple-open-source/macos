@@ -220,7 +220,7 @@ IOFWUserVectorCommand::submitOneCommand( CommandSubmitParams * params )
 	
 	if( status == kIOReturnSuccess )
 	{
-		if( params->kernCommandRef == NULL )
+		if( params->kernCommandRef == 0 )
 		{
 			status = kIOReturnBadArgument;
 		}

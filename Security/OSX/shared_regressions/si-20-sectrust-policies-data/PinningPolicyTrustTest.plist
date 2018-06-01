@@ -2148,13 +2148,13 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthority</string>
+		<string>GoogleInternetAuthorityG3</string>
 		<key>Anchors</key>
-		<string>GeoTrustGlobalCA</string>
+		<string>GlobalSignRootCAR2</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>VerifyDate</key>
-		<date>2016-10-04T19:00:00Z</date>
+		<date>2018-04-14T19:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2366,17 +2366,17 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>6</integer>
+		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2018-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
 		<string>Systemwide-Baseline</string>
 		<key>MinorTestName</key>
-		<string>IDS-Symantec</string>
+		<string>IDS-IST</string>
 		<key>Policies</key>
 		<dict>
 			<key>PolicyIdentifier</key>
@@ -2384,21 +2384,21 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>openmarket.ess.apple.com</string>
+				<string>static.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_static</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2017-12-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2412,7 +2412,7 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>profile.ess.apple.com</string>
+				<string>identity.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
@@ -2422,11 +2422,11 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>6</integer>
+		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2018-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2440,15 +2440,15 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>profile.ess.apple.com</string>
+				<string>identity.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_identity</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 		<key>VerifyDate</key>
@@ -2478,11 +2478,11 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>6</integer>
+		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2018-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2496,17 +2496,17 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>openmarket.ess.apple.com</string>
+				<string>static.ess.apple.com</string>
 				<key>SecPolicyPolicyName</key>
 				<string>IDS</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_static</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 		<key>VerifyDate</key>
@@ -2524,7 +2524,7 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>profile.ess.apple.com</string>
+				<string>identity.ess.apple.com</string>
 				<key>SecPolicyPolicyName</key>
 				<string>IDS</string>
 			</dict>
@@ -2536,11 +2536,11 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>ExpectedResult</key>
-		<integer>6</integer>
+		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2018-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2554,17 +2554,17 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>profile.ess.apple.com</string>
+				<string>identity.ess.apple.com</string>
 				<key>SecPolicyPolicyName</key>
 				<string>IDS</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_identity</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 		<key>VerifyDate</key>
@@ -2582,15 +2582,15 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>profile.ess.apple.com</string>
+				<string>identity.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_identity</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 		<key>VerifyDate</key>
@@ -2608,19 +2608,19 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>init.ess.apple.com</string>
+				<string>static.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_symantec</string>
+		<string>ids_ist_static</string>
 		<key>Intermediates</key>
-		<string>SymantecClass3SSCAG4</string>
+		<string>AppleISTCA2G1</string>
 		<key>Anchors</key>
-		<string>VeriSignClass3PublicPrimaryCertificationAuthorityG5</string>
+		<string>GeoTrustGlobalCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2017-04-08T20:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>

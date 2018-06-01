@@ -249,6 +249,8 @@ struct command_struct {
 #define NONFATAL_UNKNOWN 1024    /* Unrecognised directive */
 #define NONFATAL_ALL (NONFATAL_OVERRIDE|NONFATAL_UNKNOWN)
 
+#define PROXY_CONF 2048      /**< *.conf inside &lt;Proxy&gt; only */
+
 /** this directive can be placed anywhere */
 #define OR_ALL (OR_LIMIT|OR_OPTIONS|OR_FILEINFO|OR_AUTHCFG|OR_INDEXES)
 
@@ -329,6 +331,12 @@ struct cmd_parms_struct {
 };
 
 /**
+ * Flags associated with a module.
+ */
+#define AP_MODULE_FLAG_NONE         (0)
+#define AP_MODULE_FLAG_ALWAYS_MERGE (1 << 0)
+
+/**
  * Module structures.  Just about everything is dispatched through
  * these, directly or indirectly (through the command and handler
  * tables).
@@ -407,6 +415,9 @@ struct module_struct {
      *  @param p the pool to use for all allocations
      */
     void (*register_hooks) (apr_pool_t *p);
+
+    /** A bitmask of AP_MODULE_FLAG_* */
+    int flags;
 };
 
 /**
@@ -518,6 +529,21 @@ AP_DECLARE(void *) ap_get_module_config(const ap_conf_vector_t *cv,
  */
 AP_DECLARE(void) ap_set_module_config(ap_conf_vector_t *cv, const module *m,
                                       void *val);
+
+/**
+ * When module flags have been introduced, and a way to check this.
+ */
+#define AP_MODULE_FLAGS_MMN_MAJOR 20120211
+#define AP_MODULE_FLAGS_MMN_MINOR 70
+#define AP_MODULE_HAS_FLAGS(m) \
+        AP_MODULE_MAGIC_AT_LEAST(AP_MODULE_FLAGS_MMN_MAJOR, \
+                                 AP_MODULE_FLAGS_MMN_MINOR)
+/**
+ * Generic accessor for the module's flags
+ * @param m The module to get the flags from.
+ * @return The module-specific flags
+ */
+AP_DECLARE(int) ap_get_module_flags(const module *m);
 
 #if !defined(AP_DEBUG)
 
@@ -920,10 +946,13 @@ AP_DECLARE(const char *) ap_check_cmd_context(cmd_parms *cmd,
 #define  NOT_IN_LOCATION        0x08 /**< Forbidden in &lt;Location&gt; */
 #define  NOT_IN_FILES           0x10 /**< Forbidden in &lt;Files&gt; or &lt;If&gt;*/
 #define  NOT_IN_HTACCESS        0x20 /**< Forbidden in .htaccess files */
+#define  NOT_IN_PROXY           0x40 /**< Forbidden in &lt;Proxy&gt; */
 /** Forbidden in &lt;Directory&gt;/&lt;Location&gt;/&lt;Files&gt;&lt;If&gt;*/
 #define  NOT_IN_DIR_LOC_FILE    (NOT_IN_DIRECTORY|NOT_IN_LOCATION|NOT_IN_FILES)
-/** Forbidden in &lt;VirtualHost&gt;/&lt;Limit&gt;/&lt;Directory&gt;/&lt;Location&gt;/&lt;Files&gt;/&lt;If&gt; */
-#define  GLOBAL_ONLY            (NOT_IN_VIRTUALHOST|NOT_IN_LIMIT|NOT_IN_DIR_LOC_FILE)
+/** Forbidden in &lt;Directory&gt;/&lt;Location&gt;/&lt;Files&gt;&lt;If&gt;&lt;Proxy&gt;*/
+#define  NOT_IN_DIR_CONTEXT     (NOT_IN_LIMIT|NOT_IN_DIR_LOC_FILE|NOT_IN_PROXY)
+/** Forbidden in &lt;VirtualHost&gt;/&lt;Limit&gt;/&lt;Directory&gt;/&lt;Location&gt;/&lt;Files&gt;/&lt;If&gt;&lt;Proxy&gt;*/
+#define  GLOBAL_ONLY            (NOT_IN_VIRTUALHOST|NOT_IN_DIR_CONTEXT)
 
 /** @} */
 

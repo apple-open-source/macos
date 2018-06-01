@@ -88,8 +88,6 @@ private:
 	IOTimerEventSource      *periodicES;
     IOInterruptEventSource  *keyboardEQES;
     IOCommandGate           *cmdGate;
-	IOUserClient            *serverConnect;
-	IOUserClient            *paramConnect;
     IONotifier              *publishNotify;
 	void                    *eventMsg;	// Msg to be sent to Window Server.
 	void                    *stackShotMsg;	// Msg to be sent to Stack Shot.
