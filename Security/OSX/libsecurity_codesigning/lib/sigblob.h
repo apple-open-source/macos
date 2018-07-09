@@ -74,6 +74,21 @@ public:
 	CFDictionaryRef entitlements() const;
 };
 
+//
+// Similar, but in DER representation.
+//
+class EntitlementDERBlob : public Blob<EntitlementDERBlob, kSecCodeMagicEntitlementDER> {
+public:
+	static EntitlementDERBlob *alloc(size_t length);
+
+	uint8_t *der() { return data; }
+	const uint8_t *der() const { return data; }
+	size_t derLength() const { return BlobCore::length() - sizeof(BlobCore); }
+
+private:
+	uint8_t data[0];
+};
+
 
 } // end namespace CodeSigning
 } // end namespace Security

@@ -30,6 +30,9 @@
 #include "CodeSigner.h"
 #include "sigblob.h"
 #include "cdbuilder.h"
+
+#include <Security/SecCmsBase.h>
+
 #include <security_utilities/utilities.h>
 #include <security_utilities/blob.h>
 #include <security_utilities/unix++.h>
@@ -214,8 +217,14 @@ public:
 	void populate(DiskRep::Writer* writer) const;
 	
 	const CodeDirectory* primary() const;
-	CFArrayRef hashBag() const;
-	
+
+	// Note that the order of the hashList is relevant.
+	// (Which is also why there are separate methods, CFDictionary is not ordered.)
+	CFArrayRef hashList() const;
+	CFDictionaryRef hashDict() const;
+
+	static SECOidTag SECOidTagForAlgorithm(CodeDirectory::HashAlgorithm algorithm);
+
 private:
 	mutable const CodeDirectory* mPrimary;
 };

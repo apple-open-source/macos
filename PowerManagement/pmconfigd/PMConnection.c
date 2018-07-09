@@ -3246,6 +3246,11 @@ __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
     }
 }
 
+__private_extern__ bool isInSilentRunningMode()
+{
+    return (gCurrentSilentRunningState == kSilentRunningOn);
+}
+
 __private_extern__ void _set_sleep_revert(bool state)
 {
     gMachineStateRevertible = state;

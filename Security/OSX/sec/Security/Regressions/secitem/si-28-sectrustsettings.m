@@ -12,6 +12,7 @@
 #include <Security/SecTrust.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
+#include <Security/SecTrustPriv.h>
 #include <utilities/SecCFRelease.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -532,15 +533,39 @@ static void test_multiple_constraints(void) {
 
 }
 
+#define kNumberPolicyNamePinnningConstraintsTests (1 + 1 + 5)
+static void test_policy_name_pinning_constraints(void) {
+    /* allow all but */
+    NSArray *allowAllBut = @[
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
+                               (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
+                             @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
+                             ];
+    setTS(cert0, (__bridge CFArrayRef)allowAllBut);
+
+    SecTrustRef trust = NULL;
+    SecTrustResultType trust_result;
+    ok_status(SecTrustCreateWithCertificates(sslChain, sslPolicy, &trust), "create trust with ssl policy");
+    ok_status(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verify_date), "set trust verify date");
+    ok_status(SecTrustSetPinningPolicyName(trust, CFSTR("not-a-db-policy-name")), "set policy name");
+    ok_status(SecTrustEvaluate(trust, &trust_result), "evaluate trust");
+    is(trust_result, kSecTrustResultRecoverableTrustFailure, "check trust result for sslServer policy with policy name");
+    CFReleaseSafe(trust);
+
+    removeTS(cert0);
+}
+
 int si_28_sectrustsettings(int argc, char *const *argv)
 {
-    plan_tests(kNumberNoConstraintsTests +
-               kNumberPolicyConstraintsTests +
-               kNumberPolicyStringConstraintsTests +
-               kNumberApplicationsConstraintsTests +
-               kNumberKeyUsageConstraintsTests +
-               kNumberAllowedErrorsTests +
-               kNumberMultipleConstraintsTests);
+    plan_tests(kNumberNoConstraintsTests
+               + kNumberPolicyConstraintsTests
+               + kNumberPolicyStringConstraintsTests
+               + kNumberApplicationsConstraintsTests
+               + kNumberKeyUsageConstraintsTests
+               + kNumberAllowedErrorsTests
+               + kNumberMultipleConstraintsTests
+               + kNumberPolicyNamePinnningConstraintsTests
+               );
 
 #if !TARGET_OS_IPHONE
     if (getuid() != 0) {
@@ -558,6 +583,7 @@ int si_28_sectrustsettings(int argc, char *const *argv)
         test_key_usage_constraints();
         test_allowed_errors();
         test_multiple_constraints();
+        test_policy_name_pinning_constraints();
         cleanup_globals();
     }
 

@@ -80,8 +80,9 @@ private:
     // Stores allocated ID retain counts, add 4096 to user id, max of 68 * 1024
     OSData *fRetainIDsData;
 
-    static const uint32_t kMaxID = 64 * 1024;  // arbitary maximum of ID
-    static const uint32_t kMaxRequestedZigZag = 8191;     // int2zz(-4096)
+    static const uint32_t kMaxEntries = 64 * 1024;  // arbitary maximum of ID
+    // The negative -4096 ID is not a legal request
+    static const uint32_t kMaxRequestedZigZag = 8190;     // int2zz(4095)
     static const uint32_t kAllocatedIDBase = 4096;
     static const uint32_t kTaskOwned = (1 << (8*sizeof(kTaskOwned) - 1));
     static const uint32_t kNullRef = 0;
@@ -145,7 +146,7 @@ private:
                 return kIOReturnSuccess;
             }
         // No unused entries found
-        if (i >= kMaxID)  // Check for a table that is too large
+        if (i >= kMaxEntries)  // Check for a table that is too large
             return kIOReturnNoResources;
         // Append a new reference
         bool res = appendWord(oneRef, kNullRef, fRetainIDsData);
@@ -160,14 +161,18 @@ private:
 
     IDDataDecode locateID(IOAccelID id)
     {
-        IDDataDecode ret = {
-            .fIDsData = fRetainIDsData,
-            .fArrayInd = id - kAllocatedIDBase,
-        };
-        if (static_cast<unsigned>(id) < kAllocatedIDBase) {
+        IDDataDecode ret = { NULL, NULL, -1 };
+        const uint32_t zzid = int2zz(id);
+        const uint32_t entryid = id - kAllocatedIDBase;
+        if (zzid <= kMaxRequestedZigZag) {
             ret.fIDsData = fSpecifiedIDsData;
-            ret.fArrayInd = int2zz(id);
+            ret.fArrayInd = zzid;
+        } else if (entryid < kMaxEntries) { // < 0 range check uint32
+            ret.fIDsData = fRetainIDsData;
+            ret.fArrayInd = entryid;
         }
+        else
+            return ret;
         ret.fUP = getID(ret.fIDsData, ret.fArrayInd);
         return ret;
     }

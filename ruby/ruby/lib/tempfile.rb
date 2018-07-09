@@ -2,7 +2,7 @@
 #
 # tempfile - manipulates temporary files
 #
-# $Id: tempfile.rb 56858 2016-11-21 07:56:47Z nagachika $
+# $Id: tempfile.rb 58154 2017-03-27 14:47:38Z nagachika $
 #
 
 require 'delegate'
@@ -227,7 +227,7 @@ class Tempfile < DelegateClass(File)
     if !@tmpfile.closed?
       @tmpfile.size # File#size calls rb_io_flush_raw()
     else
-      File.size?(@tmpfile.path)
+      File.size(@tmpfile.path)
     end
   end
   alias length size

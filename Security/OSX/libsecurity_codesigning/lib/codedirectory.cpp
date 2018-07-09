@@ -79,6 +79,8 @@ const char *CodeDirectory::canonicalSlotName(SpecialSlot slot)
 		return kSecCS_TOPDIRECTORYFILE;
 	case cdEntitlementSlot:
 		return kSecCS_ENTITLEMENTFILE;
+	case cdEntitlementDERSlot:
+		return kSecCS_ENTITLEMENTDERFILE;
 	case cdRepSpecificSlot:
 		return kSecCS_REPSPECIFICFILE;
 	default:
@@ -105,6 +107,7 @@ unsigned CodeDirectory::slotAttributes(SpecialSlot slot)
 	case cdSignatureSlot:
 		return cdComponentPerArchitecture; // raw
 	case cdEntitlementSlot:
+	case cdEntitlementDERSlot:
 		return cdComponentIsBlob; // global
 	case cdIdentificationSlot:
 		return cdComponentPerArchitecture; // raw
@@ -157,7 +160,9 @@ void CodeDirectory::checkIntegrity() const
 	if (version > currentVersion)
 		secinfo("codedir", "%p version 0x%x newer than current 0x%x",
 			this, uint32_t(version), currentVersion);
-	
+
+	bool hasPreEncryptHashes = version >= supportsPreEncrypt && preEncryptOffset != 0;
+
 	// now check interior offsets for validity
 	if (!stringAt(identOffset))
 		MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
@@ -165,6 +170,8 @@ void CodeDirectory::checkIntegrity() const
 			MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
 	if (!contains(hashOffset - int64_t(hashSize) * nSpecialSlots, hashSize * (int64_t(nSpecialSlots) + nCodeSlots)))
 		MacOSError::throwMe(errSecCSSignatureFailed); // hash array out of blob range
+	if (hasPreEncryptHashes && !contains(preEncryptOffset, hashSize * (int64_t(nCodeSlots))))
+		MacOSError::throwMe(errSecCSSignatureFailed); // pre-encrypt array out of blob range
 	if (const Scatter *scatter = this->scatterVector()) {
 		// the optional scatter vector is terminated with an element having (count == 0)
 		unsigned int pagesConsumed = 0;
@@ -175,7 +182,8 @@ void CodeDirectory::checkIntegrity() const
 				break;
 			pagesConsumed += scatter->count;
 		}
-		if (!contains((*this)[pagesConsumed-1], hashSize))	// referenced too many main hash slots
+		if (!contains(getSlot(pagesConsumed-1, false), hashSize) ||
+			(hasPreEncryptHashes && !contains(getSlot(pagesConsumed-1, true), hashSize)))	// referenced too many main hash slots
 			MacOSError::throwMe(errSecCSSignatureFailed);
 	}
 	
@@ -197,13 +205,13 @@ void CodeDirectory::checkIntegrity() const
 //
 // Validate a slot against data in memory.
 //
-bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot) const
+bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot, bool preEncrypt) const
 {
 	secinfo("codedir", "%p validating slot %d", this, int(slot));
 	MakeHash<CodeDirectory> hasher(this);
 	Hashing::Byte digest[hasher->digestLength()];
 	generateHash(hasher, data, length, digest);
-	return memcmp(digest, (*this)[slot], hasher->digestLength()) == 0;
+	return memcmp(digest, getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
 }
 
 
@@ -211,12 +219,12 @@ bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot) con
 // Validate a slot against the contents of an open file. At most 'length' bytes
 // will be read from the file.
 //
-bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot) const
+bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot, bool preEncrypt) const
 {
 	MakeHash<CodeDirectory> hasher(this);
 	Hashing::Byte digest[hasher->digestLength()];
 	generateHash(hasher, fd, digest, length);
-	return memcmp(digest, (*this)[slot], hasher->digestLength()) == 0;
+	return memcmp(digest, getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
 }
 
 
@@ -228,7 +236,7 @@ bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot) const
 bool CodeDirectory::slotIsPresent(Slot slot) const
 {
 	if (slot >= -Slot(nSpecialSlots) && slot < Slot(nCodeSlots)) {
-		const Hashing::Byte *digest = (*this)[slot];
+		const Hashing::Byte *digest = getSlot(slot, false);
 		for (unsigned n = 0; n < hashSize; n++)
 			if (digest[n])
 				return true;	// non-zero digest => present
@@ -322,15 +330,17 @@ bool CodeDirectory::verifyMemoryContent(CFDataRef data, const Byte* digest) cons
 	
 //
 // Generate the canonical cdhash - the internal hash of the CodeDirectory itself.
-// We currently truncate to 20 bytes because that's what the kernel can deal with.
+// With 'truncate' truncates to 20 bytes, because that's what's commonly used.
 //
-CFDataRef CodeDirectory::cdhash() const
+CFDataRef CodeDirectory::cdhash(bool truncate) const
 {
 	MakeHash<CodeDirectory> hash(this);
 	Hashing::Byte digest[hash->digestLength()];
 	hash->update(this, this->length());
 	hash->finish(digest);
-	return makeCFData(digest, min(hash->digestLength(), size_t(kSecCodeCDHashLength)));
+	return makeCFData(digest,
+					  truncate ? min(hash->digestLength(), size_t(kSecCodeCDHashLength)) :
+					  hash->digestLength());
 }
 
 
@@ -380,11 +390,11 @@ std::string CodeDirectory::hexHash(const unsigned char *hash) const
 std::string CodeDirectory::screeningCode() const
 {
 	if (slotIsPresent(-cdInfoSlot))		// has Info.plist
-		return "I" + hexHash((*this)[-cdInfoSlot]); // use Info.plist hash
+		return "I" + hexHash(getSlot(-cdInfoSlot, false)); // use Info.plist hash
 	if (slotIsPresent(-cdRepSpecificSlot))		// has Info.plist
-		return "R" + hexHash((*this)[-cdRepSpecificSlot]); // use Info.plist hash
+		return "R" + hexHash(getSlot(-cdRepSpecificSlot, false)); // use Info.plist hash
 	if (pageSize == 0)					// good-enough proxy for "not a Mach-O file"
-		return "M" + hexHash((*this)[0]); // use hash of main executable
+		return "M" + hexHash(getSlot(0, false)); // use hash of main executable
 	return "N";							// no suitable screening code
 }
 
@@ -406,5 +416,6 @@ const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[] = {
 	{ "restrict",		kSecCodeSignatureRestrict,		true },
 	{ "enforcement",	kSecCodeSignatureEnforcement,		true },
 	{ "library-validation", kSecCodeSignatureLibraryValidation,		true },
+	{ "runtime", 	kSecCodeSignatureRuntime, 		true },
 	{ NULL }
 };

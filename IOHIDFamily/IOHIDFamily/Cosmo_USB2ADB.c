@@ -688,5 +688,5 @@ unsigned int hid_adb_2_usb_keymap[] =
 	0x66,	// 7f
 };
 
-unsigned int hid_adb_2_usb_keymap_length = sizeof(hid_adb_2_usb_keymap);
+unsigned int hid_adb_2_usb_keymap_length = sizeof(hid_adb_2_usb_keymap)/sizeof(hid_adb_2_usb_keymap[0]);
 

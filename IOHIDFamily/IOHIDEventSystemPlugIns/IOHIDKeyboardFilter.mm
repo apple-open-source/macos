@@ -41,6 +41,8 @@
 #include "IOHIDKeys.h"
 #include "IOHIDevicePrivateKeys.h"
 
+#import "AppleKeyboardStateManager.h"
+
 #define kCapsLockDelayMS    75
 #define kEjectKeyDelayMS    0
 #define kSlowKeyMinMS       1
@@ -187,7 +189,9 @@ _queue(NULL),
 _stickyKeysShiftResetTimer(0),
 _slowKeysTimer(0),
 _keyRepeatTimer(0),
-_capsLockDelayTimer(0)
+_capsLockDelayTimer(0),
+_restoreState(nil),
+_locationID(nil)
 
 {
     CFPlugInAddInstanceForFactory( factoryID );
@@ -288,6 +292,9 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
     (void)options;
     
     _service = service;
+    
+    _restoreState = CFBridgingRelease(IOHIDServiceCopyProperty(service, (__bridge CFStringRef)@kIOHIDKeyboardRestoreStateKey));
+    _locationID = CFBridgingRelease(IOHIDServiceCopyProperty(service, (__bridge CFStringRef)@kIOHIDLocationIDKey));
 
 #if !TARGET_OS_EMBEDDED
     uint32_t keyboardID;
@@ -515,6 +522,23 @@ void IOHIDKeyboardFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
         dispatch_resume(_ejectKeyDelayTimer);
     }
 #endif
+    
+    if (_restoreState.boolValue &&
+        [[AppleKeyboardStateManager sharedManager] isCapsLockEnabled:_locationID]) {
+        HIDLogInfo("[%@] Restoring capslock state", SERVICE_ID);
+        
+        IOHIDEventRef ev = IOHIDEventCreateKeyboardEvent(kCFAllocatorDefault,
+                                                         mach_absolute_time(),
+                                                         kHIDPage_KeyboardOrKeypad,
+                                                         kHIDUsage_KeyboardCapsLock,
+                                                         true,
+                                                         kIOHIDEventOptionIsZeroEvent);
+        
+        if (ev) {
+            _eventCallback(_eventTarget, _eventContext, &_serviceInterface, ev, 0);
+            CFRelease(ev);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -531,36 +555,30 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
 #if !TARGET_OS_EMBEDDED
     if (_mouseKeyActivationResetTimer) {
         dispatch_source_cancel(_mouseKeyActivationResetTimer);
-        dispatch_release(_mouseKeyActivationResetTimer);
     }
 #endif
 
     if (_stickyKeysShiftResetTimer) {
         dispatch_source_cancel(_stickyKeysShiftResetTimer);
-        dispatch_release(_stickyKeysShiftResetTimer);
     }
 
     
     if (_slowKeysTimer) {
         dispatch_source_cancel(_slowKeysTimer);
-        dispatch_release(_slowKeysTimer);
     }
   
     if (_keyRepeatTimer) {
         dispatch_source_cancel(_keyRepeatTimer);
-        dispatch_release(_keyRepeatTimer);
     }
     
     if (_capsLockDelayTimer) {
         dispatch_source_cancel(_capsLockDelayTimer);
-        dispatch_release(_capsLockDelayTimer);
     }
   
 
 #if !TARGET_OS_EMBEDDED
     if (_ejectKeyDelayTimer) {
         dispatch_source_cancel(_ejectKeyDelayTimer);
-        dispatch_release (_ejectKeyDelayTimer);
     }
 #endif
     __block IOHIDServiceRef service = (IOHIDServiceRef)CFRetain(_service);
@@ -708,7 +726,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         
         bool capsLockState = (property && CFBooleanGetTypeID() == CFGetTypeID(property)) ? CFBooleanGetValue((CFBooleanRef)property) : false;
         
-        setCapsLockState(capsLockState);
+        setCapsLockState(capsLockState, client);
         
         HIDLogDebug("[%@] capsLockState: %d", SERVICE_ID, capsLockState);
     }
@@ -723,7 +741,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
             } else if (CFEqual (property, kIOHIDServiceCapsLockLEDKey_Inhibit)) {
                 _capsLockLED = kIOHIDServiceCapsLockLEDKey_Inhibit;
             }
-            updateCapslockLED();
+            updateCapslockLED(client);
         }
 
         HIDLogDebug("[%@] _capsLockLED: %@", SERVICE_ID, _capsLockLED);
@@ -733,7 +751,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         _capsLockLEDInhibit = CFBooleanGetValue(boolProp);
         
         // If ledInhibit is being turned on, turn off LED, if on.
-        updateCapslockLED();
+        updateCapslockLED(client);
 
         HIDLogDebug("[%@] _capsLockLEDInhibit: %d", SERVICE_ID, _capsLockLEDInhibit);
     
@@ -747,7 +765,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
             KeyMap::const_iterator iter;
             iter = _modifiersKeyMap.find(Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock));
             if (iter != _modifiersKeyMap.end()) {
-                setCapsLockState(false);
+                setCapsLockState(false, client);
             }
             
             HIDLogDebug("[%@] _modifiersKeyMap initialized", SERVICE_ID);
@@ -1557,7 +1575,7 @@ void IOHIDKeyboardFilter::dispatchStickyKeys(int stateMask)
         getUsageForIndex(i, usagePage, usage);
         
         state = getStickyKeyState(usagePage, usage);
-        HIDLogDebug("StickyKey [%d] 0x%x:0x%x state 0x%x mask 0x%x", (int)i, (int)usagePage, (int)usage, (unsigned int)state, stateMask);
+        //HIDLogDebug("StickyKey [%d] 0x%x:0x%x state 0x%x mask 0x%x", (int)i, (int)usagePage, (int)usage, (unsigned int)state, stateMask);
 
         if ((state & stateMask) == 0)
             continue;
@@ -1964,12 +1982,7 @@ void IOHIDKeyboardFilter::processCapsLockState(IOHIDEventRef event)
     if ( (usagePage == kHIDPage_KeyboardOrKeypad) && (usage == kHIDUsage_KeyboardCapsLock)) {
         // LED and Caps Lock state change on key down.
         if (keyDown) {
-            _capsLockState = !_capsLockState;
-            HIDLogDebug("[%@] CapsLock state: %s", SERVICE_ID, _capsLockState ? "ON" : "OFF");
-
-#if !TARGET_OS_EMBEDDED
-            updateCapslockLED ();
-#endif
+            setCapsLockState(!_capsLockState, NULL);
             IOHIDServiceSetProperty(_service, CFSTR("HIDCapsLockStateCache"), _capsLockState ? kCFBooleanTrue : kCFBooleanFalse);
         }
     }
@@ -2286,22 +2299,26 @@ void IOHIDKeyboardFilter::processKeyState (IOHIDEventRef event) {
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::setCapsLockState
 //------------------------------------------------------------------------------
-void IOHIDKeyboardFilter::setCapsLockState(boolean_t state) {
-#if !TARGET_OS_EMBEDDED
+void IOHIDKeyboardFilter::setCapsLockState(boolean_t state, CFTypeRef client) {
     if (state == _capsLockState) {
         return;
     }
+    
     _capsLockState = state;
-    updateCapslockLED();
-#else
-    (void) state;
+    
+    [[AppleKeyboardStateManager sharedManager] setCapsLockEnabled:_capsLockState locationID:_locationID];
+    
+    HIDLogInfo("[%@] Set capslock state: %d client: %@", SERVICE_ID, state, client);
+    
+#if !TARGET_OS_EMBEDDED
+    updateCapslockLED(client);
 #endif
 }
 
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::updateCapslockLED
 //------------------------------------------------------------------------------
-void IOHIDKeyboardFilter::updateCapslockLED() {
+void IOHIDKeyboardFilter::updateCapslockLED(CFTypeRef client) {
   
     if ((_supportedModifiers & NX_ALPHASHIFT_STATELESS_MASK) == 0) {
         return;
@@ -2320,7 +2337,7 @@ void IOHIDKeyboardFilter::updateCapslockLED() {
     }
     
     if (_service) {
-        HIDLogDebug ("[%@] Set Capslock LED: %d", SERVICE_ID, _capsLockLEDState);
+        HIDLogInfo("[%@] Set capslock LED: %d client: %@", SERVICE_ID, _capsLockLEDState, client);
         IOHIDServiceSetElementValue(_service, kHIDPage_LEDs, kHIDUsage_LED_CapsLock, _capsLockLEDState);
     }
 }

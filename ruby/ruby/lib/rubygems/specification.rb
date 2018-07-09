@@ -15,6 +15,7 @@ require 'rubygems/basic_specification'
 require 'rubygems/stub_specification'
 require 'rubygems/util/list'
 require 'stringio'
+require 'uri'
 
 ##
 # The Specification class contains the information for a Gem.  Typically
@@ -107,6 +108,8 @@ class Gem::Specification < Gem::BasicSpecification
   LOAD_CACHE = {} # :nodoc:
 
   private_constant :LOAD_CACHE if defined? private_constant
+
+  VALID_NAME_PATTERN = /\A[a-zA-Z0-9\.\-\_]+\z/ # :nodoc:
 
   # :startdoc:
 
@@ -1099,7 +1102,7 @@ class Gem::Specification < Gem::BasicSpecification
     Gem.load_yaml
 
     input = normalize_yaml_input input
-    spec = YAML.load input
+    spec = Gem::SafeYAML.safe_load input
 
     if spec && spec.class == FalseClass then
       raise Gem::EndOfYAMLException
@@ -2665,9 +2668,15 @@ class Gem::Specification < Gem::BasicSpecification
       end
     end
 
-    unless String === name then
+    if !name.is_a?(String) then
       raise Gem::InvalidSpecificationException,
-            "invalid value for attribute name: \"#{name.inspect}\""
+            "invalid value for attribute name: \"#{name.inspect}\" must be a string"
+    elsif name !~ /[a-zA-Z]/ then
+      raise Gem::InvalidSpecificationException,
+            "invalid value for attribute name: #{name.dump} must include at least one letter"
+    elsif name !~ VALID_NAME_PATTERN then
+      raise Gem::InvalidSpecificationException,
+            "invalid value for attribute name: #{name.dump} can only include letters, numbers, dashes, and underscores"
     end
 
     if raw_require_paths.empty? then
@@ -2799,10 +2808,16 @@ http://spdx.org/licenses or '#{Gem::Licenses::NONSTANDARD}' for a nonstandard li
       raise Gem::InvalidSpecificationException, "#{lazy} is not a summary"
     end
 
-    if homepage and not homepage.empty? and
-       homepage !~ /\A[a-z][a-z\d+.-]*:/i then
-      raise Gem::InvalidSpecificationException,
-            "\"#{homepage}\" is not a URI"
+    # Make sure a homepage is valid HTTP/HTTPS URI
+    if homepage and not homepage.empty?
+      begin
+        homepage_uri = URI.parse(homepage)
+        unless [URI::HTTP, URI::HTTPS].member? homepage_uri.class
+          raise Gem::InvalidSpecificationException, "\"#{homepage}\" is not a valid HTTP URI"
+        end
+      rescue URI::InvalidURIError
+        raise Gem::InvalidSpecificationException, "\"#{homepage}\" is not a valid HTTP URI"
+      end
     end
 
     # Warnings

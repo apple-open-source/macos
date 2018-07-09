@@ -2,7 +2,7 @@
 
   marshal.c -
 
-  $Author: naruse $
+  $Author: usa $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -178,8 +178,22 @@ check_dump_arg(VALUE ret, struct dump_arg *arg, const char *name)
     }
     return ret;
 }
+
+static VALUE
+check_userdump_arg(VALUE obj, ID sym, int argc, const VALUE *argv,
+		   struct dump_arg *arg, const char *name)
+{
+    VALUE ret = rb_funcallv(obj, sym, argc, argv);
+    VALUE klass = CLASS_OF(obj);
+    if (CLASS_OF(ret) == klass) {
+        rb_raise(rb_eRuntimeError, "%"PRIsVALUE"#%s returned same class instance",
+		 klass, name);
+    }
+    return check_dump_arg(ret, arg, name);
+}
+
 #define dump_funcall(arg, obj, sym, argc, argv) \
-    check_dump_arg(rb_funcallv(obj, sym, argc, argv), arg, name_##sym)
+    check_userdump_arg(obj, sym, argc, argv, arg, name_##sym)
 #define dump_check_funcall(arg, obj, sym, argc, argv) \
     check_dump_arg(rb_check_funcall(obj, sym, argc, argv), arg, name_##sym)
 
@@ -1008,7 +1022,7 @@ VALUE
 rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
 {
     struct dump_arg *arg;
-    VALUE wrapper; /* used to avoid memory leak in case of exception */
+    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
 
     wrapper = TypedData_Make_Struct(rb_cData, struct dump_arg, &dump_arg_data, arg);
     arg->dest = 0;
@@ -2030,7 +2044,7 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
 {
     int major, minor, infection = 0;
     VALUE v;
-    VALUE wrapper; /* used to avoid memory leak in case of exception */
+    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
     struct load_arg *arg;
 
     v = rb_check_string_type(port);

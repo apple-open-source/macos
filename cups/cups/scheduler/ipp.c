@@ -254,7 +254,7 @@ cupsdProcessIPPRequest(
       attr = con->request->attrs;
       if (attr && attr->name &&
           !strcmp(attr->name, "attributes-charset") &&
-	  (attr->value_tag & IPP_TAG_MASK) == IPP_TAG_CHARSET)
+	  (attr->value_tag & IPP_TAG_MASK) == IPP_TAG_CHARSET && attr->group_tag == IPP_TAG_OPERATION)
 	charset = attr;
       else
 	charset = NULL;
@@ -264,7 +264,7 @@ cupsdProcessIPPRequest(
 
       if (attr && attr->name &&
           !strcmp(attr->name, "attributes-natural-language") &&
-	  (attr->value_tag & IPP_TAG_MASK) == IPP_TAG_LANGUAGE)
+	  (attr->value_tag & IPP_TAG_MASK) == IPP_TAG_LANGUAGE && attr->group_tag == IPP_TAG_OPERATION)
       {
 	language = attr;
 
@@ -283,13 +283,13 @@ cupsdProcessIPPRequest(
 	language = NULL;
 
       if ((attr = ippFindAttribute(con->request, "printer-uri",
-                                   IPP_TAG_URI)) != NULL)
+                                   IPP_TAG_URI)) != NULL && attr->group_tag == IPP_TAG_OPERATION)
 	uri = attr;
       else if ((attr = ippFindAttribute(con->request, "job-uri",
-                                        IPP_TAG_URI)) != NULL)
+                                        IPP_TAG_URI)) != NULL && attr->group_tag == IPP_TAG_OPERATION)
 	uri = attr;
-      else if (con->request->request.op.operation_id == CUPS_GET_PPD)
-        uri = ippFindAttribute(con->request, "ppd-name", IPP_TAG_NAME);
+      else if (con->request->request.op.operation_id == CUPS_GET_PPD && (attr = ippFindAttribute(con->request, "ppd-name", IPP_TAG_NAME)) != NULL && attr->group_tag == IPP_TAG_OPERATION)
+        uri = attr;
       else
 	uri = NULL;
 
@@ -2033,7 +2033,7 @@ add_job_subscriptions(
 
         snprintf(notifier, sizeof(notifier), "%s/notifier/%s", ServerBin,
 	         scheme);
-        if (access(notifier, X_OK))
+        if (access(notifier, X_OK) || !strcmp(scheme, ".") || !strcmp(scheme, ".."))
 	{
           send_ipp_status(con, IPP_NOT_POSSIBLE,
 	                  _("notify-recipient-uri URI \"%s\" uses unknown "

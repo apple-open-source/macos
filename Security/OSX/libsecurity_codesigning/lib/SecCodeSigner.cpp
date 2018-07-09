@@ -59,6 +59,7 @@ const CFStringRef kSecCodeSignerTimestampOmitCertificates =	CFSTR("timestamp-omi
 const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
 const CFStringRef kSecCodeSignerTeamIdentifier =	CFSTR("teamidentifier");
 const CFStringRef kSecCodeSignerPlatformIdentifier = CFSTR("platform-identifier");
+const CFStringRef kSecCodeSignerRuntimeVersion = CFSTR("runtime-version");
 
 
 
@@ -89,7 +90,9 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 		| kSecCSSignV1
 		| kSecCSSignNoV1
 		| kSecCSSignBundleRoot
-		| kSecCSSignStrictPreflight);
+		| kSecCSSignStrictPreflight
+        | kSecCSSignGeneratePEH
+		| kSecCSSignGenerateEntitlementDER);
 	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
 	CodeSigning::Required(signerRef) = signer->handle();

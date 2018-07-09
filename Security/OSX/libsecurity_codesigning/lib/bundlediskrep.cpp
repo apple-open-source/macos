@@ -471,6 +471,7 @@ CFArrayRef BundleDiskRep::modifiedFiles()
 	checkModifiedFile(files, cdResourceDirSlot);
 	checkModifiedFile(files, cdTopDirectorySlot);
 	checkModifiedFile(files, cdEntitlementSlot);
+	checkModifiedFile(files, cdEntitlementDERSlot);
 	checkModifiedFile(files, cdRepSpecificSlot);
 	for (CodeDirectory::Slot slot = cdAlternateCodeDirectorySlots; slot < cdAlternateCodeDirectoryLimit; ++slot)
 		checkModifiedFile(files, slot);

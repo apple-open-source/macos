@@ -67,28 +67,49 @@ protected:
 	void signMachO(Universal *fat, const Requirement::Context &context); // sign a Mach-O binary
 	void signArchitectureAgnostic(const Requirement::Context &context); // sign anything else
 
+	// HashAlgorithm -> PreEncrypt hashes
+	typedef std::map<CodeDirectory::HashAlgorithm, CFCopyRef<CFDataRef> >
+		PreEncryptHashMap;
+	// Architecture -> PreEncryptHashMap
+	typedef std::map<Architecture, PreEncryptHashMap >
+		PreEncryptHashMaps;
+	// HashAlgorithm -> Hardened Runtime Version
+	typedef std::map<CodeDirectory::HashAlgorithm, uint32_t>
+		RuntimeVersionMap;
+	// Architecture -> RuntimeVersionMap
+	typedef std::map<Architecture, RuntimeVersionMap>
+		RuntimeVersionMaps;
+
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
 				  InternalRequirements &ireqs,
 				  size_t offset, size_t length,
 				  bool mainBinary, size_t execSegBase, size_t execSegLimit,
-				  unsigned alternateDigestCount);	// per-architecture
-	CFDataRef signCodeDirectory(const CodeDirectory *cd, CFDataRef hashBag);
+				  unsigned alternateDigestCount,
+				  const PreEncryptHashMap& preEncryptHashMap,
+				  uint32_t runtimeVersion);	// per-architecture
+	CFDataRef signCodeDirectory(const CodeDirectory *cd,
+								CFDictionaryRef hashDict, CFArrayRef hashList);
 
 	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
 	std::string uniqueName() const;				// derive unique string from rep
 	
 protected:
+	
 	std::string sdkPath(const std::string &path) const;
 	bool isAdhoc() const;
 	SecCSFlags signingFlags() const;
 	
 private:
+	void addPreEncryptHashes(PreEncryptHashMap &map, SecStaticCode const *code);
+	void addRuntimeVersions(RuntimeVersionMap &map, SecStaticCode const *code);
+	
 	void considerTeamID(const PreSigningContext& context);
 	std::vector<Endian<uint32_t> > topSlots(CodeDirectory::Builder &builder) const;
 
 	static bool booleanEntitlement(CFDictionaryRef entDict, CFStringRef key);
-	static uint64_t entitlementsToExecSegFlags(CFDataRef entitlements);
+	static void cookEntitlements(CFDataRef entitlements, bool generateDER,
+								 uint64_t *execSegFlags, CFDataRef *entitlementsDER);
 
 protected:
 	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);
@@ -104,12 +125,17 @@ private:
 	std::string identifier;			// signing identifier
 	std::string teamID;             // team identifier
 	CFRef<CFDataRef> entitlements;	// entitlements
+	Architecture preEncryptMainArch; // pre-encrypt main architecture
+	PreEncryptHashMaps preEncryptHashMaps;  // pre-encrypt hashes to keep
+	Architecture runtimeVersionMainArch; // runtime version main architecture
+	RuntimeVersionMaps runtimeVersionMap; // runtime versions to keep
 	uint32_t cdFlags;				// CodeDirectory flags
 	const Requirements *requirements; // internal requirements ready-to-use
 	size_t pagesize;				// size of main executable pages
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => now)
 	bool emitSigningTime;			// emit signing time as a signed CMS attribute
 	bool strict;					// strict validation
+	bool generateEntitlementDER;	// generate entitlement DER
 	
 private:
 	Mutex resourceLock;

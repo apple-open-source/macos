@@ -1,3 +1,1015 @@
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r232315. rdar://problem/40641066
+
+    Revert changes made to URLWithUserTypedString made in https://trac.webkit.org/changeset/232281
+    https://bugs.webkit.org/show_bug.cgi?id=186108
+    <rdar://problem/40663065>
+    
+    Reviewed by Alex Christensen.
+    
+    Covered by existing API tests.
+    
+    * platform/mac/WebCoreNSURLExtras.mm:
+    (WebCore::URLWithUserTypedString):
+    Return early if WebCore::URL is not able to create a CFURL.
+    Use CFURL otherwise to keep the existing behavior as much as possible.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@232315 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-30  Youenn Fablet  <youenn@apple.com>
+
+            Revert changes made to URLWithUserTypedString made in https://trac.webkit.org/changeset/232281
+            https://bugs.webkit.org/show_bug.cgi?id=186108
+            <rdar://problem/40663065>
+
+            Reviewed by Alex Christensen.
+
+            Covered by existing API tests.
+
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::URLWithUserTypedString):
+            Return early if WebCore::URL is not able to create a CFURL.
+            Use CFURL otherwise to keep the existing behavior as much as possible.
+
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r232281. rdar://problem/40641066
+
+    Add a consistency check between URL and CFURL
+    Source/WebCore:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=186057
+    <rdar://problem/40258457>
+    
+    Reviewed by Geoff Garen.
+    
+    It is important that WebCore::URL used in WebCore and CFURL that gets serialized in the network pipe remain consistent.
+    Otherwise, we will end-up with odd bugs.
+    
+    We add such a check when creating a CFURL from an URL.
+    To make things more consistent, we also rely now more on WebCore::URL instead of directly creating a CFURL.
+    
+    * platform/URL.h:
+    * platform/cf/CFURLExtras.cpp:
+    (WebCore::isCFURLSameOrigin):
+    * platform/cf/CFURLExtras.h:
+    * platform/cf/URLCF.cpp:
+    (WebCore::URL::createCFURL const):
+    * platform/mac/URLMac.mm:
+    (WebCore::URL::createCFURL const):
+    * platform/mac/WebCoreNSURLExtras.mm:
+    (WebCore::URLWithUserTypedString):
+    
+    Source/WebKit:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=186057
+    <rdar://problem/40258457>
+    
+    Reviewed by Geoff Garen.
+    
+    * Shared/Cocoa/WKNSURLExtras.mm:
+    (+[NSURL _web_URLWithWTFString:relativeToURL:]):
+    (urlWithWTFString): Deleted.
+    (+[NSURL _web_URLWithWTFString:]): Deleted.
+    
+    Tools:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=182444
+    <rdar://problem/37164835>
+    
+    Reviewed by Geoff Garen.
+    
+    DRT code expected a non null URL which is no longer the case now.
+    Updated DRT to remove that assumption.
+    
+    * DumpRenderTree/TestRunner.cpp:
+    (TestRunner::redirectionDestinationForURL):
+    * DumpRenderTree/TestRunner.h:
+    * DumpRenderTree/mac/ResourceLoadDelegate.mm:
+    (-[ResourceLoadDelegate webView:resource:willSendRequest:redirectResponse:fromDataSource:]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@232281 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-29  Youenn Fablet  <youenn@apple.com>
+
+            Add a consistency check between URL and CFURL
+            https://bugs.webkit.org/show_bug.cgi?id=186057
+            <rdar://problem/40258457>
+
+            Reviewed by Geoff Garen.
+
+            It is important that WebCore::URL used in WebCore and CFURL that gets serialized in the network pipe remain consistent.
+            Otherwise, we will end-up with odd bugs.
+
+            We add such a check when creating a CFURL from an URL.
+            To make things more consistent, we also rely now more on WebCore::URL instead of directly creating a CFURL.
+
+            * platform/URL.h:
+            * platform/cf/CFURLExtras.cpp:
+            (WebCore::isCFURLSameOrigin):
+            * platform/cf/CFURLExtras.h:
+            * platform/cf/URLCF.cpp:
+            (WebCore::URL::createCFURL const):
+            * platform/mac/URLMac.mm:
+            (WebCore::URL::createCFURL const):
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::URLWithUserTypedString):
+
+2018-05-23  Jer Noble  <jer.noble@apple.com>
+
+        [El Capitan] FAIL http/tests/security/webaudio-render-remote-audio-allowed-crossorigin.html
+        https://bugs.webkit.org/show_bug.cgi?id=185920
+
+        Reviewed by Eric Carlson.
+
+        Disable the recently added CORS checks for MediaElementAudioSourceNode on El Capitan; no custom media loading
+        is available there, so we don't have the ability to tell if HTMLMediaElement loads are CORS-valid.
+
+        * Modules/webaudio/MediaElementAudioSourceNode.cpp:
+        (WebCore::MediaElementAudioSourceNode::setFormat):
+
+2018-05-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r229503. rdar://problem/39841080
+
+    [macOS] Copying a table from the Numbers app and pasting into iCloud Numbers fails
+    https://bugs.webkit.org/show_bug.cgi?id=183485
+    <rdar://problem/38041984>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    After r222656, WebKit now treats raw image data on the pasteboard as files for the purposes of computing
+    DataTransfer.files and DataTransfer.types. However, this is combined with existing policies that suppress
+    DataTransfer.getData and DataTransfer.setData when the pasteboard contains files (generalized to copy/paste in
+    r222688). This means we now don't allow web pages to access "text/plain" in the case where the user copies part
+    of a table from the native Numbers app since Numbers additionally writes a snapshot of the table to the platform
+    pasteboard.
+    
+    This restriction on getData/setData was intended to prevent web pages from extracting users' file paths when
+    pasting or dropping, so it doesn't make sense to enforce this restriction even when there is only in-memory
+    image data on the pasteboard. To fix this bug, we make Pasteboard::fileContentState() differentiate between
+    cases where there are (real) files on the pasteboard, and cases where we've fallen back to treating image data
+    as files.
+    
+    Rebaselined existing LayoutTests to match new behavior.
+    Also covered by 4 new API tests:
+        - PasteMixedContent.ImageDataAndPlainText
+        - PasteMixedContent.ImageDataAndPlainTextAndURL
+        - PasteMixedContent.ImageDataAndPlainTextAndURLAndHTML
+        - UIPasteboardTests.DataTransferGetDataWhenPastingImageAndText
+    
+    * dom/DataTransfer.cpp:
+    (WebCore::DataTransfer::shouldSuppressGetAndSetDataToAvoidExposingFilePaths const):
+    
+    If custom pasteboard data is enabled, suppress getData and setData if and only if we might actually expose file
+    paths (see Pasteboard::fileContentState).
+    
+    (WebCore::DataTransfer::types const):
+    
+    Only allow "text/html" or "text/uri-list" in the case where there are actual files in the pasteboard. If there's
+    only image data, add all of the DOM-safe types back into the list of types.
+    
+    * platform/Pasteboard.h:
+    * platform/StaticPasteboard.h:
+    
+    Add an enum type to represent the result of Pasteboard::fileContentState.
+    -   NoFileOrImageData indicates that there was nothing on the pasteboard that could be considered a file
+        from the point of view of the page.
+    -   InMemoryImage indicates that there are no files on the pasteboard, but there is image data that we consider
+        to be files, exposed via DataTransfer API.
+    -   MayContainFilePaths indicates that there might be file paths on the pasteboard. This means that the source
+        has either written file paths to the pasteboard (for example, through NSFilenamesPboardType) or the source
+        has written image data along with a URL type of some sort that does not match one of the allowed URL schemes
+        that are safe to expose (currently, these are http-family, data, or blob).
+    
+    * platform/cocoa/PasteboardCocoa.mm:
+    (WebCore::Pasteboard::fileContentState):
+    
+    Refactor to return one of the three enum types described above.
+    
+    (WebCore::Pasteboard::containsFiles): Deleted.
+    * platform/gtk/PasteboardGtk.cpp:
+    (WebCore::Pasteboard::fileContentState):
+    (WebCore::Pasteboard::containsFiles): Deleted.
+    * platform/win/PasteboardWin.cpp:
+    (WebCore::Pasteboard::fileContentState):
+    (WebCore::Pasteboard::containsFiles): Deleted.
+    * platform/wpe/PasteboardWPE.cpp:
+    (WebCore::Pasteboard::fileContentState):
+    (WebCore::Pasteboard::containsFiles): Deleted.
+    
+    Adjust for Pasteboard::fileContentState() tweaks.
+    
+    Tools:
+    
+    Add new API tests to cover scenarios in which we paste image data alongside text data.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/PasteMixedContent.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/ios/UIPasteboardTests.mm:
+    (TestWebKitAPI::TEST):
+    
+    LayoutTests:
+    
+    Rebaseline some pasteboard-related layout tests, in which we now expose text/plain alongside files that were
+    written to the DataTransfer by the page itself.
+    
+    * editing/pasteboard/data-transfer-item-list-add-file-multiple-times-expected.txt:
+    * editing/pasteboard/data-transfer-item-list-add-file-on-copy-expected.txt:
+    * editing/pasteboard/data-transfer-item-list-add-file-on-drag-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@229503 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-03-10  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [macOS] Copying a table from the Numbers app and pasting into iCloud Numbers fails
+            https://bugs.webkit.org/show_bug.cgi?id=183485
+            <rdar://problem/38041984>
+
+            Reviewed by Ryosuke Niwa.
+
+            After r222656, WebKit now treats raw image data on the pasteboard as files for the purposes of computing
+            DataTransfer.files and DataTransfer.types. However, this is combined with existing policies that suppress
+            DataTransfer.getData and DataTransfer.setData when the pasteboard contains files (generalized to copy/paste in
+            r222688). This means we now don't allow web pages to access "text/plain" in the case where the user copies part
+            of a table from the native Numbers app since Numbers additionally writes a snapshot of the table to the platform
+            pasteboard.
+
+            This restriction on getData/setData was intended to prevent web pages from extracting users' file paths when
+            pasting or dropping, so it doesn't make sense to enforce this restriction even when there is only in-memory
+            image data on the pasteboard. To fix this bug, we make Pasteboard::fileContentState() differentiate between
+            cases where there are (real) files on the pasteboard, and cases where we've fallen back to treating image data
+            as files.
+
+            Rebaselined existing LayoutTests to match new behavior.
+            Also covered by 4 new API tests:
+                - PasteMixedContent.ImageDataAndPlainText
+                - PasteMixedContent.ImageDataAndPlainTextAndURL
+                - PasteMixedContent.ImageDataAndPlainTextAndURLAndHTML
+                - UIPasteboardTests.DataTransferGetDataWhenPastingImageAndText
+
+            * dom/DataTransfer.cpp:
+            (WebCore::DataTransfer::shouldSuppressGetAndSetDataToAvoidExposingFilePaths const):
+
+            If custom pasteboard data is enabled, suppress getData and setData if and only if we might actually expose file
+            paths (see Pasteboard::fileContentState).
+
+            (WebCore::DataTransfer::types const):
+
+            Only allow "text/html" or "text/uri-list" in the case where there are actual files in the pasteboard. If there's
+            only image data, add all of the DOM-safe types back into the list of types.
+
+            * platform/Pasteboard.h:
+            * platform/StaticPasteboard.h:
+
+            Add an enum type to represent the result of Pasteboard::fileContentState.
+            -   NoFileOrImageData indicates that there was nothing on the pasteboard that could be considered a file
+                from the point of view of the page.
+            -   InMemoryImage indicates that there are no files on the pasteboard, but there is image data that we consider
+                to be files, exposed via DataTransfer API.
+            -   MayContainFilePaths indicates that there might be file paths on the pasteboard. This means that the source
+                has either written file paths to the pasteboard (for example, through NSFilenamesPboardType) or the source
+                has written image data along with a URL type of some sort that does not match one of the allowed URL schemes
+                that are safe to expose (currently, these are http-family, data, or blob).
+
+            * platform/cocoa/PasteboardCocoa.mm:
+            (WebCore::Pasteboard::fileContentState):
+
+            Refactor to return one of the three enum types described above.
+
+            (WebCore::Pasteboard::containsFiles): Deleted.
+            * platform/gtk/PasteboardGtk.cpp:
+            (WebCore::Pasteboard::fileContentState):
+            (WebCore::Pasteboard::containsFiles): Deleted.
+            * platform/win/PasteboardWin.cpp:
+            (WebCore::Pasteboard::fileContentState):
+            (WebCore::Pasteboard::containsFiles): Deleted.
+            * platform/wpe/PasteboardWPE.cpp:
+            (WebCore::Pasteboard::fileContentState):
+            (WebCore::Pasteboard::containsFiles): Deleted.
+
+            Adjust for Pasteboard::fileContentState() tweaks.
+
+2018-05-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230533. rdar://problem/40345980
+
+    IDN spoofing with Hebrew combining characters
+    https://bugs.webkit.org/show_bug.cgi?id=184472
+    <rdar://problem/39148687>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Covered by new API tests.
+    
+    * platform/mac/WebCoreNSURLExtras.mm:
+    (WebCore::isLookalikeCharacter):
+    Punycode-encode hosts with Hebrew combining marks that look like dots
+    and Vav with a combining dot above like we do with dotless i and j.
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebCore/cocoa/URLExtras.mm:
+    (TestWebKitAPI::TEST):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230533 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-10  Alex Christensen  <achristensen@webkit.org>
+
+            IDN spoofing with Hebrew combining characters
+            https://bugs.webkit.org/show_bug.cgi?id=184472
+            <rdar://problem/39148687>
+
+            Reviewed by Brent Fulgham.
+
+            Covered by new API tests.
+
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::isLookalikeCharacter):
+            Punycode-encode hosts with Hebrew combining marks that look like dots
+            and Vav with a combining dot above like we do with dotless i and j.
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r231392. rdar://problem/40230018
+
+    Release assert in ScriptController::canExecuteScripts via HTMLMediaElement::~HTMLMediaElement()
+    https://bugs.webkit.org/show_bug.cgi?id=185288
+    
+    Reviewed by Jer Noble.
+    
+    The crash is caused by HTMLMediaElement::~HTMLMediaElement canceling the resource load via CachedResource
+    which ends up calling FrameLoader::checkCompleted() and fire load event on the document synchronously.
+    Speculatively fix the crash by scheduling the check instead.
+    
+    In long term, ResourceLoader::cancel should never fire load event synchronously: webkit.org/b/185284.
+    
+    Unfortunately, no new tests since I can't get MediaResource to get destructed at the right time.
+    
+    * html/HTMLMediaElement.cpp:
+    (WebCore::HTMLMediaElement::isRunningDestructor): Added to detect this specific case.
+    (WebCore::HTMLMediaElementDestructorScope): Added.
+    (WebCore::HTMLMediaElementDestructorScope::HTMLMediaElementDestructorScope): Added.
+    (WebCore::HTMLMediaElementDestructorScope::~HTMLMediaElementDestructorScope): Added.
+    (WebCore::HTMLMediaElement::~HTMLMediaElement): Instantiate HTMLMediaElement.
+    * html/HTMLMediaElement.h:
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::checkCompleted): Call scheduleCheckCompleted instead of synchronously calling
+    checkCompleted if we're in the middle of destructing a HTMLMediaElement.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231392 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-03  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Release assert in ScriptController::canExecuteScripts via HTMLMediaElement::~HTMLMediaElement()
+            https://bugs.webkit.org/show_bug.cgi?id=185288
+
+            Reviewed by Jer Noble.
+
+            The crash is caused by HTMLMediaElement::~HTMLMediaElement canceling the resource load via CachedResource
+            which ends up calling FrameLoader::checkCompleted() and fire load event on the document synchronously.
+            Speculatively fix the crash by scheduling the check instead.
+
+            In long term, ResourceLoader::cancel should never fire load event synchronously: webkit.org/b/185284.
+
+            Unfortunately, no new tests since I can't get MediaResource to get destructed at the right time.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::isRunningDestructor): Added to detect this specific case.
+            (WebCore::HTMLMediaElementDestructorScope): Added.
+            (WebCore::HTMLMediaElementDestructorScope::HTMLMediaElementDestructorScope): Added.
+            (WebCore::HTMLMediaElementDestructorScope::~HTMLMediaElementDestructorScope): Added.
+            (WebCore::HTMLMediaElement::~HTMLMediaElement): Instantiate HTMLMediaElement.
+            * html/HTMLMediaElement.h:
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::checkCompleted): Call scheduleCheckCompleted instead of synchronously calling
+            checkCompleted if we're in the middle of destructing a HTMLMediaElement.
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r231713. rdar://problem/40172913
+
+    LinkLoader fails to remove CachedResourceClient in some cases
+    https://bugs.webkit.org/show_bug.cgi?id=185553
+    <rdar://problem/36879656>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/WebCore:
+    
+    Test: http/tests/preload/link-preload-client-remove.html
+    
+    * loader/LinkLoader.cpp:
+    (WebCore::LinkLoader::loadLink):
+    
+    If there is a link preload already in progress, we fail to clear the client for the ongoing load.
+    This may leave the CachedResource client map in a bad state.
+    
+    LayoutTests:
+    
+    * http/tests/preload/link-preload-client-remove-expected.txt: Added.
+    * http/tests/preload/link-preload-client-remove.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231713 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-11  Antti Koivisto  <antti@apple.com>
+
+            LinkLoader fails to remove CachedResourceClient in some cases
+            https://bugs.webkit.org/show_bug.cgi?id=185553
+            <rdar://problem/36879656>
+
+            Reviewed by Geoffrey Garen.
+
+            Test: http/tests/preload/link-preload-client-remove.html
+
+            * loader/LinkLoader.cpp:
+            (WebCore::LinkLoader::loadLink):
+
+            If there is a link preload already in progress, we fail to clear the client for the ongoing load.
+            This may leave the CachedResource client map in a bad state.
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r231267. rdar://problem/39988097
+
+    REGRESSION(r225868): Release assert when removing an SVGUseElement from Document::m_svgUseElements
+    https://bugs.webkit.org/show_bug.cgi?id=182188
+    <rdar://problem/36689240>
+    
+    Reviewed by Antti Koivisto.
+    
+    Fixed the crash by removing up the release assert.
+    
+    The crash is likely caused by re-entrancy to Document::resolveStyle during SVGUseElement::updateShadowTree.
+    Because Document::resolveStyle invokes updateShadowTree on SVG use elements in Document::m_svgUseElements
+    without clearing the map, the nested call to resolveStyle ends up calling updateShadowTree() for all elements
+    in m_svgUseElements and removing them all from the map. When the stack frame eventually comes back to the outer
+    invocation of Document::resolveStyle, updateShadowTree gets invoked for the second time on SVG use elements
+    whose shadow tree had already been updated within the inner invocation to updateShadowTree, and release-asserts.
+    
+    There is an alternative fix: avoid calling updateShadowTree on a svg element when shadowTreeNeedsUpdate returns
+    true on the element in resolveStyle. However, removing the release assert is a sure way to fix the crash so
+    this patch opts for that fix instead especially since we don't have any reproducible test case for this crash.
+    
+    This release assertion was added in r225868 as a cautious measure to catch any use-after-frees of SVGUseElement's
+    since m_svgUseElements stored raw pointes to SVG use elements but this crash is not an indicative of any UAF,
+    and there is no evidence that r225868 has led to new UAFs even after five months.
+    
+    No new tests. I couldn't find a way to trigger a nested style update inside SVGUseElement::updateShadowTree.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::removeSVGUseElement):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231267 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-01  Ryosuke Niwa  <rniwa@webkit.org>
+
+            REGRESSION(r225868): Release assert when removing an SVGUseElement from Document::m_svgUseElements
+            https://bugs.webkit.org/show_bug.cgi?id=182188
+            <rdar://problem/36689240>
+
+            Reviewed by Antti Koivisto.
+
+            Fixed the crash by removing up the release assert.
+
+            The crash is likely caused by re-entrancy to Document::resolveStyle during SVGUseElement::updateShadowTree.
+            Because Document::resolveStyle invokes updateShadowTree on SVG use elements in Document::m_svgUseElements
+            without clearing the map, the nested call to resolveStyle ends up calling updateShadowTree() for all elements
+            in m_svgUseElements and removing them all from the map. When the stack frame eventually comes back to the outer
+            invocation of Document::resolveStyle, updateShadowTree gets invoked for the second time on SVG use elements
+            whose shadow tree had already been updated within the inner invocation to updateShadowTree, and release-asserts.
+
+            There is an alternative fix: avoid calling updateShadowTree on a svg element when shadowTreeNeedsUpdate returns
+            true on the element in resolveStyle. However, removing the release assert is a sure way to fix the crash so
+            this patch opts for that fix instead especially since we don't have any reproducible test case for this crash.
+
+            This release assertion was added in r225868 as a cautious measure to catch any use-after-frees of SVGUseElement's
+            since m_svgUseElements stored raw pointes to SVG use elements but this crash is not an indicative of any UAF,
+            and there is no evidence that r225868 has led to new UAFs even after five months.
+
+            No new tests. I couldn't find a way to trigger a nested style update inside SVGUseElement::updateShadowTree.
+
+            * dom/Document.cpp:
+            (WebCore::Document::removeSVGUseElement):
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230983. rdar://problem/39988114
+
+    Release assert in ScriptController::canExecuteScripts via CachedSVGFont::ensureCustomFontData during
+    Document::updateStyleIfNeeded
+    https://bugs.webkit.org/show_bug.cgi?id=184950
+    
+    Reviewed by Zalan Bujtas.
+    
+    Convert an existing ScriptDisallowedScope::EventAllowedScope which only disables the debug assertions
+    by ScriptDisallowedScope::DisableAssertionsInScope which also disables the release assertion.
+    
+    Because SVG font is loaded in a document isolated from the rest of the page (m_externalSVGDocument),
+    there is no security implication to execute scripts in this isolated document.
+    
+    Unfortunately, no new tests. I could never make CachedSVGFont::ensureCustomFontData to get called inside
+    style resolution with m_externalSVGDocument set to nullptr after many attempts. Even EventAllowedScope
+    I added 13 months ago in r211965, which this patch replaces by DisableAssertionsInScope, is not utilized
+    by the existing layout tests since removing the assertion doesn't cause any layout test to hit an assertion.
+    
+    * dom/ScriptDisallowedScope.h: Updated the comment.
+    * loader/cache/CachedSVGFont.cpp:
+    (WebCore::CachedSVGFont::ensureCustomFontData): Replaced the asssertion.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230983 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-24  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Release assert in ScriptController::canExecuteScripts via CachedSVGFont::ensureCustomFontData during
+            Document::updateStyleIfNeeded
+            https://bugs.webkit.org/show_bug.cgi?id=184950
+
+            Reviewed by Zalan Bujtas.
+
+            Convert an existing ScriptDisallowedScope::EventAllowedScope which only disables the debug assertions
+            by ScriptDisallowedScope::DisableAssertionsInScope which also disables the release assertion.
+
+            Because SVG font is loaded in a document isolated from the rest of the page (m_externalSVGDocument),
+            there is no security implication to execute scripts in this isolated document.
+
+            Unfortunately, no new tests. I could never make CachedSVGFont::ensureCustomFontData to get called inside
+            style resolution with m_externalSVGDocument set to nullptr after many attempts. Even EventAllowedScope
+            I added 13 months ago in r211965, which this patch replaces by DisableAssertionsInScope, is not utilized
+            by the existing layout tests since removing the assertion doesn't cause any layout test to hit an assertion.
+
+            * dom/ScriptDisallowedScope.h: Updated the comment.
+            * loader/cache/CachedSVGFont.cpp:
+            (WebCore::CachedSVGFont::ensureCustomFontData): Replaced the asssertion.
+
+2018-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231516. rdar://problem/40096750
+
+    Unreviewed build fix; add missing function definition.
+    
+    * html/HTMLMediaElement.h:
+    (WebCore::HTMLMediaElement::didPassCORSAccessCheck const):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231516 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-08  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; add missing function definition.
+
+            * html/HTMLMediaElement.h:
+            (WebCore::HTMLMediaElement::didPassCORSAccessCheck const):
+
+2018-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231513. rdar://problem/40096750
+
+    Mute MediaElementSourceNode when tainted.
+    https://bugs.webkit.org/show_bug.cgi?id=184866
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Test: http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin.html
+    
+    * Modules/webaudio/AudioContext.cpp:
+    (WebCore::AudioContext::wouldTaintOrigin const):
+    * Modules/webaudio/AudioContext.h:
+    * Modules/webaudio/MediaElementAudioSourceNode.cpp:
+    (WebCore::MediaElementAudioSourceNode::setFormat):
+    (WebCore::MediaElementAudioSourceNode::wouldTaintOrigin):
+    (WebCore::MediaElementAudioSourceNode::process):
+    * Modules/webaudio/MediaElementAudioSourceNode.h:
+    
+    LayoutTests:
+    
+    * http/tests/media/resources/1000Hz-sin.wav: Added.
+    * http/tests/security/webaudio-render-remote-audio-allowed-crossorigin-expected.txt: Added.
+    * http/tests/security/webaudio-render-remote-audio-allowed-crossorigin.html: Added.
+    * http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin-expected.txt: Added.
+    * http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231513 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-08  Jer Noble  <jer.noble@apple.com>
+
+            Mute MediaElementSourceNode when tainted.
+            https://bugs.webkit.org/show_bug.cgi?id=184866
+
+            Reviewed by Eric Carlson.
+
+            Test: http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin.html
+
+            * Modules/webaudio/AudioContext.cpp:
+            (WebCore::AudioContext::wouldTaintOrigin const):
+            * Modules/webaudio/AudioContext.h:
+            * Modules/webaudio/MediaElementAudioSourceNode.cpp:
+            (WebCore::MediaElementAudioSourceNode::setFormat):
+            (WebCore::MediaElementAudioSourceNode::wouldTaintOrigin):
+            (WebCore::MediaElementAudioSourceNode::process):
+            * Modules/webaudio/MediaElementAudioSourceNode.h:
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231441. rdar://problem/40050720
+
+    WebGL: Reset simulated values after validation fails
+    https://bugs.webkit.org/show_bug.cgi?id=185363
+    <rdar://problem/39733417>
+    
+    Reviewed by Anders Carlsson.
+    
+    Source/WebCore:
+    
+    While fixing a previous bug, I forgot to reset some values
+    when validation fails. This caused a bug where a subsequent
+    invalid call might use those values and escape detection.
+    
+    Test: fast/canvas/webgl/index-validation-with-subsequent-draws.html
+    
+    * html/canvas/WebGLRenderingContextBase.cpp:
+    (WebCore::WebGLRenderingContextBase::simulateVertexAttrib0): Reset the
+    sizes when validation fails.
+    * html/canvas/WebGLRenderingContextBase.h:
+    
+    LayoutTests:
+    
+    * fast/canvas/webgl/index-validation-with-subsequent-draws-expected.txt: Added.
+    * fast/canvas/webgl/index-validation-with-subsequent-draws.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231441 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-06  Dean Jackson  <dino@apple.com>
+
+            WebGL: Reset simulated values after validation fails
+            https://bugs.webkit.org/show_bug.cgi?id=185363
+            <rdar://problem/39733417>
+
+            Reviewed by Anders Carlsson.
+
+            While fixing a previous bug, I forgot to reset some values
+            when validation fails. This caused a bug where a subsequent
+            invalid call might use those values and escape detection.
+
+            Test: fast/canvas/webgl/index-validation-with-subsequent-draws.html
+
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::simulateVertexAttrib0): Reset the
+            sizes when validation fails.
+            * html/canvas/WebGLRenderingContextBase.h:
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231236. rdar://problem/40050705
+
+    Source/WebCore:
+    Prevent Debug ASSERT when changing forms
+    https://bugs.webkit.org/show_bug.cgi?id=185173
+    <rdar://problem/39738669>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Form submission could trigger a debug assertion during validation when
+    a form is changed during an input submission. Fix this by cleaning up
+    the event handling logic and make it more consistent with modern WebKit
+    coding style.
+    
+    Test: fast/forms/form-submission-crash-3.html
+    
+    * html/HTMLButtonElement.cpp:
+    (WebCore::HTMLButtonElement::defaultEventHandler): Make sure layout runs before
+    attempting to perform event handling.
+    * html/HTMLFormElement.cpp:
+    (WebCore::HTMLFormElement::reportValidity): Ditto.
+    (WebCore::HTMLFormElement::validateInteractively): Remove call to perform layout here,
+    since we expect this to happen earlier in the layout pass. Add an assertion that the
+    tree is not dirty.
+    * html/ImageInputType.cpp:
+    (WebCore::ImageInputType::handleDOMActivateEvent): Make sure layout runs before
+    attempting to perform event handling.
+    * html/SubmitInputType.cpp:
+    (WebCore::SubmitInputType::handleDOMActivateEvent): Ditto.
+    
+    LayoutTests:
+    Prevent assertion when changing forms
+    https://bugs.webkit.org/show_bug.cgi?id=185173
+    <rdar://problem/39738669>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    * fast/forms/form-submission-crash-3-expected.txt: Added.
+    * fast/forms/form-submission-crash-3.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231236 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-01  Brent Fulgham  <bfulgham@apple.com>
+
+            Prevent Debug ASSERT when changing forms
+            https://bugs.webkit.org/show_bug.cgi?id=185173
+            <rdar://problem/39738669>
+
+            Reviewed by Ryosuke Niwa.
+
+            Form submission could trigger a debug assertion during validation when
+            a form is changed during an input submission. Fix this by cleaning up
+            the event handling logic and make it more consistent with modern WebKit
+            coding style.
+
+            Test: fast/forms/form-submission-crash-3.html
+
+            * html/HTMLButtonElement.cpp:
+            (WebCore::HTMLButtonElement::defaultEventHandler): Make sure layout runs before
+            attempting to perform event handling.
+            * html/HTMLFormElement.cpp:
+            (WebCore::HTMLFormElement::reportValidity): Ditto.
+            (WebCore::HTMLFormElement::validateInteractively): Remove call to perform layout here,
+            since we expect this to happen earlier in the layout pass. Add an assertion that the
+            tree is not dirty.
+            * html/ImageInputType.cpp:
+            (WebCore::ImageInputType::handleDOMActivateEvent): Make sure layout runs before
+            attempting to perform event handling.
+            * html/SubmitInputType.cpp:
+            (WebCore::SubmitInputType::handleDOMActivateEvent): Ditto.
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231335. rdar://problem/40050807
+
+    Widgets should hold a WeakPtr to their parents
+    https://bugs.webkit.org/show_bug.cgi?id=185239
+    <rdar://problem/39741250>
+    
+    Reviewed by Zalan Bujtas.
+    
+    * platform/ScrollView.h:
+    (WebCore::ScrollView::weakPtrFactory): Added.
+    * platform/Widget.cpp:
+    (WebCore::Widget::init): Don't perform an unnecessary assignment.
+    (WebCore::Widget::setParent): Grab a WeakPtr to the parent ScrollView.
+    * platform/Widget.h:
+    (WebCore::Widget::parent const): Change type to a WeakPtr.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231335 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-02  Brent Fulgham  <bfulgham@apple.com>
+
+            Widgets should hold a WeakPtr to their parents
+            https://bugs.webkit.org/show_bug.cgi?id=185239
+            <rdar://problem/39741250>
+
+            Reviewed by Zalan Bujtas.
+
+            * platform/ScrollView.h:
+            (WebCore::ScrollView::weakPtrFactory): Added.
+            * platform/Widget.cpp:
+            (WebCore::Widget::init): Don't perform an unnecessary assignment.
+            (WebCore::Widget::setParent): Grab a WeakPtr to the parent ScrollView.
+            * platform/Widget.h:
+            (WebCore::Widget::parent const): Change type to a WeakPtr.
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231291. rdar://problem/40050729
+
+    Use RetainPtr for form input type
+    https://bugs.webkit.org/show_bug.cgi?id=185210
+    <rdar://problem/39734040>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    Refactor our HTMLInputElement class to store its InputType member as a RefPtr.
+    
+    Test: fast/forms/access-key-mutation-2.html.
+    
+    * html/HTMLInputElement.cpp:
+    (WebCore::HTMLInputElement::HTMLInputElement):
+    (WebCore::HTMLInputElement::didAddUserAgentShadowRoot):
+    (WebCore::HTMLInputElement::accessKeyAction):
+    (WebCore::HTMLInputElement::parseAttribute):
+    (WebCore::HTMLInputElement::appendFormData):
+    * html/HTMLInputElement.h:
+    * html/InputType.cpp:
+    (WebCore::createInputType):
+    (WebCore::InputType::create):
+    (WebCore::InputType::createText):
+    * html/InputType.h:
+    
+    LayoutTests:
+    
+    * fast/forms/access-key-mutation-2-expected.txt: Added.
+    * fast/forms/access-key-mutation-2.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231291 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-02  Brent Fulgham  <bfulgham@apple.com>
+
+            Use RetainPtr for form input type
+            https://bugs.webkit.org/show_bug.cgi?id=185210
+            <rdar://problem/39734040>
+
+            Reviewed by Ryosuke Niwa.
+
+            Refactor our HTMLInputElement class to store its InputType member as a RefPtr.
+
+            Test: fast/forms/access-key-mutation-2.html.
+
+            * html/HTMLInputElement.cpp:
+            (WebCore::HTMLInputElement::HTMLInputElement):
+            (WebCore::HTMLInputElement::didAddUserAgentShadowRoot):
+            (WebCore::HTMLInputElement::accessKeyAction):
+            (WebCore::HTMLInputElement::parseAttribute):
+            (WebCore::HTMLInputElement::appendFormData):
+            * html/HTMLInputElement.h:
+            * html/InputType.cpp:
+            (WebCore::createInputType):
+            (WebCore::InputType::create):
+            (WebCore::InputType::createText):
+            * html/InputType.h:
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231187. rdar://problem/39987469
+
+    Improve the performance of FontCascadeDescription's effectiveFamilies
+    https://bugs.webkit.org/show_bug.cgi?id=184720
+    PerformanceTests:
+    
+    Reviewed by Simon Fraser.
+    
+    This performance test calls SystemFontDatabase::systemFontCascadeList() around 2,000,000 times (before
+    this patch is applied), which is roughly equivalent to the page we found the performance problem on.
+    The calling pattern is roughly equivalent in this test.
+    
+    * Layout/system-ui.html: Added.
+    
+    Source/WebCore:
+    
+    <rdar://problem/38970927>
+    
+    Reviewed by Simon Fraser.
+    
+    The page that had the performance problem renders many different Chinese characters in system-ui
+    with only a small number of individual fonts. It turns out we were calling into the system-ui
+    machinery for each character in order to opportunistically start loading data URLs (see also:
+    https://bugs.webkit.org/show_bug.cgi?id=175845). These data URLS will never represent the system
+    font, so we don't need to invoke the system-ui machinery at all.
+    
+    This patch makes a 92x performance improvement on the associated performance test. This test is
+    designed to test Chinese text rendered with system-ui.
+    
+    Performance test: Layout/system-ui.html
+    
+    * platform/graphics/FontCascadeFonts.cpp:
+    (WebCore::opportunisticallyStartFontDataURLLoading):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231187 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Improve the performance of FontCascadeDescription's effectiveFamilies
+            https://bugs.webkit.org/show_bug.cgi?id=184720
+            <rdar://problem/38970927>
+
+            Reviewed by Simon Fraser.
+
+            The page that had the performance problem renders many different Chinese characters in system-ui
+            with only a small number of individual fonts. It turns out we were calling into the system-ui
+            machinery for each character in order to opportunistically start loading data URLs (see also:
+            https://bugs.webkit.org/show_bug.cgi?id=175845). These data URLS will never represent the system
+            font, so we don't need to invoke the system-ui machinery at all.
+
+            This patch makes a 92x performance improvement on the associated performance test. This test is
+            designed to test Chinese text rendered with system-ui.
+
+            Performance test: Layout/system-ui.html
+
+            * platform/graphics/FontCascadeFonts.cpp:
+            (WebCore::opportunisticallyStartFontDataURLLoading):
+
+2018-05-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231242. rdar://problem/39860939
+
+    [iOS] Provide audio route information when invoking AirPlay picker
+    https://bugs.webkit.org/show_bug.cgi?id=185199
+    <rdar://problem/39853103>
+    
+    Reviewed by Jer Noble.
+    
+    Source/WebCore:
+    
+    No new tests, this requires a specific hardware setup.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    * dom/Document.h:
+    
+    * html/MediaElementSession.cpp:
+    (WebCore::MediaElementSession::showPlaybackTargetPicker): Ditto.
+    
+    * loader/EmptyClients.h:
+    * page/ChromeClient.h:
+    
+    * page/Page.cpp:
+    (WebCore::Page::showPlaybackTargetPicker): Ditto.
+    * page/Page.h:
+    
+    * platform/audio/AudioSession.cpp:
+    (WebCore::AudioSession::routeSharingPolicy const): Empty implementation for non-iOS ports.
+    (WebCore::routingContextUID const): Ditto.
+    * platform/audio/AudioSession.h:
+    
+    * platform/audio/ios/AudioSessionIOS.mm:
+    (WebCore::AudioSession::routeSharingPolicy const): Return the route sharing policy.
+    (WebCore::AudioSession::routingContextUID const): Return the route context UID.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/AVFoundationSPI.h: Add additional AVAudioSession SPI.
+    
+    Source/WebKit:
+    
+    * Scripts/webkit/messages.py:
+    * UIProcess/PageClient.h:
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * UIProcess/ios/PageClientImplIOS.h:
+    * UIProcess/ios/PageClientImplIOS.mm:
+    (WebKit::PageClientImpl::showPlaybackTargetPicker):  Pass route sharing policy and routing context UID.
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _showPlaybackTargetPicker:fromRect:routeSharingPolicy:routingContextUID:]): Take same.
+    (-[WKContentView _showPlaybackTargetPicker:fromRect:]): Deleted.
+    
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    
+    * UIProcess/ios/forms/WKAirPlayRoutePicker.h:
+    * UIProcess/ios/forms/WKAirPlayRoutePicker.mm:
+    (-[WKAirPlayRoutePicker showFromView:routeSharingPolicy:routingContextUID:]): Take same.
+    (-[WKAirPlayRoutePicker showFromView:]): Deleted.
+    
+    * WebProcess/WebCoreSupport/WebChromeClient.h:
+    * WebProcess/WebCoreSupport/ios/WebChromeClientIOS.mm:
+    (WebKit::WebChromeClient::showPlaybackTargetPicker):
+    
+    Source/WebKitLegacy/ios:
+    
+    * WebCoreSupport/WebChromeClientIOS.h:
+    * WebCoreSupport/WebChromeClientIOS.mm:
+    (WebChromeClientIOS::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231242 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-02  Eric Carlson  <eric.carlson@apple.com>
+
+            [iOS] Provide audio route information when invoking AirPlay picker
+            https://bugs.webkit.org/show_bug.cgi?id=185199
+            <rdar://problem/39853103>
+
+            Reviewed by Jer Noble.
+
+            No new tests, this requires a specific hardware setup.
+
+            * dom/Document.cpp:
+            (WebCore::Document::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+            * dom/Document.h:
+
+            * html/MediaElementSession.cpp:
+            (WebCore::MediaElementSession::showPlaybackTargetPicker): Ditto.
+
+            * loader/EmptyClients.h:
+            * page/ChromeClient.h:
+
+            * page/Page.cpp:
+            (WebCore::Page::showPlaybackTargetPicker): Ditto.
+            * page/Page.h:
+
+            * platform/audio/AudioSession.cpp:
+            (WebCore::AudioSession::routeSharingPolicy const): Empty implementation for non-iOS ports.
+            (WebCore::routingContextUID const): Ditto.
+            * platform/audio/AudioSession.h:
+
+            * platform/audio/ios/AudioSessionIOS.mm:
+            (WebCore::AudioSession::routeSharingPolicy const): Return the route sharing policy.
+            (WebCore::AudioSession::routingContextUID const): Return the route context UID.
+
 2018-04-30  Jason Marcell  <jmarcell@apple.com>
 
         Apply patch. rdar://problem/39741039

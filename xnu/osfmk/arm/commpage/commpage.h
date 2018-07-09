@@ -45,5 +45,6 @@ extern	void	commpage_update_atm_diagnostic_config(uint32_t);
 extern  void	commpage_update_mach_continuous_time(uint64_t sleeptime);
 extern	void	commpage_update_multiuser_config(uint32_t);
 extern  void    commpage_update_boottime(uint64_t boottime_usec);
+extern	void	commpage_set_remotetime_params(double rate, uint64_t base_local_ts, uint64_t base_remote_ts);
 
 #endif /* _ARM_COMMPAGE_H */

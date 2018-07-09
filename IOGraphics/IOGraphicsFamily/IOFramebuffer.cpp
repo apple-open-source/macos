@@ -4410,6 +4410,7 @@ do {                                                                           \
 
         OSSafeReleaseNULL(__private->pmSettingNotificationHandle);
         OSSafeReleaseNULL(__private->paramHandler);
+        OSSafeReleaseNULL(sharedCursor);
 
         // Disable notifications so we aren't delivering notifications for
         // FBs that have stopped. Holders of these notifiers should remove them
@@ -4435,7 +4436,6 @@ do {                                                                           \
 
         temporaryPowerClampOn();        // only to clear out kIOPMPreventSystemSleep
         PMstop();
-        initialized = false;
     }
     else
     {

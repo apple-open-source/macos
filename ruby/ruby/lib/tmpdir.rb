@@ -2,7 +2,7 @@
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb 52526 2015-11-10 11:48:14Z akr $
+# $Id: tmpdir.rb 62995 2018-03-28 10:29:15Z usa $
 #
 
 require 'fileutils'
@@ -109,8 +109,10 @@ class Dir
     def make_tmpname((prefix, suffix), n)
       prefix = (String.try_convert(prefix) or
                 raise ArgumentError, "unexpected prefix: #{prefix.inspect}")
+      prefix = prefix.delete("#{File::SEPARATOR}#{File::ALT_SEPARATOR}")
       suffix &&= (String.try_convert(suffix) or
                   raise ArgumentError, "unexpected suffix: #{suffix.inspect}")
+      suffix &&= suffix.delete("#{File::SEPARATOR}#{File::ALT_SEPARATOR}")
       t = Time.now.strftime("%Y%m%d")
       path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}".dup
       path << "-#{n}" if n

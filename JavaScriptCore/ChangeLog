@@ -1,3 +1,718 @@
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r232313. rdar://problem/40050814
+
+    LLInt get_by_id prototype caching doesn't properly handle changes
+    https://bugs.webkit.org/show_bug.cgi?id=186112
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/llint-proto-get-by-id-cache-change-prototype.js: Added.
+    (foo):
+    * stress/llint-proto-get-by-id-cache-intercept-value.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    The caching would sometimes fail to track that a prototype had changed
+    and wouldn't update its set of watchpoints.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::finalizeLLIntInlineCaches):
+    * bytecode/CodeBlock.h:
+    * bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.h:
+    (JSC::LLIntPrototypeLoadAdaptiveStructureWatchpoint::key const):
+    * bytecode/ObjectPropertyConditionSet.h:
+    (JSC::ObjectPropertyConditionSet::size const):
+    * bytecode/Watchpoint.h:
+    (JSC::Watchpoint::Watchpoint): Deleted.
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::setupGetByIdPrototypeCache):
+    
+    Source/WTF:
+    
+    Mark some methods const.
+    
+    * wtf/Bag.h:
+    (WTF::Bag::begin const):
+    (WTF::Bag::end const):
+    (WTF::Bag::unwrappedHead const):
+    (WTF::Bag::end): Deleted.
+    (WTF::Bag::unwrappedHead): Deleted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@232313 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-30  Keith Miller  <keith_miller@apple.com>
+
+            LLInt get_by_id prototype caching doesn't properly handle changes
+            https://bugs.webkit.org/show_bug.cgi?id=186112
+
+            Reviewed by Filip Pizlo.
+
+            The caching would sometimes fail to track that a prototype had changed
+            and wouldn't update its set of watchpoints.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::finalizeLLIntInlineCaches):
+            * bytecode/CodeBlock.h:
+            * bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.h:
+            (JSC::LLIntPrototypeLoadAdaptiveStructureWatchpoint::key const):
+            * bytecode/ObjectPropertyConditionSet.h:
+            (JSC::ObjectPropertyConditionSet::size const):
+            * bytecode/Watchpoint.h:
+            (JSC::Watchpoint::Watchpoint): Deleted.
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::setupGetByIdPrototypeCache):
+
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Revert r231595. rdar://problem/40050814
+
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Revert r231540. rdar://problem/40050814
+
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r232219. rdar://problem/40641075
+
+    for-in loops should preserve and restore the TDZ stack for each of its internal loops.
+    https://bugs.webkit.org/show_bug.cgi?id=185995
+    <rdar://problem/40173142>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/regress-185995.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    This is because there's no guarantee that any of the loop bodies will be
+    executed.  Hence, there's no guarantee that the TDZ variables will have been
+    initialized after each loop body.
+    
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::preserveTDZStack):
+    (JSC::BytecodeGenerator::restoreTDZStack):
+    * bytecompiler/BytecodeGenerator.h:
+    * bytecompiler/NodesCodegen.cpp:
+    (JSC::ForInNode::emitBytecode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@232219 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-25  Mark Lam  <mark.lam@apple.com>
+
+            for-in loops should preserve and restore the TDZ stack for each of its internal loops.
+            https://bugs.webkit.org/show_bug.cgi?id=185995
+            <rdar://problem/40173142>
+
+            Reviewed by Saam Barati.
+
+            This is because there's no guarantee that any of the loop bodies will be
+            executed.  Hence, there's no guarantee that the TDZ variables will have been
+            initialized after each loop body.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::preserveTDZStack):
+            (JSC::BytecodeGenerator::restoreTDZStack):
+            * bytecompiler/BytecodeGenerator.h:
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::ForInNode::emitBytecode):
+
+2018-05-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r231871. rdar://problem/40346090
+
+    DFG models InstanceOf incorrectly
+    https://bugs.webkit.org/show_bug.cgi?id=185694
+    
+    Reviewed by Keith Miller.
+    JSTests:
+    
+    * stress/instanceof-proxy-check-structure.js: Added.
+    (Foo):
+    (Bar):
+    (doBadThings):
+    (getPrototypeOf):
+    (foo):
+    (i.new.Bar):
+    (new.Bar):
+    * stress/instanceof-proxy-loop.js: Added.
+    (Foo):
+    (Bar):
+    (doBadThings):
+    (getPrototypeOf):
+    (foo):
+    * stress/instanceof-proxy.js: Added.
+    (Foo):
+    (Bar):
+    (doBadThings):
+    (getPrototypeOf):
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    Proxies mean that InstanceOf can have effects. Exceptions mean that it's illegal to DCE it or
+    hoist it.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    * dfg/DFGHeapLocation.cpp:
+    (WTF::printInternal):
+    * dfg/DFGHeapLocation.h:
+    * dfg/DFGNodeType.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231871 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-16  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG models InstanceOf incorrectly
+            https://bugs.webkit.org/show_bug.cgi?id=185694
+
+            Reviewed by Keith Miller.
+
+            Proxies mean that InstanceOf can have effects. Exceptions mean that it's illegal to DCE it or
+            hoist it.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+            * dfg/DFGHeapLocation.cpp:
+            (WTF::printInternal):
+            * dfg/DFGHeapLocation.h:
+            * dfg/DFGNodeType.h:
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230485. rdar://problem/39988105
+
+    REGRESSION(r227341 and r227742): AI and clobberize should be precise and consistent about the effectfulness of CompareEq
+    https://bugs.webkit.org/show_bug.cgi?id=184455
+    
+    Reviewed by Michael Saboff.
+    
+    LICM is sort of an assertion that AI is as precise as clobberize about effects. If clobberize
+    says that something is not effectful, then LICM will try to hoist it. But LICM's AI hack
+    (AtTailAbstractState) cannot handle hoisting of things that have effects. So, if AI thinks that
+    the thing being hoisted does have effects, then we get a crash.
+    
+    In r227341, we incorrectly told AI that CompareEq(Untyped:, _) is effectful. In fact, only
+    ComapreEq(Untyped:, Untyped:) is effectful, and clobberize knew this already. As a result, LICM
+    would blow up if we hoisted CompareEq(Untyped:, Other:), which clobberize knew wasn't
+    effectful.
+    
+    Instead of fixing this by making AI precise, in r227742 we made matters worse by then breaking
+    clobberize to also think that CompareEq(Untyped:, _) is effectful.
+    
+    This fixes the whole situation by teaching both clobberize and AI that the only effectful form
+    of CompareEq is ComapreEq(Untyped:, Untyped:).
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230485 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-10  Filip Pizlo  <fpizlo@apple.com>
+
+            REGRESSION(r227341 and r227742): AI and clobberize should be precise and consistent about the effectfulness of CompareEq
+            https://bugs.webkit.org/show_bug.cgi?id=184455
+
+            Reviewed by Michael Saboff.
+
+            LICM is sort of an assertion that AI is as precise as clobberize about effects. If clobberize
+            says that something is not effectful, then LICM will try to hoist it. But LICM's AI hack
+            (AtTailAbstractState) cannot handle hoisting of things that have effects. So, if AI thinks that
+            the thing being hoisted does have effects, then we get a crash.
+
+            In r227341, we incorrectly told AI that CompareEq(Untyped:, _) is effectful. In fact, only
+            ComapreEq(Untyped:, Untyped:) is effectful, and clobberize knew this already. As a result, LICM
+            would blow up if we hoisted CompareEq(Untyped:, Other:), which clobberize knew wasn't
+            effectful.
+
+            Instead of fixing this by making AI precise, in r227742 we made matters worse by then breaking
+            clobberize to also think that CompareEq(Untyped:, _) is effectful.
+
+            This fixes the whole situation by teaching both clobberize and AI that the only effectful form
+            of CompareEq is ComapreEq(Untyped:, Untyped:).
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r231317. rdar://problem/39988108
+
+    WebContent crash loading page on seas.upenn.edu @ JavaScriptCore: vmEntryToJavaScript
+    https://bugs.webkit.org/show_bug.cgi?id=185231
+    
+    Reviewed by Saam Barati.
+    
+    We weren't clearing the scratch register cache when switching back and forth between 
+    allowing scratch register usage.  We disallow scratch register usage when we are in
+    code that will freely allocate and use any register.  Such usage can change the
+    contents of scratch registers.  For ARM64, where we cache the contents of scratch
+    registers to reuse some or all of the contained values, we need to invalidate these
+    caches.  We do this when re-enabling scratch register usage, that is when we transition
+    from disallow to allow scratch register usage.
+    
+    Added a new Air regression test.
+    
+    * assembler/AllowMacroScratchRegisterUsage.h:
+    (JSC::AllowMacroScratchRegisterUsage::AllowMacroScratchRegisterUsage):
+    * assembler/AllowMacroScratchRegisterUsageIf.h:
+    (JSC::AllowMacroScratchRegisterUsageIf::AllowMacroScratchRegisterUsageIf):
+    * assembler/DisallowMacroScratchRegisterUsage.h:
+    (JSC::DisallowMacroScratchRegisterUsage::~DisallowMacroScratchRegisterUsage):
+    * b3/air/testair.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231317 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-03  Michael Saboff  <msaboff@apple.com>
+
+            WebContent crash loading page on seas.upenn.edu @ JavaScriptCore: vmEntryToJavaScript
+            https://bugs.webkit.org/show_bug.cgi?id=185231
+
+            Reviewed by Saam Barati.
+
+            We weren't clearing the scratch register cache when switching back and forth between
+            allowing scratch register usage.  We disallow scratch register usage when we are in
+            code that will freely allocate and use any register.  Such usage can change the
+            contents of scratch registers.  For ARM64, where we cache the contents of scratch
+            registers to reuse some or all of the contained values, we need to invalidate these
+            caches.  We do this when re-enabling scratch register usage, that is when we transition
+            from disallow to allow scratch register usage.
+
+            Added a new Air regression test.
+
+            * assembler/AllowMacroScratchRegisterUsage.h:
+            (JSC::AllowMacroScratchRegisterUsage::AllowMacroScratchRegisterUsage):
+            * assembler/AllowMacroScratchRegisterUsageIf.h:
+            (JSC::AllowMacroScratchRegisterUsageIf::AllowMacroScratchRegisterUsageIf):
+            * assembler/DisallowMacroScratchRegisterUsage.h:
+            (JSC::DisallowMacroScratchRegisterUsage::~DisallowMacroScratchRegisterUsage):
+            * b3/air/testair.cpp:
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230486. rdar://problem/39988121
+
+    ExecutableToCodeBlockEdge::visitChildren() should be cool with m_codeBlock being null since we clear it in finalizeUnconditionally()
+    https://bugs.webkit.org/show_bug.cgi?id=184460
+    <rdar://problem/37610966>
+    
+    Reviewed by Mark Lam.
+    
+    * bytecode/ExecutableToCodeBlockEdge.cpp:
+    (JSC::ExecutableToCodeBlockEdge::visitChildren):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230486 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-10  Filip Pizlo  <fpizlo@apple.com>
+
+            ExecutableToCodeBlockEdge::visitChildren() should be cool with m_codeBlock being null since we clear it in finalizeUnconditionally()
+            https://bugs.webkit.org/show_bug.cgi?id=184460
+            <rdar://problem/37610966>
+
+            Reviewed by Mark Lam.
+
+            * bytecode/ExecutableToCodeBlockEdge.cpp:
+            (JSC::ExecutableToCodeBlockEdge::visitChildren):
+
+2018-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r230465. rdar://problem/39988131
+
+    Executing known edge types may reveal a contradiction causing us to emit an exit at a node that is not allowed to exit
+    https://bugs.webkit.org/show_bug.cgi?id=184372
+    
+    Reviewed by Saam Barati.
+            
+    We do a pretty good job of not emitting checks for KnownBlah edges, since those mean that we
+    have already proved, using techniques that are more precise than AI, that the edge has type
+    Blah. Unfortunately, we do not handle this case gracefully when AI state becomes bottom,
+    because we have a bad habit of treating terminate/terminateSpeculativeExecution as something
+    other than a check - so we think we can call those just because we should have already
+    bailed. It's better to think of them as the result of folding a check. Therefore, we should
+    only do it if there had been a check to begin with.
+    
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::fillSpeculateInt32Internal):
+    (JSC::DFG::SpeculativeJIT::fillSpeculateInt52):
+    (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+    (JSC::DFG::SpeculativeJIT::fillSpeculateCell):
+    (JSC::DFG::SpeculativeJIT::fillSpeculateBoolean):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::lowInt32):
+    (JSC::FTL::DFG::LowerDFGToB3::lowInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::lowCell):
+    (JSC::FTL::DFG::LowerDFGToB3::lowBoolean):
+    (JSC::FTL::DFG::LowerDFGToB3::lowDouble):
+    (JSC::FTL::DFG::LowerDFGToB3::speculate):
+    (JSC::FTL::DFG::LowerDFGToB3::speculateCellOrOther):
+    (JSC::FTL::DFG::LowerDFGToB3::speculateStringOrOther):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230465 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-09  Filip Pizlo  <fpizlo@apple.com>
+
+            Executing known edge types may reveal a contradiction causing us to emit an exit at a node that is not allowed to exit
+            https://bugs.webkit.org/show_bug.cgi?id=184372
+
+            Reviewed by Saam Barati.
+
+            We do a pretty good job of not emitting checks for KnownBlah edges, since those mean that we
+            have already proved, using techniques that are more precise than AI, that the edge has type
+            Blah. Unfortunately, we do not handle this case gracefully when AI state becomes bottom,
+            because we have a bad habit of treating terminate/terminateSpeculativeExecution as something
+            other than a check - so we think we can call those just because we should have already
+            bailed. It's better to think of them as the result of folding a check. Therefore, we should
+            only do it if there had been a check to begin with.
+
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::fillSpeculateInt32Internal):
+            (JSC::DFG::SpeculativeJIT::fillSpeculateInt52):
+            (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+            (JSC::DFG::SpeculativeJIT::fillSpeculateCell):
+            (JSC::DFG::SpeculativeJIT::fillSpeculateBoolean):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::lowInt32):
+            (JSC::FTL::DFG::LowerDFGToB3::lowInt52):
+            (JSC::FTL::DFG::LowerDFGToB3::lowCell):
+            (JSC::FTL::DFG::LowerDFGToB3::lowBoolean):
+            (JSC::FTL::DFG::LowerDFGToB3::lowDouble):
+            (JSC::FTL::DFG::LowerDFGToB3::speculate):
+            (JSC::FTL::DFG::LowerDFGToB3::speculateCellOrOther):
+            (JSC::FTL::DFG::LowerDFGToB3::speculateStringOrOther):
+
+2018-05-09  Keith Miller  <keith_miller@apple.com>
+
+        Cherry-pick r231316. rdar://problem/40050814
+
+    Remove the prototype caching for get_by_id in the LLInt
+    https://bugs.webkit.org/show_bug.cgi?id=185226
+
+    Reviewed by Michael Saboff.
+
+    There is no evidence that this is actually a speedup and we keep
+    getting bugs with it. At this point it seems like we should just
+    remove this code.
+
+    * JavaScriptCore.xcodeproj/project.pbxproj:
+    * Sources.txt:
+    * bytecode/BytecodeDumper.cpp:
+    (JSC::BytecodeDumper<Block>::printGetByIdOp):
+    (JSC::BytecodeDumper<Block>::printGetByIdCacheStatus):
+    (JSC::BytecodeDumper<Block>::dumpBytecode):
+    * bytecode/BytecodeList.json:
+    * bytecode/BytecodeUseDef.h:
+    (JSC::computeUsesForBytecodeOffset):
+    (JSC::computeDefsForBytecodeOffset):
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::finalizeLLIntInlineCaches):
+    * bytecode/CodeBlock.h:
+    (JSC::CodeBlock::llintGetByIdWatchpointMap): Deleted.
+    * bytecode/GetByIdStatus.cpp:
+    (JSC::GetByIdStatus::computeFromLLInt):
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::emitGetById):
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::parseBlock):
+    * dfg/DFGCapabilities.cpp:
+    (JSC::DFG::capabilityLevel):
+    * jit/JIT.cpp:
+    (JSC::JIT::privateCompileMainPass):
+    (JSC::JIT::privateCompileSlowCases):
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+    (JSC::LLInt::setupGetByIdPrototypeCache): Deleted.
+    * llint/LowLevelInterpreter32_64.asm:
+    * llint/LowLevelInterpreter64.asm:
+    * runtime/Options.h:
+
+2018-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231518. rdar://problem/40096743
+
+    Deferred firing of structure transition watchpoints is racy
+    https://bugs.webkit.org/show_bug.cgi?id=185438
+    
+    Reviewed by Saam Barati.
+    
+    Changed DeferredStructureTransitionWatchpointFire to take the watchpoints to fire
+    and fire them in the destructor.  When the watchpoints are taken from the
+    original WatchpointSet, that WatchpointSet if marked invalid.
+    
+    * bytecode/Watchpoint.cpp:
+    (JSC::WatchpointSet::fireAllSlow):
+    (JSC::WatchpointSet::take):
+    (JSC::DeferredWatchpointFire::DeferredWatchpointFire):
+    (JSC::DeferredWatchpointFire::~DeferredWatchpointFire):
+    (JSC::DeferredWatchpointFire::fireAll):
+    (JSC::DeferredWatchpointFire::takeWatchpointsToFire):
+    * bytecode/Watchpoint.h:
+    (JSC::WatchpointSet::fireAll):
+    (JSC::InlineWatchpointSet::fireAll):
+    * runtime/JSObject.cpp:
+    (JSC::JSObject::setPrototypeDirect):
+    (JSC::JSObject::convertToDictionary):
+    * runtime/JSObjectInlines.h:
+    (JSC::JSObject::putDirectInternal):
+    * runtime/Structure.cpp:
+    (JSC::Structure::Structure):
+    (JSC::DeferredStructureTransitionWatchpointFire::DeferredStructureTransitionWatchpointFire):
+    (JSC::DeferredStructureTransitionWatchpointFire::~DeferredStructureTransitionWatchpointFire):
+    (JSC::DeferredStructureTransitionWatchpointFire::dump const):
+    (JSC::Structure::didTransitionFromThisStructure const):
+    (JSC::DeferredStructureTransitionWatchpointFire::add): Deleted.
+    * runtime/Structure.h:
+    (JSC::DeferredStructureTransitionWatchpointFire::structure const):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231518 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-08  Michael Saboff  <msaboff@apple.com>
+
+            Deferred firing of structure transition watchpoints is racy
+            https://bugs.webkit.org/show_bug.cgi?id=185438
+
+            Reviewed by Saam Barati.
+
+            Changed DeferredStructureTransitionWatchpointFire to take the watchpoints to fire
+            and fire them in the destructor.  When the watchpoints are taken from the
+            original WatchpointSet, that WatchpointSet if marked invalid.
+
+            * bytecode/Watchpoint.cpp:
+            (JSC::WatchpointSet::fireAllSlow):
+            (JSC::WatchpointSet::take):
+            (JSC::DeferredWatchpointFire::DeferredWatchpointFire):
+            (JSC::DeferredWatchpointFire::~DeferredWatchpointFire):
+            (JSC::DeferredWatchpointFire::fireAll):
+            (JSC::DeferredWatchpointFire::takeWatchpointsToFire):
+            * bytecode/Watchpoint.h:
+            (JSC::WatchpointSet::fireAll):
+            (JSC::InlineWatchpointSet::fireAll):
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::setPrototypeDirect):
+            (JSC::JSObject::convertToDictionary):
+            * runtime/JSObjectInlines.h:
+            (JSC::JSObject::putDirectInternal):
+            * runtime/Structure.cpp:
+            (JSC::Structure::Structure):
+            (JSC::DeferredStructureTransitionWatchpointFire::DeferredStructureTransitionWatchpointFire):
+            (JSC::DeferredStructureTransitionWatchpointFire::~DeferredStructureTransitionWatchpointFire):
+            (JSC::DeferredStructureTransitionWatchpointFire::dump const):
+            (JSC::Structure::didTransitionFromThisStructure const):
+            (JSC::DeferredStructureTransitionWatchpointFire::add): Deleted.
+            * runtime/Structure.h:
+            (JSC::DeferredStructureTransitionWatchpointFire::structure const):
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231332. rdar://problem/40050814
+
+    Unreviewed, fix 32-bit profile offset for change in bytecode
+    length of the get_by_id and get_array_length opcodes.
+    
+    * llint/LowLevelInterpreter32_64.asm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231332 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-03  Keith Miller  <keith_miller@apple.com>
+
+            Unreviewed, fix 32-bit profile offset for change in bytecode
+            length of the get_by_id and get_array_length opcodes.
+
+            * llint/LowLevelInterpreter32_64.asm:
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r230980. rdar://problem/40050820
+
+    fromCharCode is missing some exception checks
+    https://bugs.webkit.org/show_bug.cgi?id=184952
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/fromCharCode-exception-check.js: Added.
+    (get catch):
+    
+    Source/JavaScriptCore:
+    
+    I also removed the pointless slow path function and moved it into the
+    main function.
+    
+    * runtime/StringConstructor.cpp:
+    (JSC::stringFromCharCode):
+    (JSC::stringFromCharCodeSlowCase): Deleted.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230980 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-24  Keith Miller  <keith_miller@apple.com>
+
+            fromCharCode is missing some exception checks
+            https://bugs.webkit.org/show_bug.cgi?id=184952
+
+            Reviewed by Saam Barati.
+
+            I also removed the pointless slow path function and moved it into the
+            main function.
+
+            * runtime/StringConstructor.cpp:
+            (JSC::stringFromCharCode):
+            (JSC::stringFromCharCodeSlowCase): Deleted.
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231196. rdar://problem/40050709
+
+    IntlObject.cpp::removeUnicodeLocaleExtension() should not touch locales that end in '-u'
+    https://bugs.webkit.org/show_bug.cgi?id=185162
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/incomplete-unicode-locale.js: Added.
+    (catch):
+    
+    Source/JavaScriptCore:
+    
+    * runtime/IntlObject.cpp:
+    (JSC::removeUnicodeLocaleExtension):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231196 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-01  Robin Morisset  <rmorisset@apple.com>
+
+            IntlObject.cpp::removeUnicodeLocaleExtension() should not touch locales that end in '-u'
+            https://bugs.webkit.org/show_bug.cgi?id=185162
+
+            Reviewed by Filip Pizlo.
+
+            * runtime/IntlObject.cpp:
+            (JSC::removeUnicodeLocaleExtension):
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231034. rdar://problem/40050717
+
+    In FTLLowerDFGToB3.cpp::compileCreateRest, always use a contiguous array as the indexing type when under isWatchingHavingABadTimeWatchpoint
+    https://bugs.webkit.org/show_bug.cgi?id=184773
+    <rdar://problem/37773612>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    This bug requires a race between the thread doing FTL compilation and the main thread, but it triggers in 100% of cases (before the fix) on my machine
+    so I decided to add it to the stress tests nonetheless.
+    
+    * stress/create-rest-while-having-a-bad-time.js: Added.
+    (f):
+    (g):
+    (h):
+    
+    Source/JavaScriptCore:
+    
+    We were calling restParameterStructure(), which returns arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous).
+    arrayStructureForIndexingTypeDuringAllocation uses m_arrayStructureForIndexingShapeDuringAllocation, which is set to SlowPutArrayStorage when we are 'having a bad time'.
+    This is problematic, because the structure is then passed to allocateUninitializedContiguousJSArray, which ASSERTs that the indexing type is contiguous (or int32).
+    We solve the problem by using originalArrayStructureForIndexingType which always returns a structure with the right indexing type (contiguous), even if we are having a bad time.
+    This is safe, as we are under isWatchingHavingABadTimeWatchpoint, so if we have a bad time, the code we generate will never be installed.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCreateRest):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231034 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-25  Robin Morisset  <rmorisset@apple.com>
+
+            In FTLLowerDFGToB3.cpp::compileCreateRest, always use a contiguous array as the indexing type when under isWatchingHavingABadTimeWatchpoint
+            https://bugs.webkit.org/show_bug.cgi?id=184773
+            <rdar://problem/37773612>
+
+            Reviewed by Filip Pizlo.
+
+            We were calling restParameterStructure(), which returns arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous).
+            arrayStructureForIndexingTypeDuringAllocation uses m_arrayStructureForIndexingShapeDuringAllocation, which is set to SlowPutArrayStorage when we are 'having a bad time'.
+            This is problematic, because the structure is then passed to allocateUninitializedContiguousJSArray, which ASSERTs that the indexing type is contiguous (or int32).
+            We solve the problem by using originalArrayStructureForIndexingType which always returns a structure with the right indexing type (contiguous), even if we are having a bad time.
+            This is safe, as we are under isWatchingHavingABadTimeWatchpoint, so if we have a bad time, the code we generate will never be installed.
+
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCreateRest):
+
+2018-05-08  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r230740. rdar://problem/40050731
+
+    A put is not an ExistingProperty put when we transition a structure because of an attributes change
+    https://bugs.webkit.org/show_bug.cgi?id=184706
+    <rdar://problem/38871451>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/put-by-id-direct-strict-transition.js: Added.
+    (const.foo):
+    (j.const.obj.set hello):
+    * stress/put-by-id-direct-transition.js: Added.
+    (const.foo):
+    (j.const.obj.set hello):
+    * stress/put-getter-setter-by-id-strict-transition.js: Added.
+    (const.foo):
+    (j.const.obj.set hello):
+    * stress/put-getter-setter-by-id-transition.js: Added.
+    (const.foo):
+    (j.const.obj.set hello):
+    
+    Source/JavaScriptCore:
+    
+    When putting a property on a structure and the slot is a different
+    type, the slot can't be said to have already been existing.
+    
+    * runtime/JSObjectInlines.h:
+    (JSC::JSObject::putDirectInternal):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@230740 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-04-17  JF Bastien  <jfbastien@apple.com>
+
+            A put is not an ExistingProperty put when we transition a structure because of an attributes change
+            https://bugs.webkit.org/show_bug.cgi?id=184706
+            <rdar://problem/38871451>
+
+            Reviewed by Saam Barati.
+
+            When putting a property on a structure and the slot is a different
+            type, the slot can't be said to have already been existing.
+
+            * runtime/JSObjectInlines.h:
+            (JSC::JSObject::putDirectInternal):
+
 2018-04-26  Jason Marcell  <jmarcell@apple.com>
 
         Cherry-pick r230459. rdar://problem/39766214

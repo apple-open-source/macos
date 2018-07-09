@@ -122,6 +122,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSRestrictSymlinks
 		| kSecCSRestrictToAppLike
         | kSecCSUseSoftwareSigningCert
+	    | kSecCSValidatePEH
 	);
 
 	if (errors)

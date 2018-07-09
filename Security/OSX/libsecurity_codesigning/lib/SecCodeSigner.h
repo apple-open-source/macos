@@ -135,6 +135,12 @@ CFTypeID SecCodeSignerGetTypeID(void);
 		on the verifying system.
 		The default is to embed enough certificates to ensure proper verification of Apple-generated
 		timestamp signatures.
+	@constant kSecCodeSignerRuntimeVersion A CFString indicating the version of runtime hardening policies
+		that the process should be opted into. The string should be of the form "x", "x.x", or "x.x.x" where
+		x is a number between 0 and 255. This parameter is optional. If the signer specifies
+		kSecCodeSignatureRuntime but does not provide this parameter, the runtime version will be the SDK
+		version built into the Mach-O.
+
  */
 extern const CFStringRef kSecCodeSignerApplicationData;
 extern const CFStringRef kSecCodeSignerDetached;
@@ -157,6 +163,7 @@ extern const CFStringRef kSecCodeSignerTimestampOmitCertificates;
 extern const CFStringRef kSecCodeSignerPreserveMetadata;
 extern const CFStringRef kSecCodeSignerTeamIdentifier;
 extern const CFStringRef kSecCodeSignerPlatformIdentifier;
+extern const CFStringRef kSecCodeSignerRuntimeVersion;
 
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
@@ -165,7 +172,9 @@ enum {
     kSecCodeSignerPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
     kSecCodeSignerPreserveFlags = 1 << 4,			// preserve signing flags
 	kSecCodeSignerPreserveTeamIdentifier = 1 << 5,  // preserve team identifier flags
-	kSecCodeSignerPreserveDigestAlgorithm = 1 << 6,  // preserve digest algorithms used
+	kSecCodeSignerPreserveDigestAlgorithm = 1 << 6, // preserve digest algorithms used
+	kSecCodeSignerPreservePEH = 1 << 7,				// preserve pre-encryption hashes
+	kSecCodeSignerPreserveRuntime = 1 << 8,        // preserve the runtime version
 };
 
 
@@ -194,6 +203,8 @@ enum {
 	kSecCSSignNoV1 = 1 << 5,			// do not include V1 form
 	kSecCSSignBundleRoot = 1 << 6,		// include files in bundle root
 	kSecCSSignStrictPreflight = 1 << 7, // fail signing operation if signature would fail strict validation
+	kSecCSSignGeneratePEH = 1 << 8,		// generate pre-encryption hashes
+    kSecCSSignGenerateEntitlementDER = 1 << 9, // generate entitlement DER
 };
 
 

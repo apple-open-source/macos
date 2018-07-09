@@ -633,6 +633,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ToNumber:
     case NumberToStringWithRadix:
     case CreateThis:
+    case InstanceOf:
         read(World);
         write(Heap);
         return;
@@ -1033,11 +1034,6 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case OverridesHasInstance:
         read(JSCell_typeInfoFlags);
         def(HeapLocation(OverridesHasInstanceLoc, JSCell_typeInfoFlags, node->child1()), LazyNode(node));
-        return;
-
-    case InstanceOf:
-        read(JSCell_structureID);
-        def(HeapLocation(InstanceOfLoc, JSCell_structureID, node->child1(), node->child2()), LazyNode(node));
         return;
 
     case PutStructure:
@@ -1515,14 +1511,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
 
     case RegExpExec:
     case RegExpTest:
-        if (node->child2().useKind() == RegExpObjectUse
-            && node->child3().useKind() == StringUse) {
-            read(RegExpState);
-            read(RegExpObject_lastIndex);
-            write(RegExpState);
-            write(RegExpObject_lastIndex);
-            return;
-        }
+        // Even if we've proven known input types as RegExpObject and String,
+        // accessing lastIndex is effectful if it's a global regexp.
         read(World);
         write(Heap);
         return;
@@ -1566,7 +1556,6 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             write(HeapObjectCount);
             return;
         }
-
         if (node->isBinaryUseKind(UntypedUse)) {
             read(World);
             write(Heap);

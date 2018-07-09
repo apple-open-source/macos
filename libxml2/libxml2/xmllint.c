@@ -169,6 +169,7 @@ static int nodefdtd = 0;
 #ifdef LIBXML_PUSH_ENABLED
 static int push = 0;
 static int pushsize = 4096;
+static int push_structured_error_fatal_stop = 0;
 #endif /* LIBXML_PUSH_ENABLED */
 #ifdef HAVE_MMAP
 static int memory = 0;
@@ -1479,6 +1480,25 @@ fatalErrorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
     va_end(args);
 }
 
+/**
+ * pushStructuredErrorFunc:
+ * @ctx:  An XML parser context
+ * @error:  Error data
+ *
+ * Call xmlStopParser() on fatal structured errors.
+ */
+#ifdef LIBXML_PUSH_ENABLED
+static void pushStructuredErrorFunc(void *ctx, xmlErrorPtr error)
+{
+    if (push_structured_error_fatal_stop) {
+        if (error != NULL && error->level == XML_ERR_FATAL) {
+            xmlParserCtxtPtr ctxt = (xmlParserCtxtPtr)ctx;
+            xmlStopParser(ctxt);
+        }
+    }
+}
+#endif /* LIBXML_PUSH_ENABLED */
+
 static xmlSAXHandler debugSAXHandlerStruct = {
     internalSubsetDebug,
     isStandaloneDebug,
@@ -2225,10 +2245,14 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
                 ctxt = htmlCreatePushParserCtxt(NULL, NULL,
                             chars, res, filename, XML_CHAR_ENCODING_NONE);
                 xmlCtxtUseOptions(ctxt, options);
+                if (push_structured_error_fatal_stop)
+                    xmlSetStructuredErrorFunc(ctxt, pushStructuredErrorFunc);
                 while ((res = fread(chars, 1, pushsize, f)) > 0) {
                     htmlParseChunk(ctxt, chars, res, 0);
                 }
                 htmlParseChunk(ctxt, chars, 0, 1);
+                if (push_structured_error_fatal_stop)
+                    xmlSetStructuredErrorFunc(NULL, NULL);
                 doc = ctxt->myDoc;
                 htmlFreeParserCtxt(ctxt);
             }
@@ -2296,10 +2320,14 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 		    ctxt = xmlCreatePushParserCtxt(NULL, NULL,
 		                chars, res, filename);
 		    xmlCtxtUseOptions(ctxt, options);
+                    if (push_structured_error_fatal_stop)
+                        xmlSetStructuredErrorFunc(ctxt, pushStructuredErrorFunc);
 		    while ((res = fread(chars, 1, size, f)) > 0) {
 			xmlParseChunk(ctxt, chars, res, 0);
 		    }
 		    xmlParseChunk(ctxt, chars, 0, 1);
+                    if (push_structured_error_fatal_stop)
+                        xmlSetStructuredErrorFunc(NULL, NULL);
 		    doc = ctxt->myDoc;
 		    ret = ctxt->wellFormed;
 		    xmlFreeParserCtxt(ctxt);
@@ -3054,6 +3082,7 @@ static void usage(const char *name) {
 #ifdef LIBXML_PUSH_ENABLED
     printf("\t--push : use the push mode of the parser\n");
     printf("\t--pushsmall : use the push mode of the parser using tiny increments\n");
+    printf("\t--push-structured-error-fatal-stop : call xmlStopParser() on fatal structured errors\n");
 #endif /* LIBXML_PUSH_ENABLED */
 #ifdef HAVE_MMAP
     printf("\t--memory : parse from memory\n");
@@ -3294,6 +3323,9 @@ main(int argc, char **argv) {
 	    push++;
             pushsize = 10;
         }
+	else if ((!strcmp(argv[i], "-push-structured-error-fatal-stop")) ||
+	         (!strcmp(argv[i], "--push-structured-error-fatal-stop")))
+	    push_structured_error_fatal_stop++;
 #endif /* LIBXML_PUSH_ENABLED */
 #ifdef HAVE_MMAP
 	else if ((!strcmp(argv[i], "-memory")) ||

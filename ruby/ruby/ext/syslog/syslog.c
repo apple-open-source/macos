@@ -5,7 +5,7 @@
  * Documented by mathew <meta@pobox.com>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c 52275 2015-10-25 00:43:06Z nobu $
+ * $Id: syslog.c 62140 2018-01-31 13:38:59Z usa $
  */
 
 #include "ruby/ruby.h"
@@ -150,6 +150,7 @@ static VALUE mSyslog_close(VALUE self)
 static VALUE mSyslog_open(int argc, VALUE *argv, VALUE self)
 {
     VALUE ident, opt, fac;
+    const char *ident_ptr;
 
     if (syslog_opened) {
         rb_raise(rb_eRuntimeError, "syslog already open");
@@ -160,8 +161,9 @@ static VALUE mSyslog_open(int argc, VALUE *argv, VALUE self)
     if (NIL_P(ident)) {
         ident = rb_gv_get("$0");
     }
-    SafeStringValue(ident);
-    syslog_ident = strdup(RSTRING_PTR(ident));
+    ident_ptr = StringValueCStr(ident);
+    rb_check_safe_obj(ident);
+    syslog_ident = strdup(ident_ptr);
 
     if (NIL_P(opt)) {
 	syslog_options = LOG_PID | LOG_CONS;

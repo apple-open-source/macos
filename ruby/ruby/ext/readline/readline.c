@@ -2,13 +2,13 @@
 
   readline.c - GNU Readline module
 
-  $Author: nobu $
+  $Author: usa $
   created at: Wed Jan 20 13:59:32 JST 1999
 
   Copyright (C) 1997-2008  Shugo Maeda
   Copyright (C) 2008-2013  Kouji Takao
 
-  $Id: readline.c 52453 2015-11-05 01:09:17Z nobu $
+  $Id: readline.c 62140 2018-01-31 13:38:59Z usa $
 
   Contact:
    - Kouji Takao <kouji dot takao at gmail dot com> (current maintainer)
@@ -89,7 +89,8 @@ static char **readline_attempted_completion_function(const char *text,
                                                      int start, int end);
 
 #define OutputStringValue(str) do {\
-    SafeStringValue(str);\
+    StringValueCStr(str);\
+    rb_check_safe_obj(str);\
     (str) = rb_str_conv_enc((str), rb_enc_get(str), rb_locale_encoding());\
 } while (0)\
 

@@ -664,6 +664,21 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kIOPMAssertionAutoTimesout                          CFSTR("AutoTimesout")
 
 /*!
+ * @define          kIOPMAssertionExitSilentRunning
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary to trigger exiting silent running mode
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code> or
+ *                  <code>kCFBooleanFalse</code>. A value of kCFBooleanTrue triggers system to exit silent
+ *                  running mode. Set the property to kCFBooleanFalse has no impact on system state.
+ *
+ *                  This optional property can be set to kCFBooleanTrue at the time of assertion creation or
+ *                  can be set later using <code>@link IOPMAssertionSetProperty @/link</code>. This property
+ *                  is not honored on all assertion types.
+ */
+#define kIOPMAssertionExitSilentRunning                     CFSTR("ExitSilentRunning")
+
+/*!
  * @define          kIOPMAssertionResourcesUsed
  *
  * @abstract        This CFDictionary key in assertion info dictionary lists the resources used

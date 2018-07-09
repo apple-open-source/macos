@@ -1240,6 +1240,7 @@
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1282,6 +1283,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (

@@ -389,7 +389,7 @@ rb_suppress_tracing(VALUE (*func)(VALUE), VALUE arg)
     volatile int raised;
     volatile int outer_state;
     VALUE result = Qnil;
-    rb_thread_t *th = GET_THREAD();
+    rb_thread_t *volatile th = GET_THREAD();
     int state;
     const int tracing = th->trace_arg ? 1 : 0;
     rb_trace_arg_t dummy_trace_arg;
@@ -1087,7 +1087,7 @@ tracepoint_enable_m(VALUE tpval)
     rb_tracepoint_enable(tpval);
 
     if (rb_block_given_p()) {
-	return rb_ensure(rb_yield, Qnil,
+	return rb_ensure(rb_yield, Qundef,
 			 previous_tracing ? rb_tracepoint_enable : rb_tracepoint_disable,
 			 tpval);
     }
@@ -1138,7 +1138,7 @@ tracepoint_disable_m(VALUE tpval)
     rb_tracepoint_disable(tpval);
 
     if (rb_block_given_p()) {
-	return rb_ensure(rb_yield, Qnil,
+	return rb_ensure(rb_yield, Qundef,
 			 previous_tracing ? rb_tracepoint_enable : rb_tracepoint_disable,
 			 tpval);
     }

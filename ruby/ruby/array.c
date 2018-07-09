@@ -2,7 +2,7 @@
 
   array.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1766,8 +1766,8 @@ rb_ary_insert(int argc, VALUE *argv, VALUE ary)
 
     rb_check_arity(argc, 1, UNLIMITED_ARGUMENTS);
     rb_ary_modify_check(ary);
-    if (argc == 1) return ary;
     pos = NUM2LONG(argv[0]);
+    if (argc == 1) return ary;
     if (pos == -1) {
 	pos = RARRAY_LEN(ary);
     }
@@ -2886,13 +2886,15 @@ select_bang_ensure(VALUE a)
     long len = RARRAY_LEN(ary);
     long i1 = arg->len[0], i2 = arg->len[1];
 
-    if (i2 < i1) {
+    if (i2 < len && i2 < i1) {
+	long tail = 0;
 	if (i1 < len) {
+	    tail = len - i1;
 	    RARRAY_PTR_USE(ary, ptr, {
-		    MEMMOVE(ptr + i2, ptr + i1, VALUE, len - i1);
+		    MEMMOVE(ptr + i2, ptr + i1, VALUE, tail);
 		});
 	}
-	ARY_SET_LEN(ary, len - i1 + i2);
+	ARY_SET_LEN(ary, i2 + tail);
     }
     return ary;
 }
@@ -5063,7 +5065,7 @@ rb_ary_combination(VALUE ary, VALUE num)
 	rb_yield(rb_ary_new2(0));
     }
     else if (n == 1) {
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < RARRAY_LEN(ary); i++) {
 	    rb_yield(rb_ary_new3(1, RARRAY_AREF(ary, i)));
 	}
     }
@@ -5262,7 +5264,7 @@ rb_ary_repeated_combination(VALUE ary, VALUE num)
 	rb_yield(rb_ary_new2(0));
     }
     else if (n == 1) {
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < RARRAY_LEN(ary); i++) {
 	    rb_yield(rb_ary_new3(1, RARRAY_AREF(ary, i)));
 	}
     }
@@ -5590,7 +5592,8 @@ rb_ary_dig(int argc, VALUE *argv, VALUE self)
  *  This method is safe to use with mutable objects such as hashes, strings or
  *  other arrays:
  *
- *     Array.new(4) { Hash.new } #=> [{}, {}, {}, {}]
+ *     Array.new(4) { Hash.new }  #=> [{}, {}, {}, {}]
+ *     Array.new(4) {|i| i.to_s } #=> ["0", "1", "2", "3"]
  *
  *  This is also a quick way to build up multi-dimensional arrays:
  *

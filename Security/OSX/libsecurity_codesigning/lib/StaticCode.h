@@ -117,7 +117,10 @@ public:
 	void detachedSignature(CFDataRef sig);		// attach an explicitly given detached signature
 	void checkForSystemSignature();				// check for and attach system-supplied detached signature
 
+	typedef std::map<CodeDirectory::HashAlgorithm, CFCopyRef<CFDataRef> > CodeDirectoryMap;
+
 	const CodeDirectory *codeDirectory(bool check = true) const;
+	const CodeDirectoryMap *codeDirectories(bool check = true) const;
 	CodeDirectory::HashAlgorithm hashAlgorithm() const { return codeDirectory()->hashType; }
 	CodeDirectory::HashAlgorithms hashAlgorithms() const { return mHashAlgorithms; }
 	CFDataRef cdHash();
@@ -200,12 +203,13 @@ public:
     bool trustedSigningCertChain() { return mTrustedSigningCertChain; }
 #endif
 
+	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
+
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
 	void staticValidateCore(SecCSFlags flags, const SecRequirement *req);
 	
 protected:
-	typedef std::map<CodeDirectory::HashAlgorithm, CFCopyRef<CFDataRef> > CodeDirectoryMap;
 	bool loadCodeDirectories(CodeDirectoryMap& cdMap) const;
 	
 protected:
@@ -219,8 +223,6 @@ protected:
 
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 	bool hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t version, CFArrayRef allowedOmissions);
-
-	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
 
 private:
 	void validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code);

@@ -39,7 +39,7 @@ PidDiskRep::setCredentials(const Security::CodeSigning::CodeDirectory *cd)
 {
 	// save the Info.plist slot
 	if (cd->slotIsPresent(cdInfoSlot)) {
-		mInfoPlistHash.take(makeCFData((*cd)[cdInfoSlot], cd->hashSize));
+		mInfoPlistHash.take(makeCFData(cd->getSlot(cdInfoSlot, false), cd->hashSize));
 	}
 }
 

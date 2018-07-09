@@ -71,6 +71,7 @@ extern const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[];
 	data that is usually written to separate files. This is the format of
 	detached signatures if the program is capable of having multiple architectures.
 	@constant kSecCodeMagicEntitlement Magic number for a standard entitlement blob.
+ 	@constant kSecCodeMagicEntitlementDER Magic number for a DER entitlement blob.
 	@constant kSecCodeMagicByte The first byte (in NBO) shared by all these magic
 	numbers. This is not a valid ASCII character; test for this to distinguish
 	between text and binary data if you expect a code signing-related binary blob.
@@ -83,7 +84,8 @@ enum {
 	kSecCodeMagicEmbeddedSignature = 0xfade0cc0, /* single-architecture embedded signature */
 	kSecCodeMagicDetachedSignature = 0xfade0cc1, /* detached multi-architecture signature */
 	kSecCodeMagicEntitlement = 0xfade7171,		/* entitlement blob */
-	
+	kSecCodeMagicEntitlementDER = 0xfade7172,	/* entitlement DER blob */
+
 	kSecCodeMagicByte = 0xfa					/* shared first byte */
 };
 

@@ -50,6 +50,8 @@ CodeDirectory::Builder::Builder(HashAlgorithm digestAlgorithm)
 	  mExecSegOffset(0),
 	  mExecSegLimit(0),
 	  mExecSegFlags(0),
+	  mGeneratePreEncryptHashes(false),
+	  mRuntimeVersion(0),
 	  mDir(NULL)
 {
 	mDigestLength = (uint32_t)MakeHash<Builder>(this)->digestLength();
@@ -121,6 +123,8 @@ CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
 size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
 {
 	size_t cdSize = sizeof(CodeDirectory);
+	if (version < supportsPreEncrypt)
+		cdSize -= sizeof(mDir->runtime) + sizeof(mDir->preEncryptOffset);
 	if (version < supportsExecSegment)
 		cdSize -= sizeof(mDir->execSegBase) + sizeof(mDir->execSegLimit) + sizeof(mDir->execSegFlags);
 	if (version < supportsCodeLimit64)
@@ -157,6 +161,11 @@ size_t CodeDirectory::Builder::size(const uint32_t version)
 	if (mTeamID.size())
 		offset += mTeamID.size() + 1;	// size of teamID (with null byte)
 	offset += (mCodeSlots + mSpecialSlots) * mDigestLength; // hash vector
+
+	if (mGeneratePreEncryptHashes || !mPreservedPreEncryptHashMap.empty()) {
+		offset += mCodeSlots * mDigestLength;
+	}
+
 	if (offset <= offset0)
 		UnixError::throwMe(ENOEXEC);
 
@@ -187,8 +196,10 @@ CodeDirectory *CodeDirectory::Builder::build()
 	size_t teamIDLength = mTeamID.size() + 1;
 	
 	// Determine the version
-	if (mExecSegLimit > 0) {
+	if (mGeneratePreEncryptHashes || !mPreservedPreEncryptHashMap.empty() || mRuntimeVersion) {
 		version = currentVersion;
+	} else if (mExecSegLimit > 0) {
+		version = supportsExecSegment;
 	} else if (mExecLength > UINT32_MAX) {
 		version = supportsCodeLimit64;
 	} else if (mTeamID.size()) {
@@ -231,6 +242,7 @@ CodeDirectory *CodeDirectory::Builder::build()
 	mDir->execSegBase = mExecSegOffset;
 	mDir->execSegLimit = mExecSegLimit;
 	mDir->execSegFlags = mExecSegFlags;
+	mDir->runtime = mRuntimeVersion;
 
 	// locate and fill flex fields
 	size_t offset = fixedSize(mDir->version);
@@ -250,18 +262,27 @@ CodeDirectory *CodeDirectory::Builder::build()
 		memcpy(mDir->teamID(), mTeamID.c_str(), teamIDLength);
 		offset += teamIDLength;
 	}
+
 	// (add new flexibly-allocated fields here)
+
+	/* Pre-encrypt hashes come before normal hashes, so that the kernel can free
+	 * the normal, potentially post-encrypt hashes away easily. */
+	if (mGeneratePreEncryptHashes || !mPreservedPreEncryptHashMap.empty()) {
+		mDir->preEncryptOffset = (uint32_t)offset;
+		offset += mCodeSlots * mDigestLength;
+	}
 
 	mDir->hashOffset = (uint32_t)(offset + mSpecialSlots * mDigestLength);
 	offset += (mSpecialSlots + mCodeSlots) * mDigestLength;
+
 	assert(offset == total);	// matches allocated size
 
 	(void)offset;
 	
 	// fill special slots
-	memset((*mDir)[(int)-mSpecialSlots], 0, mDigestLength * mSpecialSlots);
+	memset(mDir->getSlotMutable((int)-mSpecialSlots, false), 0, mDigestLength * mSpecialSlots);
 	for (size_t slot = 1; slot <= mSpecialSlots; ++slot)
-		memcpy((*mDir)[(int)-slot], specialSlot((SpecialSlot)slot), mDigestLength);
+		memcpy(mDir->getSlotMutable((int)-slot, false), specialSlot((SpecialSlot)slot), mDigestLength);
 	
 	// fill code slots
 	mExec.seek(mExecOffset);
@@ -271,10 +292,23 @@ CodeDirectory *CodeDirectory::Builder::build()
 		if (mPageSize)
 			thisPage = min(thisPage, mPageSize);
 		MakeHash<Builder> hasher(this);
-		generateHash(hasher, mExec, (*mDir)[slot], thisPage);
+		generateHash(hasher, mExec, mDir->getSlotMutable(slot, false), thisPage);
+		if (mGeneratePreEncryptHashes && mPreservedPreEncryptHashMap.empty()) {
+			memcpy(mDir->getSlotMutable(slot, true), mDir->getSlot(slot, false),
+				   mDir->hashSize);
+		}
 		remaining -= thisPage;
 	}
 	assert(remaining == 0);
+
+	PreEncryptHashMap::iterator preEncrypt =
+		mPreservedPreEncryptHashMap.find(mHashType);
+	if (preEncrypt != mPreservedPreEncryptHashMap.end()) {
+		memcpy(mDir->getSlotMutable(0, true),
+			   CFDataGetBytePtr(preEncrypt->second),
+			   mCodeSlots * mDigestLength);
+		mPreservedPreEncryptHashMap.erase(preEncrypt->first); // Releases the CFData memory.
+	}
 	
 	// all done. Pass ownership to caller
 	return mDir;

@@ -5298,8 +5298,8 @@ void Document::addSVGUseElement(SVGUseElement& element)
 
 void Document::removeSVGUseElement(SVGUseElement& element)
 {
-    bool didRemove = m_svgUseElements.remove(&element);
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(didRemove);
+    m_svgUseElements.remove(&element);
+    // FIXME: Assert that element was in m_svgUseElements once re-entrancy to update style and layout have been removed.
 }
 
 bool Document::hasSVGRootNode() const
@@ -7160,7 +7160,7 @@ void Document::removePlaybackTargetPickerClient(MediaPlaybackTargetClient& clien
     page->removePlaybackTargetPickerClient(clientId);
 }
 
-void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool isVideo)
+void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool isVideo, RouteSharingPolicy routeSharingPolicy, const String& routingContextUID)
 {
     Page* page = this->page();
     if (!page)
@@ -7170,7 +7170,7 @@ void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool 
     if (it == m_clientToIDMap.end())
         return;
 
-    page->showPlaybackTargetPicker(it->value, view()->lastKnownMousePosition(), isVideo);
+    page->showPlaybackTargetPicker(it->value, view()->lastKnownMousePosition(), isVideo, routeSharingPolicy, routingContextUID);
 }
 
 void Document::playbackTargetPickerClientStateDidChange(MediaPlaybackTargetClient& client, MediaProducer::MediaStateFlags state)

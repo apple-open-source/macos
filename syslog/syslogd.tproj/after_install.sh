@@ -7,6 +7,11 @@ elif [[ "${PLATFORM_NAME}" == "macosx" ]] ; then
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.osx
     SYSLOG_CONF="${SRCROOT}"/syslogd.tproj/syslog.conf
+elif [[ "${PLATFORM_NAME}" == "bridgeos" ]] ; then
+    PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
+    ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios
+    SYSLOG_CONF="${SRCROOT}"/syslogd.tproj/syslog.conf
+    SYSTEM_LOG_CONF="${SRCROOT}"/syslogd.tproj/com.apple.system.log.bridgeos
 else
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios

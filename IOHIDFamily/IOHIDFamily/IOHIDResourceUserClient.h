@@ -100,18 +100,24 @@ typedef struct {
 class IOHIDResourceQueue: public IOSharedDataQueue
 {
     OSDeclareDefaultStructors( IOHIDResourceQueue )
+    friend class IOHIDResourceDeviceUserClient;
     
 protected:
     IOMemoryDescriptor *    _descriptor;
-
+    IOService               *_owner;
+    uint64_t                _enqueueTS;
+    
 public:
     static IOHIDResourceQueue *withCapacity(UInt32 capacity);
+    static IOHIDResourceQueue *withCapacity(IOService *owner, UInt32 size);
     virtual void free();
     
     virtual Boolean enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report = NULL);
 
     virtual IOMemoryDescriptor *getMemoryDescriptor();
     virtual void setNotificationPort(mach_port_t port);
+    
+    virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
 };
 
 class IOHIDResourceDeviceUserClient : public IOUserClient
@@ -130,6 +136,17 @@ private:
     OSSet *                 _pending;
     uint32_t                _maxClientTimeoutUS;
     u_int64_t               _tokenIndex;
+    
+    UInt32                  _setReportCount;
+    UInt32                  _setReportDroppedCount;
+    UInt32                  _setReportCompletedCount;
+    UInt32                  _setReportTimeoutCount;
+    UInt32                  _getReportCount;
+    UInt32                  _getReportDroppedCount;
+    UInt32                  _getReportCompletedCount;
+    UInt32                  _getReportTimeoutCount;
+    UInt32                  _enqueueFailCount;
+    UInt32                  _handleReportCount;
 
     static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
 
@@ -173,6 +190,7 @@ private:
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
 
     void ReportComplete(void *param, IOReturn res, UInt32 remaining);
+    bool serializeDebugState(void *ref, OSSerialize *serializer);
 
 public:
     /*! @function initWithTask

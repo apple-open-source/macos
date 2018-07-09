@@ -24,17 +24,22 @@
 //
 // signerutils - utilities for signature generation
 //
-#include "signerutils.h"
-#include "signer.h"
-#include "SecCodeSigner.h"
-#include <Security/SecIdentity.h>
-#include <Security/CMSEncoder.h>
-#include "resources.h"
 #include "csutilities.h"
 #include "drmaker.h"
+#include "resources.h"
+#include "signerutils.h"
+#include "signer.h"
+
+#include <Security/SecCmsBase.h>
+#include <Security/SecIdentity.h>
+#include <Security/CMSEncoder.h>
+
+#include "SecCodeSigner.h"
+
 #include <security_utilities/unix++.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/unixchild.h>
+
 #include <vector>
 
 // for helper validation
@@ -416,16 +421,56 @@ const CodeDirectory* CodeDirectorySet::primary() const
 	return mPrimary;
 }
 
-
-CFArrayRef CodeDirectorySet::hashBag() const
+CFArrayRef CodeDirectorySet::hashList() const
 {
 	CFRef<CFMutableArrayRef> hashList = makeCFMutableArray(0);
 	for (auto it = begin(); it != end(); ++it) {
-		CFRef<CFDataRef> cdhash = it->second->cdhash();
+		CFRef<CFDataRef> cdhash = it->second->cdhash(true);
 		CFArrayAppendValue(hashList, cdhash);
 	}
 	return hashList.yield();
 }
+
+CFDictionaryRef CodeDirectorySet::hashDict() const
+{
+	CFRef<CFMutableDictionaryRef> hashDict = makeCFMutableDictionary();
+
+	for (auto it = begin(); it != end(); ++it) {
+		SECOidTag tag = CodeDirectorySet::SECOidTagForAlgorithm(it->first);
+
+		if (tag == SEC_OID_UNKNOWN) {
+			MacOSError::throwMe(errSecCSUnsupportedDigestAlgorithm);
+		}
+
+		CFRef<CFNumberRef> hashType = makeCFNumber(int(tag));
+		CFRef<CFDataRef> fullCdhash = it->second->cdhash(false); // Full-length cdhash!
+		CFDictionarySetValue(hashDict, hashType, fullCdhash);
+	}
+
+	return hashDict.yield();
+}
+
+SECOidTag CodeDirectorySet::SECOidTagForAlgorithm(CodeDirectory::HashAlgorithm algorithm) {
+	SECOidTag tag;
+
+	switch (algorithm) {
+		case kSecCodeSignatureHashSHA1:
+			tag = SEC_OID_SHA1;
+			break;
+		case kSecCodeSignatureHashSHA256:
+		case kSecCodeSignatureHashSHA256Truncated: // truncated *page* hashes, not cdhash
+			tag = SEC_OID_SHA256;
+			break;
+		case kSecCodeSignatureHashSHA384:
+			tag = SEC_OID_SHA384;
+			break;
+		default:
+			tag = SEC_OID_UNKNOWN;
+	}
+
+	return tag;
+}
+
 
 
 } // end namespace CodeSigning

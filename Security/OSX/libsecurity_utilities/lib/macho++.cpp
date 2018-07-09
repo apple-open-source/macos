@@ -452,6 +452,61 @@ const version_min_command *MachOBase::findMinVersion() const
 	return NULL;
 }
 
+const build_version_command *MachOBase::findBuildVersion() const
+{
+    for (const load_command *command = loadCommands(); command; command = nextCommand(command)) {
+        if (flip(command->cmd) == LC_BUILD_VERSION) {
+            if(flip(command->cmdsize) < sizeof(build_version_command)) {
+                UnixError::throwMe(ENOEXEC);
+            }
+            
+            return reinterpret_cast<const build_version_command *>(command);
+        }
+    }
+    return NULL;
+}
+
+bool MachOBase::version(uint32_t *platform, uint32_t *minVersion, uint32_t *sdkVersion) const
+{
+    const build_version_command *bc = findBuildVersion();
+    
+    if (bc != NULL) {
+        if (platform != NULL) { *platform = flip(bc->platform); }
+        if (minVersion != NULL) { *minVersion = flip(bc->minos); }
+        if (sdkVersion != NULL) { *sdkVersion = flip(bc->sdk); }
+        return true;
+    }
+    
+    const version_min_command *vc = findMinVersion();
+    
+    if (vc != NULL) {
+        uint32_t pf;
+        switch (flip(vc->cmd)) {
+        case LC_VERSION_MIN_MACOSX:
+            pf = PLATFORM_MACOS;
+            break;
+        case LC_VERSION_MIN_IPHONEOS:
+            pf = PLATFORM_IOS;
+            break;
+        case LC_VERSION_MIN_WATCHOS:
+            pf = PLATFORM_WATCHOS;
+            break;
+        case LC_VERSION_MIN_TVOS:
+            pf = PLATFORM_TVOS;
+            break;
+        default:
+            // Old style load command, but we don't know what platform to map to.
+            pf = 0;
+        }
+                
+        if (platform != NULL) { *platform = pf; }
+        if (minVersion != NULL) { *minVersion = flip(vc->version); }
+        if (sdkVersion != NULL) { *sdkVersion = flip(vc->sdk); }
+        return true;
+    }
+    
+    return false;
+}
 
 //
 // Return the signing-limit length for this Mach-O binary image.

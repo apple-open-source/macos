@@ -206,6 +206,11 @@ static BOOL isLookalikeCharacter(std::optional<UChar32> previousCodePoint, UChar
         case 0x33AF: /* SQUARE RAD OVER S SQUARED */
         case 0x33C6: /* SQUARE C OVER KG */
         case 0x33DF: /* SQUARE A OVER M */
+        case 0x05B9: /* HEBREW POINT HOLAM */
+        case 0x05BA: /* HEBREW POINT HOLAM HASER FOR VAV */
+        case 0x05C1: /* HEBREW POINT SHIN DOT */
+        case 0x05C2: /* HEBREW POINT SIN DOT */
+        case 0x05C4: /* HEBREW MARK UPPER DOT */
         case 0xA731: /* LATIN LETTER SMALL CAPITAL S */
         case 0xA771: /* LATIN SMALL LETTER DUM */
         case 0xA789: /* MODIFIER LETTER COLON */
@@ -227,7 +232,8 @@ static BOOL isLookalikeCharacter(std::optional<UChar32> previousCodePoint, UChar
             return YES;
         case 0x0307: /* COMBINING DOT ABOVE */
             return previousCodePoint == 0x0237 /* LATIN SMALL LETTER DOTLESS J */
-                || previousCodePoint == 0x0131; /* LATIN SMALL LETTER DOTLESS I */
+                || previousCodePoint == 0x0131 /* LATIN SMALL LETTER DOTLESS I */
+                || previousCodePoint == 0x05D5; /* HEBREW LETTER VAV */
         case 0x0548: /* ARMENIAN CAPITAL LETTER VO */
         case 0x054D: /* ARMENIAN CAPITAL LETTER SEH */
         case 0x0578: /* ARMENIAN SMALL LETTER VO */
@@ -879,7 +885,7 @@ static NSData *dataWithUserTypedString(NSString *string)
     return [NSData dataWithBytesNoCopy:outBytes length:outLength]; // adopts outBytes
 }
 
-NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
+NSURL *URLWithUserTypedString(NSString *string, NSURL *nsURL)
 {
     if (!string)
         return nil;
@@ -888,11 +894,18 @@ NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
     if (!string)
         return nil;
 
+    // Let's check whether the URL is bogus.
+    URL url { URL { nsURL }, string };
+    if (!url.createCFURL())
+        return nil;
+
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=186057
+    // We should be able to use url.createCFURL instead of using directly CFURL parsing routines.
     NSData *data = dataWithUserTypedString(string);
     if (!data)
         return [NSURL URLWithString:@""];
 
-    return URLWithData(data, URL);
+    return URLWithData(data, nsURL);
 }
 
 NSURL *URLWithUserTypedStringDeprecated(NSString *string, NSURL *URL)

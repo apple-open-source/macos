@@ -1,6 +1,6 @@
---- tool/mkconfig.rb.orig	2013-10-31 09:38:12.000000000 -0700
-+++ tool/mkconfig.rb	2016-09-16 12:24:38.000000000 -0700
-@@ -127,12 +127,20 @@ File.foreach "config.status" do |line|
+--- tool/mkconfig.rb.orig	2017-06-30 03:58:32.000000000 -0700
++++ tool/mkconfig.rb	2018-01-03 12:01:04.000000000 -0800
+@@ -127,12 +127,20 @@
        val = "arch_flag || #{val}" if universal
      when /^UNIVERSAL_ARCHNAMES$/
        universal, val = val, 'universal' if universal
@@ -16,7 +16,7 @@
 +          val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
 +        end
        end
--    when /^includedir$/
+-    when /^oldincludedir$/
 -      val = '"$(SDKROOT)"'+val if /darwin/ =~ arch
 +    when /^CC$/
 +      val = '"xcrun clang"'
@@ -25,7 +25,7 @@
      end
      v = "  CONFIG[\"#{name}\"] #{eq} #{val}\n"
      if fast[name]
-@@ -187,7 +195,6 @@ print "  TOPDIR = File.dirname(__FILE__)
+@@ -187,7 +195,6 @@
  print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
  print <<'ARCH' if universal
    arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
@@ -33,7 +33,7 @@
  ARCH
  print "  universal = #{universal}\n" if universal
  print "  CONFIG = {}\n"
-@@ -284,6 +291,9 @@ print <<EOS
+@@ -284,6 +291,9 @@
    end
  end
  CROSS_COMPILING = nil unless defined? CROSS_COMPILING

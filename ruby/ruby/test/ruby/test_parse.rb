@@ -512,6 +512,8 @@ class TestParse < Test::Unit::TestCase
     assert_raise(SyntaxError) { eval("?\v") }
     assert_raise(SyntaxError) { eval("?\r") }
     assert_raise(SyntaxError) { eval("?\f") }
+    assert_raise(SyntaxError) { eval("?\f") }
+    assert_raise(SyntaxError) { eval(" ?a\x8a".force_encoding("utf-8")) }
     assert_equal("\u{1234}", eval("?\u{1234}"))
     assert_equal("\u{1234}", eval('?\u{1234}'))
   end
@@ -872,6 +874,35 @@ x = __ENCODING__
     assert_warning(/named capture conflict/) {eval("a = 1; /(?<a>)/ =~ ''")}
     a = "\u{3042}"
     assert_warning(/#{a}/) {eval("#{a} = 1; /(?<#{a}>)/ =~ ''")}
+  end
+
+  def test_negative_line_number
+    bug = '[ruby-core:80920] [Bug #13523]'
+    obj = Object.new
+    obj.instance_eval("def t(e = false);raise if e; __LINE__;end", "test", -100)
+    assert_equal(-100, obj.t, bug)
+    assert_equal(-100, obj.method(:t).source_location[1], bug)
+    e = assert_raise(RuntimeError) {obj.t(true)}
+    assert_equal(-100, e.backtrace_locations.first.lineno, bug)
+  end
+
+  def test_method_location_in_rescue
+    bug = '[ruby-core:79388] [Bug #13181]'
+    obj, line = Object.new, __LINE__+1
+    def obj.location
+      #
+      raise
+    rescue
+      caller_locations(1, 1)[0]
+    end
+
+    assert_equal(line, obj.location.lineno, bug)
+  end
+
+  def test_eof_in_def
+    assert_raise(SyntaxError) { eval("def m\n\0""end") }
+    assert_raise(SyntaxError) { eval("def m\n\C-d""end") }
+    assert_raise(SyntaxError) { eval("def m\n\C-z""end") }
   end
 
 =begin

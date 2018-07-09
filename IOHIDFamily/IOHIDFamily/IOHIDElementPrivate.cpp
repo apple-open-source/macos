@@ -32,6 +32,7 @@
 #include "IOHIDDebug.h"
 #include "AppleHIDUsageTables.h"
 #include "IOHIDUsageTables.h"
+#include "IOHIDFamilyTrace.h"
 
 #define IsRange() \
             (_usageMin != _usageMax)
@@ -1180,7 +1181,10 @@ bool IOHIDElementPrivate::processReport(
                 //enqueueSize dword aligned
                 uint32_t  enqueueSize = ((_elementValue->totalSize + 3) / 4) * 4;
                 if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll)) {
-                    queue->enqueue( (void *) _elementValue, enqueueSize);
+                    bool result = queue->enqueue( (void *) _elementValue, enqueueSize);
+                    if (!result) {
+                        IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), _owner->getRegistryEntryID(), 0, 0);
+                    }
                 }
             }
         } while ( 0 );
@@ -1595,8 +1599,11 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
                 (queue = (IOHIDEventQueue *) element->_queueArray->getObject(i));
                 i++ )
         {
-            queue->enqueue( (void *) element->_elementValue,
-                            element->_elementValue->totalSize );
+            bool result = queue->enqueue( (void *) element->_elementValue,
+                                         element->_elementValue->totalSize );
+            if (!result) {
+                IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), _owner->getRegistryEntryID(), 0, 0);
+            }
         }
     }
         

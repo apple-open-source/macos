@@ -46,6 +46,7 @@ __private_extern__ void PMConnection_prime(void);
 
 // PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
 __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
+__private_extern__ bool isInSilentRunningMode();
 
 __private_extern__ bool _can_revert_sleep(void);
 __private_extern__ void _set_sleep_revert(bool state);

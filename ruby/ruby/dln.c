@@ -2,7 +2,7 @@
 
   dln.c -
 
-  $Author: nobu $
+  $Author: nagachika $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1331,7 +1331,9 @@ dln_load(const char *file)
 	    void *ex = dlsym(handle, EXTERNAL_PREFIX"ruby_xmalloc");
 	    if (ex && ex != ruby_xmalloc) {
 
-#   if defined __APPLE__
+#   if defined __APPLE__ && \
+    defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
+    (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_11)
 		/* dlclose() segfaults */
 		rb_fatal("%s - %s", incompatible, file);
 #   else

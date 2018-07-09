@@ -15,7 +15,7 @@
 # NOTE: You can find Japanese version of this document at:
 # http://www.ruby-lang.org/ja/man/html/net_smtp.html
 #
-# $Id: smtp.rb 53141 2015-12-16 05:07:31Z naruse $
+# $Id: smtp.rb 59533 2017-08-09 08:10:56Z usa $
 #
 # See Net::SMTP for documentation.
 #
@@ -170,9 +170,9 @@ module Net
   #     Net::SMTP.start('your.smtp.server', 25, 'mail.from.domain',
   #                     'Your Account', 'Your Password', :cram_md5)
   #
-  class SMTP
+  class SMTP < Protocol
 
-    Revision = %q$Revision: 53141 $.split[1]
+    Revision = %q$Revision: 59533 $.split[1]
 
     # The default SMTP port number, 25.
     def SMTP.default_port
@@ -584,7 +584,7 @@ module Net
       s = ssl_socket(s, @ssl_context)
       logging "TLS connection started"
       s.sync_close = true
-      s.connect
+      ssl_socket_connect(s, @open_timeout)
       if @ssl_context.verify_mode != OpenSSL::SSL::VERIFY_NONE
         s.post_connection_check(@address)
       end
@@ -926,7 +926,15 @@ module Net
 
     private
 
+    def validate_line(line)
+      # A bare CR or LF is not allowed in RFC5321.
+      if /[\r\n]/ =~ line
+        raise ArgumentError, "A line must not contain CR or LF"
+      end
+    end
+
     def getok(reqline)
+      validate_line reqline
       res = critical {
         @socket.writeline reqline
         recv_response()
@@ -936,6 +944,7 @@ module Net
     end
 
     def get_response(reqline)
+      validate_line reqline
       @socket.writeline reqline
       recv_response()
     end

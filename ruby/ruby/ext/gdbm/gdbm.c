@@ -2,7 +2,7 @@
 
   gdbm.c -
 
-  $Author: nobu $
+  $Author: usa $
   modified at: Mon Jan 24 15:59:52 JST 1994
 
   Documentation by Peter Adolphs < futzilogik at users dot sourceforge dot net >
@@ -228,7 +228,7 @@ fgdbm_initialize(int argc, VALUE *argv, VALUE obj)
     if (!NIL_P(vflags))
         flags = NUM2INT(vflags);
 
-    SafeStringValue(file);
+    FilePathValue(file);
 
 #ifdef GDBM_CLOEXEC
     /* GDBM_CLOEXEC is available since gdbm 1.10. */

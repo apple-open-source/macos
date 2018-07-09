@@ -1,3 +1,365 @@
+2018-06-04  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/40688638
+
+    2018-06-04  Alex Christensen  <achristensen@webkit.org>
+
+            Add WKWebsiteDataStorePrivate._proxyConfiguration SPI
+            https://bugs.webkit.org/show_bug.cgi?id=185179
+
+            Reviewed by Andy Estes.
+
+            * NetworkProcess/NetworkSessionCreationParameters.h:
+            (WebKit::NetworkSessionCreationParameters::encode const):
+            (WebKit::NetworkSessionCreationParameters::decode):
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+            (WebKit::NetworkDataTaskCocoa::applySniffingPoliciesAndBindRequestToInferfaceIfNeeded):
+            * NetworkProcess/cocoa/NetworkSessionCocoa.h:
+            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+            (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
+            * Shared/WebsiteDataStoreParameters.cpp:
+            (WebKit::WebsiteDataStoreParameters::privateSessionParameters):
+            * Shared/cf/ArgumentCodersCF.cpp:
+            (IPC::encode):
+            (IPC::decode):
+            * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+            (-[WKWebsiteDataStore _setProxyConfiguration:]):
+            (-[WKWebsiteDataStore _proxyConfiguration]):
+            * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
+            * UIProcess/WebsiteData/Cocoa/WebsiteDataStoreCocoa.mm:
+            (WebKit::WebsiteDataStore::parameters):
+            * UIProcess/WebsiteData/WebsiteDataStore.h:
+            (WebKit::WebsiteDataStore::setProxyConfiguration):
+            (WebKit::WebsiteDataStore::proxyConfiguration):
+
+2018-05-31  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r232281. rdar://problem/40641066
+
+    Add a consistency check between URL and CFURL
+    Source/WebCore:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=186057
+    <rdar://problem/40258457>
+    
+    Reviewed by Geoff Garen.
+    
+    It is important that WebCore::URL used in WebCore and CFURL that gets serialized in the network pipe remain consistent.
+    Otherwise, we will end-up with odd bugs.
+    
+    We add such a check when creating a CFURL from an URL.
+    To make things more consistent, we also rely now more on WebCore::URL instead of directly creating a CFURL.
+    
+    * platform/URL.h:
+    * platform/cf/CFURLExtras.cpp:
+    (WebCore::isCFURLSameOrigin):
+    * platform/cf/CFURLExtras.h:
+    * platform/cf/URLCF.cpp:
+    (WebCore::URL::createCFURL const):
+    * platform/mac/URLMac.mm:
+    (WebCore::URL::createCFURL const):
+    * platform/mac/WebCoreNSURLExtras.mm:
+    (WebCore::URLWithUserTypedString):
+    
+    Source/WebKit:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=186057
+    <rdar://problem/40258457>
+    
+    Reviewed by Geoff Garen.
+    
+    * Shared/Cocoa/WKNSURLExtras.mm:
+    (+[NSURL _web_URLWithWTFString:relativeToURL:]):
+    (urlWithWTFString): Deleted.
+    (+[NSURL _web_URLWithWTFString:]): Deleted.
+    
+    Tools:
+    
+    https://bugs.webkit.org/show_bug.cgi?id=182444
+    <rdar://problem/37164835>
+    
+    Reviewed by Geoff Garen.
+    
+    DRT code expected a non null URL which is no longer the case now.
+    Updated DRT to remove that assumption.
+    
+    * DumpRenderTree/TestRunner.cpp:
+    (TestRunner::redirectionDestinationForURL):
+    * DumpRenderTree/TestRunner.h:
+    * DumpRenderTree/mac/ResourceLoadDelegate.mm:
+    (-[ResourceLoadDelegate webView:resource:willSendRequest:redirectResponse:fromDataSource:]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@232281 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-29  Youenn Fablet  <youenn@apple.com>
+
+            Add a consistency check between URL and CFURL
+            https://bugs.webkit.org/show_bug.cgi?id=186057
+            <rdar://problem/40258457>
+
+            Reviewed by Geoff Garen.
+
+            * Shared/Cocoa/WKNSURLExtras.mm:
+            (+[NSURL _web_URLWithWTFString:relativeToURL:]):
+            (urlWithWTFString): Deleted.
+            (+[NSURL _web_URLWithWTFString:]): Deleted.
+
+2018-05-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r226610. rdar://problem/39987479
+
+    Add WKNavigationDelegate SPI exposing WebProcess crash reason
+    https://bugs.webkit.org/show_bug.cgi?id=181410
+    <rdar://problem/36167199>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Source/WebKit:
+    
+    We exposed it in the C SPI.
+    
+    * UIProcess/API/Cocoa/WKNavigationDelegatePrivate.h:
+    * UIProcess/Cocoa/NavigationState.h:
+    * UIProcess/Cocoa/NavigationState.mm:
+    (WebKit::NavigationState::setNavigationDelegate):
+    (WebKit::toWKProcessTerminationReason):
+    (WebKit::NavigationState::NavigationClient::processDidTerminate):
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/Navigation.mm:
+    (-[CrashReasonDelegate _webView:webContentProcessDidTerminateWithReason:]):
+    (TEST):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@226610 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-01-08  Alex Christensen  <achristensen@webkit.org>
+
+            Add WKNavigationDelegate SPI exposing WebProcess crash reason
+            https://bugs.webkit.org/show_bug.cgi?id=181410
+            <rdar://problem/36167199>
+
+            Reviewed by Wenson Hsieh.
+
+            We exposed it in the C SPI.
+
+            * UIProcess/API/Cocoa/WKNavigationDelegatePrivate.h:
+            * UIProcess/Cocoa/NavigationState.h:
+            * UIProcess/Cocoa/NavigationState.mm:
+            (WebKit::NavigationState::setNavigationDelegate):
+            (WebKit::toWKProcessTerminationReason):
+            (WebKit::NavigationState::NavigationClient::processDidTerminate):
+
+2018-05-10  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/39987479
+
+    Load hangs if the WebProcess fails to launch https://bugs.webkit.org/show_bug.cgi?id=185225 <rdar://problem/38249058>
+    
+    Reviewed by Geoff Garen.
+    
+    Source/WebKit:
+    
+    When a process fails to launch, ChildProcessProxy::didFinishLaunching() gets called with an
+    invalid connection identifier. While NetworkProcessProxy::didFinishLaunching() properly deals with
+    this situation, WebProcessProxy::didFinishLaunching() does not. As a result, we do not attempt to
+    relaunch the process, we do not notify the client and WebPageProxy::m_isValid stays true.
+    
+    This patch thus updates WebProcessProxy::didFinishLaunching() to check if the connection identifier
+    is valid and treats it as a crash. As a result, the WebPageProxies properly reset their state and
+    the client gets notified of the crash so that it can attempt to reload.
+    
+    * UIProcess/API/Cocoa/WKProcessPool.mm:
+    (-[WKProcessPool _makeNextWebProcessLaunchFailForTesting]):
+    * UIProcess/API/Cocoa/WKProcessPoolPrivate.h:
+    * UIProcess/Launcher/ProcessLauncher.h:
+    * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+    (WebKit::ProcessLauncher::launchProcess):
+    Add SPI to make the next WebProcess launch fail, for the purpose of API testing.
+    
+    * UIProcess/WebProcessPool.h:
+    * UIProcess/WebProcessProxy.cpp:
+    (WebKit::WebProcessProxy::getLaunchOptions):
+    (WebKit::WebProcessProxy::didClose):
+    (WebKit::WebProcessProxy::processDidTerminateOrFailedToLaunch):
+    (WebKit::WebProcessProxy::didFinishLaunching):
+    * UIProcess/WebProcessProxy.h:
+    
+    Tools:
+    
+    Add API test coverage.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/WebContentProcessDidTerminate.mm: Added.
+    (-[CrashOnStartNavigationDelegate _webView:webContentProcessDidTerminateWithReason:]):
+    (-[CrashOnStartNavigationDelegate webView:didFinishNavigation:]):
+    (-[CrashRecoveryScriptMessageHandler userContentController:didReceiveScriptMessage:]):
+    (TEST):
+    
+    git-svn-id: http://svn.webkit.org/repository/webkit/trunk@231321 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-03  Chris Dumez  <cdumez@apple.com>
+
+            Load hangs if the WebProcess fails to launch
+            https://bugs.webkit.org/show_bug.cgi?id=185225
+            <rdar://problem/38249058>
+
+            Reviewed by Geoff Garen.
+
+            When a process fails to launch, ChildProcessProxy::didFinishLaunching() gets called with an
+            invalid connection identifier. While NetworkProcessProxy::didFinishLaunching() properly deals with
+            this situation, WebProcessProxy::didFinishLaunching() does not. As a result, we do not attempt to
+            relaunch the process, we do not notify the client and WebPageProxy::m_isValid stays true.
+
+            This patch thus updates WebProcessProxy::didFinishLaunching() to check if the connection identifier
+            is valid and treats it as a crash. As a result, the WebPageProxies properly reset their state and
+            the client gets notified of the crash so that it can attempt to reload.
+
+            * UIProcess/API/Cocoa/WKProcessPool.mm:
+            (-[WKProcessPool _makeNextWebProcessLaunchFailForTesting]):
+            * UIProcess/API/Cocoa/WKProcessPoolPrivate.h:
+            * UIProcess/Launcher/ProcessLauncher.h:
+            * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+            (WebKit::ProcessLauncher::launchProcess):
+            Add SPI to make the next WebProcess launch fail, for the purpose of API testing.
+
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::getLaunchOptions):
+            (WebKit::WebProcessProxy::didClose):
+            (WebKit::WebProcessProxy::processDidTerminateOrFailedToLaunch):
+            (WebKit::WebProcessProxy::didFinishLaunching):
+            * UIProcess/WebProcessProxy.h:
+
+2018-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Apply patch. rdar://problem/39839226
+
+    2018-05-09  Brent Fulgham  <bfulgham@apple.com>
+
+        Revise sandboxes to allow additional IOKit property access
+        https://bugs.webkit.org/show_bug.cgi?id=185095
+        <rdar://problem/39809455>
+
+        Reviewed by Eric Carlson.
+
+        Update the WebContent and Plugin processes to allow additional IOKit property access.
+
+        * PluginProcess/mac/com.apple.WebKit.plugin-common.sb.in:
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2018-05-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r231242. rdar://problem/39860939
+
+    [iOS] Provide audio route information when invoking AirPlay picker
+    https://bugs.webkit.org/show_bug.cgi?id=185199
+    <rdar://problem/39853103>
+    
+    Reviewed by Jer Noble.
+    
+    Source/WebCore:
+    
+    No new tests, this requires a specific hardware setup.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    * dom/Document.h:
+    
+    * html/MediaElementSession.cpp:
+    (WebCore::MediaElementSession::showPlaybackTargetPicker): Ditto.
+    
+    * loader/EmptyClients.h:
+    * page/ChromeClient.h:
+    
+    * page/Page.cpp:
+    (WebCore::Page::showPlaybackTargetPicker): Ditto.
+    * page/Page.h:
+    
+    * platform/audio/AudioSession.cpp:
+    (WebCore::AudioSession::routeSharingPolicy const): Empty implementation for non-iOS ports.
+    (WebCore::routingContextUID const): Ditto.
+    * platform/audio/AudioSession.h:
+    
+    * platform/audio/ios/AudioSessionIOS.mm:
+    (WebCore::AudioSession::routeSharingPolicy const): Return the route sharing policy.
+    (WebCore::AudioSession::routingContextUID const): Return the route context UID.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/AVFoundationSPI.h: Add additional AVAudioSession SPI.
+    
+    Source/WebKit:
+    
+    * Scripts/webkit/messages.py:
+    * UIProcess/PageClient.h:
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * UIProcess/ios/PageClientImplIOS.h:
+    * UIProcess/ios/PageClientImplIOS.mm:
+    (WebKit::PageClientImpl::showPlaybackTargetPicker):  Pass route sharing policy and routing context UID.
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _showPlaybackTargetPicker:fromRect:routeSharingPolicy:routingContextUID:]): Take same.
+    (-[WKContentView _showPlaybackTargetPicker:fromRect:]): Deleted.
+    
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    
+    * UIProcess/ios/forms/WKAirPlayRoutePicker.h:
+    * UIProcess/ios/forms/WKAirPlayRoutePicker.mm:
+    (-[WKAirPlayRoutePicker showFromView:routeSharingPolicy:routingContextUID:]): Take same.
+    (-[WKAirPlayRoutePicker showFromView:]): Deleted.
+    
+    * WebProcess/WebCoreSupport/WebChromeClient.h:
+    * WebProcess/WebCoreSupport/ios/WebChromeClientIOS.mm:
+    (WebKit::WebChromeClient::showPlaybackTargetPicker):
+    
+    Source/WebKitLegacy/ios:
+    
+    * WebCoreSupport/WebChromeClientIOS.h:
+    * WebCoreSupport/WebChromeClientIOS.mm:
+    (WebChromeClientIOS::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@231242 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-05-02  Eric Carlson  <eric.carlson@apple.com>
+
+            [iOS] Provide audio route information when invoking AirPlay picker
+            https://bugs.webkit.org/show_bug.cgi?id=185199
+            <rdar://problem/39853103>
+
+            Reviewed by Jer Noble.
+
+            * Scripts/webkit/messages.py:
+            * UIProcess/PageClient.h:
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * UIProcess/ios/PageClientImplIOS.h:
+            * UIProcess/ios/PageClientImplIOS.mm:
+            (WebKit::PageClientImpl::showPlaybackTargetPicker):  Pass route sharing policy and routing context UID.
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _showPlaybackTargetPicker:fromRect:routeSharingPolicy:routingContextUID:]): Take same.
+            (-[WKContentView _showPlaybackTargetPicker:fromRect:]): Deleted.
+
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::showPlaybackTargetPicker): Pass route sharing policy and routing context UID.
+
+            * UIProcess/ios/forms/WKAirPlayRoutePicker.h:
+            * UIProcess/ios/forms/WKAirPlayRoutePicker.mm:
+            (-[WKAirPlayRoutePicker showFromView:routeSharingPolicy:routingContextUID:]): Take same.
+            (-[WKAirPlayRoutePicker showFromView:]): Deleted.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+            * WebProcess/WebCoreSupport/ios/WebChromeClientIOS.mm:
+            (WebKit::WebChromeClient::showPlaybackTargetPicker):
+
 2018-04-30  Jason Marcell  <jmarcell@apple.com>
 
         Apply patch. rdar://problem/39741039

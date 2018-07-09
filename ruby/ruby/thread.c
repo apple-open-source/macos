@@ -2,7 +2,7 @@
 
   thread.c -
 
-  $Author: nagachika $
+  $Author: usa $
 
   Copyright (C) 2004-2007 Koichi Sasada
 
@@ -85,6 +85,7 @@ static ID id_locals;
 static void sleep_timeval(rb_thread_t *th, struct timeval time, int spurious_check);
 static void sleep_wait_for_interrupt(rb_thread_t *th, double sleepsec, int spurious_check);
 static void sleep_forever(rb_thread_t *th, int nodeadlock, int spurious_check);
+static void rb_thread_sleep_deadly_allow_spurious_wakeup(void);
 static double timeofday(void);
 static int rb_threadptr_dead(rb_thread_t *th);
 static void rb_check_deadlock(rb_vm_t *vm);
@@ -95,6 +96,11 @@ static int rb_threadptr_pending_interrupt_empty_p(rb_thread_t *th);
 static volatile int system_working = 1;
 
 #define closed_stream_error GET_VM()->special_exceptions[ruby_error_closed_stream]
+struct waiting_fd {
+    struct list_node wfd_node; /* <=> vm.waiting_fds */
+    rb_thread_t *th;
+    int fd;
+};
 
 inline static void
 st_delete_wrap(st_table *table, st_data_t key)
@@ -466,8 +472,8 @@ rb_threadptr_unlock_all_locking_mutexes(rb_thread_t *th)
 void
 rb_thread_terminate_all(void)
 {
-    rb_thread_t *th = GET_THREAD(); /* main thread */
-    rb_vm_t *vm = th->vm;
+    rb_thread_t *volatile th = GET_THREAD(); /* main thread */
+    rb_vm_t *volatile vm = th->vm;
     volatile int sleeping = 0;
 
     if (vm->main_thread != th) {
@@ -840,7 +846,7 @@ thread_join_sleep(VALUE arg)
 
     while (target_th->status != THREAD_KILLED) {
 	if (forever) {
-	    sleep_forever(th, 1, 0);
+	    sleep_forever(th, TRUE, FALSE);
 	}
 	else {
 	    double now = timeofday();
@@ -1131,14 +1137,21 @@ void
 rb_thread_sleep_forever(void)
 {
     thread_debug("rb_thread_sleep_forever\n");
-    sleep_forever(GET_THREAD(), 0, 1);
+    sleep_forever(GET_THREAD(), FALSE, TRUE);
 }
 
 void
 rb_thread_sleep_deadly(void)
 {
     thread_debug("rb_thread_sleep_deadly\n");
-    sleep_forever(GET_THREAD(), 1, 1);
+    sleep_forever(GET_THREAD(), TRUE, TRUE);
+}
+
+static void
+rb_thread_sleep_deadly_allow_spurious_wakeup(void)
+{
+    thread_debug("rb_thread_sleep_deadly_allow_spurious_wakeup\n");
+    sleep_forever(GET_THREAD(), TRUE, FALSE);
 }
 
 static double
@@ -1280,7 +1293,6 @@ call_without_gvl(void *(*func)(void *), void *data1,
     rb_thread_t *th = GET_THREAD();
     int saved_errno = 0;
 
-    th->waiting_fd = -1;
     if (ubf == RUBY_UBF_IO || ubf == RUBY_UBF_PROCESS) {
 	ubf = ubf_select;
 	data2 = th;
@@ -1403,11 +1415,15 @@ VALUE
 rb_thread_io_blocking_region(rb_blocking_function_t *func, void *data1, int fd)
 {
     volatile VALUE val = Qundef; /* shouldn't be used */
+    rb_vm_t *vm = GET_VM();
     rb_thread_t *th = GET_THREAD();
     volatile int saved_errno = 0;
     int state;
+    struct waiting_fd wfd;
 
-    th->waiting_fd = fd;
+    wfd.fd = fd;
+    wfd.th = th;
+    list_add(&vm->waiting_fds, &wfd.wfd_node);
 
     TH_PUSH_TAG(th);
     if ((state = EXEC_TAG()) == 0) {
@@ -1418,8 +1434,8 @@ rb_thread_io_blocking_region(rb_blocking_function_t *func, void *data1, int fd)
     }
     TH_POP_TAG();
 
-    /* clear waiting_fd anytime */
-    th->waiting_fd = -1;
+    /* must be deleted before jump */
+    list_del(&wfd.wfd_node);
 
     if (state) {
 	JUMP_TAG(state);
@@ -2073,6 +2089,8 @@ rb_threadptr_ready(rb_thread_t *th)
     rb_threadptr_interrupt(th);
 }
 
+void rb_threadptr_setup_exception(rb_thread_t *th, VALUE mesg, VALUE cause);
+
 static VALUE
 rb_threadptr_raise(rb_thread_t *th, int argc, VALUE *argv)
 {
@@ -2088,6 +2106,14 @@ rb_threadptr_raise(rb_thread_t *th, int argc, VALUE *argv)
     else {
 	exc = rb_make_exception(argc, argv);
     }
+
+    /* making an exception object can switch thread,
+       so we need to check thread deadness again */
+    if (rb_threadptr_dead(th)) {
+	return Qnil;
+    }
+
+    rb_threadptr_setup_exception(GET_THREAD(), exc, Qundef);
     rb_threadptr_pending_interrupt_enque(th, exc);
     rb_threadptr_interrupt(th);
     return Qnil;
@@ -2150,19 +2176,36 @@ rb_threadptr_reset_raised(rb_thread_t *th)
     return 1;
 }
 
-void
-rb_thread_fd_close(int fd)
+int
+rb_notify_fd_close(int fd)
 {
     rb_vm_t *vm = GET_THREAD()->vm;
-    rb_thread_t *th = 0;
+    struct waiting_fd *wfd = 0;
+    int busy;
 
-    list_for_each(&vm->living_threads, th, vmlt_node) {
-	if (th->waiting_fd == fd) {
-	    VALUE err = th->vm->special_exceptions[ruby_error_closed_stream];
+    busy = 0;
+    list_for_each(&vm->waiting_fds, wfd, wfd_node) {
+	if (wfd->fd == fd) {
+	    rb_thread_t *th = wfd->th;
+	    VALUE err;
+
+	    busy = 1;
+	    if (!th) {
+		continue;
+	    }
+	    wfd->th = 0;
+	    err = th->vm->special_exceptions[ruby_error_closed_stream];
 	    rb_threadptr_pending_interrupt_enque(th, err);
 	    rb_threadptr_interrupt(th);
 	}
     }
+    return busy;
+}
+
+void
+rb_thread_fd_close(int fd)
+{
+    while (rb_notify_fd_close(fd)) rb_thread_schedule();
 }
 
 /*
@@ -2486,8 +2529,8 @@ rb_thread_s_main(VALUE klass)
  *
  *  The default is +false+.
  *
- *  When set to +true+, all threads will abort (the process will
- *  <code>exit(0)</code>) if an exception is raised in any thread.
+ *  When set to +true+, if any thread is aborted by an exception, the
+ *  raised exception will be re-raised in the main thread.
  *
  *  Can also be specified by the global $DEBUG flag or command line option
  *  +-d+.
@@ -2509,7 +2552,8 @@ rb_thread_s_abort_exc(void)
  *  call-seq:
  *     Thread.abort_on_exception= boolean   -> true or false
  *
- *  When set to +true+, all threads will abort if an exception is raised.
+ *  When set to +true+, if any thread is aborted by an exception, the
+ *  raised exception will be re-raised in the main thread.
  *  Returns the new state.
  *
  *     Thread.abort_on_exception = true
@@ -2570,10 +2614,8 @@ rb_thread_abort_exc(VALUE thread)
  *  call-seq:
  *     thr.abort_on_exception= boolean   -> true or false
  *
- *  When set to +true+, all threads (including the main program) will abort if
- *  an exception is raised in this +thr+.
- *
- *  The process will effectively <code>exit(0)</code>.
+ *  When set to +true+, if this +thr+ is aborted by an exception, the
+ *  raised exception will be re-raised in the main thread.
  *
  *  See also #abort_on_exception.
  *

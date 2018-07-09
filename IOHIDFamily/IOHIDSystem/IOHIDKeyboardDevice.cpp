@@ -96,6 +96,7 @@ static UInt8 gGenKeyboardDesc[] = {
 };
 
 extern unsigned int hid_adb_2_usb_keymap[];  //In Cosmo_USB2ADB.cpp
+extern unsigned int hid_adb_2_usb_keymap_length;
 
 #define super IOHIDDeviceShim
 
@@ -313,16 +314,14 @@ void IOHIDKeyboardDevice::postKeyboardEvent(UInt8 key, bool keyDown)
         return;
         
     // Convert ADB scan code to USB
-    if (! (usbKey = hid_adb_2_usb_keymap[key]))
+    if (key >= hid_adb_2_usb_keymap_length  || !(usbKey = hid_adb_2_usb_keymap[key])) {
         return;
+    }
     
     // Check if modifier
-    if ((usbKey >= 0xe0) && (usbKey <= 0xe7))
-    {
-	SET_MODIFIER_BIT(report->modifiers, usbKey, keyDown);
-    }
-    else
-    {
+    if ((usbKey >= 0xe0) && (usbKey <= 0xe7)) {
+        SET_MODIFIER_BIT(report->modifiers, usbKey, keyDown);
+    } else {
         for (int i=0; i<6; i++)
         {                
             if (report->keys[i] == usbKey)

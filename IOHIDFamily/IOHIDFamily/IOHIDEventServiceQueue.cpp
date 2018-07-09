@@ -88,8 +88,8 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     bool                result    = true;
 
     // Force a single read of head and tail
-    head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
     tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
+    head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE);
 
     if ( tail > getQueueSize() || head > getQueueSize() || entrySize < dataSize)
     {
@@ -168,7 +168,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
     if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
         if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail )
-            || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED) == tail ) || queueFull) {
+            || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE) == tail ) || queueFull) {
             //if (queueFull) {
             //    HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again 0xllx", _owner);
             //}

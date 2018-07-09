@@ -2951,8 +2951,9 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 			 && !totalSize[type])            totalSize[type] = minBridgeAlignments[type];
             totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
 
-			if (totalSize[type] != range->totalSize 
-			    && !(kIOPCIRangeFlagPermanent & range->flags))
+			if (!(kIOPCIRangeFlagPermanent & range->flags)
+			 && ((kIOPCIResourceTypeBusNumber != type)
+			  || (totalSize[type] != range->totalSize)))
 			{
 				DLOG("  %s: 0x%llx: size change 0x%llx -> 0x%llx\n",
 					  gPCIResourceTypeName[type], 

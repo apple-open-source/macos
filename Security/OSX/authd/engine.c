@@ -496,7 +496,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 					// otherwise we need to check la_result
 					if (auth_items_exist(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) || auth_items_exist(engine->context, kAuthorizationEnvironmentPassword)) {
 						// do not try to get credentials as it has been already passed by sheet
-						os_log(AUTHD_LOG, "engine: ingoring builtin sheet authenticate");
+						os_log(AUTHD_LOG, "engine: ignoring builtin sheet authenticate");
 					} else {
 						// sheet itself did the authenticate the user
 						os_log(AUTHD_LOG, "engine: running builtin sheet authenticate");
@@ -1376,6 +1376,14 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         auth_items_copy(engine->hints, environment);
     }
 
+    // First restore all context values from the AuthorizationRef
+    auth_items_t decrypted_items = auth_items_create();
+    require_action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "engine: enable to create items"));
+    auth_items_content_copy(decrypted_items, auth_token_get_context(engine->auth));
+    auth_items_decrypt(decrypted_items, auth_token_get_encryption_key(engine->auth));
+    auth_items_copy(engine->context, decrypted_items);
+    CFReleaseSafe(decrypted_items);
+    
 	if (engine->flags & kAuthorizationFlagSheet) {
 		CFTypeRef extract_password_entitlement = auth_token_copy_entitlement_value(engine->auth, "com.apple.authorization.extract-password");
 		if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
@@ -1390,7 +1398,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 		if (!enforced_entitlement()) {
 			save_password = true;
 		}
-		const char *user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
+        
+        // Try to use/update fresh context values from the environment
+        require_action(environment, done, os_log_debug(AUTHD_LOG, "engine: Missing environment for sheet authorization"); status = errAuthorizationDenied);
+            
+        const char *user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
 		require_action(user, done, os_log_debug(AUTHD_LOG, "engine: Missing username"); status = errAuthorizationDenied);
 
 		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
@@ -1425,13 +1437,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 		_extract_password_from_la(engine);
 		engine->preauthorizing = true;
 	}
-
-	auth_items_t decrypted_items = auth_items_create();
-	require_action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "engine: enable to create items"));
-	auth_items_content_copy(decrypted_items, auth_token_get_context(engine->auth));
-	auth_items_decrypt(decrypted_items, auth_token_get_encryption_key(engine->auth));
-	auth_items_copy(engine->context, decrypted_items);
-	CFReleaseSafe(decrypted_items);
     
     engine->dismissed = false;
     auth_rights_clear(engine->grantedRights);

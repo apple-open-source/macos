@@ -14,6 +14,8 @@
 #include <CoreFoundation/CFPlugInCOM.h>
 #endif
 
+#import <Foundation/Foundation.h>
+
 #include <IOKit/hid/IOHIDServiceFilterPlugIn.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <map>
@@ -157,6 +159,9 @@ private:
     boolean_t       _capsLockLEDState;
     boolean_t       _capsLockLEDInhibit;
     CFStringRef     _capsLockLED;
+    
+    NSNumber        *_restoreState;
+    NSNumber        *_locationID;
   
     IOHIDEventRef processStickyKeys(IOHIDEventRef event);
     void setStickyKeyState(UInt32 usagePage, UInt32 usage, StickyKeyState state);
@@ -186,8 +191,8 @@ private:
     void dispatchKeyRepeat(void);
     
     void processCapsLockState(IOHIDEventRef event);
-    void setCapsLockState(boolean_t state);
-    void updateCapslockLED();
+    void setCapsLockState(boolean_t state, CFTypeRef client);
+    void updateCapslockLED(CFTypeRef client);
   
     IOHIDEventRef processCapsLockDelay(IOHIDEventRef event);
     void dispatchCapsLock(void);

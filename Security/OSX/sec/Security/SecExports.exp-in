@@ -1723,6 +1723,7 @@ _kSecCodeInfoDigestAlgorithms
 _kSecCodeInfoEntitlements
 _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoUnique
+_kSecCodeInfoRuntimeVersion
 
 _kSecCFErrorResourceAdded
 _kSecCFErrorResourceAltered

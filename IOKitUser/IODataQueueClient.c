@@ -42,30 +42,46 @@ Boolean IODataQueueDataAvailable(IODataQueueMemory *dataQueue)
 IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
 {
     IODataQueueEntry *entry = 0;
-
-    if (dataQueue && (dataQueue->head != dataQueue->tail)) {
-            IODataQueueEntry *  head        = 0;
-            UInt32              headSize    = 0;
-        UInt32              headOffset  = dataQueue->head;
-            UInt32              queueSize   = dataQueue->queueSize;
-            
-            head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
-            headSize     = head->size;
-                    
-            // Check if there's enough room before the end of the queue for a header.
-            // If there is room, check if there's enough room to hold the header and
-            // the data.
-
-            if ((headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
-                ((headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE) > queueSize))
-            {
-                // No room for the header or the data, wrap to the beginning of the queue.
-                entry = dataQueue->queue;
-            } else {
-                entry = head;
-            }
+    UInt32            headOffset;
+    UInt32            tailOffset;
+    
+    if (!dataQueue) {
+        return NULL;
+    }
+    
+    // Read head and tail with acquire barrier
+    headOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+    tailOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_ACQUIRE);
+    
+    if (headOffset != tailOffset) {
+        IODataQueueEntry *  head        = 0;
+        UInt32              headSize    = 0;
+        UInt32              queueSize   = dataQueue->queueSize;
+        
+        if (headOffset > queueSize) {
+            return NULL;
         }
-
+        
+        head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
+        headSize     = head->size;
+        
+        // Check if there's enough room before the end of the queue for a header.
+        // If there is room, check if there's enough room to hold the header and
+        // the data.
+        
+        if ((headOffset > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+            (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
+            (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headSize) ||
+            (headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+            // No room for the header or the data, wrap to the beginning of the queue.
+            // Note: wrapping even with the UINT32_MAX checks, as we have to support
+            // queueSize of UINT32_MAX
+            entry = dataQueue->queue;
+        } else {
+            entry = head;
+        }
+    }
+    
     return entry;
 }
 
@@ -75,31 +91,49 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
     IOReturn            retVal          = kIOReturnSuccess;
     IODataQueueEntry *  entry           = 0;
     UInt32              entrySize       = 0;
+    UInt32              headOffset      = 0;
+    UInt32              tailOffset      = 0;
     UInt32              newHeadOffset   = 0;
 
     if (dataQueue) {
-        if (dataQueue->head != dataQueue->tail) {
+        // Read head and tail with acquire barrier
+        headOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+        tailOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_ACQUIRE);
+        
+        if (headOffset != tailOffset) {
             IODataQueueEntry *  head        = 0;
             UInt32              headSize    = 0;
-            UInt32              headOffset  = dataQueue->head;
             UInt32              queueSize   = dataQueue->queueSize;
             
             head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
             headSize     = head->size;
                         
-            // we wraped around to beginning, so read from there
+            // we wrapped around to beginning, so read from there
             // either there was not even room for the header
-            if ((headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
+            if ((headOffset > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
                 // or there was room for the header, but not for the data
-                ((headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE) > queueSize)) {
-                entry       = dataQueue->queue;
-                entrySize   = entry->size;
-                newHeadOffset = entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
-            // else it is at the end
+                (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headSize) ||
+                (headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+                // Note: we have to wrap to the beginning even with the UINT32_MAX checks
+                // because we have to support a queueSize of UINT32_MAX.
+                entry           = dataQueue->queue;
+                entrySize       = entry->size;
+                if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+                    return kIOReturnError;
+                }
+                newHeadOffset   = entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
+                // else it is at the end
             } else {
-                entry = head;
-                entrySize = entry->size;
-                newHeadOffset = headOffset + entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
+                entry           = head;
+                entrySize       = entry->size;
+                if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headOffset) ||
+                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE + headOffset > queueSize)) {
+                    return kIOReturnError;
+                }
+                newHeadOffset   = headOffset + entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
             }
         }
 
@@ -108,7 +142,7 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
                 if (dataSize) {
                     if (entrySize <= *dataSize) {
                         memcpy(data, &(entry->data), entrySize);
-                        OSAtomicCompareAndSwap32Barrier(dataQueue->head, newHeadOffset, (int32_t *)&dataQueue->head);
+                        __c11_atomic_store((_Atomic UInt32 *)&dataQueue->head, newHeadOffset, __ATOMIC_RELEASE);
                     } else {
                         retVal = kIOReturnNoSpace;
                     }
@@ -116,7 +150,7 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
                     retVal = kIOReturnBadArgument;
                 }
             } else {
-                OSAtomicCompareAndSwap32Barrier(dataQueue->head, newHeadOffset, (int32_t *)&dataQueue->head);
+                __c11_atomic_store((_Atomic UInt32 *)&dataQueue->head, newHeadOffset, __ATOMIC_RELEASE);
             }
 
             // RY: Update the data size here.  This will
@@ -137,17 +171,32 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
 static IOReturn
 __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
 {
-    UInt32              head        = dataQueue->head;  // volatile
-    UInt32              tail        = dataQueue->tail;
+    UInt32              head;
+    UInt32              tail;
+    UInt32              newTail;
     UInt32              queueSize   = dataQueue->queueSize;
     UInt32              entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IOReturn            retVal      = kIOReturnSuccess;
     IODataQueueEntry *  entry;
+    
+    // Force a single read of head and tail
+    tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
+    head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE);
+    
+    // Check for overflow of entrySize
+    if (dataSize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) {
+        return kIOReturnOverrun;
+    }
+    // Check for underflow of (getQueueSize() - tail)
+    if (queueSize < tail || queueSize < head) {
+        return kIOReturnUnderrun;
+    }
 
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
-        if ( (tail + entrySize) <= queueSize )
+        if ((entrySize <= UINT32_MAX - tail) &&
+            ((tail + entrySize) <= queueSize) )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
@@ -162,7 +211,7 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
             // exactly matches the available space at the end of the queue.
             // The tail can range from 0 to queueSize inclusive.
 
-            OSAtomicAdd32Barrier(entrySize, (int32_t *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else if ( head > entrySize )     // Is there enough room at the beginning?
         {
@@ -187,7 +236,7 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
                 ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = dataSize;
             }
 
-            OSAtomicCompareAndSwap32Barrier(dataQueue->tail, entrySize, (int32_t *)&dataQueue->tail);
+            newTail = entrySize;
         }
         else
         {
@@ -210,7 +259,7 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
 
             entry->size = dataSize;
             
-            OSAtomicAdd32Barrier(entrySize, (int32_t *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else
         {
@@ -221,8 +270,11 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
     // Send notification (via mach message) that data is available.    
     
     if ( retVal == kIOReturnSuccess ) {
+        // Update tail with release barrier
+        __c11_atomic_store((_Atomic UInt32 *)&dataQueue->tail, newTail, __ATOMIC_RELEASE);
+        
         if ( ( head == tail )                                                           /* queue was empty prior to enqueue() */
-        ||   ( dataQueue->head == tail ) )  /* queue was emptied during enqueue() */
+        ||   ( tail == __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE) ) )  /* queue was emptied during enqueue() */
         {
             retVal = _IODataQueueSendDataAvailableNotification(dataQueue);
         }

@@ -1683,6 +1683,24 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                             if ( status == 0 )
                             {
+                                CFStringRef content;
+
+                                content = DADiskGetDescription( disk, kDADiskDescriptionMediaContentKey );
+
+                                if ( CFEqual( content, CFSTR( "C12A7328-F81F-11D2-BA4B-00A0C93EC93B" ) ) )
+                                {
+                                    if ( audit_token_to_euid( _token ) )
+                                    {
+                                        if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )
+                                        {
+                                            status = kDAReturnNotPermitted;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if ( status == 0 )
+                            {
                                 CFTypeRef mountpoint;
 
                                 mountpoint = argument2;
@@ -1712,7 +1730,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                     if ( audit_token_to_euid( _token ) )
                                     {
-                                        if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ))
+                                        if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )
                                         {
                                             status = kDAReturnNotPermitted;
                                         }

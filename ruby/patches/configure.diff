@@ -1,15 +1,15 @@
---- configure.orig	2013-12-15 17:29:21.000000000 -0800
-+++ configure	2013-12-15 17:30:05.000000000 -0800
-@@ -5050,7 +5050,7 @@ if test "$GCC" = yes; then
- esac
- 	done; }
+--- configure.orig	2017-12-14 06:57:48.000000000 -0800
++++ configure	2018-01-16 11:25:16.000000000 -0800
+@@ -5513,7 +5513,7 @@
+     test -n "$gcc_minor" || gcc_minor=0
+     # RUBY_APPEND_OPTIONS(XCFLAGS, ["-include ruby/config.h" "-include ruby/missing.h"])
  else
 -    linker_flag=
 +    linker_flag=-Wl,
  fi
  
  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the linker is GNU ld" >&5
-@@ -5135,13 +5135,7 @@ $as_echo "failed" >&6; }
+@@ -5621,13 +5621,7 @@
  esac
      done
      target_archs="$universal_binary"
@@ -22,9 +22,9 @@
 -esac
 +    universal_binary=yes
      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $target_archs" >&5
- $as_echo "$target_archs" >&6; }
+     colorize_result "$target_archs" ; }
  
-@@ -8841,20 +8835,15 @@ else
+@@ -10781,20 +10775,15 @@
  _ACEOF
  if ac_fn_c_try_compile "$LINENO"; then :
  
@@ -46,3 +46,12 @@
  	       ;;
  	   esac
  	   ac_prev=
+@@ -23735,7 +23724,7 @@
+ 	    LIBRUBY_RELATIVE=yes
+ 	fi
+ 	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-install_name '${libprefix}'/$(LIBRUBY_SO)'
+-	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-compatibility_version $(MAJOR).$(MINOR)'
++	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-compatibility_version 2.3.3'
+ 	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-current_version $(RUBY_PROGRAM_VERSION)'
+ 	if test "$visibility_option" = ld; then
+ 	    LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-Wl,-unexported_symbol,_Init_*'

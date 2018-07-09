@@ -2,7 +2,7 @@
 
   vm.c -
 
-  $Author: nagachika $
+  $Author: usa $
 
   Copyright (C) 2004-2007 Koichi Sasada
 
@@ -433,8 +433,8 @@ rb_vm_pop_cfunc_frame(void)
     rb_thread_t *th = GET_THREAD();
     const rb_callable_method_entry_t *me = rb_vm_frame_method_entry(th->cfp);
 
-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, th->cfp->self, me->called_id, me->owner, Qnil);
-    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->owner, me->called_id);
+    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, th->cfp->self, me->def->original_id, me->owner, Qnil);
+    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->owner, me->def->original_id);
     vm_pop_frame(th);
 }
 
@@ -928,18 +928,20 @@ invoke_bmethod(rb_thread_t *th, const rb_iseq_t *iseq, VALUE self, const rb_bloc
     int arg_size = iseq->body->param.size;
     VALUE ret;
 
-    vm_push_frame(th, iseq, type | VM_FRAME_FLAG_FINISH | VM_FRAME_FLAG_BMETHOD, self,
-		  VM_ENVVAL_PREV_EP_PTR(block->ep),
-		  (VALUE)me, /* cref or method (TODO: can we ignore cref?) */
-		  iseq->body->iseq_encoded + opt_pc,
-		  th->cfp->sp + arg_size, iseq->body->local_size - arg_size,
-		  iseq->body->stack_max);
+    rb_control_frame_t *cfp =
+	vm_push_frame(th, iseq, type | VM_FRAME_FLAG_BMETHOD, self,
+		      VM_ENVVAL_PREV_EP_PTR(block->ep),
+		      (VALUE)me, /* cref or method (TODO: can we ignore cref?) */
+		      iseq->body->iseq_encoded + opt_pc,
+		      th->cfp->sp + arg_size, iseq->body->local_size - arg_size,
+		      iseq->body->stack_max);
 
-    RUBY_DTRACE_METHOD_ENTRY_HOOK(th, me->owner, me->called_id);
-    EXEC_EVENT_HOOK(th, RUBY_EVENT_CALL, self, me->called_id, me->owner, Qnil);
+    RUBY_DTRACE_METHOD_ENTRY_HOOK(th, me->owner, me->def->original_id);
+    EXEC_EVENT_HOOK(th, RUBY_EVENT_CALL, self, me->def->original_id, me->owner, Qnil);
+    cfp->flag |= VM_FRAME_FLAG_FINISH;
     ret = vm_exec(th);
-    EXEC_EVENT_HOOK(th, RUBY_EVENT_RETURN, self, me->called_id, me->owner, ret);
-    RUBY_DTRACE_METHOD_RETURN_HOOK(th, me->owner, me->called_id);
+    EXEC_EVENT_HOOK(th, RUBY_EVENT_RETURN, self, me->def->original_id, me->owner, ret);
+    RUBY_DTRACE_METHOD_RETURN_HOOK(th, me->owner, me->def->original_id);
     return ret;
 }
 
@@ -1310,33 +1312,31 @@ rb_vm_localjump_error(const char *mesg, VALUE value, int reason)
 VALUE
 rb_vm_make_jump_tag_but_local_jump(int state, VALUE val)
 {
-    VALUE result = Qnil;
+    const char *mesg;
 
+    switch (state) {
+      case TAG_RETURN:
+	mesg = "unexpected return";
+	break;
+      case TAG_BREAK:
+	mesg = "unexpected break";
+	break;
+      case TAG_NEXT:
+	mesg = "unexpected next";
+	break;
+      case TAG_REDO:
+	mesg = "unexpected redo";
+	break;
+      case TAG_RETRY:
+	mesg = "retry outside of rescue clause";
+	break;
+      default:
+	return Qnil;
+    }
     if (val == Qundef) {
 	val = GET_THREAD()->tag->retval;
     }
-    switch (state) {
-      case 0:
-	break;
-      case TAG_RETURN:
-	result = make_localjump_error("unexpected return", val, state);
-	break;
-      case TAG_BREAK:
-	result = make_localjump_error("unexpected break", val, state);
-	break;
-      case TAG_NEXT:
-	result = make_localjump_error("unexpected next", val, state);
-	break;
-      case TAG_REDO:
-	result = make_localjump_error("unexpected redo", Qnil, state);
-	break;
-      case TAG_RETRY:
-	result = make_localjump_error("retry outside of rescue clause", Qnil, state);
-	break;
-      default:
-	break;
-    }
-    return result;
+    return make_localjump_error(mesg, val, state);
 }
 
 void
@@ -1507,28 +1507,71 @@ vm_frametype_name(const rb_control_frame_t *cfp)
 }
 #endif
 
-static void
-hook_before_rewind(rb_thread_t *th, rb_control_frame_t *cfp, int will_finish_vm_exec)
+static VALUE
+frame_return_value(const struct vm_throw_data *err)
 {
+    if (THROW_DATA_P(err) &&
+	THROW_DATA_STATE(err) == TAG_BREAK &&
+	THROW_DATA_CONSUMED_P(err) == FALSE) {
+	return THROW_DATA_VAL(err);
+    }
+    else {
+	return Qnil;
+    }
+}
+
+#if 0
+/* for debug */
+static const char *
+frame_name(const rb_control_frame_t *cfp)
+{
+    unsigned long type = VM_FRAME_TYPE(cfp);
+#define C(t) if (type == VM_FRAME_MAGIC_##t) return #t
+    C(METHOD);
+    C(BLOCK);
+    C(CLASS);
+    C(TOP);
+    C(CFUNC);
+    C(PROC);
+    C(IFUNC);
+    C(EVAL);
+    C(LAMBDA);
+    C(RESCUE);
+    C(DUMMY);
+#undef C
+    return "unknown";
+}
+#endif
+
+static void
+hook_before_rewind(rb_thread_t *th, const rb_control_frame_t *cfp, int will_finish_vm_exec, int state, struct vm_throw_data *err)
+{
+    if (state == TAG_RAISE && RBASIC_CLASS(err) == rb_eSysStackError) {
+	return;
+    }
     switch (VM_FRAME_TYPE(th->cfp)) {
       case VM_FRAME_MAGIC_METHOD:
 	RUBY_DTRACE_METHOD_RETURN_HOOK(th, 0, 0);
-	EXEC_EVENT_HOOK_AND_POP_FRAME(th, RUBY_EVENT_RETURN, th->cfp->self, 0, 0, Qnil);
+	EXEC_EVENT_HOOK_AND_POP_FRAME(th, RUBY_EVENT_RETURN, th->cfp->self, 0, 0, frame_return_value(err));
+	THROW_DATA_CONSUMED_SET(err);
 	break;
       case VM_FRAME_MAGIC_BLOCK:
       case VM_FRAME_MAGIC_LAMBDA:
 	if (VM_FRAME_TYPE_BMETHOD_P(th->cfp)) {
-	    EXEC_EVENT_HOOK(th, RUBY_EVENT_B_RETURN, th->cfp->self, 0, 0, Qnil);
+	    EXEC_EVENT_HOOK(th, RUBY_EVENT_B_RETURN, th->cfp->self, 0, 0, frame_return_value(err));
 
 	    if (!will_finish_vm_exec) {
 		/* kick RUBY_EVENT_RETURN at invoke_block_from_c() for bmethod */
 		EXEC_EVENT_HOOK_AND_POP_FRAME(th, RUBY_EVENT_RETURN, th->cfp->self,
-					      rb_vm_frame_method_entry(th->cfp)->called_id,
-					      rb_vm_frame_method_entry(th->cfp)->owner, Qnil);
+					      rb_vm_frame_method_entry(th->cfp)->def->original_id,
+					      rb_vm_frame_method_entry(th->cfp)->owner,
+					      frame_return_value(err));
 	    }
+	    THROW_DATA_CONSUMED_SET(err);
 	}
 	else {
-	    EXEC_EVENT_HOOK_AND_POP_FRAME(th, RUBY_EVENT_B_RETURN, th->cfp->self, 0, 0, Qnil);
+	    EXEC_EVENT_HOOK_AND_POP_FRAME(th, RUBY_EVENT_B_RETURN, th->cfp->self, 0, 0, frame_return_value(err));
+	    THROW_DATA_CONSUMED_SET(err);
 	}
 	break;
       case VM_FRAME_MAGIC_CLASS:
@@ -1673,11 +1716,11 @@ vm_exec(rb_thread_t *th)
 	while (th->cfp->pc == 0 || th->cfp->iseq == 0) {
 	    if (UNLIKELY(VM_FRAME_TYPE(th->cfp) == VM_FRAME_MAGIC_CFUNC)) {
 		EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, th->cfp->self,
-				rb_vm_frame_method_entry(th->cfp)->called_id,
+				rb_vm_frame_method_entry(th->cfp)->def->original_id,
 				rb_vm_frame_method_entry(th->cfp)->owner, Qnil);
 		RUBY_DTRACE_CMETHOD_RETURN_HOOK(th,
 					       rb_vm_frame_method_entry(th->cfp)->owner,
-					       rb_vm_frame_method_entry(th->cfp)->called_id);
+					       rb_vm_frame_method_entry(th->cfp)->def->original_id);
 	    }
 	    th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
 	}
@@ -1708,10 +1751,11 @@ vm_exec(rb_thread_t *th)
 				}
 			    }
 			}
-			if (!catch_iseq) {
+			if (catch_iseq == NULL) {
 			    th->errinfo = Qnil;
 			    result = THROW_DATA_VAL(err);
-			    hook_before_rewind(th, th->cfp, TRUE);
+			    THROW_DATA_CATCH_FRAME_SET(err, cfp + 1);
+			    hook_before_rewind(th, th->cfp, TRUE, state, err);
 			    vm_pop_frame(th);
 			    goto finish_vme;
 			}
@@ -1851,8 +1895,7 @@ vm_exec(rb_thread_t *th)
 	    goto vm_loop_start;
 	}
 	else {
-	    /* skip frame */
-	    hook_before_rewind(th, th->cfp, FALSE);
+	    hook_before_rewind(th, th->cfp, FALSE, state, err);
 
 	    if (VM_FRAME_TYPE_FINISH_P(th->cfp)) {
 		vm_pop_frame(th);
@@ -2391,7 +2434,6 @@ th_init(rb_thread_t *th, VALUE self)
     th->status = THREAD_RUNNABLE;
     th->errinfo = Qnil;
     th->last_status = Qnil;
-    th->waiting_fd = -1;
     th->root_svar = Qfalse;
     th->local_storage_recursive_hash = Qnil;
     th->local_storage_recursive_hash_for_trace = Qnil;
@@ -2529,6 +2571,7 @@ core_hash_merge(VALUE hash, long argc, const VALUE *argv)
 {
     long i;
 
+    Check_Type(hash, T_HASH);
     VM_ASSERT(argc % 2 == 0);
     for (i=0; i<argc; i+=2) {
 	rb_hash_aset(hash, argv[i], argv[i+1]);
@@ -2549,7 +2592,7 @@ core_hash_from_ary(VALUE ary)
 {
     VALUE hash = rb_hash_new();
 
-    RUBY_DTRACE_CREATE_HOOK(HASH, RARRAY_LEN(ary));
+    RUBY_DTRACE_CREATE_HOOK(HASH, (Check_Type(ary, T_ARRAY), RARRAY_LEN(ary)));
     return core_hash_merge_ary(hash, ary);
 }
 
@@ -2563,6 +2606,7 @@ m_core_hash_merge_ary(VALUE self, VALUE hash, VALUE ary)
 static VALUE
 core_hash_merge_ary(VALUE hash, VALUE ary)
 {
+    Check_Type(ary, T_ARRAY);
     core_hash_merge(hash, RARRAY_LEN(ary), RARRAY_CONST_PTR(ary));
     return hash;
 }

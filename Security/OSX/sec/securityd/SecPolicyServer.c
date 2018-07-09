@@ -2612,6 +2612,13 @@ static bool SecPVCContainsPolicy(SecPVCRef pvc, CFStringRef searchOid, CFStringR
                 if (policyIX) { *policyIX = ix; }
                 return true;
             }
+            /* <rdar://40617139> sslServer trust settings need to apply to evals using policyName pinning
+             * but make sure we don't use this for SSL Client trust settings or policies. */
+            if (CFEqual(searchOid, policyOid) &&
+                CFEqual(searchName, kSecPolicyNameSSLServer) && !CFEqual(policyName, kSecPolicyNameSSLClient)) {
+                if (policyIX) { *policyIX = ix; }
+                return true;
+            }
         }
         /* Next best is just OID. */
         if (!searchName && searchOid && policyOid) {

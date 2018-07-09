@@ -2,7 +2,7 @@
 
   eval.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -458,6 +458,8 @@ exc_setup_cause(VALUE exc, VALUE cause)
     }
 #endif
     if (!NIL_P(cause) && cause != exc) {
+	if (OBJ_FROZEN(exc))
+	    exc = rb_obj_dup(exc);
 	rb_ivar_set(exc, id_cause, cause);
     }
     return exc;
@@ -467,6 +469,17 @@ static inline int
 sysstack_error_p(VALUE exc)
 {
     return exc == sysstack_error || (!SPECIAL_CONST_P(exc) && RBASIC_CLASS(exc) == rb_eSysStackError);
+}
+
+static inline int
+special_exception_p(rb_thread_t *th, VALUE exc)
+{
+    enum ruby_special_exceptions i;
+    const VALUE *exceptions = th->vm->special_exceptions;
+    for (i = 0; i < ruby_special_error_count; ++i) {
+	if (exceptions[i] == exc) return TRUE;
+    }
+    return FALSE;
 }
 
 static void
@@ -486,14 +499,17 @@ setup_exception(rb_thread_t *th, int tag, volatile VALUE mesg, VALUE cause)
 	mesg = rb_exc_new(rb_eRuntimeError, 0, 0);
 	nocause = 0;
     }
+    else if (special_exception_p(th, mesg)) {
+	mesg = ruby_vm_special_exception_copy(mesg);
+    }
     if (cause != Qundef) {
-	exc_setup_cause(mesg, cause);
+	mesg = exc_setup_cause(mesg, cause);
     }
     else if (nocause) {
-	exc_setup_cause(mesg, Qnil);
+	mesg = exc_setup_cause(mesg, Qnil);
     }
     else if (!rb_ivar_defined(mesg, id_cause)) {
-	exc_setup_cause(mesg, get_thread_errinfo(th));
+	mesg = exc_setup_cause(mesg, get_thread_errinfo(th));
     }
 
     file = rb_source_loc(&line);
@@ -502,9 +518,6 @@ setup_exception(rb_thread_t *th, int tag, volatile VALUE mesg, VALUE cause)
 	if (sysstack_error_p(mesg)) {
 	    if (NIL_P(rb_attr_get(mesg, idBt))) {
 		at = rb_vm_backtrace_object();
-		if (mesg == sysstack_error) {
-		    mesg = ruby_vm_sysstack_error_copy();
-		}
 		rb_ivar_set(mesg, idBt, at);
 		rb_ivar_set(mesg, idBt_locations, at);
 	    }
@@ -578,6 +591,17 @@ setup_exception(rb_thread_t *th, int tag, volatile VALUE mesg, VALUE cause)
     if (tag != TAG_FATAL) {
 	RUBY_DTRACE_HOOK(RAISE, rb_obj_classname(th->errinfo));
 	EXEC_EVENT_HOOK(th, RUBY_EVENT_RAISE, th->cfp->self, 0, 0, mesg);
+    }
+}
+
+void
+rb_threadptr_setup_exception(rb_thread_t *th, VALUE mesg, VALUE cause)
+{
+    if (cause == Qundef) {
+	cause = get_thread_errinfo(th);
+    }
+    if (cause != mesg) {
+	rb_ivar_set(mesg, id_cause, cause);
     }
 }
 
@@ -752,7 +776,7 @@ rb_raise_jump(VALUE mesg, VALUE cause)
     ID mid = me->called_id;
 
     th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, self, mid, klass, Qnil);
+    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, self, me->def->original_id, klass, Qnil);
 
     setup_exception(th, TAG_RAISE, mesg, cause);
 
@@ -804,7 +828,7 @@ rb_rescue2(VALUE (* b_proc) (ANYARGS), VALUE data1,
 {
     int state;
     rb_thread_t *th = GET_THREAD();
-    rb_control_frame_t *cfp = th->cfp;
+    rb_control_frame_t *volatile cfp = th->cfp;
     volatile VALUE result = Qfalse;
     volatile VALUE e_info = th->errinfo;
     va_list args;
@@ -870,7 +894,7 @@ rb_protect(VALUE (* proc) (VALUE), VALUE data, int * state)
     volatile VALUE result = Qnil;
     volatile int status;
     rb_thread_t *th = GET_THREAD();
-    rb_control_frame_t *cfp = th->cfp;
+    rb_control_frame_t *volatile cfp = th->cfp;
     struct rb_vm_protect_tag protect_tag;
     rb_jmpbuf_t org_jmpbuf;
 

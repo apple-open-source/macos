@@ -583,6 +583,8 @@ struct vm_svar {
 
 /* THROW_DATA */
 
+#define THROW_DATA_CONSUMED IMEMO_FL_USER0
+
 struct vm_throw_data {
     VALUE flags;
     VALUE reserved;
@@ -591,7 +593,7 @@ struct vm_throw_data {
     VALUE throw_state;
 };
 
-#define THROW_DATA_P(err) RB_TYPE_P((err), T_IMEMO)
+#define THROW_DATA_P(err) RB_TYPE_P((VALUE)(err), T_IMEMO)
 
 /* IFUNC */
 
@@ -837,6 +839,7 @@ VALUE rb_hash_set_default_proc(VALUE hash, VALUE proc);
 long rb_objid_hash(st_index_t index);
 st_table *rb_init_identtable(void);
 st_table *rb_init_identtable_with_size(st_index_t size);
+VALUE rb_hash_compare_by_id_p(VALUE hash);
 
 #define RHASH_TBL_RAW(h) rb_hash_tbl_raw(h)
 VALUE rb_hash_keys(VALUE hash);
@@ -1103,7 +1106,6 @@ size_t rb_strftime(char *s, size_t maxsize, const char *format, rb_encoding *enc
 #endif
 
 /* string.c */
-void Init_frozen_strings(void);
 VALUE rb_fstring(VALUE);
 VALUE rb_fstring_new(const char *ptr, long len);
 #define rb_fstring_lit(str) rb_fstring_new((str), rb_strlen_lit(str))
@@ -1238,7 +1240,7 @@ void rb_vm_pop_cfunc_frame(void);
 int rb_vm_add_root_module(ID id, VALUE module);
 void rb_vm_check_redefinition_by_prepend(VALUE klass);
 VALUE rb_yield_refine_block(VALUE refinement, VALUE refinements);
-VALUE ruby_vm_sysstack_error_copy(void);
+VALUE ruby_vm_special_exception_copy(VALUE);
 
 /* vm_dump.c */
 void rb_print_backtrace(void);

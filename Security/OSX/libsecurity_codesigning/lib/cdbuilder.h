@@ -64,6 +64,18 @@ public:
 		mExecSegOffset = base; mExecSegLimit = limit; mExecSegFlags = flags; }
 	void addExecSegFlags(uint64_t flags) { mExecSegFlags |= flags; }
 
+	typedef std::map<CodeDirectory::HashAlgorithm, CFCopyRef<CFDataRef> >
+		PreEncryptHashMap;
+
+	void generatePreEncryptHashes(bool pre) { mGeneratePreEncryptHashes = pre; }
+	void preservePreEncryptHashMap(PreEncryptHashMap preEncryptHashMap) {
+		mPreservedPreEncryptHashMap = preEncryptHashMap;
+	}
+
+	void runTimeVersion(uint32_t runtime) {
+		mRuntimeVersion = runtime;
+	}
+
 	size_t size(const uint32_t version);		// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
     size_t fixedSize(const uint32_t version);	// calculate fixed size of the CodeDirectory
@@ -101,6 +113,11 @@ private:
 	uint64_t mExecSegOffset;					// starting offset of executable segment
 	uint64_t mExecSegLimit;						// limit of executable segment
 	uint64_t mExecSegFlags;						// executable segment flags
+
+	bool mGeneratePreEncryptHashes;				// whether to also generate new pre-encrypt hashes
+	PreEncryptHashMap mPreservedPreEncryptHashMap; // existing pre-encrypt hashes to be set
+
+	uint32_t mRuntimeVersion;					// Hardened Runtime Version
 
 	CodeDirectory *mDir;						// what we're building
 };

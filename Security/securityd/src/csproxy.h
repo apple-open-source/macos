@@ -69,6 +69,7 @@ public:
 	
 	struct Guest : public RefCount, public HandleObject {
 	public:
+        Guest();
 		~Guest();
 		std::vector<SecGuestRef> guestPath; // guest chain to this guest
 		uint32_t status;			// dynamic status
@@ -80,7 +81,8 @@ public:
 		operator bool() const { return attributes; }  // exists
 		SecGuestRef guestRef() const { return int_cast<long, SecGuestRef>(handle()); }
 		void setAttributes(const CssmData &attrData);
-		CFDataRef attrData() const;
+        uint8_t const *attrData() const  { createAttrData(); return mAttrData; };
+        CFIndex attrDataLength() const { createAttrData(); return mAttrDataLength; };
 		void setHash(const CssmData &given, bool generate);
 		
 		bool isGuestOf(Guest *host, GuestCheck check) const;
@@ -89,7 +91,10 @@ public:
 		IFDUMP(void dump() const);
 	
 	private:
-		mutable CFRef<CFDataRef> mAttrData; // XML form of attributes (must live until guest destruction)
+        void createAttrData() const;
+        
+		mutable uint8_t *mAttrData; // XML form of attributes (vm_allocate'd, must live until guest destruction)
+        mutable CFIndex mAttrDataLength;
 	};
 	
 	void registerCodeSigning(mach_port_t hostingPort, SecCSFlags flags);

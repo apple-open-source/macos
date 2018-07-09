@@ -170,6 +170,8 @@ class TestRubyOptions < Test::Unit::TestCase
     assert_in_out_err(%w(-0141 -e) + ["print gets"], "foo\nbar\0baz", %w(foo ba), [])
 
     assert_in_out_err(%w(-0e) + ["print gets"], "foo\nbar\0baz", %W(foo bar\0), [])
+
+    assert_in_out_err(%w(-00 -e) + ["p gets, gets"], "foo\nbar\n\n\n\nbaz\n", %w("foo\nbar\n\n" "baz\n"), [])
   end
 
   def test_autosplit
@@ -404,6 +406,16 @@ class TestRubyOptions < Test::Unit::TestCase
       t.puts " end"
       t.flush
       assert_in_out_err(["-w", t.path], "", [], [], '[ruby-core:25442]')
+
+      err = ["#{t.path}:2: warning: mismatched indentations at 'end' with 'begin' at 1"]
+      t.rewind
+      t.truncate(0)
+      t.print "\u{feff}"
+      t.puts "begin"
+      t.puts " end"
+      t.flush
+      assert_in_out_err(["-w", t.path], "", [], err)
+      assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err)
     }
   end
 
@@ -727,6 +739,34 @@ class TestRubyOptions < Test::Unit::TestCase
         assert_in_out_err(["-Eutf-8", "-e", "puts ARGV", "*"], "", Ougai, encoding: "utf-8")
         ougai = Ougai.map {|f| f.encode("locale", replace: "?")}
         assert_in_out_err(["-e", "puts ARGV", "*.txt"], "", ougai)
+      end
+    end
+
+    def assert_e_script_encoding(str, args = [])
+      cmds = [
+        EnvUtil::LANG_ENVS.inject({}) {|h, k| h[k] = ENV[k]; h},
+        *args,
+        '-e', "s = '#{str}'",
+        '-e', 'puts s.encoding.name',
+        '-e', 'puts s.dump',
+      ]
+      assert_in_out_err(cmds, "", [str.encoding.name, str.dump], [],
+                        "#{str.encoding}:#{str.dump} #{args.inspect}")
+    end
+
+    # tested codepages: 437 850 852 855 932 65001
+    # Since the codepage is shared all processes per conhost.exe, do
+    # not chcp, or parallel test may break.
+    def test_locale_codepage
+      locale = Encoding.find("locale")
+      list = %W"\u{c7} \u{452} \u{3066 3059 3068}"
+      list.each do |s|
+        assert_e_script_encoding(s, %w[-U])
+      end
+      list.each do |s|
+        s = s.encode(locale) rescue next
+        assert_e_script_encoding(s)
+        assert_e_script_encoding(s, %W[-E#{locale.name}])
       end
     end
   when /cygwin/

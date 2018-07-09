@@ -123,6 +123,8 @@ CF_ENUM(OSStatus) {
     errSecCSBadTeamIdentifier =         -66997, /* a Team Identifier is wrong or inappropriate */
     errSecCSSignatureUntrusted =        -66996, /* signature is valid but signer is not trusted */
 	errSecMultipleExecSegments =		-66995, /* the image contains multiple executable segments */
+	errSecCSInvalidEntitlements =		-66994, /* invalid entitlement plist */
+	errSecCSInvalidRuntimeVersion =     -66993, /* an invalid runtime version was explicitly set */
 };
 
 /*
@@ -245,6 +247,9 @@ typedef CF_OPTIONS(uint32_t, SecCSFlags) {
 	immediately	if it becomes invalid.
 	@constant kSecCodeSignatureForceExpiration
 	Forces the kSecCSConsiderExpiration flag on all validations of the code.
+	@constant kSecCodeSignatureRuntime
+	Instructs the kernel to apply runtime hardening policies as required by the
+	hardened runtime version
  */
 typedef CF_OPTIONS(uint32_t, SecCodeSignatureFlags) {
 	kSecCodeSignatureHost = 0x0001,			/* may host guest code */
@@ -255,6 +260,7 @@ typedef CF_OPTIONS(uint32_t, SecCodeSignatureFlags) {
 	kSecCodeSignatureRestrict = 0x0800, /* restrict dyld loading */
 	kSecCodeSignatureEnforcement = 0x1000, /* enforce code signing */
 	kSecCodeSignatureLibraryValidation = 0x2000, /* library validation required */
+	kSecCodeSignatureRuntime = 0x10000, /* apply runtime hardening policies */
 };
 
 /*!

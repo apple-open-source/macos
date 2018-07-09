@@ -2,7 +2,7 @@
 
   compile.c - ruby node tree -> VM instruction sequence
 
-  $Author: nagachika $
+  $Author: usa $
   created at: 04/01/01 03:42:15 JST
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -27,6 +27,8 @@
 
 #undef RUBY_UNTYPED_DATA_WARNING
 #define RUBY_UNTYPED_DATA_WARNING 0
+
+#define ISEQ_TYPE_ONCE_GUARD ISEQ_TYPE_DEFINED_GUARD
 
 #define FIXNUM_INC(n, i) ((n)+(INT2FIX(i)&~FIXNUM_FLAG))
 #define FIXNUM_OR(n, i) ((n)|INT2FIX(i))
@@ -544,9 +546,6 @@ validate_labels(rb_iseq_t *iseq, st_table *labels_table)
 {
     st_foreach(labels_table, validate_label, (st_data_t)iseq);
     st_free_table(labels_table);
-    if (!NIL_P(ISEQ_COMPILE_DATA(iseq)->err_info)) {
-	rb_exc_raise(ISEQ_COMPILE_DATA(iseq)->err_info);
-    }
 }
 
 VALUE
@@ -1108,6 +1107,9 @@ new_child_iseq(rb_iseq_t *iseq, NODE *node,
 static int
 iseq_setup(rb_iseq_t *iseq, LINK_ANCHOR *anchor)
 {
+    if (RTEST(ISEQ_COMPILE_DATA(iseq)->err_info))
+	return COMPILE_NG;
+
     /* debugs("[compile step 2] (iseq_array_to_linkedlist)\n"); */
 
     if (compile_debug > 5)
@@ -3615,7 +3617,7 @@ setup_args(rb_iseq_t *iseq, LINK_ANCHOR *args, NODE *argn, unsigned int *flag, s
 	switch (nd_type(argn)) {
 	  case NODE_SPLAT: {
 	    COMPILE(args, "args (splat)", argn->nd_head);
-	    ADD_INSN1(args, nd_line(argn), splatarray, Qfalse);
+	    ADD_INSN1(args, nd_line(argn), splatarray, nsplat ? Qtrue : Qfalse);
 	    argc = INT2FIX(1);
 	    nsplat++;
 	    *flag |= VM_CALL_ARGS_SPLAT;
@@ -3629,7 +3631,7 @@ setup_args(rb_iseq_t *iseq, LINK_ANCHOR *args, NODE *argn, unsigned int *flag, s
 	    INIT_ANCHOR(tmp);
 	    COMPILE(tmp, "args (cat: splat)", argn->nd_body);
 	    if (nd_type(argn) == NODE_ARGSCAT) {
-		ADD_INSN1(tmp, nd_line(argn), splatarray, Qfalse);
+		ADD_INSN1(tmp, nd_line(argn), splatarray, nsplat ? Qtrue : Qfalse);
 	    }
 	    else {
 		ADD_INSN1(tmp, nd_line(argn), newarray, INT2FIX(1));
@@ -4749,8 +4751,11 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 		ADD_INSN1(ret, line, topn, INT2FIX(1));
 	    }
 	    ADD_SEND_WITH_FLAG(ret, line, aid, INT2FIX(1), INT2FIX(asgnflag));
+	    if (lskip && poped) {
+		ADD_LABEL(ret, lskip);
+	    }
 	    ADD_INSN(ret, line, pop);
-	    if (lskip) {
+	    if (lskip && !poped) {
 		ADD_LABEL(ret, lskip);
 	    }
 	}
@@ -5069,7 +5074,10 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	    if (liseq->body->param.flags.has_rest) {
 		/* rest argument */
 		int idx = liseq->body->local_size - liseq->body->param.rest_start;
+
 		ADD_INSN2(args, line, getlocal, INT2FIX(idx), INT2FIX(lvar_level));
+		ADD_INSN1(args, line, splatarray, Qfalse);
+
 		argc = liseq->body->param.rest_start + 1;
 		flag |= VM_CALL_ARGS_SPLAT;
 	    }
@@ -5489,7 +5497,8 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	int ic_index = iseq->body->is_size++;
 	NODE *dregx_node = NEW_NODE(NODE_DREGX, node->u1.value, node->u2.value, node->u3.value);
 	NODE *block_node = NEW_NODE(NODE_SCOPE, 0, dregx_node, 0);
-	const rb_iseq_t * block_iseq = NEW_CHILD_ISEQ(block_node, make_name_for_block(iseq), ISEQ_TYPE_BLOCK, line);
+	const rb_iseq_t *block_iseq = NEW_CHILD_ISEQ(block_node, make_name_for_block(iseq),
+						     ISEQ_TYPE_ONCE_GUARD, line);
 
 	ADD_INSN2(ret, line, once, block_iseq, INT2FIX(ic_index));
 
@@ -5993,8 +6002,8 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
       }
       case NODE_PRELUDE:{
 	const rb_compile_option_t *orig_opt = ISEQ_COMPILE_DATA(iseq)->option;
+	rb_compile_option_t new_opt = *orig_opt;
 	if (node->nd_orig) {
-	    rb_compile_option_t new_opt = *orig_opt;
 	    rb_iseq_make_compile_option(&new_opt, node->nd_orig);
 	    ISEQ_COMPILE_DATA(iseq)->option = &new_opt;
 	}

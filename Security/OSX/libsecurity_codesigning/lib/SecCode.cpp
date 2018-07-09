@@ -214,7 +214,8 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 		  kSecCSConsiderExpiration
 		| kSecCSStrictValidate
 		| kSecCSRestrictSidebandData
-		| kSecCSEnforceRevocationChecks);
+		| kSecCSEnforceRevocationChecks
+	);
 	SecPointer<SecCode> code = SecCode::required(codeRef);
 	code->checkValidity(flags);
 	if (const SecRequirement *req = SecRequirement::optional(requirementRef))
@@ -257,6 +258,7 @@ const CFStringRef kSecCodeInfoTimestamp =		CFSTR("signing-timestamp");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");
 const CFStringRef kSecCodeInfoUnique =			CFSTR("unique");
 const CFStringRef kSecCodeInfoCdHashes =        CFSTR("cdhashes");
+const CFStringRef kSecCodeInfoRuntimeVersion = 	CFSTR("runtime-version");
 
 
 const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
@@ -265,10 +267,10 @@ const CFStringRef kSecCodeInfoDiskRepInfo =     CFSTR("DiskRepInfo");
 const CFStringRef kSecCodeInfoResourceDirectory = CFSTR("ResourceDirectory");
 
 /* DiskInfoRepInfo types */
-const CFStringRef kSecCodeInfoDiskRepOSPlatform =          CFSTR("OSPlatform");
-const CFStringRef kSecCodeInfoDiskRepOSVersionMin =        CFSTR("OSVersionMin");
-const CFStringRef kSecCodeInfoDiskRepOSSDKVersion =        CFSTR("SDKVersion");
-const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation = CFSTR("NoLibraryValidation");
+const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");
+const CFStringRef kSecCodeInfoDiskRepVersionMin =        	CFSTR("VersionMin");
+const CFStringRef kSecCodeInfoDiskRepVersionSDK =        	CFSTR("VersionSDK");
+const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation = 	CFSTR("NoLibraryValidation");
 
 
 OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flags,

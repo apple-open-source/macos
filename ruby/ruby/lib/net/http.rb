@@ -386,7 +386,7 @@ module Net   #:nodoc:
   class HTTP < Protocol
 
     # :stopdoc:
-    Revision = %q$Revision: 56782 $.split[1]
+    Revision = %q$Revision: 59533 $.split[1]
     HTTPVersion = '1.1'
     begin
       require 'zlib'
@@ -925,21 +925,7 @@ module Net   #:nodoc:
              Process.clock_gettime(Process::CLOCK_REALTIME) < @ssl_session.time.to_f + @ssl_session.timeout
             s.session = @ssl_session if @ssl_session
           end
-          if timeout = @open_timeout
-            while true
-              raise Net::OpenTimeout if timeout <= 0
-              start = Process.clock_gettime Process::CLOCK_MONOTONIC
-              # to_io is required because SSLSocket doesn't have wait_readable yet
-              case s.connect_nonblock(exception: false)
-              when :wait_readable; s.to_io.wait_readable(timeout)
-              when :wait_writable; s.to_io.wait_writable(timeout)
-              else; break
-              end
-              timeout -= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-            end
-          else
-            s.connect
-          end
+          ssl_socket_connect(s, @open_timeout)
           if @ssl_context.verify_mode != OpenSSL::SSL::VERIFY_NONE
             s.post_connection_check(@address)
           end

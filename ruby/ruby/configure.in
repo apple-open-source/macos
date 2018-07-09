@@ -556,11 +556,23 @@ AS_CASE(["$target_cpu-$target_os"], [[i[3-6]86*]], [
 		 CFLAGS="$save_CFLAGS"
 	 fi])
 
+AS_CASE(["$target_os"], [darwin*], [
+if libtool 2>&1 | grep no_warning_for_no_symbols > /dev/null; then
+  ac_cv_prog_ac_ct_RANLIB=:
+  ac_cv_prog_ac_ct_AR='libtool -static'
+  rb_cv_arflags='-no_warning_for_no_symbols -o'
+fi
+])
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_CHECK_TOOL(AR, ar)
 if test -z "$AR"; then
   AC_CHECK_PROGS(AR, aal, ar)
 fi
+AC_CACHE_CHECK([for $AR flags], [rb_cv_arflags], [
+    AS_IF([$AR rcD conftest.a > /dev/null 2>&1 && rm conftest.a],
+	[rb_cv_arflags=rcD], [rb_cv_arflags=rcu])
+])
+AC_SUBST(ARFLAGS, ["$rb_cv_arflags "])
 
 AC_CHECK_TOOL(AS, as)
 ASFLAGS=$ASFLAGS
@@ -787,6 +799,24 @@ AC_DEFUN([RUBY_TRY_LDFLAGS], [
     save_LDFLAGS=
 ])
 
+: ${RPATHFLAG=''}
+rpathflag=''
+AS_IF([test x"${RPATHFLAG}" = x], [
+    AS_CASE(["$target_os"],
+	[hpux*], [AS_IF([test "$rb_cv_prog_gnu_ld" = no], [rpathflag='+b '])],
+	[aix*], [rpathflag='-blibpath:'],
+	[for rpathflag in -R "-rpath "; do
+	    AS_CASE("$rpathflag",
+		    [*" "], [AS_CASE(["${linker_flag}"],
+				     [*,], [rpathflag=`echo "$rpathflag" | tr ' ' ,`])])
+	    rpathflag="${linker_flag}${rpathflag}"
+	    RUBY_TRY_LDFLAGS([${rpathflag}.], [], [rpathflag=])
+	    AS_IF([test "x${rpathflag}" != x], [])
+        done])
+], [
+    rpathflag=`echo "$RPATHFLAG" | sed 's/%.*//'`
+])
+
 AS_CASE([$RUBY_PATCHLEVEL], [-*],
 	[particular_werror_flags=yes], [particular_werror_flags=no])
 AC_ARG_ENABLE(werror,
@@ -894,6 +924,33 @@ if test "$GCC" = yes; then
       # various  headers.  Most frequent  situation is  the use  of //
       # comments.   We  bypass  ANSI   C  mode  for  them.   Otherwise
       # extension libs cannot include those headers.
+
+      # Since math.h in some mingw64 wrongly delcares frexp and modf
+      # to be pure, the variables pointed by the second arguments are
+      # considered uninitialized unexpectedly.
+      AC_CACHE_CHECK([whether frexp and modf are broken],
+	rb_cv_mingw64_broken_frexp_modf,
+	[
+	  save_CFLAGS="$CFLAGS"
+	  if test "$particular_werror_flags" = "yes"; then
+	    CFLAGS="$CFLAGS -Werror=uninitialized"
+	  else
+	    CFLAGS="$CFLAGS -Werror -Wuninitialized"
+	  fi
+	  AC_TRY_COMPILE([@%:@include <math.h>
+	    int foo(double x)
+	    {
+	      int exp;
+	      frexp(x, &exp);
+	      return exp;
+	    }], [if (foo(0.0)) return 1;],
+	    [rb_cv_mingw64_broken_frexp_modf=no],
+	    [rb_cv_mingw64_broken_frexp_modf=yes])
+	  CFLAGS="$save_CFLAGS"
+	])
+      if test "$rb_cv_mingw64_broken_frexp_modf" = yes; then
+	AC_DEFINE(RUBY_MINGW64_BROKEN_FREXP_MODF)
+      fi
     ],
     [cygwin*|darwin*|netbsd*|nacl], [
       # need lgamma_r(), finite()
@@ -959,7 +1016,7 @@ AC_ARG_WITH(opt-dir,
 	[
 		val=`echo "$PATH_SEPARATOR$withval" | sed "s|$PATH_SEPARATOR\([[^$PATH_SEPARATOR]*]\)| -I\1/include|g;s/^ //"`
 		CPPFLAGS="$CPPFLAGS $val"
-		val=`echo "$PATH_SEPARATOR$withval" | sed "s|$PATH_SEPARATOR\([[^$PATH_SEPARATOR]*]\)| -L\1/lib|g;s/^ //"`
+		val=`echo "$PATH_SEPARATOR$withval" | sed "s|$PATH_SEPARATOR\([[^$PATH_SEPARATOR]*]\)| -L\1/lib${rpathflag:+ $rpathflag\\\\1/lib}|g;s/^ //"`
 		LDFLAGS="$LDFLAGS $val"
 		LDFLAGS_OPTDIR="$val"
 		OPT_DIR="$withval"
@@ -1024,6 +1081,12 @@ AS_CASE(["$target_os"],
 		    ],
 		    [macosx_10_5=yes], [macosx_10_5=no])
 		AC_MSG_RESULT($macosx_10_5)
+		AS_IF([test "${target_os@%:@darwin}" -ge 16], [
+		    ac_cv_func___syscall=no
+		    ac_cv_func_syscall=no
+		    ac_cv_header_sys_syscall_h=no
+		    ac_cv_header_syscall_h=no
+		])
 		if test $macosx_10_5 = yes; then
 		    ac_cv_func_getcontext=no
 		    ac_cv_func_setcontext=no
@@ -1286,15 +1349,15 @@ AC_ARG_WITH([gmp],
 AS_IF([test "x$with_gmp" != xno],
   [AC_CHECK_HEADERS(gmp.h)
    AS_IF([test "x$ac_cv_header_gmp_h" != xno],
-     AC_CHECK_LIB([gmp], [__gmpz_init]))
-   with_gmp="$ac_cv_lib_gmp___gmpz_init"
-   AS_IF([test -z "$with_gmp"], [with_gmp=no])])
+     AC_SEARCH_LIBS([__gmpz_init], [gmp],
+       [AC_DEFINE(HAVE_LIBGMP, 1)]))])
 
 AC_ARG_WITH([jemalloc],
   [AS_HELP_STRING([--with-jemalloc],[use jemalloc allocator])],
   [with_jemalloc=$withval], [with_jemalloc=no])
 AS_IF([test "x$with_jemalloc" = xyes],[
-  AC_CHECK_LIB([jemalloc], [malloc_conf], [], [with_jemalloc=no])
+  AC_SEARCH_LIBS([malloc_conf], [jemalloc],
+    [AC_DEFINE(HAVE_LIBJEMALLOC, 1)], [with_jemalloc=no])
   AC_CHECK_HEADER(jemalloc/jemalloc.h, [
     AC_DEFINE(RUBY_ALTERNATIVE_MALLOC_HEADER, [<jemalloc/jemalloc.h>])
   ])
@@ -2442,7 +2505,7 @@ main(int argc, char **argv)
 AS_IF([test "x$rb_cv_atan2_inf_c99" = xyes], [AC_DEFINE(ATAN2_INF_C99)])
 
 AS_IF([test "x$ac_cv_func_lgamma_r" = xyes], [
-    AC_CACHE_CHECK(whether lgamma_r handles -0.0, rb_cv_lgamma_r_m0, [
+    AC_CACHE_CHECK(whether lgamma_r handles +0.0 and -0.0, rb_cv_lgamma_r_pm0, [
 	AC_TRY_RUN([
 @%:@include <math.h>
 @%:@ifdef HAVE_UNISTD_H
@@ -2458,22 +2521,28 @@ AS_IF([test "x$ac_cv_func_lgamma_r" = xyes], [
 int
 main(int argc, char **argv)
 {
-    int sign;
+    int sign = 0;
     double x = lgamma_r(-0.0, &sign);
 
     /* should be [+inf, -1] */
     if (x <= 0) return EXIT_FAILURE;
     if (!isinf(x)) return EXIT_FAILURE;
     if (sign != -1) return EXIT_FAILURE;
+
+    /* should be [+inf, 1] */
+    x = lgamma_r(+0.0, &sign);
+    if (x <= 0) return EXIT_FAILURE;
+    if (!isinf(x)) return EXIT_FAILURE;
+    if (sign != 1) return EXIT_FAILURE;
     return EXIT_SUCCESS;
 }
 ],
-	[rb_cv_lgamma_r_m0=yes],
-	[rb_cv_lgamma_r_m0=no],
-	[rb_cv_lgamma_r_m0=yes]
+	[rb_cv_lgamma_r_pm0=yes],
+	[rb_cv_lgamma_r_pm0=no],
+	[rb_cv_lgamma_r_pm0=yes]
 	)
     ])
-    AS_IF([test "x$rb_cv_lgamma_r_m0" = xno], [AC_DEFINE(LGAMMA_R_M0_FIX)])
+    AS_IF([test "x$rb_cv_lgamma_r_pm0" = xno], [AC_DEFINE(LGAMMA_R_PM0_FIX)])
 ])
 
 # Some platform need -lrt for clock_gettime, but the other don't.
@@ -3125,7 +3194,6 @@ AC_SUBST(LIBEXT)dnl
 AC_SUBST(ASMEXT, S)dnl
 
 STATIC=
-: ${PATHFLAG=''}
 
 if test "$with_dln_a_out" != yes; then
   rb_cv_dlopen=unknown
@@ -3164,9 +3232,6 @@ if test "$with_dln_a_out" != yes; then
 			: ${LDSHARED='$(LD) -b'}
 			XLDFLAGS="$XLDFLAGS -Wl,-E"
 			: ${LIBPATHENV=SHLIB_PATH}
-			if test "$rb_cv_prog_gnu_ld" = no; then
-			    RPATHFLAG=' +b %1$-s'
-			fi
 			rb_cv_dlopen=yes],
 	[solaris*], [	if test "$GCC" = yes; then
 			    : ${LDSHARED='$(CC) -shared'}
@@ -3237,7 +3302,6 @@ if test "$with_dln_a_out" != yes; then
                         TRY_LINK='$(CC) $(LDFLAGS) -oconftest $(INCFLAGS) -I$(hdrdir) $(CPPFLAGS)'
                         TRY_LINK="$TRY_LINK"' $(CFLAGS) $(src) $(LIBPATH) $(LOCAL_LIBS) $(LIBS)'
 			: ${LIBPATHENV=LIBPATH}
-			RPATHFLAG=" ${linker_flag}-blibpath:%1\$-s:${prefix}/lib:${LIBPATH:-/usr/lib:/lib}"
 			rb_cv_dlopen=yes],
 	[nto-qnx*], [	DLDFLAGS="$DLDFLAGS -L/lib -L/usr/lib -L/usr/local/lib"
 			: ${LDSHARED='$(LD) -Bshareable -x'}
@@ -3273,21 +3337,11 @@ if test "$with_dln_a_out" != yes; then
       ])
   fi
 
-  if test "$enable_rpath" = yes; then
-    if test x"${RPATHFLAG}" = x; then
-      for rpathflag in -R "-rpath "; do
-	AS_CASE("$rpathflag",
-		[*" "], [AS_CASE(["${linker_flag}"],
-				 [*,], [rpathflag=`echo "$rpathflag" | tr ' ' ,`])])
-	rpathflag="${linker_flag}${rpathflag}"
-	RUBY_TRY_LDFLAGS([${rpathflag}.], [], [rpathflag=])
-	if test "x${rpathflag}" != x; then
+  AS_IF([test "$enable_rpath:${RPATHFLAG}" = yes:], [
+      AS_IF([test "x$rpathflag" != x], [
 	  RPATHFLAG=" ${rpathflag}%1\$-s"
-	  break
-	fi
-      done
-    fi
-  fi
+      ])
+  ])
 fi
 if test "${LDSHAREDXX}" = ""; then
     AS_CASE(["${LDSHARED}"],
@@ -3745,8 +3799,8 @@ AS_CASE("$enable_shared", [yes], [
 	    LIBRUBY_RELATIVE=yes
 	fi
 	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-install_name '${libprefix}'/$(LIBRUBY_SO)'
-	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-current_version $(MAJOR).$(MINOR).$(TEENY)'
-	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-compatibility_version $(RUBY_PROGRAM_VERSION)'
+	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-compatibility_version $(MAJOR).$(MINOR)'
+	LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-current_version $(RUBY_PROGRAM_VERSION)'
 	if test "$visibility_option" = ld; then
 	    LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-Wl,-unexported_symbol,_Init_*'
 	    LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-Wl,-unexported_symbol,_ruby_static_id_*'
@@ -3945,8 +3999,8 @@ AS_CASE(["$target_os"],
 	],
     [darwin*], [
 	RUBY_APPEND_OPTION(CFLAGS, -pipe)
-	RUBY_APPEND_OPTION(XLDFLAGS, [-framework CoreFoundation])
-	RUBY_APPEND_OPTION(LIBRUBYARG_STATIC, [-framework CoreFoundation])
+	RUBY_APPEND_OPTION(XLDFLAGS, [-framework Foundation])
+	RUBY_APPEND_OPTION(LIBRUBYARG_STATIC, [-framework Foundation])
 	],
     [osf*], [
 	if test "$GCC" != "yes" ; then
@@ -4011,12 +4065,6 @@ AS_CASE(["$target_os"],
     [nacl], [
 	FIRSTMAKEFILE=GNUmakefile:nacl/GNUmakefile.in
 	])
-
-AS_CASE(["$with_gmp: $SOLIBS "], [no:* | *' -lgmp '*|*' $(LIBS) '*], [],
-	[SOLIBS="-lgmp $SOLIBS"])
-
-AS_CASE(["$with_jemalloc: $LIBS "], [no:* | *' -ljemalloc '*], [],
-	[LIBS="-ljemalloc $LIBS"])
 
 MINIOBJS="$MINIDLNOBJ"
 

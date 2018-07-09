@@ -29,6 +29,7 @@
 #include "IOHIDDebug.h"
 #include <sys/proc.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
+#include "IOHIDFamilyTrace.h"
 
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
@@ -513,8 +514,9 @@ void IOHIDEventServiceUserClient::enqueueEventGated( IOHIDEvent * event)
         _lastEventType = event->getType();
         Boolean result = _queue->enqueueEvent(event);
         if (result == false) {
-          _lastDroppedEventTime = _lastEventTime;
-          ++_droppedEventCount;
+            _lastDroppedEventTime = _lastEventTime;
+            ++_droppedEventCount;
+            IOHID_DEBUG(kIOHIDDebugCode_HIDEventServiceEnqueueFail, event->getTimeStamp(), 0, 0, 0);
         }
     }
 }

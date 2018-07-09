@@ -1110,6 +1110,9 @@ class TestString < Test::Unit::TestCase
 
     assert_nil("foo".rindex(//, -100))
     assert_nil($~)
+
+    assert_equal(3, "foo".rindex(//))
+    assert_equal([3, 3], $~.offset(0))
   end
 
   def test_rjust
@@ -1359,6 +1362,11 @@ class TestString < Test::Unit::TestCase
     }
   end
 
+  def test_split_dupped
+    s = "abc"
+    s.split("b", 1).map(&:upcase!)
+    assert_equal("abc", s)
+  end
   def test_squeeze
     assert_equal(S("abc"), S("aaabbbbccc").squeeze)
     assert_equal(S("aa bb cc"), S("aa   bb      cc").squeeze(S(" ")))
@@ -1483,6 +1491,10 @@ class TestString < Test::Unit::TestCase
     assert_equal(S("Abc"), S("abc").sub("a") {m = $~; "A"})
     assert_equal(S("a"), m[0])
     assert_equal(/a/, m.regexp)
+    bug = '[ruby-core:78686] [Bug #13042] other than regexp has no name references'
+    assert_raise_with_message(IndexError, /oops/, bug) {
+      'hello'.gsub('hello', '\k<oops>')
+    }
   end
 
   def test_sub!
@@ -1533,6 +1545,11 @@ class TestString < Test::Unit::TestCase
     assert_equal("2000aaa", "1999zzz".succ)
     assert_equal("AAAA0000", "ZZZ9999".succ)
     assert_equal("**+", "***".succ)
+
+    bug = '[ruby-core:83062] [Bug #13952]'
+    s = "\xff".b
+    assert_not_predicate(s, :ascii_only?)
+    assert_predicate(s.succ, :ascii_only?, bug)
   end
 
   def test_succ!
@@ -1716,8 +1733,13 @@ class TestString < Test::Unit::TestCase
     assert_equal(false, "\u3041\u3042".tr("\u3041", "a").ascii_only?)
 
     bug6156 = '[ruby-core:43335]'
+    bug13950 = '[ruby-core:83056] [Bug #13950]'
     str, range, star = %w[b a-z *].map{|s|s.encode("utf-16le")}
-    assert_equal(star, str.tr(range, star), bug6156)
+    result = str.tr(range, star)
+    assert_equal(star, result, bug6156)
+    assert_not_predicate(str, :ascii_only?)
+    assert_not_predicate(star, :ascii_only?)
+    assert_not_predicate(result, :ascii_only?, bug13950)
   end
 
   def test_tr!
@@ -2034,7 +2056,12 @@ class TestString < Test::Unit::TestCase
     end
 
     assert_equal(["\u30E6\u30FC\u30B6", "@", "\u30C9\u30E1.\u30A4\u30F3"],
-      "\u30E6\u30FC\u30B6@\u30C9\u30E1.\u30A4\u30F3".partition(/[@.]/))
+                 "\u30E6\u30FC\u30B6@\u30C9\u30E1.\u30A4\u30F3".partition(/[@.]/))
+
+    bug = '[ruby-core:82911]'
+    hello = "hello"
+    hello.partition("hi").map(&:upcase!)
+    assert_equal("hello", hello, bug)
   end
 
   def test_rpartition
@@ -2054,6 +2081,11 @@ class TestString < Test::Unit::TestCase
     bug8138 = '[ruby-dev:47183]'
     assert_equal(["\u30E6\u30FC\u30B6@\u30C9\u30E1", ".", "\u30A4\u30F3"],
       "\u30E6\u30FC\u30B6@\u30C9\u30E1.\u30A4\u30F3".rpartition(/[@.]/), bug8138)
+
+    bug = '[ruby-core:82911]'
+    hello = "hello"
+    hello.rpartition("hi").map(&:upcase!)
+    assert_equal("hello", hello, bug)
   end
 
   def test_setter
@@ -2297,6 +2329,12 @@ class TestString < Test::Unit::TestCase
 
     assert_not_equal(str.object_id, (+str).object_id)
     assert_equal(str.object_id, (-str).object_id)
+  end
+
+  def test_substr_code_range
+    data = "\xff" + "a"*200
+    assert_not_predicate(data, :valid_encoding?)
+    assert_predicate(data[100..-1], :valid_encoding?)
   end
 end
 

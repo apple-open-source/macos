@@ -208,6 +208,7 @@ enum
 {
     kHIDUsage_AV_TopCase_KeyboardFn            = 0x0003,
     kHIDUsage_AV_TopCase_BrightnessUp          = 0x0004,
+    kHIDUsage_AV_TopCase_KeyboardLayoutSwitch  = 0x0004, // use in output report on DFR virtual keyboard
     kHIDUsage_AV_TopCase_BrightnessDown        = 0x0005,
     kHIDUsage_AV_TopCase_VideoMirror           = 0x0006,
     kHIDUsage_AV_TopCase_IlluminationToggle    = 0x0007,

@@ -344,6 +344,8 @@
 		48F282321CE29D9D00AA8798 /* IOHIDProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		48F282331CE2A3B300AA8798 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		6C1F23001F33991B006EE813 /* HIDEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C1F22FF1F33991B006EE813 /* HIDEvent.m */; };
+		6C6A3456206D67F4008B3FDF /* AppleKeyboardStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */; };
+		6C6A3457206D67F9008B3FDF /* AppleKeyboardStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */; };
 		6CC6449D1F43A2290041D7E6 /* list.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC6449C1F43A21B0041D7E6 /* list.m */; };
 		6CC6449E1F43A22A0041D7E6 /* list.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC6449C1F43A21B0041D7E6 /* list.m */; };
 		6CC644A01F43D00C0041D7E6 /* report.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC6449F1F43D0070041D7E6 /* report.m */; };
@@ -765,7 +767,7 @@
 		98B36DEE196CA2FC00435CC7 /* IOHIDEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98B36DED196CA2FC00435CC7 /* IOHIDEventSource.cpp */; };
 		98B36DEF196CA2FC00435CC7 /* IOHIDEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98B36DED196CA2FC00435CC7 /* IOHIDEventSource.cpp */; };
 		98B9F0541AB00DBB003B3C24 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B9F0531AB00DBB003B3C24 /* Foundation.framework */; };
-		98B9F0611AB00E6C003B3C24 /* IOHIDKeyboardFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.cpp */; };
+		98B9F0611AB00E6C003B3C24 /* IOHIDKeyboardFilter.mm in Sources */ = {isa = PBXBuildFile; fileRef = 98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.mm */; };
 		B9004A8612E9149900669C25 /* IOHIDSystemCursorHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9004A8412E9149900669C25 /* IOHIDSystemCursorHelper.cpp */; };
 		B9004A8712E9149900669C25 /* IOHIDSystemCursorHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B9004A8512E9149900669C25 /* IOHIDSystemCursorHelper.h */; };
 		B939FE62131B81BD00FA1175 /* IOHIDResourceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84B95A7C0E872A7A00F19A68 /* IOHIDResourceUserClient.cpp */; };
@@ -978,7 +980,7 @@
 		D8FD9CB81F1FD4830018950C /* IOHIDDescriptorParser.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66CD02ADD67601FF6135 /* IOHIDDescriptorParser.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		F5CD19B51BEACDFF00D0888A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D91BD5DAAF00CC07F9 /* IOKit.framework */; };
 		F5CD19B61BEACDFF00D0888A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D71BD5DAA800CC07F9 /* CoreFoundation.framework */; };
-		F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.cpp */; };
+		F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.mm in Sources */ = {isa = PBXBuildFile; fileRef = 98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1940,6 +1942,8 @@
 		58DBF97A020875DE04CA2A11 /* IOHIDPointing.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDPointing.h; sourceTree = "<group>"; };
 		6C1F22FE1F33991B006EE813 /* HIDEvent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDEvent.h; sourceTree = "<group>"; };
 		6C1F22FF1F33991B006EE813 /* HIDEvent.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDEvent.m; sourceTree = "<group>"; };
+		6C6A3452206D67EB008B3FDF /* AppleKeyboardStateManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleKeyboardStateManager.h; sourceTree = "<group>"; };
+		6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppleKeyboardStateManager.m; sourceTree = "<group>"; };
 		6CC6449C1F43A21B0041D7E6 /* list.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = list.m; sourceTree = "<group>"; };
 		6CC6449F1F43D0070041D7E6 /* report.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = report.m; sourceTree = "<group>"; };
 		721DB8210E29276500E991AF /* hidd_man.pod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = hidd_man.pod; path = hidd/hidd_man.pod; sourceTree = SOURCE_ROOT; };
@@ -2051,7 +2055,7 @@
 		98B9F0511AB00DBB003B3C24 /* IOHIDKeyboardFilter-Embedded.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IOHIDKeyboardFilter-Embedded.plugin"; sourceTree = BUILT_PRODUCTS_DIR; };
 		98B9F0531AB00DBB003B3C24 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		98B9F0561AB00DBC003B3C24 /* IOHIDKeyboardFilter-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IOHIDKeyboardFilter-Info.plist"; sourceTree = "<group>"; };
-		98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDKeyboardFilter.cpp; sourceTree = "<group>"; };
+		98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = IOHIDKeyboardFilter.mm; sourceTree = "<group>"; };
 		98B9F0601AB00E61003B3C24 /* IOHIDKeyboardFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboardFilter.h; sourceTree = "<group>"; };
 		B30C5190133D2D9300A4FA0F /* IOHIDReportTest-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "IOHIDReportTest-Entitlements.plist"; path = "tools/IOHIDReportTest-Entitlements.plist"; sourceTree = "<group>"; };
 		B9004A8412E9149900669C25 /* IOHIDSystemCursorHelper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDSystemCursorHelper.cpp; sourceTree = "<group>"; };
@@ -3034,9 +3038,11 @@
 		98B9F04C1AB00D20003B3C24 /* IOHIDKeyboardFilter */ = {
 			isa = PBXGroup;
 			children = (
+				6C6A3452206D67EB008B3FDF /* AppleKeyboardStateManager.h */,
+				6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */,
 				98B9F0561AB00DBC003B3C24 /* IOHIDKeyboardFilter-Info.plist */,
 				98B9F0601AB00E61003B3C24 /* IOHIDKeyboardFilter.h */,
-				98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.cpp */,
+				98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.mm */,
 			);
 			name = IOHIDKeyboardFilter;
 			sourceTree = "<group>";
@@ -5271,7 +5277,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				48A17B781DB940C500C1C8EA /* IOHIDUtility.cpp in Sources */,
-				98B9F0611AB00E6C003B3C24 /* IOHIDKeyboardFilter.cpp in Sources */,
+				6C6A3456206D67F4008B3FDF /* AppleKeyboardStateManager.m in Sources */,
+				98B9F0611AB00E6C003B3C24 /* IOHIDKeyboardFilter.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5453,7 +5460,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				48A17B771DB93F6400C1C8EA /* IOHIDUtility.cpp in Sources */,
-				F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.cpp in Sources */,
+				6C6A3457206D67F9008B3FDF /* AppleKeyboardStateManager.m in Sources */,
+				F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,7 +3,7 @@
  *
  *   Copyright (C) UENO Katsuhiro 2000-2003
  *
- * $Id: zlib.c 53200 2015-12-19 05:27:52Z nobu $
+ * $Id: zlib.c 59532 2017-08-09 08:08:01Z usa $
  */
 
 #include <ruby.h>
@@ -3407,7 +3407,14 @@ static VALUE
 rb_gzfile_total_out(VALUE obj)
 {
     struct gzfile *gz = get_gzfile(obj);
-    return rb_uint2inum(gz->z.stream.total_out - gz->z.buf_filled);
+    uLong total_out = gz->z.stream.total_out;
+    long buf_filled = gz->z.buf_filled;
+
+    if (total_out >= (uLong)buf_filled) {
+        return rb_uint2inum(total_out - buf_filled);
+    } else {
+        return LONG2FIX(-(buf_filled - (long)total_out));
+    }
 }
 
 /*

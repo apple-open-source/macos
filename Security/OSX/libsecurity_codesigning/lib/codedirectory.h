@@ -65,7 +65,7 @@ namespace CodeSigning {
 #define kSecCS_ENTITLEMENTFILE		"CodeEntitlements"	// entitlement configuration
 #define kSecCS_REPSPECIFICFILE		"CodeRepSpecific"	// DiskRep-specific use slot
 #define kSecCS_TOPDIRECTORYFILE		"CodeTopDirectory"	// Top-level directory list
-
+#define kSecCS_ENTITLEMENTDERFILE	"CodeEntitlementDER" // DER entitlement representation
 
 //
 // Special hash slot values. In a CodeDirectory, these show up at negative slot
@@ -93,6 +93,7 @@ enum {
 	cdTopDirectorySlot = 4,				// Application specific slot
 	cdEntitlementSlot = 5,				// embedded entitlement configuration
 	cdRepSpecificSlot = 6,				// for use by disk rep
+	cdEntitlementDERSlot = 7,			// DER representation of entitlements
 	// (add further primary slot numbers here)
 
 	cdSlotCount,						// total number of special slots (+1 for slot 0)
@@ -202,8 +203,11 @@ public:
 	Endian<uint64_t> execSegLimit;	// limit of executable segment
 	Endian<uint64_t> execSegFlags;	// exec segment flags
 
+	Endian<uint32_t> runtime;			// Runtime version encoded as an unsigned int
+	Endian<uint32_t> preEncryptOffset;	// offset of pre-encrypt hash slots
+
 	// works with the version field; see comments above
-	static const uint32_t currentVersion = 0x20400;		// "version 2.4"
+	static const uint32_t currentVersion = 0x20500;		// "version 2.5"
 	static const uint32_t compatibilityLimit = 0x2F000;	// "version 3 with wiggle room"
 	
 	static const uint32_t earliestVersion = 0x20001;	// earliest supported version
@@ -211,6 +215,7 @@ public:
 	static const uint32_t supportsTeamID = 0x20200;		// first version to support team ID option
 	static const uint32_t supportsCodeLimit64 = 0x20300; // first version to support codeLimit64
 	static const uint32_t supportsExecSegment = 0x20400; // first version to support exec base and limit
+	static const uint32_t supportsPreEncrypt = 0x20500; // first version to support pre-encrypt hashes and runtime version
 
 	void checkIntegrity() const;	// throws if inconsistent or unsupported version
 
@@ -228,18 +233,28 @@ public:
 	// main hash array access
 	SpecialSlot maxSpecialSlot() const;
 		
-	unsigned char *operator [] (Slot slot)
+	unsigned char *getSlotMutable (Slot slot, bool preEncrypt)
 	{
 		assert(slot >= int(-nSpecialSlots) && slot < int(nCodeSlots));
-		return at<unsigned char>(hashOffset) + hashSize * slot;
+
+		if (preEncrypt) {
+			if (version >= supportsPreEncrypt && preEncryptOffset != 0) {
+				assert(slot >= 0);
+				return at<unsigned char>(preEncryptOffset) + hashSize * slot;
+			} else {
+				return NULL;
+			}
+		} else {
+			return at<unsigned char>(hashOffset) + hashSize * slot;
+		}
 	}
-	
-	const unsigned char *operator [] (Slot slot) const
+
+	const unsigned char *getSlot (Slot slot, bool preEncrypt) const
 	{
-		assert(slot >= int(-nSpecialSlots) && slot < int(nCodeSlots));
-		return at<unsigned char>(hashOffset) + hashSize * slot;
+		CodeDirectory *cd = const_cast<CodeDirectory *>(this);
+		return const_cast<const unsigned char *>(cd->getSlotMutable(slot, preEncrypt));
 	}
-	
+
 	//
 	// The main page hash array can be "scattered" across the code file
 	// by specifying an array of Scatter elements, terminated with an
@@ -266,9 +281,13 @@ public:
 	uint64_t execSegmentLimit() const { return (version >= supportsExecSegment) ? execSegLimit.get() : 0; }
 	uint64_t execSegmentFlags() const { return (version >= supportsExecSegment) ? execSegFlags.get() : 0; }
 
+	const unsigned char *preEncryptHashes() const { return getSlot(0, true); }
+
+	uint32_t runtimeVersion() const {return (version >= supportsPreEncrypt) ? runtime.get() : 0; }
+
 public:
-	bool validateSlot(const void *data, size_t size, Slot slot) const;			// validate memory buffer against page slot
-	bool validateSlot(UnixPlusPlus::FileDesc fd, size_t size, Slot slot) const;	// read and validate file
+	bool validateSlot(const void *data, size_t size, Slot slot, bool preEncrypted) const;			// validate memory buffer against page slot
+	bool validateSlot(UnixPlusPlus::FileDesc fd, size_t size, Slot slot, bool preEncrypted) const;	// read and validate file
 	bool slotIsPresent(Slot slot) const;
 	
 	class Builder;
@@ -276,7 +295,7 @@ public:
 public:
 	static DynamicHash *hashFor(HashAlgorithm hashType);		// create a DynamicHash subclass for (hashType) digests
 	DynamicHash *getHash() const { return hashFor(this->hashType); } // make one for me
-	CFDataRef cdhash() const;
+	CFDataRef cdhash(bool truncate = true) const;
 	
 	static void multipleHashFileData(UnixPlusPlus::FileDesc fd, size_t limit, HashAlgorithms types, void (^action)(HashAlgorithm type, DynamicHash* hasher));
     bool verifyMemoryContent(CFDataRef data, const Byte* digest) const;

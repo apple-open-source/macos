@@ -1509,6 +1509,16 @@ ippCopyAttribute(
         dstattr = ippAddSeparator(dst);
 	break;
 
+    case IPP_TAG_UNSUPPORTED_VALUE :
+    case IPP_TAG_DEFAULT :
+    case IPP_TAG_UNKNOWN :
+    case IPP_TAG_NOVALUE :
+    case IPP_TAG_NOTSETTABLE :
+    case IPP_TAG_DELETEATTR :
+    case IPP_TAG_ADMINDEFINE :
+        dstattr = ippAddOutOfBand(dst, srcattr->group_tag, srcattr->value_tag & ~IPP_TAG_CUPS_CONST, srcattr->name);
+        break;
+
     case IPP_TAG_INTEGER :
     case IPP_TAG_ENUM :
         dstattr = ippAddIntegers(dst, srcattr->group_tag, srcattr->value_tag,
@@ -3068,6 +3078,13 @@ ippReadIO(void       *src,		/* I - Data source */
 	    ipp->state = IPP_STATE_DATA;
 	    break;
 	  }
+	  else if (tag == IPP_TAG_ZERO || (tag == IPP_TAG_OPERATION && ipp->curtag != IPP_TAG_ZERO))
+	  {
+	    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Invalid group tag."), 1);
+	    DEBUG_printf(("1ippReadIO: bad tag 0x%02x.", tag));
+	    _cupsBufferRelease((char *)buffer);
+	    return (IPP_STATE_ERROR);
+	  }
           else if (tag < IPP_TAG_UNSUPPORTED_VALUE)
 	  {
 	   /*
@@ -3365,6 +3382,9 @@ ippReadIO(void       *src,		/* I - Data source */
                 value->boolean = (char)buffer[0];
 	        break;
 
+	    case IPP_TAG_UNSUPPORTED_VALUE :
+	    case IPP_TAG_DEFAULT :
+	    case IPP_TAG_UNKNOWN :
             case IPP_TAG_NOVALUE :
 	    case IPP_TAG_NOTSETTABLE :
 	    case IPP_TAG_DELETEATTR :
@@ -3385,6 +3405,7 @@ ippReadIO(void       *src,		/* I - Data source */
 
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
+	    case IPP_TAG_RESERVED_STRING :
 	    case IPP_TAG_KEYWORD :
 	    case IPP_TAG_URI :
 	    case IPP_TAG_URISCHEME :
@@ -4285,18 +4306,22 @@ ippSetString(ipp_t           *ipp,	/* I  - IPP message */
 {
   char		*temp;			/* Temporary string */
   _ipp_value_t	*value;			/* Current value */
+  ipp_tag_t	value_tag;		/* Value tag */
 
 
  /*
   * Range check input...
   */
 
+  if (attr && *attr)
+    value_tag = (*attr)->value_tag & IPP_TAG_CUPS_MASK;
+  else
+    value_tag = IPP_TAG_ZERO;
+
   if (!ipp || !attr || !*attr ||
-      ((*attr)->value_tag != IPP_TAG_TEXTLANG &&
-      (*attr)->value_tag != IPP_TAG_NAMELANG &&
-       ((*attr)->value_tag < IPP_TAG_TEXT ||
-        (*attr)->value_tag > IPP_TAG_MIMETYPE)) ||
-      element < 0 || element > (*attr)->num_values || !strvalue)
+      (value_tag < IPP_TAG_TEXT && value_tag != IPP_TAG_TEXTLANG &&
+       value_tag != IPP_TAG_NAMELANG) || value_tag > IPP_TAG_MIMETYPE ||
+      !strvalue)
     return (0);
 
  /*
@@ -6479,6 +6504,7 @@ ipp_free_values(ipp_attribute_t *attr,	/* I - Attribute to free values from */
 	  }
 	  break;
 
+      case IPP_TAG_UNSUPPORTED_VALUE :
       case IPP_TAG_DEFAULT :
       case IPP_TAG_UNKNOWN :
       case IPP_TAG_NOVALUE :

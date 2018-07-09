@@ -62,6 +62,21 @@ CFDictionaryRef EntitlementBlob::entitlements() const
 		this->length() - sizeof(EntitlementBlob));
 }
 
+EntitlementDERBlob *EntitlementDERBlob::alloc(size_t length) {
+	size_t blobLength = length + sizeof(BlobCore);
+	if (blobLength < length) {
+		// overflow
+		return NULL;
+	}
+
+	EntitlementDERBlob *b = (EntitlementDERBlob *)malloc(blobLength);
+
+	if (b != NULL) {
+		b->BlobCore::initialize(kSecCodeMagicEntitlementDER, blobLength);
+	}
+
+	return b;
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

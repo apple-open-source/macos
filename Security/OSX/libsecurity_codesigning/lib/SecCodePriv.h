@@ -45,9 +45,9 @@ extern const CFStringRef kSecCodeInfoCodeOffset;			/* Internal */
 extern const CFStringRef kSecCodeInfoDiskRepInfo;           /* Internal */
 extern const CFStringRef kSecCodeInfoResourceDirectory;		/* Internal */
 
-extern const CFStringRef kSecCodeInfoDiskRepOSPlatform;          /* Number */
-extern const CFStringRef kSecCodeInfoDiskRepOSVersionMin;        /* Number */
-extern const CFStringRef kSecCodeInfoDiskRepOSSDKVersion;        /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepVersionPlatform;     /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepVersionMin;          /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepVersionSDK;          /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation; /* String */
 
 /*!

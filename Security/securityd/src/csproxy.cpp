@@ -314,8 +314,17 @@ void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 //
 // The internal Guest object
 //
+CodeSigningHost::Guest::Guest() : mAttrData(NULL), mAttrDataLength(0)
+{
+}
+
 CodeSigningHost::Guest::~Guest()
-{ }
+{
+    if (mAttrData != NULL) {
+        vm_size_t rounded_size = mach_vm_round_page(mAttrDataLength);
+        vm_deallocate(mach_task_self(), reinterpret_cast<vm_address_t>(mAttrData), rounded_size);
+    }
+}
 
 void CodeSigningHost::Guest::setAttributes(const CssmData &attrData)
 {
@@ -330,13 +339,27 @@ void CodeSigningHost::Guest::setAttributes(const CssmData &attrData)
 	}
 }
 
-CFDataRef CodeSigningHost::Guest::attrData() const
-{
-	if (!mAttrData)
-		mAttrData = makeCFData(this->attributes.get());
-	return mAttrData;
+void CodeSigningHost::Guest::createAttrData() const {
+    if (!mAttrData) {
+        CFRef<CFDataRef> data = makeCFData(this->attributes.get());
+        
+        /* cshosting_server_identifyGuest() will point to the attrData in a MIG
+         * OOL buffer. To prevent leaking surrounding memory, the attr data gets its
+         * own (zeroed) pages. */
+        vm_address_t addr = 0;
+        vm_size_t rounded_size = mach_vm_round_page(CFDataGetLength(data.get()));
+        kern_return_t ret = vm_allocate(mach_task_self(), &addr, rounded_size, VM_FLAGS_ANYWHERE);
+        
+        if (ret == KERN_SUCCESS) {
+            mAttrData = reinterpret_cast<uint8_t *>(addr);
+            mAttrDataLength = CFDataGetLength(data.get());
+            memcpy(mAttrData, CFDataGetBytePtr(data.get()), mAttrDataLength);
+            // pages returned by vm_allocate are zeroed, no need to fill out padding.
+        } else {
+            secerror("csproxy attrData vm_allocate failed: %d", ret);
+        }
+    }
 }
-
 
 void CodeSigningHost::Guest::setHash(const CssmData &given, bool generate)
 {
@@ -487,9 +510,8 @@ kern_return_t cshosting_server_identifyGuest(CSH_ARGS, SecGuestRef guestRef,
 		*hashLength = 0;	// unavailable
 
 	// visible attributes. This proxy returns all attributes set by the host
-	CFDataRef attrData = guest->attrData();	// (the guest will cache this until it dies)
-	*attributes = (void *)CFDataGetBytePtr(attrData);	// MIG botch (it doesn't need a writable pointer)
-	*attributesLength = int_cast<CFIndex, mach_msg_type_number_t>(CFDataGetLength(attrData));
+    *attributes = (void*)guest->attrData(); // MIG botch (it doesn't need a writable pointer)
+    *attributesLength = int_cast<CFIndex, mach_msg_type_number_t>(guest->attrDataLength());
 	
 	END_IPC
 }

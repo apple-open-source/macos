@@ -2,7 +2,7 @@
 
   numeric.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1786,7 +1786,7 @@ static VALUE
 flo_round(int argc, VALUE *argv, VALUE num)
 {
     VALUE nd;
-    double number, f;
+    double number, f, x;
     int ndigits = 0;
     int binexp;
     enum {float_dig = DBL_DIG+2};
@@ -1828,8 +1828,14 @@ flo_round(int argc, VALUE *argv, VALUE num)
 	return DBL2NUM(0);
     }
     f = pow(10, ndigits);
-    return DBL2NUM(round(number * f) / f);
-}
+    x = round(number * f);
+    if (x > 0) {
+	if ((double)((x + 0.5) / f) <= number) x += 1;
+    }
+    else {
+	if ((double)((x - 0.5) / f) >= number) x -= 1;
+    }
+    return DBL2NUM(x / f);}
 
 /*
  *  call-seq:
@@ -3243,6 +3249,8 @@ int_pow(long x, unsigned long y)
 		VALUE v;
 	      bignum:
 		v = rb_big_pow(rb_int2big(x), LONG2NUM(y));
+		if (RB_FLOAT_TYPE_P(v)) /* infinity due to overflow */
+		    return v;
 		if (z != 1) v = rb_big_mul(rb_int2big(neg ? -z : z), v);
 		return v;
 	    }

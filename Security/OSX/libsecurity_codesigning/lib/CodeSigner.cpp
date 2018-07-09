@@ -34,6 +34,7 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <vector>
+#include <errno.h>
 
 namespace Security {
 
@@ -58,6 +59,53 @@ public:
 		else
 			return false;
 	}
+
+	uint32_t parseRuntimeVersion(std::string& runtime)
+	{
+		uint32_t version = 0;
+		char* cursor = const_cast<char*>(runtime.c_str());
+		char* end = cursor + runtime.length();
+		char* nxt = NULL;
+		long component = 0;
+		int component_shift = 16;
+
+		// x should convert to 0x00XX0000
+		// x.y should convert to 0x00XXYY00
+		// x.y.z should covert to 0x00XXYYZZ
+		// 0, 0.0, and 0.0.0 are rejected
+		// anything else should be rejected
+		while (cursor < end) {
+			nxt = NULL;
+			errno = 0;
+			component = strtol(cursor, &nxt, 10);
+			if (cursor == nxt ||
+				(errno != 0) ||
+				(component < 0 || component > UINT8_MAX)) {
+				secdebug("signer", "Runtime version: %s is invalid", runtime.c_str());
+				MacOSError::throwMe(errSecCSInvalidRuntimeVersion);
+			}
+			version |= (component & 0xff) << component_shift;
+			component_shift -= 8;
+
+			if (*nxt == '\0') {
+				break;
+			}
+
+			if (*nxt != '.' || component_shift < 0 || (nxt + 1) == end) {
+				// Catch a trailing "."
+				secdebug("signer", "Runtime version: %s is invalid", runtime.c_str());
+				MacOSError::throwMe(errSecCSInvalidRuntimeVersion);
+			}
+			cursor = nxt + 1;
+		}
+
+		if (version == 0) {
+			secdebug("signer","Runtime version: %s is a version of zero", runtime.c_str());
+			MacOSError::throwMe(errSecCSInvalidRuntimeVersion);
+		}
+
+		return version;
+	}
 };
 
 
@@ -65,7 +113,7 @@ public:
 // Construct a SecCodeSigner
 //
 SecCodeSigner::SecCodeSigner(SecCSFlags flags)
-	: mOpFlags(flags), mLimitedAsync(NULL)
+	: mOpFlags(flags), mLimitedAsync(NULL), mRuntimeVersionOverride(0)
 {
 }
 
@@ -204,7 +252,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize")))
 		state.mCMSSize = cfNumber<size_t>(cmsSize);
 	else
-		state.mCMSSize = 9000;	// likely big enough
+		state.mCMSSize = 18000;	// big enough for now, not forever.
 
 	// metadata preservation options
 	if (CFNumberRef preserve = get<CFNumberRef>(kSecCodeSignerPreserveMetadata)) {
@@ -280,6 +328,14 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	state.mTimestampAuthentication = get<SecIdentityRef>(kSecCodeSignerTimestampAuthentication);
 	state.mTimestampService = get<CFURLRef>(kSecCodeSignerTimestampServer);
 	state.mNoTimeStampCerts = getBool(kSecCodeSignerTimestampOmitCertificates);
+
+	if (CFStringRef runtimeVersionOverride = get<CFStringRef>(kSecCodeSignerRuntimeVersion)) {
+		std::string runtime = cfString(runtimeVersionOverride);
+		if (runtime.empty()) {
+			MacOSError::throwMe(errSecCSInvalidRuntimeVersion);
+		}
+		state.mRuntimeVersionOverride = parseRuntimeVersion(runtime);
+	}
 }
 
 

@@ -2879,7 +2879,22 @@ duplicate dependency on c (>= 1.2.3, development), (~> 1.2) use:
         @a1.validate
       end
 
-      assert_equal '"over at my cool site" is not a URI', e.message
+      assert_equal '"over at my cool site" is not a valid HTTP URI', e.message
+
+      @a1.homepage = 'ftp://rubygems.org'
+
+      e = assert_raises Gem::InvalidSpecificationException do
+        @a1.validate
+      end
+
+      assert_equal '"ftp://rubygems.org" is not a valid HTTP URI', e.message
+
+      @a1.homepage = 'http://rubygems.org'
+      assert_equal true, @a1.validate
+
+      @a1.homepage = 'https://rubygems.org'
+      assert_equal true, @a1.validate
+
     end
   end
 
@@ -2974,7 +2989,37 @@ Did you mean 'Ruby'?
       @a1.validate
     end
 
-    assert_equal 'invalid value for attribute name: ":json"', e.message
+    assert_equal 'invalid value for attribute name: ":json" must be a string', e.message
+
+    @a1.name = []
+    e = assert_raises Gem::InvalidSpecificationException do
+      @a1.validate
+    end
+    assert_equal "invalid value for attribute name: \"[]\" must be a string", e.message
+
+    @a1.name = ""
+    e = assert_raises Gem::InvalidSpecificationException do
+      @a1.validate
+    end
+    assert_equal "invalid value for attribute name: \"\" must include at least one letter", e.message
+
+    @a1.name = "12345"
+    e = assert_raises Gem::InvalidSpecificationException do
+      @a1.validate
+    end
+    assert_equal "invalid value for attribute name: \"12345\" must include at least one letter", e.message
+
+    @a1.name = "../malicious"
+    e = assert_raises Gem::InvalidSpecificationException do
+      @a1.validate
+    end
+    assert_equal "invalid value for attribute name: \"../malicious\" can only include letters, numbers, dashes, and underscores", e.message
+
+    @a1.name = "\ba\t"
+    e = assert_raises Gem::InvalidSpecificationException do
+      @a1.validate
+    end
+    assert_equal "invalid value for attribute name: \"\\ba\\t\" can only include letters, numbers, dashes, and underscores", e.message
   end
 
   def test_validate_non_nil

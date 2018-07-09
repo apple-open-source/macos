@@ -24,6 +24,7 @@
 //
 // signer - Signing operation supervisor and controller
 //
+#include "der_plist.h"
 #include "signer.h"
 #include "resources.h"
 #include "signerutils.h"
@@ -168,6 +169,8 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	entitlements = state.mEntitlementData;
 	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
 		entitlements = code->component(cdEntitlementSlot);
+
+	generateEntitlementDER = signingFlags() & kSecCSSignGenerateEntitlementDER;
 	
 	// work out the CodeDirectory flags word
 	bool haveCdFlags = false;
@@ -291,8 +294,88 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	if (!rpath.empty()) {
 		buildResources(rrpath, rpath, resourceRules);
 	}
+
+	
+	
+	if (inherit & kSecCodeSignerPreservePEH) {
+		/* We need at least one architecture in all cases because we index our
+		 * PreEncryptionMaps by architecture. However, only machOs have any
+		 * architecture at all, for generic targets there will just be one
+		 * PreEncryptionHashMap.
+		 * So if the main executable is not a machO, we just choose the local
+		 * (signer's) main architecture as dummy value for the first element in our pair. */
+		preEncryptMainArch = (code->diskRep()->mainExecutableIsMachO() ?
+							  code->diskRep()->mainExecutableImage()->bestNativeArch() :
+							   Architecture::local());
+
+		addPreEncryptHashes(preEncryptHashMaps[preEncryptMainArch], code);
+		
+		code->handleOtherArchitectures(^(Security::CodeSigning::SecStaticCode *subcode) {
+			Universal *fat = subcode->diskRep()->mainExecutableImage();
+			assert(fat && fat->narrowed());	// handleOtherArchitectures gave us a focused architecture slice.
+			Architecture arch = fat->bestNativeArch();	// actually, only architecture for this slice.
+			addPreEncryptHashes(preEncryptHashMaps[arch], subcode);
+		});
+	}
+
+	if (inherit & kSecCodeSignerPreserveRuntime) {
+		/* We need at least one architecture in all cases because we index our
+		 * RuntimeVersionMaps by architecture. However, only machOs have any
+		 * architecture at all, for generic targets there will just be one
+		 * RuntimeVersionMap.
+		 * So if the main executable is not a machO, we just choose the local
+		 * (signer's) main architecture as dummy value for the first element in our pair. */
+		runtimeVersionMainArch = (code->diskRep()->mainExecutableIsMachO() ?
+							  code->diskRep()->mainExecutableImage()->bestNativeArch() :
+							  Architecture::local());
+
+		addRuntimeVersions(runtimeVersionMap[runtimeVersionMainArch], code);
+
+		code->handleOtherArchitectures(^(Security::CodeSigning::SecStaticCode *subcode) {
+			Universal *fat = subcode->diskRep()->mainExecutableImage();
+			assert(fat && fat->narrowed());	// handleOtherArchitectures gave us a focused architecture slice.
+			Architecture arch = fat->bestNativeArch();	// actually, only architecture for this slice.
+			addRuntimeVersions(runtimeVersionMap[arch], subcode);
+		});
+	}
 }
 
+void SecCodeSigner::Signer::addPreEncryptHashes(PreEncryptHashMap &map, SecStaticCode const *code) {
+	SecStaticCode::CodeDirectoryMap const *cds = code->codeDirectories();
+	
+	if (cds != NULL) {
+		for(auto const& pair : *cds) {
+			CodeDirectory::HashAlgorithm const alg = pair.first;
+			CFDataRef const cddata = pair.second;
+			
+			CodeDirectory const * cd =
+			reinterpret_cast<const CodeDirectory *>(CFDataGetBytePtr(cddata));
+			if (cd->preEncryptHashes() != NULL) {
+				CFRef<CFDataRef> preEncrypt = makeCFData(cd->preEncryptHashes(),
+														 cd->nCodeSlots * cd->hashSize);
+				map[alg] = preEncrypt;
+			}
+		}
+	}
+}
+
+void SecCodeSigner::Signer::addRuntimeVersions(RuntimeVersionMap &map, const SecStaticCode *code)
+{
+	SecStaticCode::CodeDirectoryMap const *cds = code->codeDirectories();
+
+	if (cds != NULL) {
+		for(auto const& pair : *cds) {
+			CodeDirectory::HashAlgorithm const alg = pair.first;
+			CFDataRef const cddata = pair.second;
+
+			CodeDirectory const * cd =
+			reinterpret_cast<const CodeDirectory *>(CFDataGetBytePtr(cddata));
+			if (cd->runtimeVersion()) {
+				map[alg] = cd->runtimeVersion();
+			}
+		}
+	}
+}
 
 //
 // Collect the resource seal for a program.
@@ -462,15 +545,27 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 
 		bool mainBinary = arch.source.get()->type() == MH_EXECUTE;
 
+		uint32_t runtimeVersion = 0;
+		if (cdFlags & kSecCodeSignatureRuntime) {
+			runtimeVersion = state.mRuntimeVersionOverride ? state.mRuntimeVersionOverride : arch.source.get()->sdkVersion();
+		}
+
 		arch.ireqs(requirements, rep->defaultRequirements(&arch.architecture, *this), context);
 		if (editor->attribute(writerNoGlobal))	// can't store globally, add per-arch
 			populate(arch);
 		for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {
+			uint32_t runtimeVersionToUse = runtimeVersion;
+			if ((cdFlags & kSecCodeSignatureRuntime) && runtimeVersionMap.count(arch.architecture)) {
+				if (runtimeVersionMap[arch.architecture].count(*type)) {
+					runtimeVersionToUse = runtimeVersionMap[arch.architecture][*type];
+				}
+			}
 			arch.eachDigest(^(CodeDirectory::Builder& builder) {
 				populate(builder, arch, arch.ireqs,
 						 arch.source->offset(), arch.source->signingExtent(),
 						 mainBinary, rep->execSegBase(&(arch.architecture)), rep->execSegLimit(&(arch.architecture)),
-						 unsigned(digestAlgorithms().size()-1));
+						 unsigned(digestAlgorithms().size()-1),
+						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse);
 			});
 		}
 	
@@ -502,10 +597,10 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 			CodeDirectory *cd = builder.build();
 			cdSet.add(cd);
 		});
-		CFRef<CFArrayRef> hashes = cdSet.hashBag();
-		CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());
-		CFRef<CFDataRef> hashBag = makeCFData(hashDict.get());
-		CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashBag);
+
+		CFRef<CFDictionaryRef> hashDict = cdSet.hashDict();
+		CFRef<CFArrayRef> hashList = cdSet.hashList();
+		CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashDict, hashList);
 		
 		// complete the SuperBlob
 		cdSet.populate(&arch);
@@ -544,7 +639,9 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 		populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit(),
 				 false,		// only machOs can currently be main binaries
 				 rep->execSegBase(NULL), rep->execSegLimit(NULL),
-				 unsigned(digestAlgorithms().size()-1));
+				 unsigned(digestAlgorithms().size()-1),
+				 preEncryptHashMaps[preEncryptMainArch], // Only one map, the default.
+				 (cdFlags & kSecCodeSignatureRuntime) ? state.mRuntimeVersionOverride : 0);
 		
 		CodeDirectory *cd = builder.build();
 		if (!state.mDryRun)
@@ -561,10 +658,9 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 	if (!state.mDryRun)
 		cdSet.populate(writer);
 
-	CFRef<CFArrayRef> hashes = cdSet.hashBag();
-	CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());
-	CFRef<CFDataRef> hashBag = makeCFData(hashDict.get());
-	CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashBag);
+	CFRef<CFDictionaryRef> hashDict = cdSet.hashDict();
+	CFRef<CFArrayRef> hashList = cdSet.hashList();
+	CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashDict, hashList);
 	writer->signature(signature);
 	
 	// commit to storage
@@ -591,7 +687,9 @@ void SecCodeSigner::Signer::populate(DiskRep::Writer &writer)
 void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
 									 InternalRequirements &ireqs, size_t offset, size_t length,
 									 bool mainBinary, size_t execSegBase, size_t execSegLimit,
-									 unsigned alternateDigestCount)
+									 unsigned alternateDigestCount,
+									 PreEncryptHashMap const &preEncryptHashMap,
+									 uint32_t runtimeVersion)
 {
 	// fill the CodeDirectory
 	builder.executable(rep->mainExecutablePath(), pagesize, offset, length);
@@ -600,6 +698,9 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.teamID(teamID);
 	builder.platform(state.mPlatform);
 	builder.execSeg(execSegBase, execSegLimit, mainBinary ? kSecCodeExecSegMainBinary : 0);
+	builder.generatePreEncryptHashes(signingFlags() & kSecCSSignGeneratePEH);
+	builder.preservePreEncryptHashMap(preEncryptHashMap);
+	builder.runTimeVersion(runtimeVersion);
 
 	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot))
 		builder.specialSlot(cdInfoSlot, data);
@@ -615,7 +716,17 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 		builder.specialSlot(cdEntitlementSlot, entitlements);
 
 		if (mainBinary) {
-			builder.addExecSegFlags(entitlementsToExecSegFlags(entitlements));
+			CFRef<CFDataRef> entitlementDER;
+			uint64_t execSegFlags = 0;
+			cookEntitlements(entitlements, generateEntitlementDER,
+							 &execSegFlags, &entitlementDER.aref());
+
+			if (generateEntitlementDER) {
+				writer.component(cdEntitlementDERSlot, entitlementDER);
+				builder.specialSlot(cdEntitlementDERSlot, entitlementDER);
+			}
+
+			builder.addExecSegFlags(execSegFlags);
 		}
 	}
 	if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot))
@@ -648,7 +759,9 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 //
 // Generate the CMS signature for a (finished) CodeDirectory.
 //
-CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd, CFDataRef hashBag)
+CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
+												   CFDictionaryRef hashDict,
+												   CFArrayRef hashList)
 {
 	assert(state.mSigner);
 	CFRef<CFMutableDictionaryRef> defaultTSContext = NULL;
@@ -671,9 +784,21 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd, CFDa
 		MacOSError::check(CMSEncoderSetSigningTime(cms, time));
 	}
 	
-	if (hashBag) {
+	if (hashDict != NULL) {
+		assert(hashList != NULL);
+
+		// V2 Hash Agility
+
+		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrAppleCodesigningHashAgilityV2));
+		MacOSError::check(CMSEncoderSetAppleCodesigningHashAgilityV2(cms, hashDict));
+
+		// V1 Hash Agility
+
+		CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashList);
+		CFRef<CFDataRef> hashAgilityV1Attribute = makeCFData(hashDict.get());
+
 		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrAppleCodesigningHashAgility));
-		MacOSError::check(CMSEncoderSetAppleCodesigningHashAgility(cms, hashBag));
+		MacOSError::check(CMSEncoderSetAppleCodesigningHashAgility(cms, hashAgilityV1Attribute));
 	}
 	
 	MacOSError::check(CMSEncoderUpdateContent(cms, cd, cd->length()));
@@ -787,37 +912,75 @@ bool SecCodeSigner::Signer::booleanEntitlement(CFDictionaryRef entDict, CFString
 	return CFBooleanGetValue(entValue);
 }
 
-uint64_t SecCodeSigner::Signer::entitlementsToExecSegFlags(CFDataRef entitlements)
+void SecCodeSigner::Signer::cookEntitlements(CFDataRef entitlements, bool generateDER,
+											 uint64_t *execSegFlags, CFDataRef *entitlementDER)
 {
 	if (!entitlements) {
-		return 0;
+		return; // nothing to do.
 	}
 
-	const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlements));
-
-	if (blob == NULL || !blob->validateBlob(CFDataGetLength(entitlements))) {
-		return 0;
-	}
+	EntitlementDERBlob *derBlob = NULL;
 
 	try {
+		const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlements));
+
+		if (blob == NULL || !blob->validateBlob(CFDataGetLength(entitlements))) {
+			MacOSError::throwMe(errSecCSInvalidEntitlements);
+		}
+
 		CFRef<CFDictionaryRef> entDict = blob->entitlements();
 
-		uint64_t flags = 0;
+		if (generateDER) {
+			CFRef<CFErrorRef> error = NULL;
+			size_t const der_size = der_sizeof_plist(entDict, &error.aref());
 
-		flags |= booleanEntitlement(entDict, CFSTR("get-task-allow")) ? kSecCodeExecSegAllowUnsigned : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("run-unsigned-code")) ? kSecCodeExecSegAllowUnsigned : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.cs.debugger")) ? kSecCodeExecSegDebugger : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("dynamic-codesigning")) ? kSecCodeExecSegJit : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.skip-library-validation")) ? kSecCodeExecSegSkipLibraryVal : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-load-cdhash")) ? kSecCodeExecSegCanLoadCdHash : 0;
-		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-execute-cdhash")) ? kSecCodeExecSegCanExecCdHash : 0;
+			if (der_size == 0) {
+				secerror("Getting DER size for entitlement plist failed: %@", error.get());
+				MacOSError::throwMe(errSecCSInvalidEntitlements);
+			}
 
-		return flags;
+			derBlob = EntitlementDERBlob::alloc(der_size);
+
+			if (derBlob == NULL) {
+				secerror("Cannot allocate buffer for DER entitlements of size %zu", der_size);
+				MacOSError::throwMe(errSecCSInvalidEntitlements);
+			}
+			uint8_t * const der_end = derBlob->der() + der_size;
+			uint8_t * const der_start = der_encode_plist(entDict, &error.aref(), derBlob->der(), der_end);
+
+			if (der_start != derBlob->der()) {
+				secerror("Entitlement DER start mismatch (%zu)", (size_t)(der_start - derBlob->der()));
+				free(derBlob);
+				MacOSError::throwMe(errSecCSInvalidEntitlements);
+			}
+
+			*entitlementDER = makeCFData(derBlob, derBlob->length());
+			free(derBlob);
+			derBlob = NULL;
+		}
+
+		if (execSegFlags != NULL) {
+			uint64_t flags = 0;
+
+			flags |= booleanEntitlement(entDict, CFSTR("get-task-allow")) ? kSecCodeExecSegAllowUnsigned : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("run-unsigned-code")) ? kSecCodeExecSegAllowUnsigned : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.cs.debugger")) ? kSecCodeExecSegDebugger : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("dynamic-codesigning")) ? kSecCodeExecSegJit : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.skip-library-validation")) ? kSecCodeExecSegSkipLibraryVal : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-load-cdhash")) ? kSecCodeExecSegCanLoadCdHash : 0;
+			flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-execute-cdhash")) ? kSecCodeExecSegCanExecCdHash : 0;
+
+			*execSegFlags = flags;
+		}
 
 	} catch (const CommonError &err) {
-		// Not fatal.
+		free(derBlob);
+		// Not fatal if we're not asked to generate DER entitlements.
+
 		secwarning("failed to parse entitlements: %s", err.what());
-		return 0;
+		if (generateDER) {
+			throw;
+		}
 	}
 }
 

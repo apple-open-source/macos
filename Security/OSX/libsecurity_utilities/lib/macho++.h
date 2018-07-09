@@ -108,10 +108,14 @@ public:
 
 	const linkedit_data_command *findCodeSignature() const;
 	const linkedit_data_command *findLibraryDependencies() const;
-	const version_min_command *findMinVersion() const;
 	
 	size_t signingOffset() const;	// starting offset of CS section, or 0 if none
 	size_t signingLength() const;	// length of CS section, or 0 if none
+    
+    bool version(uint32_t *platform, uint32_t *minVersion, uint32_t *sdkVersion) const;
+    uint32_t platform() const { uint32_t ret; return version(&ret, NULL, NULL) ? ret : 0; };
+    uint32_t minVersion() const  { uint32_t ret; return version(NULL, &ret, NULL) ? ret : 0; };
+    uint32_t sdkVersion() const  { uint32_t ret; return version(NULL, NULL, &ret) ? ret : 0; };
 
 protected:
 	void initHeader(const mach_header *address);
@@ -119,6 +123,9 @@ protected:
 	
 	size_t headerSize() const;		// size of header
 	size_t commandSize() const;		// size of commands area
+
+    const version_min_command *findMinVersion() const;
+    const build_version_command *findBuildVersion() const;
 
 private:
 	const mach_header *mHeader;	// Mach-O header

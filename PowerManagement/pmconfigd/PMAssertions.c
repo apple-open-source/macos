@@ -3699,6 +3699,13 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
             assertion->mods |= kAssertionModLidState;
         }
     }
+    else if (CFEqual(key, kIOPMAssertionExitSilentRunning)) {
+        if (!isA_CFBoolean(value)) return;
+        if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionExitSilentRunningMode)) {
+            assertion->state |= kAssertionExitSilentRunningMode;
+            assertion->mods |= kAssertionModSilentRunning;
+        }
+    }
     else if (CFEqual(key, kIOPMAssertionTypeKey)) {
         /* Assertion type can't be modified */
         return;
@@ -3847,6 +3854,12 @@ static IOReturn doSetProperties(pid_t pid,
 
     }
 
+    if ( (assertion->mods & kAssertionModSilentRunning) &&
+         (assertType->handler) )
+    {
+        (*assertType->handler)(assertType, kAssertionOpEval);
+
+    }
     if (assertion->mods & kAssertionModResources) {
         updateSystemQualifiers(assertion, kAssertionOpEval);
     }
@@ -4286,9 +4299,9 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     }
     else { // op == kAssertionOpEval
         if (activeExists) {
-            if (assertionLevel)
-                return;
             level = 1;
+            if (assertionLevel)
+                goto check_silentRunning;
         }
         else {
             if (!assertionLevel)
@@ -4319,6 +4332,22 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
                         NULL, NULL, NULL);
 
     if (gAggChange) notify_post( kIOPMAssertionsChangedNotifyString );
+
+check_silentRunning:
+    if (level && isInSilentRunningMode()) {
+        __block bool userActive = false;
+        applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion){
+            if (assertion->state & kAssertionExitSilentRunningMode) {
+                INFO_LOG("Assertion with id:%lld has ExitSilentRunning mode flag set. Exiting silent running mode.\n",
+                         (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId));
+                userActive = true;
+                return;
+            }
+        });
+        if (userActive) {
+            _unclamp_silent_running(true);
+        }
+    }
 }
 #endif
 
@@ -4494,6 +4523,14 @@ static IOReturn raiseAssertion(assertion_t *assertion)
         val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesToLimitedPowerKey);
         if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
             assertion->state |= kAssertionStateValidOnBatt;
+        }
+    }
+
+    if (assertion->kassert == kTicklessDisplayWakeType) {
+        CFBooleanRef userActive = kCFBooleanFalse;
+        if (CFDictionaryGetValueIfPresent(assertion->props, kIOPMAssertionExitSilentRunning, (const void **)&userActive)
+                && (userActive == kCFBooleanTrue)) {
+            assertion->state |= kAssertionExitSilentRunningMode;
         }
     }
 

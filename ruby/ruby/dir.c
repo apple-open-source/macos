@@ -2,7 +2,7 @@
 
   dir.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Wed Jan  5 09:51:01 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -449,15 +449,6 @@ static const rb_data_type_t dir_data_type = {
 
 static VALUE dir_close(VALUE);
 
-#define GlobPathValue(str, safe) \
-    /* can contain null bytes as separators */	\
-    (!RB_TYPE_P((str), T_STRING) ?		\
-     (void)FilePathValue(str) :			\
-     (void)(check_safe_glob((str), (safe)),		\
-      check_glob_encoding(str), (str)))
-#define check_safe_glob(str, safe) ((safe) ? rb_check_safe_obj(str) : (void)0)
-#define check_glob_encoding(str) rb_enc_check((str), rb_enc_from_encoding(rb_usascii_encoding()))
-
 static VALUE
 dir_s_alloc(VALUE klass)
 {
@@ -506,7 +497,7 @@ dir_initialize(int argc, VALUE *argv, VALUE dir)
 	}
     }
 
-    GlobPathValue(dirname, FALSE);
+    FilePathValue(dirname);
     orig = rb_str_dup_frozen(dirname);
     dirname = rb_str_encode_ospath(dirname);
     dirname = rb_str_dup_frozen(dirname);
@@ -1470,8 +1461,13 @@ join_path(const char *path, long len, int dirsep, const char *name, size_t namle
 }
 
 #ifdef HAVE_GETATTRLIST
+# if defined HAVE_FGETATTRLIST
+#   define is_case_sensitive(dirp, path) is_case_sensitive(dirp)
+# else
+#   define is_case_sensitive(dirp, path) is_case_sensitive(path)
+# endif
 static int
-is_case_sensitive(DIR *dirp)
+is_case_sensitive(DIR *dirp, const char *path)
 {
     struct {
 	u_int32_t length;
@@ -1482,8 +1478,13 @@ is_case_sensitive(DIR *dirp)
     const int idx = VOL_CAPABILITIES_FORMAT;
     const uint32_t mask = VOL_CAP_FMT_CASE_SENSITIVE;
 
+#   if defined HAVE_FGETATTRLIST
     if (fgetattrlist(dirfd(dirp), &al, attrbuf, sizeof(attrbuf), FSOPT_NOFOLLOW))
 	return -1;
+#   else
+    if (getattrlist(path, &al, attrbuf, sizeof(attrbuf), FSOPT_NOFOLLOW))
+	return -1;
+#   endif
     if (!(cap->valid[idx] & mask))
 	return -1;
     return (cap->capabilities[idx] & mask) != 0;
@@ -1778,7 +1779,7 @@ glob_helper(
 	}
 # endif
 # ifdef HAVE_GETATTRLIST
-	if (is_case_sensitive(dirp) == 0)
+	if (is_case_sensitive(dirp, path) == 0)
 	    flags |= FNM_CASEFOLD;
 # endif
 	while ((dp = READDIR(dirp, enc)) != NULL) {
@@ -2175,7 +2176,14 @@ rb_push_glob(VALUE str, int flags) /* '\0' is delimiter */
     long offset = 0;
     VALUE ary;
 
-    GlobPathValue(str, TRUE);
+    /* can contain null bytes as separators */
+    if (!RB_TYPE_P((str), T_STRING)) {
+	FilePathValue(str);
+    }
+    else {
+	rb_check_safe_obj(str);
+	rb_enc_check(str, rb_enc_from_encoding(rb_usascii_encoding()));
+    }
     ary = rb_ary_new();
 
     while (offset < RSTRING_LEN(str)) {
@@ -2205,7 +2213,7 @@ dir_globs(long argc, const VALUE *argv, int flags)
     for (i = 0; i < argc; ++i) {
 	int status;
 	VALUE str = argv[i];
-	GlobPathValue(str, TRUE);
+	FilePathValue(str);
 	status = push_glob(ary, str, flags);
 	if (status) GLOB_JUMP_TAG(status);
     }

@@ -93,6 +93,7 @@ public:
     bool mWantTimeStamp;          // use a Timestamp server
     bool mNoTimeStampCerts;       // don't request certificates with timestamping request
 	LimitedAsync *mLimitedAsync;	// limited async workers for verification
+	uint32_t mRuntimeVersionOverride;	// runtime Version Override
 
 };
 

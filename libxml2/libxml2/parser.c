@@ -3568,6 +3568,12 @@ xmlParseNCNameComplex(xmlParserCtxtPtr ctxt) {
 	NEXTL(l);
 	c = CUR_CHAR(l);
 	if (c == 0) {
+            /*
+             * A xmlStructuredErrorFunc could call xmlStopParser(), so
+             * return early if that happens.
+             */
+            if (ctxt->instate == XML_PARSER_EOF)
+                return(NULL);
 	    count = 0;
 	    /*
 	     * when shrinking to extend the buffer we really need to preserve
